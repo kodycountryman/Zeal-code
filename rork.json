@@ -1,0 +1,14 @@
+{
+  "apps": [
+    {
+      "name": "Zeal",
+      "path": ".",
+      "framework": "react-native"
+    },
+    {
+      "name": "Zeal",
+      "path": "expo",
+      "framework": "react-native"
+    }
+  ]
+}
