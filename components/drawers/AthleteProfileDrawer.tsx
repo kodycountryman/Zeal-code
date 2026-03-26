@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Settings, X, ChevronRight, Camera, PersonStanding, BarChart3, Crown, Sparkles } from 'lucide-react-native';
@@ -39,9 +40,22 @@ export default function AthleteProfileDrawer({
   const { userName, setUserName, userPhotoUri, setUserPhotoUri, saveState } = useAppContext();
   const { hasPro, subscriptionState, openPaywall } = useSubscription();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['92%'], []);
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 0) + 16;
+  const { height: windowH } = useWindowDimensions();
+  const maxDynamicContentSize = useMemo(() => {
+    // Leave breathing room under the status bar + handle.
+    return Math.max(420, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.92)));
+  }, [windowH, topOffset]);
+  const [contentH, setContentH] = useState(0);
+  // Compute a tight snap height so the sheet never opens past content.
+  const snapPoints = useMemo(() => {
+    const HEADER_AND_HANDLE_EST = 74; // header padding + handle/spacing
+    const FOOTER_EST = 16; // safe padding/breathing room
+    const desired = contentH > 0 ? contentH + HEADER_AND_HANDLE_EST + FOOTER_EST : maxDynamicContentSize;
+    const clamped = Math.min(maxDynamicContentSize, Math.max(320, Math.round(desired)));
+    return [clamped];
+  }, [contentH, maxDynamicContentSize]);
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userName);
@@ -114,6 +128,7 @@ export default function AthleteProfileDrawer({
       <BottomSheetModal
         ref={bottomSheetRef}
         snapPoints={snapPoints}
+        maxDynamicContentSize={maxDynamicContentSize}
         onDismiss={handleDismiss}
         backdropComponent={renderBackdrop}
         backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -136,7 +151,9 @@ export default function AthleteProfileDrawer({
         <BottomSheetScrollView
           showsVerticalScrollIndicator={false}
           bounces={false}
+          scrollEnabled={contentH > maxDynamicContentSize - 120}
           contentContainerStyle={styles.content}
+          onContentSizeChange={(_w: number, h: number) => setContentH(h)}
         >
           <View style={styles.profileRow}>
             <TouchableOpacity

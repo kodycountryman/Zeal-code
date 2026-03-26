@@ -67,6 +67,8 @@ export interface GeneratedWorkout {
   metconFormat: string | null;
   metconTimeCap: number | null;
   metconRounds: number | null;
+  /** Present when style is 75 Hard — per-session exercise blocks */
+  sessions75Hard?: SeventyFiveHardSession[];
 }
 
 export interface GenerateWorkoutParams {
@@ -884,7 +886,7 @@ function stage5LoadAndReps(
 
     const diffKey = getDifficultyKey(sex, fitnessLevel);
     const loadTable = ex.default_load_table as DefaultLoadTable;
-    const loadEntry: LoadEntry = (loadTable as Record<string, LoadEntry>)[diffKey] ?? loadTable.male_intermediate;
+    const loadEntry: LoadEntry = (loadTable as unknown as Record<string, LoadEntry>)[diffKey] ?? loadTable.male_intermediate;
 
     let loadLbs: number;
     const lastLog = trainingLog.find(l => l.exerciseId === ex.id);
@@ -1402,22 +1404,39 @@ function applyCircuitGrouping(exercises: EngineWorkoutExercise[]): void {
   console.log('[EngineV2] Grouped', exercises.length, 'exercises as circuit');
 }
 
+// Map the user-facing CrossFit split label to the internal WorkoutFormatId.
+function cfSplitToFormatId(split: string): WorkoutFormatId | null {
+  switch (split.toLowerCase().trim()) {
+    case 'amrap':   return 'amrap';
+    case 'emom':    return 'emom';
+    case 'rft':     return 'rft';
+    case 'chipper': return 'chipper';
+    case 'ladder':  return 'ladder';
+    default:        return null; // 'auto' or unrecognised → random selection
+  }
+}
+
 function applyStyleAwareGrouping(
   exercises: EngineWorkoutExercise[],
   style: string,
   config: StyleEngineConfig,
   fitnessLevel: string,
   rng: () => number,
+  targetDuration?: number,
+  requestedSplit?: string,
 ): { format: string | null; timeCap: number | null; rounds: number | null } {
   const styleRules = getStyleRules(style);
   const level = (fitnessLevel as FitnessLevel) || 'intermediate';
 
   if (style === 'crossfit') {
+    // Separate strength and conditioning exercises
     const strengthExercises = exercises.filter(e => e.role === 'primary' || e.role === 'secondary');
     const metconExercises = exercises.filter(e => e.role === 'accessory' || (!e.exerciseRef.is_compound));
     const metconPool = metconExercises.length >= 3 ? metconExercises : exercises.slice(Math.min(2, exercises.length));
 
-    const formatId = selectMetconFormat(level, rng);
+    // Honour the user's explicit format choice; fall back to random when 'Auto'.
+    const pinnedFormat = requestedSplit ? cfSplitToFormatId(requestedSplit) : null;
+    const formatId: WorkoutFormatId = pinnedFormat ?? selectMetconFormat(level, rng);
     const formatName = formatId === 'amrap' ? 'AMRAP'
       : formatId === 'emom' ? 'EMOM'
       : formatId === 'rft' ? 'For Time'
@@ -1425,26 +1444,70 @@ function applyStyleAwareGrouping(
       : formatId === 'ladder' ? 'Ladder'
       : 'AMRAP';
 
+    // Derive the metcon time budget from the session duration using CrossFit's 55% fraction
+    const METCON_FRACTION = 0.55;
+    const TRANSITION_BUFFER_MIN = 2;
+    const sessionDuration = targetDuration ?? 45;
+    const metconBudgetMin = Math.max(8, Math.round(sessionDuration * METCON_FRACTION) - TRANSITION_BUFFER_MIN);
+
     let timeCap: number | null = null;
     let rounds: number | null = null;
 
     if (formatId === 'amrap') {
-      const params = getAMRAPParams(Math.round(exercises.length * 2.5), level);
+      const params = getAMRAPParams(metconBudgetMin, level);
       timeCap = params.time_cap_minutes;
+      // AMRAP: single timed block — sets = 1, reps are moderate (cycle through repeatedly)
+      for (const ex of metconPool) {
+        const amrapMin = level === 'beginner' ? 8 : level === 'intermediate' ? 10 : 12;
+        const amrapMax = level === 'beginner' ? 13 : level === 'intermediate' ? 15 : 18;
+        ex.reps = amrapMin + Math.floor(rng() * (amrapMax - amrapMin + 1));
+        ex.sets = 1;
+        ex.restSeconds = 0;
+      }
     } else if (formatId === 'emom') {
-      const params = getEMOMParams(Math.round(exercises.length * 2), level);
+      const params = getEMOMParams(metconBudgetMin, level);
       timeCap = params.total_minutes;
       rounds = timeCap;
+      // EMOM: small rep counts completable within ~40 s to earn rest within the minute
+      for (const ex of metconPool) {
+        const emomMin = level === 'beginner' ? 5 : level === 'intermediate' ? 8 : 10;
+        const emomMax = level === 'beginner' ? 9 : level === 'intermediate' ? 12 : 15;
+        ex.reps = emomMin + Math.floor(rng() * (emomMax - emomMin + 1));
+        ex.sets = 1;
+        ex.restSeconds = 0;
+      }
     } else if (formatId === 'rft') {
-      const params = getRFTParams(level, rng);
+      const params = getRFTParams(level, rng, metconBudgetMin);
       timeCap = params.time_cap_minutes;
       rounds = params.rounds;
+      // RFT: moderate reps per round — total volume = reps × rounds
+      for (const ex of metconPool) {
+        const rftMin = level === 'beginner' ? 8 : level === 'intermediate' ? 10 : 12;
+        const rftMax = level === 'beginner' ? 12 : level === 'intermediate' ? 15 : 21;
+        ex.reps = rftMin + Math.floor(rng() * (rftMax - rftMin + 1));
+        ex.sets = params.rounds;
+        ex.restSeconds = 0;
+      }
     } else if (formatId === 'chipper') {
-      const params = getChipperParams(level);
-      timeCap = 20;
+      const chipParams = getChipperParams(level);
+      timeCap = Math.max(chipParams.min_time_cap, Math.min(chipParams.max_time_cap, metconBudgetMin));
+      // Chipper: high reps, each exercise done exactly once — sets = 1
+      for (const ex of metconPool) {
+        ex.reps = chipParams.min_reps + Math.floor(rng() * (chipParams.max_reps - chipParams.min_reps + 1));
+        ex.sets = 1;
+        ex.restSeconds = 0;
+      }
     } else if (formatId === 'ladder') {
-      const params = getLadderParams(level, rng);
-      timeCap = 15;
+      const ladderParams = getLadderParams(level, rng);
+      // Ladders are shorter structured pieces; cap is lower than a full chipper
+      timeCap = Math.max(10, Math.min(20, metconBudgetMin));
+      rounds = ladderParams.exercises;
+      // Set reps to the starting point; direction is encoded in the metconFormat display
+      for (const ex of metconPool) {
+        ex.reps = ladderParams.direction === 'ascending' ? ladderParams.start_reps : ladderParams.end_reps;
+        ex.sets = 1;
+        ex.restSeconds = 0;
+      }
     }
 
     for (const ex of metconPool) {
@@ -1454,7 +1517,7 @@ function applyStyleAwareGrouping(
       }
     }
 
-    console.log('[EngineV2] CrossFit format selected:', formatName, 'timeCap:', timeCap, 'rounds:', rounds);
+    console.log('[EngineV2] CrossFit format selected:', formatName, 'metconBudget:', metconBudgetMin, 'min → timeCap:', timeCap, 'rounds:', rounds);
     return { format: formatName, timeCap, rounds };
   }
 
@@ -1482,20 +1545,28 @@ function applyStyleAwareGrouping(
 function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineResult {
   console.log('[EngineV2] Hyrox', fullRace ? 'Full' : 'Half', 'Simulation — generating official race structure');
   const stationCount = fullRace ? 8 : 4;
-  const HYROX_RACE_STATIONS: Array<{ name: string; work: string; sets: number; reps: number; notes: string }> = [
-    { name: 'SkiErg', work: '1000m', sets: 1, reps: 1, notes: '1000m — steady pace, engage core, pull through full range' },
-    { name: 'Sled Push', work: '50m', sets: 1, reps: 1, notes: '50m @ race weight — low position, drive through legs' },
-    { name: 'Sled Pull', work: '50m', sets: 1, reps: 1, notes: '50m — lean back, pull hand over hand, keep tension' },
-    { name: 'Burpee Broad Jumps', work: '80m', sets: 1, reps: 1, notes: '80m — consistent rhythm, jump as far as possible each rep' },
-    { name: 'Rowing (Erg)', work: '1000m', sets: 1, reps: 1, notes: '1000m — damper 4-5, drive with legs first, hold 2:00/500m pace' },
-    { name: "Farmer's Carry", work: '200m', sets: 1, reps: 1, notes: '200m @ race weight — tall posture, controlled breathing' },
-    { name: 'Sandbag Lunges', work: '100m', sets: 1, reps: 1, notes: '100m — sandbag on shoulder, full step, knee to floor' },
-    { name: 'Wall Balls', work: '100 reps', sets: 1, reps: 100, notes: '100 reps — full squat depth, hit target on every rep' },
+
+  // Official Hyrox race order: 8 × (1 km run → station). Race ends on the final station — no trailing run.
+  // Station seconds are per-modality realistic estimates for an intermediate competitor.
+  const HYROX_RACE_STATIONS: Array<{
+    name: string; work: string; sets: number; reps: number; notes: string; stationSeconds: number;
+  }> = [
+    { name: 'SkiErg',           work: '1000m',    sets: 1, reps: 1,   notes: '1000m — steady pace, engage core, pull through full range',        stationSeconds: 240 },
+    { name: 'Sled Push',        work: '50m',       sets: 1, reps: 1,   notes: '50m @ race weight — low position, drive through legs',             stationSeconds: 120 },
+    { name: 'Sled Pull',        work: '50m',       sets: 1, reps: 1,   notes: '50m — lean back, pull hand over hand, keep tension',               stationSeconds: 150 },
+    { name: 'Burpee Broad Jumps', work: '80m',     sets: 1, reps: 1,   notes: '80m — consistent rhythm, jump as far forward as possible each rep', stationSeconds: 240 },
+    { name: 'Rowing (Erg)',     work: '1000m',     sets: 1, reps: 1,   notes: '1000m — damper 4-5, drive with legs first, hold 2:00/500m pace',   stationSeconds: 270 },
+    { name: "Farmer's Carry",   work: '200m',      sets: 1, reps: 1,   notes: '200m @ race weight — tall posture, controlled breathing',           stationSeconds: 150 },
+    { name: 'Sandbag Lunges',   work: '100m',      sets: 1, reps: 1,   notes: '100m — sandbag on shoulder, full step, knee to floor',             stationSeconds: 270 },
+    { name: 'Wall Balls',       work: '100 reps',  sets: 1, reps: 100, notes: '100 reps (14/20 lb) — full squat depth, hit target on every rep',  stationSeconds: 330 },
   ];
+
   const stations = HYROX_RACE_STATIONS.slice(0, stationCount);
   const workoutExercises: EngineWorkoutExercise[] = [];
-  const baseExerciseRef = (id: string, name: string, variationFamily: string): ZealExercise => ({
+
+  const makeExerciseRef = (id: string, name: string, variationFamily: string): ZealExercise => ({
     id, name,
+    aliases: [],
     movement_pattern: 'cardio' as never,
     difficulty_tier: 'intermediate' as never,
     eligible_styles: ['hyrox' as never],
@@ -1523,25 +1594,32 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
     substitutes: [],
     variation_family: variationFamily,
   });
+
+  // Race format: Run → Station for each of the stationCount pairs. No trailing run after the last station.
   for (let i = 0; i < stations.length; i++) {
+    // 1 km run leg (360s ≈ 6 min/km, realistic for recreational competitor)
     workoutExercises.push({
-      exerciseRef: baseExerciseRef(`hyrox_run_${i + 1}`, `Run — 1km (Leg ${i + 1})`, 'hyrox_run'),
+      exerciseRef: makeExerciseRef(`hyrox_run_${i + 1}`, `Run — Leg ${i + 1}`, 'hyrox_run'),
       role: 'primary', sets: 1, reps: 1, loadLbs: 0, restSeconds: 0,
       setDurationSeconds: 360, exerciseTotalSeconds: 360, groupType: null, groupId: null,
     });
+    // Functional fitness station
     const station = stations[i];
     workoutExercises.push({
-      exerciseRef: baseExerciseRef(`hyrox_station_${i + 1}`, `Station ${i + 1}: ${station.name} — ${station.work}`, 'hyrox_station'),
+      exerciseRef: makeExerciseRef(
+        `hyrox_station_${i + 1}`,
+        `${station.name} — ${station.work}`,
+        'hyrox_station',
+      ),
       role: 'primary', sets: station.sets, reps: station.reps, loadLbs: 0, restSeconds: 0,
-      setDurationSeconds: 180, exerciseTotalSeconds: 180, groupType: null, groupId: null,
+      setDurationSeconds: station.stationSeconds,
+      exerciseTotalSeconds: station.stationSeconds,
+      groupType: null, groupId: null,
     });
   }
-  workoutExercises.push({
-    exerciseRef: baseExerciseRef('hyrox_run_final', 'Run — 1km (Final Leg)', 'hyrox_run'),
-    role: 'primary', sets: 1, reps: 1, loadLbs: 0, restSeconds: 0,
-    setDurationSeconds: 360, exerciseTotalSeconds: 360, groupType: null, groupId: null,
-  });
+
   const totalSeconds = workoutExercises.reduce((s, e) => s + e.exerciseTotalSeconds, 0);
+  const simLabel = fullRace ? 'Full Simulation' : 'Half Simulation';
   return {
     exercises: workoutExercises,
     warmup: [],
@@ -1551,10 +1629,13 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
     estimatedTotalSeconds: totalSeconds,
     targetMuscles: [],
     engineStyle: 'hyrox',
-    metconFormat: fullRace ? 'Full Simulation' : 'Half Simulation',
+    metconFormat: simLabel,
     metconTimeCap: null,
     metconRounds: null,
     feedbackApplied: false,
+    planApplied: false,
+    selectedFormat: simLabel,
+    sessionArchitectureUsed: 'hyrox',
   };
 }
 
@@ -1710,6 +1791,8 @@ export function runEngine(params: EngineParams): EngineResult {
     styleConfig ?? { allow_supersets: false, superset_min: 0, superset_max: 0, compounds_first: false, pattern_priority: [] },
     params.fitnessLevel,
     rng,
+    params.targetDuration,
+    params.split,
   );
 
   const metconFormat = groupingResult.format;
@@ -1839,16 +1922,41 @@ function convertEngineExerciseToLegacy(
     ? (EQUIPMENT_DISPLAY_MAP[z.equipment_required[0]] ?? z.equipment_required[0])
     : 'Bodyweight';
 
+  // Hyrox simulation exercises need special display values:
+  // - Run legs get type 'hyroxRun' so the UI renders the dedicated run-divider strip,
+  //   and reps '1 km' so the divider shows "RUN — 1 km".
+  // - Station exercises get a clean name (strip the work volume suffix) and
+  //   the work volume ('1000m', '50m', '100 reps', …) surfaced as the reps string
+  //   so it appears naturally in the exercise subtitle row.
+  const isHyroxRun = z.variation_family === 'hyrox_run';
+  const isHyroxStation = z.variation_family === 'hyrox_station';
+
+  let displayName = z.name;
+  let displayReps = `${engineEx.reps}`;
+  let displayType = displayStyle;
+
+  if (isHyroxRun) {
+    displayType = 'hyroxRun';
+    displayReps = '1 km';
+  } else if (isHyroxStation) {
+    // Name format is "StationName — workVolume" (e.g. "SkiErg — 1000m")
+    const dashIdx = z.name.indexOf(' — ');
+    if (dashIdx !== -1) {
+      displayName = z.name.slice(0, dashIdx);            // "SkiErg"
+      displayReps = z.name.slice(dashIdx + 3);           // "1000m"
+    }
+  }
+
   return {
     id: `${z.id}_${index}`,
-    name: z.name,
+    name: displayName,
     sets: engineEx.sets,
-    reps: `${engineEx.reps}`,
+    reps: displayReps,
     rest: formatRestTime(engineEx.restSeconds),
     muscleGroup: primaryDisplay,
     equipment: equipDisplay,
     notes: z.name,
-    type: displayStyle,
+    type: displayType,
     movementType,
     groupType: engineEx.groupType,
     groupId: engineEx.groupId,
@@ -1980,6 +2088,72 @@ function extractWorkedMusclesFromLegacy(exercises: WorkoutExercise[]): Set<strin
     }
   }
   return worked;
+}
+
+/** Build full workout rows from saved-workout refs (id + display name only). */
+export function workoutExercisesFromSavedRefs(
+  refs: { exerciseId: string; name: string }[],
+  workoutStyle: string,
+): WorkoutExercise[] {
+  const db = getZealExerciseDatabase();
+  const styleKey = workoutStyle.trim() || 'Strength';
+
+  return refs.map((ref) => {
+    const ze = db.find(z => z.id === ref.exerciseId)
+      ?? db.find(z => z.name === ref.name)
+      ?? db.find(z => z.aliases.some(a => a.toLowerCase() === ref.name.toLowerCase()));
+    const id = `loaded_${ref.exerciseId}_${Math.random().toString(36).slice(2, 9)}`;
+
+    if (ze) {
+      const primaryMuscle = ze.primary_muscles[0] ?? 'full_body';
+      const muscleLabel = primaryMuscle
+        .split('_')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+      const equipLabel = ze.equipment_required[0]
+        ? ze.equipment_required[0].split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+        : 'Bodyweight';
+      const movementType: MovementType = ze.is_compound ? 'moderateCompound' : 'isolation';
+      const sets = styleKey.toLowerCase().includes('strength') ? 4 : 3;
+      return {
+        id,
+        name: ze.name,
+        sets,
+        reps: '10',
+        rest: '90 sec',
+        muscleGroup: muscleLabel,
+        equipment: equipLabel,
+        notes: '',
+        type: styleKey,
+        movementType,
+        groupType: null,
+        groupId: null,
+        suggestedWeight: '',
+        lastSessionWeight: '',
+        lastSessionReps: '',
+        exerciseRef: ze,
+      };
+    }
+
+    return {
+      id,
+      name: ref.name,
+      sets: 3,
+      reps: '10',
+      rest: '90 sec',
+      muscleGroup: 'Full Body',
+      equipment: 'Bodyweight',
+      notes: '',
+      type: styleKey,
+      movementType: 'moderateCompound' as MovementType,
+      groupType: null,
+      groupId: null,
+      suggestedWeight: '',
+      lastSessionWeight: '',
+      lastSessionReps: '',
+      exerciseRef: null,
+    };
+  });
 }
 
 export function generateWorkoutFromSavedExercises(

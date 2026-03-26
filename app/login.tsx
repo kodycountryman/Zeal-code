@@ -180,7 +180,7 @@ export default function LoginScreen() {
             </Animated.View>
 
             <Text style={styles.headline}>
-              What if every workout pushed you closer to your goal? 
+              What if every workout pushed you closer to your goal?
             </Text>
           </View>
 
@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
   },
   taglineWord: {
     fontSize: 13,
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Outfit_800ExtraBold',
     color: ACCENT,
-    textTransform: 'uppercase',
-    letterSpacing: 3,
+    textTransform: 'lowercase',
+    letterSpacing: -1.2,
   },
   tagline: {
     fontSize: 13,

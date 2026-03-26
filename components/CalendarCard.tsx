@@ -11,6 +11,7 @@ import { Calendar, Flame, Check } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 import { getContrastTextColor, WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import type { PlannedWorkout } from '@/context/AppContext';
+import { BlurView } from 'expo-blur';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CELL_WIDTH = 56;
@@ -58,6 +59,7 @@ interface Props {
   onDayPress?: (dateStr: string, dayOffset: number) => void;
   completedDates?: Set<string>;
   plannedWorkouts?: PlannedWorkout[];
+  variant?: 'solid' | 'glass';
 }
 
 export default function CalendarCard({
@@ -67,6 +69,7 @@ export default function CalendarCard({
   onDayPress,
   completedDates,
   plannedWorkouts,
+  variant = 'solid',
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const scrollRef = useRef<ScrollView>(null);
@@ -84,7 +87,11 @@ export default function CalendarCard({
 
   useEffect(() => {
     const todayIndex = days.findIndex(d => d.isToday);
-    const scrollTo = todayIndex * (CELL_WIDTH + CELL_GAP) - (SCREEN_WIDTH / 2 - CELL_WIDTH / 2 - SIDE_PADDING - CAL_BTN_WIDTH - CELL_GAP);
+    // Default open position: yesterday → today → two days ahead.
+    // Each item = CELL_WIDTH + divider (hairlineWidth + CELL_GAP margins both sides).
+    const itemStep = CELL_WIDTH + StyleSheet.hairlineWidth + CELL_GAP;
+    const startIdx = Math.max(0, todayIndex - 1);
+    const scrollTo = startIdx * itemStep;
     setTimeout(() => {
       scrollRef.current?.scrollTo({ x: Math.max(0, scrollTo), animated: false });
     }, 50);
@@ -98,11 +105,12 @@ export default function CalendarCard({
     elevation: 3,
   } : {};
 
-  const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
 
-  return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderWidth: 1, borderColor: cardBorder }, cardShadow]}>
-      <View style={styles.row}>
+  const tint = isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)';
+
+  const CardContent = (
+    <View style={styles.row}>
         <TouchableOpacity
           style={[styles.calendarBtn, { borderColor: colors.border }]}
           onPress={onCalendarPress}
@@ -112,82 +120,95 @@ export default function CalendarCard({
           <Calendar size={20} color={colors.textSecondary} strokeWidth={1.8} />
         </TouchableOpacity>
 
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          contentContainerStyle={styles.scrollContent}
-        >
-          {days.map((day) => {
-            const isCompleted = completedDates?.has(day.fullDate) ?? false;
-            const planned = plannedMap[day.fullDate];
-            const plannedColor = planned ? (WORKOUT_STYLE_COLORS[planned.style] ?? accent) : null;
+        <View style={styles.datesStripWrap}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            contentContainerStyle={styles.scrollContent}
+          >
+            {days.map((day, idx) => {
+              const isCompleted = completedDates?.has(day.fullDate) ?? false;
+              const planned = plannedMap[day.fullDate];
+              const plannedColor = planned ? (WORKOUT_STYLE_COLORS[planned.style] ?? accent) : null;
 
-            return (
-              <TouchableOpacity
-                key={day.fullDate}
-                style={styles.dayCell}
-                activeOpacity={0.7}
-                testID={`calendar-day-${day.num}`}
-                onPress={() => onDayPress?.(day.fullDate, day.dayOffset)}
-              >
-                <Text
-                  style={[
-                    styles.dayAbbr,
-                    {
-                      color: day.isToday
-                        ? accent
-                        : day.isPast
-                        ? colors.textMuted
-                        : colors.textSecondary,
-                    },
-                    day.isToday && { fontFamily: 'Outfit_700Bold' },
-                  ]}
-                >
-                  {day.abbr}
-                </Text>
-
-                <View
-                  style={[
-                    styles.dayNumContainer,
-                    day.isToday && { backgroundColor: accent },
-                    !day.isToday && isCompleted && {
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
-                    },
-                  ]}
-                >
-                  {isCompleted && !day.isToday ? (
-                    <Check size={14} color={colors.textSecondary} strokeWidth={2.5} />
-                  ) : (
+              return (
+                <View key={day.fullDate} style={styles.dayWithDivider}>
+                  <TouchableOpacity
+                    style={styles.dayCell}
+                    activeOpacity={0.7}
+                    testID={`calendar-day-${day.num}`}
+                    onPress={() => onDayPress?.(day.fullDate, day.dayOffset)}
+                  >
                     <Text
                       style={[
-                        styles.dayNum,
+                        styles.dayAbbr,
                         {
                           color: day.isToday
-                            ? getContrastTextColor(accent)
+                            ? accent
                             : day.isPast
                             ? colors.textMuted
-                            : colors.text,
+                            : colors.textSecondary,
+                        },
+                        day.isToday && { fontFamily: 'Outfit_700Bold' },
+                      ]}
+                    >
+                      {day.abbr}
+                    </Text>
+
+                    <View
+                      style={[
+                        styles.dayNumContainer,
+                        day.isToday && { backgroundColor: accent },
+                        !day.isToday && isCompleted && {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
                         },
                       ]}
                     >
-                      {day.num}
-                    </Text>
-                  )}
-                </View>
+                      {isCompleted && !day.isToday ? (
+                        <Check size={14} color={colors.textSecondary} strokeWidth={2.5} />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.dayNum,
+                            {
+                              color: day.isToday
+                                ? getContrastTextColor(accent)
+                                : day.isPast
+                                ? colors.textMuted
+                                : colors.text,
+                            },
+                          ]}
+                        >
+                          {day.num}
+                        </Text>
+                      )}
+                    </View>
 
-                <View style={styles.dotRow}>
-                  {plannedColor ? (
-                    <View style={[styles.plannedDot, { backgroundColor: plannedColor }]} />
-                  ) : (
-                    <View style={styles.dotPlaceholder} />
-                  )}
+                    <View style={styles.dotRow}>
+                      {plannedColor ? (
+                        <View style={[styles.plannedDot, { backgroundColor: plannedColor }]} />
+                      ) : (
+                        <View style={styles.dotPlaceholder} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {idx < days.length - 1 ? (
+                    <View
+                      style={[
+                        styles.dayDivider,
+                        { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+                      ]}
+                      pointerEvents="none"
+                    />
+                  ) : null}
                 </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <TouchableOpacity
           style={styles.streakCell}
@@ -200,20 +221,54 @@ export default function CalendarCard({
             <Text style={[styles.streakCount, { color: accent }]}>{streak}</Text>
           </View>
         </TouchableOpacity>
-      </View>
+    </View>
+  );
+
+  return (
+    <View
+      style={[
+        styles.card,
+        { borderColor: cardBorder },
+        cardShadow,
+        variant === 'glass' && { backgroundColor: tint },
+        variant !== 'glass' && { backgroundColor: colors.card },
+      ]}
+    >
+      {variant === 'glass' ? (
+        <>
+          <BlurView
+            intensity={isDark ? 70 : 40}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          {CardContent}
+        </>
+      ) : (
+        CardContent
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    paddingVertical: 10,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  datesStripWrap: {
+    flex: 1,
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 0,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SIDE_PADDING,
     gap: CELL_GAP,
   },
   calendarBtn: {
@@ -226,13 +281,23 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   scrollContent: {
-    gap: CELL_GAP,
     paddingRight: 4,
+    alignItems: 'center',
+  },
+  dayWithDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   dayCell: {
     width: CELL_WIDTH,
     alignItems: 'center',
     gap: 3,
+  },
+  dayDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 44,
+    marginHorizontal: Math.round(CELL_GAP / 2),
+    borderRadius: 999,
   },
   dayAbbr: {
     fontSize: 9,

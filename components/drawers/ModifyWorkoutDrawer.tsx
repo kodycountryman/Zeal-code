@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { X, Dumbbell, Building2, Bookmark, Check, ChevronDown, ChevronUp, User, Crown } from 'lucide-react-native';
@@ -44,9 +45,21 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
   const ctx = useAppContext();
   const { hasPro, openPaywall } = useSubscription();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['92%'], []);
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 0) + 16;
+  const { height: windowH } = useWindowDimensions();
+  const maxDynamicContentSize = useMemo(() => {
+    return Math.max(520, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.92)));
+  }, [windowH, topOffset]);
+  const [contentH, setContentH] = useState(0);
+  // Compute a tight snap height so the sheet never opens past content.
+  const snapPoints = useMemo(() => {
+    const HEADER_AND_HANDLE_EST = 86; // header row + handle spacing
+    const FOOTER_EST = 16;
+    const desired = contentH > 0 ? contentH + HEADER_AND_HANDLE_EST + FOOTER_EST : maxDynamicContentSize;
+    const clamped = Math.min(maxDynamicContentSize, Math.max(360, Math.round(desired)));
+    return [clamped];
+  }, [contentH, maxDynamicContentSize]);
 
   const [localStyle, setLocalStyle] = useState(ctx.workoutStyle);
   const [localSplit, setLocalSplit] = useState<string>('Auto');
@@ -55,6 +68,14 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [gymPreset, setGymPreset] = useState<'commercial' | 'no_equipment' | string>('commercial');
   const [savedGymsOpen, setSavedGymsOpen] = useState(false);
+  type SectionKey = 'duration' | 'style' | 'split' | 'muscles' | 'equipment';
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
+    duration: true,
+    style: false,
+    split: false,
+    muscles: false,
+    equipment: false,
+  });
 
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
@@ -97,6 +118,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
         setSelectedMuscles(lm.muscles);
         setGymPreset(lm.gymPreset ?? detectGymPreset(c));
         setSavedGymsOpen(false);
+        setOpenSections({ duration: true, style: false, split: false, muscles: false, equipment: false });
       } else {
         console.log('[ModifyDrawer] No lastModifyState, falling back to settings');
         setLocalStyle(c.workoutStyle);
@@ -118,12 +140,29 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
         }
         setGymPreset(detectGymPreset(c));
         setSavedGymsOpen(false);
+        setOpenSections({ duration: true, style: false, split: false, muscles: false, equipment: false });
       }
       bottomSheetRef.current?.present();
     } else {
       bottomSheetRef.current?.dismiss();
     }
   }, [visible]);
+
+  const toggleSection = useCallback((key: SectionKey) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  // Resize the drawer as content expands/collapses.
+  const lastSnapHRef = useRef<number>(0);
+  useEffect(() => {
+    if (!visible) return;
+    const target = snapPoints[0] ?? 0;
+    if (Math.abs(target - lastSnapHRef.current) < 4) return;
+    lastSnapHRef.current = target;
+    requestAnimationFrame(() => {
+      bottomSheetRef.current?.snapToIndex(0);
+    });
+  }, [snapPoints, visible]);
 
   const handleDismiss = useCallback(() => {
     onClose();
@@ -143,6 +182,9 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
   );
 
   const styleAccent = WORKOUT_STYLE_COLORS[localStyle] ?? '#f87116';
+  const subtleSurface = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
+  const subtleBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const divider = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
   const handleStyleSelect = useCallback((s: string) => {
     if (!hasPro && PRO_STYLES_SET.has(s)) {
@@ -278,6 +320,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -329,81 +372,126 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
         <BottomSheetScrollView
           showsVerticalScrollIndicator={false}
           bounces={false}
+          scrollEnabled={contentH > maxDynamicContentSize - 120}
           contentContainerStyle={styles.content}
+          onContentSizeChange={(_w: number, h: number) => setContentH(h)}
         >
-          <View style={styles.sliderHeaderRow}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>TARGET DURATION</Text>
-            <Text style={[styles.sliderValue, { color: styleAccent }]}>
-              {`${localDuration}m`}
-            </Text>
-          </View>
-          <CustomSlider
-            value={localDuration}
-            minimumValue={durationMin}
-            maximumValue={durationMax}
-            step={1}
-            onValueChange={handleDurationChange}
-            minimumTrackColor={styleAccent}
-            maximumTrackColor={colors.border}
-            thumbColor={styleAccent}
-            style={styles.slider}
-          />
-          <View style={styles.rangeLabels}>
-            {durationSteps.map((s) => (
-              <Text key={s} style={[styles.rangeLabel, { color: colors.textMuted }]}>{s}m</Text>
-            ))}
-          </View>
-
-          <View style={styles.sectionLabelRow}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>WORKOUT STYLE</Text>
-            <Text style={[styles.sectionLabelValue, { color: styleAccent }]}>{localStyle}</Text>
-          </View>
-          <View style={styles.chipWrap}>
-            {WORKOUT_STYLES.map((s) => {
-              const sc = WORKOUT_STYLE_COLORS[s] ?? '#f87116';
-              const isSelected = localStyle === s;
-              const isLocked = !hasPro && PRO_STYLES_SET.has(s);
-              return (
-                <TouchableOpacity
-                  key={s}
-                  style={[
-                    styles.styleChip,
-                    { borderColor: colors.border, backgroundColor: colors.cardSecondary },
-                    isSelected && { backgroundColor: sc, borderColor: sc },
-                    isLocked && { opacity: PRO_LOCKED_OPACITY },
-                  ]}
-                  onPress={() => handleStyleSelect(s)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.chipInner}>
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: isSelected ? '#fff' : colors.text },
-                      ]}
-                    >
-                      {s}
-                    </Text>
-                    {isLocked && <Crown size={11} color={PRO_GOLD} strokeWidth={2} />}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <>
-              <View style={styles.slotLabelRow}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{config.slot_label}</Text>
-                {musclesOverrideSplit ? (
-                  <View style={[styles.customBadge, { backgroundColor: `${styleAccent}22`, borderColor: styleAccent }]}>
-                    <Text style={[styles.customBadgeText, { color: styleAccent }]}>CUSTOM</Text>
-                  </View>
-                ) : (
-                  localSplit ? (
-                    <Text style={[styles.sectionLabelValue, { color: styleAccent }]}>{localSplit}</Text>
-                  ) : null
-                )}
+          {/* Duration */}
+          <TouchableOpacity
+            style={[styles.sectionHeader, { backgroundColor: subtleSurface, borderColor: subtleBorder }]}
+            onPress={() => toggleSection('duration')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Target duration</Text>
+              <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>Sets the session length</Text>
+            </View>
+            <Text style={[styles.sectionValue, { color: styleAccent }]}>{localDuration}m</Text>
+            <ChevronDown
+              size={16}
+              color={colors.textMuted}
+              style={{ transform: [{ rotate: openSections.duration ? '180deg' : '0deg' }] }}
+            />
+          </TouchableOpacity>
+          {openSections.duration && (
+            <View style={[styles.sectionBody, { borderColor: divider }]}>
+              <CustomSlider
+                value={localDuration}
+                minimumValue={durationMin}
+                maximumValue={durationMax}
+                step={1}
+                onValueChange={handleDurationChange}
+                minimumTrackColor={styleAccent}
+                maximumTrackColor={colors.border}
+                thumbColor={styleAccent}
+                style={styles.slider}
+              />
+              <View style={styles.rangeLabels}>
+                {durationSteps.map((s) => (
+                  <Text key={s} style={[styles.rangeLabel, { color: colors.textMuted }]}>{s}m</Text>
+                ))}
               </View>
+            </View>
+          )}
+
+          {/* Style */}
+          <TouchableOpacity
+            style={[styles.sectionHeader, { backgroundColor: subtleSurface, borderColor: subtleBorder }]}
+            onPress={() => toggleSection('style')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Workout style</Text>
+              <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>Strength, cardio, mobility…</Text>
+            </View>
+            <Text style={[styles.sectionValue, { color: styleAccent }]}>{localStyle}</Text>
+            <ChevronDown
+              size={16}
+              color={colors.textMuted}
+              style={{ transform: [{ rotate: openSections.style ? '180deg' : '0deg' }] }}
+            />
+          </TouchableOpacity>
+          {openSections.style && (
+            <View style={[styles.sectionBody, { borderColor: divider }]}>
+              <View style={styles.chipWrap}>
+                {WORKOUT_STYLES.map((s) => {
+                  const isSelected = localStyle === s;
+                  const isLocked = !hasPro && PRO_STYLES_SET.has(s);
+                  return (
+                    <TouchableOpacity
+                      key={s}
+                      style={[
+                        styles.styleChip,
+                        { backgroundColor: isDark ? '#222' : '#e8e8e8' },
+                        isSelected && { backgroundColor: APPLY_BTN_COLOR },
+                        isLocked && { opacity: PRO_LOCKED_OPACITY },
+                      ]}
+                      onPress={() => handleStyleSelect(s)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.chipInner}>
+                        <Text
+                          style={[
+                            styles.chipText,
+                            { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
+                          ]}
+                        >
+                          {s}
+                        </Text>
+                        {isLocked && <Crown size={11} color={PRO_GOLD} strokeWidth={2} />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Split */}
+          <TouchableOpacity
+            style={[styles.sectionHeader, { backgroundColor: subtleSurface, borderColor: subtleBorder }]}
+            onPress={() => toggleSection('split')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{config.slot_label}</Text>
+              <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>Choose a session focus</Text>
+            </View>
+            {musclesOverrideSplit ? (
+              <View style={[styles.customBadge, { backgroundColor: `${styleAccent}18`, borderColor: `${styleAccent}70` }]}>
+                <Text style={[styles.customBadgeText, { color: styleAccent }]}>CUSTOM</Text>
+              </View>
+            ) : (
+              <Text style={[styles.sectionValue, { color: styleAccent }]}>{localSplit || 'Auto'}</Text>
+            )}
+            <ChevronDown
+              size={16}
+              color={colors.textMuted}
+              style={{ transform: [{ rotate: openSections.split ? '180deg' : '0deg' }] }}
+            />
+          </TouchableOpacity>
+          {openSections.split && (
+            <View style={[styles.sectionBody, { borderColor: divider }]}>
               <View style={styles.splitGrid}>
                 {config.slot_options.map((sp) => {
                   const isSelected = localSplit === sp && !musclesOverrideSplit;
@@ -412,187 +500,222 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                       key={sp}
                       style={[
                         styles.splitBtn,
-                        {
-                          backgroundColor: isSelected ? styleAccent : colors.cardSecondary,
-                          borderColor: isSelected ? styleAccent : colors.border,
-                        },
+                        { backgroundColor: isDark ? '#222' : '#e8e8e8' },
+                        isSelected && { backgroundColor: APPLY_BTN_COLOR },
                       ]}
                       onPress={() => handleSlotSelect(sp)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.splitBtnText, { color: isSelected ? '#fff' : colors.text }]}>
+                      <Text style={[
+                        styles.splitBtnText,
+                        { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
+                      ]}>
                         {sp}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-          </>
+            </View>
+          )}
 
           {config.show_specific_muscles && (
             <>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{config.muscles_label}</Text>
-              <View style={styles.muscleGrid}>
-                {MUSCLE_CHIPS.map(({ display }) => {
-                  const isSelected = selectedMuscles.includes(display);
-                  return (
-                    <TouchableOpacity
-                      key={display}
-                      style={[
-                        styles.muscleChip,
-                        { borderColor: colors.border, backgroundColor: colors.cardSecondary },
-                        isSelected && {
-                          backgroundColor: `${styleAccent}4D`,
-                          borderColor: styleAccent,
-                        },
-                      ]}
-                      onPress={() => handleMuscleToggle(display)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.muscleChipText,
-                        { color: isSelected ? styleAccent : colors.text },
-                      ]}>
-                        {display}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {/* Muscles */}
+              <TouchableOpacity
+                style={[styles.sectionHeader, { backgroundColor: subtleSurface, borderColor: subtleBorder }]}
+                onPress={() => toggleSection('muscles')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.sectionHeaderLeft}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>{config.muscles_label}</Text>
+                  <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
+                    {selectedMuscles.length > 0 ? `${selectedMuscles.length} selected` : 'Optional override'}
+                  </Text>
+                </View>
+                <Text style={[styles.sectionValue, { color: styleAccent }]}>
+                  {selectedMuscles.length > 0 ? 'Custom' : 'Auto'}
+                </Text>
+                <ChevronDown
+                  size={16}
+                  color={colors.textMuted}
+                  style={{ transform: [{ rotate: openSections.muscles ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+              {openSections.muscles && (
+                <View style={[styles.sectionBody, { borderColor: divider }]}>
+                  <View style={styles.muscleGrid}>
+                    {MUSCLE_CHIPS.map(({ display }) => {
+                      const isSelected = selectedMuscles.includes(display);
+                      return (
+                        <TouchableOpacity
+                          key={display}
+                          style={[
+                            styles.muscleChip,
+                            { backgroundColor: isDark ? '#222' : '#e8e8e8' },
+                            isSelected && { backgroundColor: APPLY_BTN_COLOR },
+                          ]}
+                          onPress={() => handleMuscleToggle(display)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[
+                            styles.muscleChipText,
+                            { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
+                          ]}>
+                            {display}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
             </>
           )}
 
-          <View style={styles.equipLabelRow}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>GYM EQUIPMENT</Text>
-            {activeGymLabel && (
-              <View style={[styles.activeGymBadge, { backgroundColor: `${styleAccent}20`, borderColor: `${styleAccent}50` }]}>
-                <Dumbbell size={9} color={styleAccent} />
-                <Text style={[styles.activeGymBadgeText, { color: styleAccent }]}>{activeGymLabel}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.gymPresetsTopRow}>
-            <TouchableOpacity
-              style={[
-                styles.gymPresetBtn,
-                { backgroundColor: colors.cardSecondary, borderColor: colors.border },
-                gymPreset === 'no_equipment' && { backgroundColor: `${styleAccent}18`, borderColor: styleAccent },
-              ]}
-              onPress={handleSelectNoEquipment}
-              activeOpacity={0.7}
-            >
-              <User size={14} color={gymPreset === 'no_equipment' ? styleAccent : colors.textSecondary} />
-              <Text style={[
-                styles.gymPresetBtnText,
-                { color: gymPreset === 'no_equipment' ? styleAccent : colors.text },
-              ]}>
-                No Equipment
-              </Text>
-              {gymPreset === 'no_equipment' && (
-                <View style={[styles.gymCheckDot, { backgroundColor: styleAccent }]}>
-                  <Check size={8} color="#fff" strokeWidth={3} />
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.gymPresetBtn,
-                { backgroundColor: colors.cardSecondary, borderColor: colors.border },
-                gymPreset === 'commercial' && { backgroundColor: `${styleAccent}18`, borderColor: styleAccent },
-              ]}
-              onPress={handleSelectCommercial}
-              activeOpacity={0.7}
-            >
-              <Building2 size={14} color={gymPreset === 'commercial' ? styleAccent : colors.textSecondary} />
-              <Text style={[
-                styles.gymPresetBtnText,
-                { color: gymPreset === 'commercial' ? styleAccent : colors.text },
-              ]}>
-                Commercial
-              </Text>
-              {gymPreset === 'commercial' && (
-                <View style={[styles.gymCheckDot, { backgroundColor: styleAccent }]}>
-                  <Check size={8} color="#fff" strokeWidth={3} />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
+          {/* Equipment */}
           <TouchableOpacity
-            style={[
-              styles.gymPresetBtnFull,
-              { backgroundColor: colors.cardSecondary, borderColor: colors.border },
-              (gymPreset !== 'commercial' && gymPreset !== 'no_equipment') && { backgroundColor: `${styleAccent}18`, borderColor: styleAccent },
-              savedGymsOpen && { borderColor: styleAccent },
-            ]}
-            onPress={handleToggleSavedGyms}
-            activeOpacity={0.7}
+            style={[styles.sectionHeader, { backgroundColor: subtleSurface, borderColor: subtleBorder }]}
+            onPress={() => toggleSection('equipment')}
+            activeOpacity={0.8}
           >
-            <Bookmark
-              size={14}
-              color={(gymPreset !== 'commercial' && gymPreset !== 'no_equipment') || savedGymsOpen ? styleAccent : colors.textSecondary}
-            />
-            <Text style={[
-              styles.gymPresetBtnText,
-              { color: (gymPreset !== 'commercial' && gymPreset !== 'no_equipment') || savedGymsOpen ? styleAccent : colors.text },
-              { flex: 1 },
-            ]}
-              numberOfLines={1}
-            >
-              {savedGymsBtnLabel}
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Gym equipment</Text>
+              <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>Matches your available gear</Text>
+            </View>
+            <Text style={[styles.sectionValue, { color: styleAccent }]} numberOfLines={1}>
+              {activeGymLabel}
             </Text>
-            {savedGymsOpen ? (
-              <ChevronUp size={12} color={colors.textMuted} />
-            ) : (
-              <ChevronDown size={12} color={colors.textMuted} />
-            )}
+            <ChevronDown
+              size={16}
+              color={colors.textMuted}
+              style={{ transform: [{ rotate: openSections.equipment ? '180deg' : '0deg' }] }}
+            />
           </TouchableOpacity>
+          {openSections.equipment && (
+            <View style={[styles.sectionBody, { borderColor: divider }]}>
+              <View style={styles.gymPresetsTopRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.gymPresetBtn,
+                    { backgroundColor: isDark ? '#222' : '#e8e8e8' },
+                    gymPreset === 'no_equipment' && { backgroundColor: APPLY_BTN_COLOR },
+                  ]}
+                  onPress={handleSelectNoEquipment}
+                  activeOpacity={0.7}
+                >
+                  <User size={14} color={gymPreset === 'no_equipment' ? '#fff' : isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'} />
+                  <Text style={[
+                    styles.gymPresetBtnText,
+                    { color: gymPreset === 'no_equipment' ? '#fff' : isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
+                  ]}>
+                    No Equipment
+                  </Text>
+                  {gymPreset === 'no_equipment' && (
+                    <View style={[styles.gymCheckDot, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                      <Check size={8} color="#fff" strokeWidth={3} />
+                    </View>
+                  )}
+                </TouchableOpacity>
 
-          {savedGymsOpen && (
-            <View style={[styles.savedGymsList, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-              {ctx.savedGyms.length === 0 ? (
-                <Text style={[styles.noGymsText, { color: colors.textMuted }]}>
-                  No saved gyms. Add gyms in the Equipment settings.
+                <TouchableOpacity
+                  style={[
+                    styles.gymPresetBtn,
+                    { backgroundColor: isDark ? '#222' : '#e8e8e8' },
+                    gymPreset === 'commercial' && { backgroundColor: APPLY_BTN_COLOR },
+                  ]}
+                  onPress={handleSelectCommercial}
+                  activeOpacity={0.7}
+                >
+                  <Building2 size={14} color={gymPreset === 'commercial' ? '#fff' : isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'} />
+                  <Text style={[
+                    styles.gymPresetBtnText,
+                    { color: gymPreset === 'commercial' ? '#fff' : isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
+                  ]}>
+                    Commercial
+                  </Text>
+                  {gymPreset === 'commercial' && (
+                    <View style={[styles.gymCheckDot, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                      <Check size={8} color="#fff" strokeWidth={3} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.gymPresetBtnFull,
+                  { backgroundColor: isDark ? '#222' : '#e8e8e8' },
+                  (gymPreset !== 'commercial' && gymPreset !== 'no_equipment') && { backgroundColor: APPLY_BTN_COLOR },
+                ]}
+                onPress={handleToggleSavedGyms}
+                activeOpacity={0.7}
+              >
+                <Bookmark
+                  size={14}
+                  color={(gymPreset !== 'commercial' && gymPreset !== 'no_equipment') ? '#fff' : isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'}
+                />
+                <Text style={[
+                  styles.gymPresetBtnText,
+                  { color: (gymPreset !== 'commercial' && gymPreset !== 'no_equipment') ? '#fff' : isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
+                  { flex: 1 },
+                ]}
+                  numberOfLines={1}
+                >
+                  {savedGymsBtnLabel}
                 </Text>
-              ) : (
-                ctx.savedGyms.map((gym) => {
-                  const isActive = gymPreset === gym.id;
-                  const itemCount = Object.values(gym.equipment).filter(v => v > 0).length;
-                  return (
-                    <TouchableOpacity
-                      key={gym.id}
-                      style={[
-                        styles.savedGymRow,
-                        { borderBottomColor: colors.border },
-                        isActive && { backgroundColor: `${styleAccent}12` },
-                      ]}
-                      onPress={() => handleSelectGym(gym.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[
-                        styles.savedGymIconWrap,
-                        { backgroundColor: isActive ? `${styleAccent}25` : `${colors.border}60` },
-                      ]}>
-                        <Bookmark size={11} color={isActive ? styleAccent : colors.textSecondary} />
-                      </View>
-                      <View style={styles.savedGymInfo}>
-                        <Text style={[styles.savedGymName, { color: isActive ? styleAccent : colors.text }]}>
-                          {gym.name}
-                        </Text>
-                        <Text style={[styles.savedGymCount, { color: colors.textMuted }]}>
-                          {itemCount} item{itemCount !== 1 ? 's' : ''}
-                        </Text>
-                      </View>
-                      {isActive && (
-                        <View style={[styles.activeIndicator, { backgroundColor: styleAccent }]}>
-                          <Check size={9} color="#fff" strokeWidth={3} />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })
+                {savedGymsOpen ? (
+                  <ChevronUp size={12} color={(gymPreset !== 'commercial' && gymPreset !== 'no_equipment') ? 'rgba(255,255,255,0.7)' : isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+                ) : (
+                  <ChevronDown size={12} color={(gymPreset !== 'commercial' && gymPreset !== 'no_equipment') ? 'rgba(255,255,255,0.7)' : isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+                )}
+              </TouchableOpacity>
+
+              {savedGymsOpen && (
+                <View style={[styles.savedGymsList, { backgroundColor: colors.cardSecondary, borderColor: subtleBorder }]}>
+                  {ctx.savedGyms.length === 0 ? (
+                    <Text style={[styles.noGymsText, { color: colors.textMuted }]}>
+                      No saved gyms. Add gyms in the Equipment settings.
+                    </Text>
+                  ) : (
+                    ctx.savedGyms.map((gym) => {
+                      const isActive = gymPreset === gym.id;
+                      const itemCount = Object.values(gym.equipment).filter(v => v > 0).length;
+                      return (
+                        <TouchableOpacity
+                          key={gym.id}
+                          style={[
+                            styles.savedGymRow,
+                            { borderBottomColor: divider },
+                            isActive && { backgroundColor: `${styleAccent}12` },
+                          ]}
+                          onPress={() => handleSelectGym(gym.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[
+                            styles.savedGymIconWrap,
+                            { backgroundColor: isActive ? `${styleAccent}22` : `${colors.border}50` },
+                          ]}>
+                            <Bookmark size={11} color={isActive ? styleAccent : colors.textSecondary} />
+                          </View>
+                          <View style={styles.savedGymInfo}>
+                            <Text style={[styles.savedGymName, { color: isActive ? styleAccent : colors.text }]}>
+                              {gym.name}
+                            </Text>
+                            <Text style={[styles.savedGymCount, { color: colors.textMuted }]}>
+                              {itemCount} item{itemCount !== 1 ? 's' : ''}
+                            </Text>
+                          </View>
+                          {isActive && (
+                            <View style={[styles.activeIndicator, { backgroundColor: styleAccent }]}>
+                              <Check size={9} color="#fff" strokeWidth={3} />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </View>
               )}
             </View>
           )}
@@ -655,7 +778,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerApplyBtn: {
-    borderRadius: 19,
+    borderRadius: 12,
     width: 96,
     height: 38,
     alignItems: 'center',
@@ -670,8 +793,8 @@ const styles = StyleSheet.create({
   headerApplyText: {
     color: '#fff',
     fontSize: 15,
-    fontFamily: 'Outfit_600SemiBold',
-    fontWeight: '600' as const,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.2,
   },
   title: {
     fontSize: 17,
@@ -703,7 +826,41 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingBottom: 8,
-    gap: 8,
+    gap: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  sectionHeaderLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.2,
+  },
+  sectionHint: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0,
+  },
+  sectionValue: {
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.2,
+  },
+  sectionBody: {
+    marginTop: 8,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   fieldLabel: {
     fontSize: 10,
@@ -761,7 +918,7 @@ const styles = StyleSheet.create({
   },
   gymPresetsTopRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   gymPresetBtn: {
     flex: 1,
@@ -769,22 +926,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderRadius: 12,
-    borderWidth: 1.5,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    height: 44,
   },
   gymPresetBtnFull: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderRadius: 12,
-    borderWidth: 1.5,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    marginTop: 10,
   },
   gymPresetBtnText: {
     fontSize: 13,
-    fontWeight: '600' as const,
+    fontFamily: 'Outfit_500Medium',
   },
   gymCheckDot: {
     width: 16,
@@ -841,13 +997,13 @@ const styles = StyleSheet.create({
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 7,
+    gap: 8,
   },
   styleChip: {
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    justifyContent: 'center',
   },
   chipInner: {
     flexDirection: 'row' as const,
@@ -856,24 +1012,24 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
-    fontWeight: '500' as const,
+    fontFamily: 'Outfit_500Medium',
   },
   splitGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   splitBtn: {
-    width: '48.5%',
-    paddingVertical: 6,
+    width: '48%',
+    height: 44,
     paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   splitBtnText: {
     fontSize: 13,
-    fontWeight: '600' as const,
+    fontFamily: 'Outfit_500Medium',
   },
   sessionToggleRow: {
     flexDirection: 'row',
@@ -893,17 +1049,17 @@ const styles = StyleSheet.create({
   muscleGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   muscleChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1.5,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
   },
   muscleChipText: {
     fontSize: 12,
-    fontWeight: '500' as const,
+    fontFamily: 'Outfit_500Medium',
   },
   sliderHeaderRow: {
     flexDirection: 'row',

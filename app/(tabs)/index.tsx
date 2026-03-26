@@ -16,13 +16,14 @@ import { useRouter } from 'expo-router';
 import { useZealTheme, useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import CalendarCard from '@/components/CalendarCard';
 import WorkoutOverviewCard from '@/components/WorkoutOverviewCard';
 import TrainingScoreCard from '@/components/TrainingScoreCard';
 import StreakBottomSheet from '@/components/StreakBottomSheet';
 import ZealBackground from '@/components/ZealBackground';
 import AmbientGlow from '@/components/AmbientGlow';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import AthleteProfileDrawer from '@/components/drawers/AthleteProfileDrawer';
 import AboutMeDrawer from '@/components/drawers/AboutMeDrawer';
 import SettingsDrawer from '@/components/drawers/SettingsDrawer';
@@ -42,7 +43,6 @@ import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
 import { mockBibleVerse } from '@/mocks/homeData';
 import { WORKOUT_STYLE_COLORS, TRAINING_SPLITS } from '@/constants/colors';
 
-import { PRO_STYLES_SET as PRO_STYLES_PREVIEW } from '@/services/proGate';
 
 function getSmartCoachMessage({
   muscleReadiness,
@@ -74,7 +74,7 @@ function getSmartCoachMessage({
     return 'Every elite athlete started with day one. Today is yours.';
   }
   if (streak === 1) {
-    return 'One down. Two in a row starts a streak — keep it rolling today.';
+    return 'Day one is already done. Show up again today — that’s how momentum starts.';
   }
   if (streak >= 7) {
     return `${streak}-day streak. You're building something real — don't break the chain.`;
@@ -127,19 +127,6 @@ function getMuscleGroupsFromSplit(split: string, style: string): string {
   return 'Full Body';
 }
 
-function resolvePPLForPreview(muscleReadiness: MuscleReadinessItem[]): string {
-  const rm: Record<string, number> = {};
-  for (const m of muscleReadiness) rm[m.name] = m.value;
-  const avg = (ms: string[]) => ms.map(m => rm[m] ?? 80).reduce((a, b) => a + b, 0) / ms.length;
-  const push = avg(['Chest', 'Shoulders', 'Triceps']);
-  const pull = avg(['Back', 'Biceps']);
-  const legs = avg(['Quads', 'Hamstrings', 'Glutes', 'Calves']);
-  if (push >= pull && push >= legs) return 'Push';
-  if (pull > push && pull >= legs) return 'Pull';
-  return 'Legs';
-}
-
-
 const DURATION_CHIPS = [30, 45, 60, 75, 90] as const;
 const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact'] as const;
 
@@ -150,6 +137,13 @@ export default function HomeScreen() {
   const { hasPro } = useSubscription();
   const router = useRouter();
   const glowColor: string = WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent;
+  const enterCard = useCallback((delayMs: number) => {
+    return FadeInUp
+      .delay(delayMs)
+      .springify()
+      .damping(18)
+      .stiffness(160);
+  }, []);
 
   const firstName = ctx.userName ? ctx.userName.split(' ')[0] : '';
   const todayPrescription = ctx.getTodayPrescription();
@@ -204,53 +198,10 @@ export default function HomeScreen() {
   const [previewVisible, setPreviewVisible] = useState(false);
 
   const handlePreviewPress = useCallback(() => {
-    const lm = ctx.lastModifyState;
-    const todayPrescription = ctx.getTodayPrescription();
-    const hasPlan = !!ctx.activePlan;
-
-    const rawStyle = hasPlan && todayPrescription?.style
-      ? todayPrescription.style
-      : (lm?.style ?? ctx.workoutStyle);
-    const effectiveStyle = !hasPro && PRO_STYLES_PREVIEW.has(rawStyle) ? 'Strength' : rawStyle;
-
-    const rawSplit = hasPlan && todayPrescription?.session_type
-      ? todayPrescription.session_type
-      : (lm?.split ?? ctx.trainingSplit);
-    const effectiveSplit = rawSplit === 'Push, Pull, Legs'
-      ? resolvePPLForPreview(ctx.muscleReadiness)
-      : rawSplit;
-
-    const effectiveDuration = hasPlan && todayPrescription?.target_duration
-      ? todayPrescription.target_duration
-      : (lm?.duration ?? ctx.targetDuration);
-    const effectiveRest = lm?.rest ?? ctx.restBetweenSets;
-    const effectiveMuscles = hasPlan ? [] : (lm?.muscles ?? []);
-    const prescription = hasPlan ? todayPrescription : null;
-
-    console.log(`[Home] Preview: generating style=${effectiveStyle} split=${effectiveSplit} duration=${effectiveDuration}`);
-
-    generateWorkoutAsync({
-      style: effectiveStyle,
-      split: effectiveSplit,
-      targetDuration: effectiveDuration,
-      restSlider: effectiveRest,
-      availableEquipment: ctx.selectedEquipment,
-      fitnessLevel: ctx.fitnessLevel,
-      sex: ctx.sex,
-      specialLifeCase: ctx.specialLifeCase,
-      specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-      warmUp: ctx.warmUp,
-      coolDown: ctx.coolDown,
-      recovery: ctx.recovery,
-      addCardio: ctx.addCardio,
-      specificMuscles: effectiveMuscles,
-      seedOffset: 0,
-    }, prescription ?? undefined, hasPro).then((w) => {
-      tracking.setCurrentGeneratedWorkout(w);
-      ctx.setCurrentWorkoutTitle(w.split);
-      setPreviewVisible(true);
-    });
-  }, [ctx, hasPro, tracking]);
+    // Open immediately; modal will show either the populated preview or the generating animation.
+    void tracking.ensureTodayWorkoutGenerated();
+    setPreviewVisible(true);
+  }, [tracking]);
 
   const [anotherWorkoutVisible, setAnotherWorkoutVisible] = useState(false);
   const [anotherStep, setAnotherStep] = useState<number>(1);
@@ -259,6 +210,7 @@ export default function HomeScreen() {
   const [anotherSplit, setAnotherSplit] = useState<string>('');
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const ZEAL_ORANGE = '#f87116';
 
   const miniCardShadow = !isDark ? {
     shadowColor: '#000',
@@ -376,7 +328,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <AmbientGlow color={glowColor} />
+      <AmbientGlow color={glowColor} opacity={0.06} />
       {isZeal && <ZealBackground />}
 
       <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
@@ -403,7 +355,7 @@ export default function HomeScreen() {
             ) : null}
           </View>
 
-          <Text style={[styles.wordmark, { color: accent }]}>zeal</Text>
+          <Text style={[styles.wordmark, { color: ZEAL_ORANGE }]}>zeal</Text>
         </View>
       </SafeAreaView>
 
@@ -412,62 +364,85 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         testID="home-scroll"
       >
-        <CalendarCard
-          streak={ctx.streak}
-          onStreakPress={() => setStreakSheetVisible(true)}
-          onCalendarPress={handleCalendarPress}
-          onDayPress={handleDayPress}
-          completedDates={completedDates}
-          plannedWorkouts={ctx.plannedWorkouts}
-        />
+        <Animated.View entering={enterCard(90)}>
+          <CalendarCard
+            streak={ctx.streak}
+            onStreakPress={() => setStreakSheetVisible(true)}
+            onCalendarPress={handleCalendarPress}
+            onDayPress={handleDayPress}
+            completedDates={completedDates}
+            plannedWorkouts={ctx.plannedWorkouts}
+            variant={isDark ? 'glass' : 'solid'}
+          />
+        </Animated.View>
 
-        <WorkoutOverviewCard
-          title={workoutTitle}
-          style={ctx.workoutStyle}
-          duration={workoutDuration}
-          muscleGroups={muscleGroups}
-          exerciseCount={exerciseCount}
-          onPress={handlePreviewPress}
-          activePlan={ctx.activePlan}
-          onViewPlan={() => tracking.setActivePlanVisible(true)}
-        />
+        {/* Push card animates slightly before Training Score */}
+        <Animated.View entering={enterCard(150)}>
+          <WorkoutOverviewCard
+            title={workoutTitle}
+            style={ctx.workoutStyle}
+            duration={workoutDuration}
+            muscleGroups={muscleGroups}
+            exerciseCount={exerciseCount}
+            onPress={handlePreviewPress}
+            activePlan={ctx.activePlan}
+            onViewPlan={() => tracking.setActivePlanVisible(true)}
+            variant={isDark ? 'glass' : 'solid'}
+          />
+        </Animated.View>
 
-        <TrainingScoreCard
-          score={liveScore}
-          tier={tier}
-          readiness={readiness}
-          targetDone={liveDailyTarget}
-          targetTotal={12}
-          calories={healthCalories}
-          steps={healthSteps}
-          heartRate={healthHeartRate}
-          weeklyHoursMin={tracking.weeklyHoursMin}
-          onPress={() => setInsightsVisible(true)}
-        />
+        <Animated.View entering={enterCard(210)}>
+          <TrainingScoreCard
+            score={liveScore}
+            tier={tier}
+            readiness={readiness}
+            targetDone={liveDailyTarget}
+            targetTotal={12}
+            calories={healthCalories}
+            steps={healthSteps}
+            heartRate={healthHeartRate}
+            weeklyHoursMin={tracking.weeklyHoursMin}
+            onPress={() => setInsightsVisible(true)}
+            variant={isDark ? 'glass' : 'solid'}
+          />
+        </Animated.View>
 
-        <View style={[styles.coachCard, { backgroundColor: colors.card, borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}>
-          <Brain size={14} color={accent} strokeWidth={1.8} />
-          <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
-            {getSmartCoachMessage({
-              muscleReadiness: ctx.muscleReadiness,
-              workoutTitle,
-              workoutStyle: ctx.workoutStyle,
-              numericDuration,
-              streak: ctx.streak,
-              readiness,
-              hasTodayWorkout,
-            })}
-          </Text>
-        </View>
+        {tracking.workoutHistory.length > 0 && (
+          <Animated.View entering={enterCard(270)}>
+            <View style={[styles.coachCard, {
+              backgroundColor: isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+            }]}>
+              <BlurView intensity={isDark ? 70 : 40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
+              <Brain size={14} color={accent} strokeWidth={1.8} />
+              <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
+                {getSmartCoachMessage({
+                  muscleReadiness: ctx.muscleReadiness,
+                  workoutTitle,
+                  workoutStyle: ctx.workoutStyle,
+                  numericDuration,
+                  streak: ctx.streak,
+                  readiness,
+                  hasTodayWorkout,
+                })}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
 
         {hasTodayWorkout && (
           <View style={styles.todayCardsSection}>
             <TouchableOpacity
-              style={[styles.todayCard, { backgroundColor: colors.card, borderWidth: 1, borderColor: cardBorder }, miniCardShadow]}
+              style={[styles.todayCard, {
+                backgroundColor: isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+              }, miniCardShadow]}
               onPress={handleViewTodayLog}
               activeOpacity={0.8}
               testID="view-today-log"
             >
+              <BlurView intensity={isDark ? 70 : 40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
               <View style={styles.todayCardLeft}>
                 <View style={[styles.todayCardIcon, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
                   <ClipboardList size={18} color="#3b82f6" />
@@ -500,11 +475,16 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.todayCard, { backgroundColor: colors.card, borderWidth: 1, borderColor: cardBorder }, miniCardShadow]}
+              style={[styles.todayCard, {
+                backgroundColor: isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+              }, miniCardShadow]}
               onPress={handleStartAnother}
               activeOpacity={0.8}
               testID="start-another-workout"
             >
+              <BlurView intensity={isDark ? 70 : 40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
               <View style={styles.todayCardLeft}>
                 <View style={[styles.todayCardIcon, { backgroundColor: 'rgba(248,113,22,0.12)' }]}>
                   <Dumbbell size={18} color="#f87116" />
@@ -780,8 +760,7 @@ const styles = StyleSheet.create({
   wordmark: {
     fontSize: 22,
     fontFamily: 'Outfit_800ExtraBold',
-    fontStyle: 'italic',
-    letterSpacing: -0.5,
+    letterSpacing: -1.2,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -796,11 +775,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   coachText: {
     flex: 1,
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: 'Outfit_300Light',
     lineHeight: 18,
     letterSpacing: 0.1,
   },
@@ -857,6 +837,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderRadius: 22,
     padding: 14,
+    overflow: 'hidden',
   },
   todayCardLeft: {
     flexDirection: 'row',

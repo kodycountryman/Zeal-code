@@ -10,6 +10,7 @@ import {
   Animated,
   ActivityIndicator,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,7 +88,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
   const { hasPro, openPaywall } = useSubscription();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const scrollRef = useRef<any>(null);
-  const snapPoints = useMemo(() => ['92%'], []);
+  const { height: windowH } = useWindowDimensions();
+  const [contentH, setContentH] = useState(0);
 
   const [localStyle, setLocalStyle] = useState(ctx.workoutStyle);
   const [localSplit, setLocalSplit] = useState(ctx.trainingSplit);
@@ -188,7 +190,19 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
   }, [ctx.healthConnected, healthPulse]);
 
   const handleHealthToggle = useCallback(async () => {
-    if (!hasPro) { showProGate('healthSync', openPaywall); return; }
+    console.log('[Settings] Health row pressed', {
+      hasPro,
+      platform: Platform.OS,
+      currentlyConnected: ctxRef.current.healthConnected,
+      nativeAvailable: healthService.isAvailable(),
+    });
+    if (!hasPro) {
+      Alert.alert('Zeal Pro Required', 'Health sync is a Pro feature. Upgrade to connect Health.', [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'View Pro', onPress: () => showProGate('healthSync', openPaywall) },
+      ]);
+      return;
+    }
     const c = ctxRef.current;
     if (c.healthConnected) {
       c.setHealthSyncEnabled(false);
@@ -197,6 +211,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
       return;
     }
     if (!healthService.isAvailable()) {
+      console.log('[Settings] Health native module not available — cannot connect in this build');
       Alert.alert(
         'Native Build Required',
         Platform.OS === 'ios'
@@ -208,7 +223,9 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
     }
     setHealthConnecting(true);
     try {
+      console.log('[Settings] Requesting health permissions...');
       const result = await healthService.requestPermissions();
+      console.log('[Settings] Health permissions result:', result);
       if (result.granted) {
         c.setHealthSyncEnabled(true);
         c.setHealthConnected(true);
@@ -407,12 +424,24 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
 
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 0) + 16;
+  const maxDynamicContentSize = useMemo(() => {
+    return Math.max(560, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.92)));
+  }, [windowH, topOffset]);
+  // Compute a tight snap height so the sheet never opens past content.
+  const snapPoints = useMemo(() => {
+    const HEADER_AND_HANDLE_EST = 86;
+    const FOOTER_EST = 16;
+    const desired = contentH > 0 ? contentH + HEADER_AND_HANDLE_EST + FOOTER_EST : maxDynamicContentSize;
+    const clamped = Math.min(maxDynamicContentSize, Math.max(420, Math.round(desired)));
+    return [clamped];
+  }, [contentH, maxDynamicContentSize]);
 
   return (
     <>
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -449,6 +478,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
         showsVerticalScrollIndicator={false}
         bounces={false}
         contentContainerStyle={styles.content}
+        scrollEnabled={contentH > maxDynamicContentSize - 120}
+        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
       >
         <Text style={[styles.sectionHeader, { color: styleAccent }]}>TRAINING</Text>
 

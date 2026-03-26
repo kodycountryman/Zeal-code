@@ -384,7 +384,8 @@
       "aliases": [
         "bench press",
         "flat bench",
-        "bb bench"
+        "bb bench",
+        "Barbell Bench Press - Medium Grip"
       ],
       "movement_pattern": "push",
       "difficulty_tier": "intermediate",
@@ -1409,7 +1410,9 @@
       "name": "Push-Up",
       "aliases": [
         "pushup",
-        "press up"
+        "press up",
+        "Decline Push-Up",
+        "Standard Push-Up"
       ],
       "movement_pattern": "push",
       "difficulty_tier": "beginner",
@@ -1502,7 +1505,10 @@
         "OHP",
         "military press",
         "shoulder press",
-        "barbell press"
+        "barbell press",
+        "Standing Overhead Press (Barbell)",
+        "overhead press barbell",
+        "Barbell Shoulder Press"
       ],
       "movement_pattern": "push",
       "difficulty_tier": "intermediate",
@@ -4106,7 +4112,10 @@
       "aliases": [
         "tricep pushdown",
         "rope pushdown",
-        "cable pressdown"
+        "cable pressdown",
+        "Cable Tricep Rope Pushdown",
+        "tricep rope pushdown",
+        "Kneeling Cable Triceps Extension"
       ],
       "movement_pattern": "isolation",
       "difficulty_tier": "beginner",
@@ -4181,7 +4190,10 @@
       "aliases": [
         "lying tricep extension",
         "french press",
-        "ez bar skull crusher"
+        "ez bar skull crusher",
+        "EZ-Bar Skullcrusher",
+        "Barbell Skull Crusher",
+        "Lying Skull Crusher"
       ],
       "movement_pattern": "isolation",
       "difficulty_tier": "intermediate",
@@ -11935,7 +11947,10 @@
       "id": "dumbbell_swing",
       "name": "Dumbbell Swing",
       "aliases": [
-        "db swing"
+        "db swing",
+        "One-Arm Kettlebell Swings",
+        "One Arm Kettlebell Swings",
+        "Kettlebell Swing"
       ],
       "movement_pattern": "hinge",
       "difficulty_tier": "beginner",
@@ -18782,6 +18797,12 @@
     {
       "id": "chest_press_machine",
       "name": "Chest Press Machine",
+      "aliases": [
+        "Machine Bench Press",
+        "Leverage Chest Press",
+        "Seated Chest Press Machine",
+        "Machine Chest Press"
+      ],
       "primary_muscles": [
         "chest"
       ],

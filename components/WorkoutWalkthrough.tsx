@@ -103,6 +103,7 @@ interface Props {
   onRequestCollapseExercise: () => void;
   onRequestScrollToTop: () => void;
   onRequestScrollToBottom: () => void;
+  onStepPress: (stepIndex: number) => void;
 }
 
 export default function WorkoutWalkthrough({
@@ -114,6 +115,7 @@ export default function WorkoutWalkthrough({
   onRequestCollapseExercise,
   onRequestScrollToTop,
   onRequestScrollToBottom,
+  onStepPress,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { accent, isDark } = useZealTheme();
@@ -206,6 +208,37 @@ export default function WorkoutWalkthrough({
     });
   }, [tooltipFade, tooltipSlide, onRequestTab, onRequestExpandFirstExercise, onRequestCollapseExercise, onRequestScrollToTop, onRequestScrollToBottom, showTooltip]);
 
+  const handleSpotlightPress = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+
+    // Trigger the real in-app action for this step, then advance.
+    onStepPress(currentStep);
+
+    if (currentStep >= TOTAL_STEPS - 1) {
+      Animated.timing(overlayFade, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        onRequestCollapseExercise();
+        onRequestScrollToTop();
+        onDismiss();
+      });
+    } else {
+      hideTooltipAndAdvance(currentStep + 1);
+    }
+  }, [
+    currentStep,
+    hideTooltipAndAdvance,
+    onDismiss,
+    onRequestCollapseExercise,
+    onRequestScrollToTop,
+    onStepPress,
+    overlayFade,
+  ]);
+
   const handleNext = useCallback(() => {
     if (Platform.OS !== 'web') {
       Haptics.selectionAsync();
@@ -270,11 +303,28 @@ export default function WorkoutWalkthrough({
     >
       <Animated.View style={[styles.overlay, { opacity: overlayFade }]}>
         {rect ? (
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <View style={[styles.overlayPiece, { top: 0, left: 0, right: 0, height: spotY }]} />
-            <View style={[styles.overlayPiece, { top: spotY + spotH, left: 0, right: 0, bottom: 0 }]} />
-            <View style={[styles.overlayPiece, { top: spotY, left: 0, width: spotX, height: spotH }]} />
-            <View style={[styles.overlayPiece, { top: spotY, left: spotX + spotW, right: 0, height: spotH }]} />
+          <View style={StyleSheet.absoluteFill}>
+            {/* Block taps outside spotlight */}
+            <TouchableOpacity
+              style={[styles.overlayPiece, { top: 0, left: 0, right: 0, height: spotY }]}
+              activeOpacity={1}
+              onPress={() => {}}
+            />
+            <TouchableOpacity
+              style={[styles.overlayPiece, { top: spotY + spotH, left: 0, right: 0, bottom: 0 }]}
+              activeOpacity={1}
+              onPress={() => {}}
+            />
+            <TouchableOpacity
+              style={[styles.overlayPiece, { top: spotY, left: 0, width: spotX, height: spotH }]}
+              activeOpacity={1}
+              onPress={() => {}}
+            />
+            <TouchableOpacity
+              style={[styles.overlayPiece, { top: spotY, left: spotX + spotW, right: 0, height: spotH }]}
+              activeOpacity={1}
+              onPress={() => {}}
+            />
           </View>
         ) : (
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -298,11 +348,23 @@ export default function WorkoutWalkthrough({
           />
         )}
 
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          activeOpacity={1}
-          onPress={handleNext}
-        />
+        {/* Only the highlighted area advances */}
+        {rect && (
+          <TouchableOpacity
+            style={[
+              styles.spotlightHitArea,
+              {
+                left: spotX,
+                top: spotY,
+                width: spotW,
+                height: spotH,
+                borderRadius: spotR,
+              },
+            ]}
+            activeOpacity={0.9}
+            onPress={handleSpotlightPress}
+          />
+        )}
 
         <Animated.View
           style={[
@@ -349,36 +411,35 @@ export default function WorkoutWalkthrough({
               <Text style={[styles.tooltipDesc, { color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)' }]}>
                 {step.body}
               </Text>
+              <Text style={[styles.tapHint, { color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }]}>
+                Tap the highlighted area to continue
+              </Text>
             </View>
           </View>
 
           <View style={styles.tooltipActions}>
-            {!isLast && (
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={handleSkip}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.skipText, { color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)' }]}>
+                Skip
+              </Text>
+            </TouchableOpacity>
+
+            {/* Remove explicit Next button to enforce spotlight tap */}
+            {/* Keep a subtle label for the last step */}
+            {isLast && (
               <TouchableOpacity
-                style={styles.skipBtn}
-                onPress={handleSkip}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[styles.nextBtn, { backgroundColor: step.iconColor }]}
+                onPress={handleSpotlightPress}
+                activeOpacity={0.85}
               >
-                <Text style={[styles.skipText, { color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)' }]}>
-                  Skip
-                </Text>
+                <Text style={styles.nextText}>Got it!</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={[
-                styles.nextBtn,
-                { backgroundColor: step.iconColor },
-                isLast && { flex: 1 },
-              ]}
-              onPress={handleNext}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.nextText}>
-                {isLast ? 'Got it!' : 'Next'}
-              </Text>
-              {!isLast && <ChevronRight size={16} color="#fff" strokeWidth={2.5} />}
-            </TouchableOpacity>
           </View>
         </Animated.View>
 
@@ -424,6 +485,11 @@ const styles = StyleSheet.create({
       },
       default: {},
     }),
+  },
+  spotlightHitArea: {
+    position: 'absolute',
+    zIndex: 15,
+    backgroundColor: 'transparent',
   },
   tooltipCard: {
     position: 'absolute',
@@ -492,6 +558,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '400' as const,
+  },
+  tapHint: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '600' as const,
+    letterSpacing: 0.2,
   },
   tooltipActions: {
     flexDirection: 'row',

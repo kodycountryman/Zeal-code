@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
 import WheelPicker from '@/components/WheelPicker';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
@@ -74,9 +75,21 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['92%'], []);
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 0) + 16;
+  const { height: windowH } = useWindowDimensions();
+  const maxDynamicContentSize = useMemo(() => {
+    return Math.max(560, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.92)));
+  }, [windowH, topOffset]);
+  const [contentH, setContentH] = useState(0);
+  // Compute a tight snap height so the sheet never opens past content.
+  const snapPoints = useMemo(() => {
+    const HEADER_AND_HANDLE_EST = 86;
+    const FOOTER_EST = 16;
+    const desired = contentH > 0 ? contentH + HEADER_AND_HANDLE_EST + FOOTER_EST : maxDynamicContentSize;
+    const clamped = Math.min(maxDynamicContentSize, Math.max(420, Math.round(desired)));
+    return [clamped];
+  }, [contentH, maxDynamicContentSize]);
 
   const parsedDOB = useMemo(() => parseDOB(ctx.dateOfBirth), [ctx.dateOfBirth]);
 
@@ -200,6 +213,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -233,7 +247,14 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </TouchableOpacity>
       </View>
 
-      <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <BottomSheetScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+        scrollEnabled={contentH > maxDynamicContentSize - 120}
+        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
+      >
 
         {/* NAME */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>

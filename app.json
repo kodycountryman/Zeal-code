@@ -18,7 +18,8 @@
       "bundleIdentifier": "app.rork.zeal",
       "infoPlist": {
         "NSHealthShareUsageDescription": "Zeal reads your steps, calories, and heart rate to enhance your training readiness and insights.",
-        "NSHealthUpdateUsageDescription": "Zeal writes your completed workouts to Apple Health to keep your health records in sync."
+        "NSHealthUpdateUsageDescription": "Zeal writes your completed workouts to Apple Health to keep your health records in sync.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

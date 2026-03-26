@@ -586,16 +586,19 @@ export const CROSSFIT_ARCHITECTURE: SessionArchitecture = {
     {
       id: 'strength_block',
       name: 'Strength',
-      exercise_count: { min: 1, max: 2 },
+      exercise_count: { min: 1, max: 3 },
       role_filter: ['primary', 'secondary'],
       preferred_formats: ['straight_sets', 'ascending_sets', 'wave_loading'],
       time_budget_fraction: 0.40,
       is_compound_only: true,
+      // Exclude cardio/plyometric — CrossFit strength block is traditional barbell/gymnastics strength work
+      movement_filter: ['push', 'pull', 'squat', 'hinge', 'lunge', 'carry'],
     },
     {
       id: 'metcon',
       name: 'MetCon',
-      exercise_count: { min: 3, max: 6 },
+      // Wider range: Chippers need 7–10, AMRAP/EMOM/RFT work well with 4–6
+      exercise_count: { min: 4, max: 8 },
       role_filter: ['primary', 'secondary', 'accessory'],
       preferred_formats: ['amrap', 'emom', 'rft', 'chipper', 'ladder'],
       time_budget_fraction: 0.55,

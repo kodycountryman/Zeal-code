@@ -25,21 +25,34 @@ const DEFAULT_PERSISTED: PersistedState = {
 };
 
 function getRCApiKey(): string {
-  if (__DEV__ || Platform.OS === 'web') {
-    return process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY ?? '';
-  }
+  const testKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY ?? '';
+
+  // Use the test key only when explicitly available; otherwise fall back to native keys.
+  // This prevents the "no singleton instance" error when running dev builds without env vars set.
+  if (Platform.OS === 'web') return testKey;
+  if (__DEV__ && testKey) return testKey;
+
   return Platform.select({
     ios: 'appl_TfLZeJsUZikUiPDhmQZAHyUCvrm',
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY ?? '',
-    default: process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY ?? '',
+    default: testKey,
   }) ?? '';
 }
 
+
+
 try {
   const key = getRCApiKey();
+  console.log('[subscription] RC configure attempt', {
+    hasKey: Boolean(key),
+    platform: Platform.OS,
+    isDev: __DEV__,
+  });
   if (key) {
     PurchasesWrapper.configure({ apiKey: key });
     console.log('[subscription] RevenueCat configured');
+  } else {
+    console.warn('[subscription] RevenueCat API key is empty; skipping RC.configure');
   }
 } catch (e) {
   console.warn('[subscription] RC configure failed:', e);
@@ -88,6 +101,8 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     staleTime: 30_000,
     enabled: persistedLoaded,
   });
+
+  const proStatusReady = persistedLoaded && (customerInfoQuery.isSuccess || customerInfoQuery.isError);
 
   const hasPro = __DEV__ && DEV_FORCE_PRO !== null
     ? DEV_FORCE_PRO
@@ -222,6 +237,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   return {
     subscriptionState,
     hasPro,
+    proStatusReady,
     paywallVersion,
     paywallOpen,
     openPaywall,

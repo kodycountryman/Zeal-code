@@ -184,8 +184,8 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
 
   const handleDismiss = useCallback(() => { onClose(); }, [onClose]);
 
-  const renderBackdrop = useCallback((props: unknown) => (
-    <BottomSheetBackdrop {...(props as object)} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} pressBehavior="close" />
+  const renderBackdrop = useCallback((props: React.ComponentProps<typeof BottomSheetBackdrop>) => (
+    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} pressBehavior="close" />
   ), []);
 
   const allExercises = useMemo(() => getZealExerciseDatabase(), []);

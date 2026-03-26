@@ -222,6 +222,12 @@ export default function OnboardingScreen() {
     ctx.setTrainingGoals([goal ?? 'Build Muscle']);
     ctx.setWorkoutStyle(workoutStyle ?? 'Strength');
     ctx.setSelectedEquipment(finalEquip);
+    // Persist workout component selections from step 10
+    ctx.setWarmUp(warmUpEnabled);
+    ctx.setCoolDown(coolDownEnabled);
+    ctx.setRecovery(recoveryEnabled);
+    ctx.setAddCardio(addCardioEnabled);
+    ctx.setCoreFinisher(coreFinisherEnabled);
     if (ctx.googlePrefill?.photoUri) {
       ctx.setUserPhotoUri(ctx.googlePrefill.photoUri);
     }
@@ -234,7 +240,7 @@ export default function OnboardingScreen() {
     ctx.setShowPlusSpotlight(true);
     setGenerating(false);
     router.replace('/(tabs)');
-  }, [name, birthDay, birthMonth, birthYear, heightFt, heightIn, weightLbs, weightUnit, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone, ctx]);
+  }, [name, birthDay, birthMonth, birthYear, heightFt, heightIn, weightLbs, weightUnit, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone, warmUpEnabled, coolDownEnabled, recoveryEnabled, addCardioEnabled, coreFinisherEnabled, ctx]);
 
   const handleRequestNotifications = useCallback(async () => {
     if (Platform.OS !== 'web') {

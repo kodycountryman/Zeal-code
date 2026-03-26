@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Switch,
+  useWindowDimensions,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { X, Zap, Palette } from 'lucide-react-native';
@@ -29,9 +30,20 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const { appTheme, setAppTheme, reflectWorkoutColor, setReflectWorkoutColor, saveState } = useAppContext();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['65%'], []);
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 0) + 16;
+  const { height: windowH } = useWindowDimensions();
+  const maxDynamicContentSize = useMemo(() => {
+    return Math.max(360, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.75)));
+  }, [windowH, topOffset]);
+  const [contentH, setContentH] = useState(0);
+  // Compute a tight snap height so the sheet never opens past content.
+  const snapPoints = useMemo(() => {
+    const HANDLE_EST = 24;
+    const desired = contentH > 0 ? contentH + HANDLE_EST : maxDynamicContentSize;
+    const clamped = Math.min(maxDynamicContentSize, Math.max(320, Math.round(desired)));
+    return [clamped];
+  }, [contentH, maxDynamicContentSize]);
 
   const [localTheme, setLocalTheme] = useState<AppTheme>(appTheme);
   const [localReflect, setLocalReflect] = useState(reflectWorkoutColor);
@@ -86,6 +98,7 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -95,7 +108,7 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
       topInset={topOffset}
       stackBehavior="push"
     >
-      <BottomSheetView style={styles.container}>
+      <BottomSheetView style={styles.container} onLayout={(e) => setContentH(e.nativeEvent.layout.height)}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerCircleBtn}

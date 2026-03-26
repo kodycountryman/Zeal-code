@@ -29,7 +29,7 @@ function TabsWithPaywall() {
   return (
     <>
       <Tabs
-        screenOptions={{ headerShown: false, swipeEnabled: false }}
+        screenOptions={{ headerShown: false }}
         tabBar={() => <FloatingDock />}
       >
         <Tabs.Screen name="index" />

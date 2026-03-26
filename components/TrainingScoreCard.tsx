@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { ChevronRight, Zap, Target, Flame, Footprints, HeartPulse, Clock, X, Info } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
+import { BlurView } from 'expo-blur';
 
 interface Props {
   score: number;
@@ -22,6 +23,7 @@ interface Props {
   heartRate?: number | null;
   weeklyHoursMin?: number;
   onPress: () => void;
+  variant?: 'solid' | 'glass';
 }
 
 type MetricKey = 'calories' | 'steps' | 'heartRate' | 'weeklyHours';
@@ -61,6 +63,7 @@ export default function TrainingScoreCard({
   heartRate = null,
   weeklyHoursMin = 0,
   onPress,
+  variant = 'solid',
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const progressPercent = Math.min((score / 100) * 100, 100);
@@ -111,7 +114,7 @@ export default function TrainingScoreCard({
     elevation: 3,
   } : {};
 
-  const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
   const dividerColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
   const verticalDivider = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.09)';
   const iconColor = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)';
@@ -180,14 +183,27 @@ export default function TrainingScoreCard({
     return <Clock size={size} color={iconColor} strokeWidth={2.5} />;
   };
 
+  const tint = isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)';
   return (
     <>
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.card, borderWidth: 1, borderColor: cardBorder }, cardShadow]}
+        style={[
+          styles.card,
+          { borderWidth: 1, borderColor: cardBorder },
+          cardShadow,
+          variant === 'glass' ? { backgroundColor: tint } : { backgroundColor: colors.card },
+        ]}
         onPress={onPress}
         testID="training-score-card"
         activeOpacity={0.85}
       >
+        {variant === 'glass' ? (
+          <BlurView
+            intensity={isDark ? 70 : 40}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -323,6 +339,7 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     gap: 10,
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
@@ -336,13 +353,13 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.8,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.2,
   },
   tier: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.2,
   },
   scoreNumber: {
     fontSize: 44,
@@ -378,22 +395,23 @@ const styles = StyleSheet.create({
   },
   readinessLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.2,
   },
   readinessValue: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.2,
   },
   targetValue: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.2,
   },
   targetTotal: {
     fontSize: 10,
-    fontWeight: '500',
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.2,
   },
   metricsDivider: {
     height: 1,
@@ -415,7 +433,7 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     fontSize: 12,
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Outfit_500Medium',
     letterSpacing: -0.3,
   },
   modalOverlay: {

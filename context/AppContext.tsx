@@ -258,8 +258,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const [targetDuration, setTargetDuration] = useState<number>(60);
   const [restBetweenSets, setRestBetweenSets] = useState<number>(0.5);
   const [warmUp, setWarmUp] = useState<boolean>(true);
-  const [coolDown, setCoolDown] = useState<boolean>(false);
-  const [recovery, setRecovery] = useState<boolean>(true);
+  const [coolDown, setCoolDown] = useState<boolean>(true);
+  const [recovery, setRecovery] = useState<boolean>(false);
   const [addCardio, setAddCardio] = useState<boolean>(false);
   const [coreFinisher, setCoreFinisher] = useState<boolean>(false);
 
@@ -662,8 +662,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setTargetDuration(60);
     setRestBetweenSets(0.5);
     setWarmUp(true);
-    setCoolDown(false);
-    setRecovery(true);
+    setCoolDown(true);
+    setRecovery(false);
     setAddCardio(false);
     setCoreFinisher(false);
     setAppTheme('system');

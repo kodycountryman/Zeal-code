@@ -1,14 +1,19 @@
-import React, { useCallback, useRef, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  Animated,
-  PanResponder,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
+import React, { useCallback, useEffect, memo } from 'react';
+import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Info, ArrowLeftRight, Trash2 } from 'lucide-react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 const BTN_W = 64;
 const REVEAL_W = BTN_W * 3;
@@ -17,315 +22,198 @@ const DELETE_THRESHOLD = REVEAL_W + 80;
 
 interface Props {
   id: string;
-  openId: string | null;
+  isOpen: boolean;
   onOpen: (id: string | null) => void;
   onInfo: () => void;
   onSwap: () => void;
   onDelete: () => void;
   rowBg: string;
+  /**
+   * External gesture that should take priority (eg the list/ScrollView gesture).
+   * We wire this via requireExternalGestureToFail which is the gesture-handler equivalent of waitFor={...}.
+   */
+  waitForGesture?: Parameters<ReturnType<typeof Gesture.Pan>['requireExternalGestureToFail']>[0];
   children: React.ReactNode;
 }
 
-export default function SwipeableExerciseRow({
+function SwipeableExerciseRow({
   id,
-  openId,
+  isOpen,
   onOpen,
   onInfo,
   onSwap,
   onDelete,
   rowBg,
+  waitForGesture,
   children,
 }: Props) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const hardPullProgress = useRef(new Animated.Value(0)).current;
-  const revealProgress = useRef(new Animated.Value(0)).current;
-  const isOpenRef = useRef(false);
-  const isHardRef = useRef(false);
-  const hardHapticFired = useRef(false);
-  const startXRef = useRef(0);
-  const isDraggingRef = useRef(false);
+  const translateX = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const hardPullProgress = useSharedValue(0);
+  const revealProgress = useDerivedValue(() => {
+    const v = Math.abs(translateX.value) / REVEAL_W;
+    return clamp(v, 0, 1);
+  });
+  const isOpenSV = useSharedValue(false);
+  const hardHapticFired = useSharedValue(false);
 
-  const idRef = useRef(id);
-  const onDeleteRef = useRef(onDelete);
-  const onSwapRef = useRef(onSwap);
-  const onInfoRef = useRef(onInfo);
-  const onOpenRef = useRef(onOpen);
-
-  useEffect(() => { idRef.current = id; }, [id]);
-  useEffect(() => { onDeleteRef.current = onDelete; }, [onDelete]);
-  useEffect(() => { onSwapRef.current = onSwap; }, [onSwap]);
-  useEffect(() => { onInfoRef.current = onInfo; }, [onInfo]);
-  useEffect(() => { onOpenRef.current = onOpen; }, [onOpen]);
-
-  const snapClose = useCallback((animated = true) => {
-    isOpenRef.current = false;
+  const closeRow = useCallback((animated = true) => {
+    isOpenSV.value = false;
     if (animated) {
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 24,
-        stiffness: 380,
-        mass: 0.7,
-      }).start();
-      Animated.spring(revealProgress, {
-        toValue: 0,
-        useNativeDriver: false,
-        damping: 24,
-        stiffness: 380,
-        mass: 0.7,
-      }).start();
+      translateX.value = withSpring(0, { damping: 24, stiffness: 380, mass: 0.7 });
     } else {
-      translateX.setValue(0);
-      revealProgress.setValue(0);
+      translateX.value = 0;
     }
-    Animated.timing(hardPullProgress, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: false,
-    }).start();
-  }, [translateX, revealProgress, hardPullProgress]);
+    hardPullProgress.value = withTiming(0, { duration: 150 });
+  }, [hardPullProgress, isOpenSV, translateX]);
 
+  // Snap close when another row opens (isOpen toggled to false externally)
   useEffect(() => {
-    if (openId !== id && isOpenRef.current) {
-      snapClose();
-    }
-  }, [openId, id, snapClose]);
+    if (!isOpen) closeRow(true);
+  }, [isOpen, closeRow]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => isOpenRef.current,
-      onStartShouldSetPanResponderCapture: () => false,
-      onMoveShouldSetPanResponder: (_, { dx, dy }) => {
-        const absDx = Math.abs(dx);
-        const absDy = Math.abs(dy);
-        if (absDy > absDx * 0.6) return false;
-        return absDx > 12 && absDx > absDy * 2;
-      },
-      onMoveShouldSetPanResponderCapture: (_, { dx, dy }) => {
-        const absDx = Math.abs(dx);
-        const absDy = Math.abs(dy);
-        if (absDy > absDx * 0.6) return false;
-        return absDx > 15 && absDx > absDy * 2;
-      },
-      onPanResponderGrant: (_, gestureState) => {
-        hardHapticFired.current = false;
-        isHardRef.current = false;
-        isDraggingRef.current = true;
-        translateX.stopAnimation((val) => {
-          startXRef.current = val;
-        });
-        revealProgress.stopAnimation();
-      },
-      onPanResponderMove: (_, { dx }) => {
-        if (!isDraggingRef.current) return;
-        const raw = startXRef.current + dx;
-        const clamped = Math.min(0, raw);
-        translateX.setValue(clamped);
+  const iconScale = useDerivedValue(() => (
+    interpolate(revealProgress.value, [0, 0.6, 1], [0.4, 1.1, 1], Extrapolation.CLAMP)
+  ));
+  const deleteBg = useDerivedValue(() => (
+    hardPullProgress.value > 0.5 ? '#e53935' : '#c0392b'
+  ));
 
-        const reveal = Math.min(1, Math.max(0, -clamped / REVEAL_W));
-        revealProgress.setValue(reveal);
+  const rowAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+    // Transparent so ambient glow / background shows through the list
+    backgroundColor: 'transparent',
+  }));
 
-        const progress = Math.max(
-          0,
-          Math.min(1, (-clamped - REVEAL_W) / (DELETE_THRESHOLD - REVEAL_W))
-        );
-        hardPullProgress.setValue(progress);
+  const actionsAnimatedStyle = useAnimatedStyle(() => ({
+    // Fade buttons in only as the user swipes — at rest they're invisible
+    opacity: clamp(revealProgress.value * 2, 0, 1),
+  }));
 
-        if (-clamped >= DELETE_THRESHOLD) {
-          if (!hardHapticFired.current) {
-            hardHapticFired.current = true;
-            isHardRef.current = true;
-            if (Platform.OS !== 'web') {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            }
-          }
-        } else {
-          if (isHardRef.current) {
-            isHardRef.current = false;
-            hardHapticFired.current = false;
-          }
-        }
-      },
-      onPanResponderRelease: (_, { dx, vx }) => {
-        isDraggingRef.current = false;
-        const currentX = startXRef.current + dx;
+  const deleteBtnAnimatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: deleteBg.value,
+  }));
 
-        if (isHardRef.current) {
-          if (Platform.OS !== 'web') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          }
-          Animated.timing(translateX, {
-            toValue: -600,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            onDeleteRef.current();
-          });
-          return;
-        }
-
-        if (-currentX > SNAP_THRESHOLD || vx < -0.5) {
-          isOpenRef.current = true;
-          onOpenRef.current(idRef.current);
-          Animated.spring(translateX, {
-            toValue: -REVEAL_W,
-            useNativeDriver: true,
-            damping: 20,
-            stiffness: 360,
-            mass: 0.7,
-          }).start();
-          Animated.spring(revealProgress, {
-            toValue: 1,
-            useNativeDriver: false,
-            damping: 20,
-            stiffness: 360,
-            mass: 0.7,
-          }).start();
-          startXRef.current = -REVEAL_W;
-        } else {
-          isOpenRef.current = false;
-          onOpenRef.current(null);
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 24,
-            stiffness: 400,
-            mass: 0.7,
-          }).start();
-          Animated.spring(revealProgress, {
-            toValue: 0,
-            useNativeDriver: false,
-            damping: 24,
-            stiffness: 400,
-            mass: 0.7,
-          }).start();
-          Animated.timing(hardPullProgress, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: false,
-          }).start();
-          startXRef.current = 0;
-        }
-      },
-      onPanResponderTerminate: () => {
-        isDraggingRef.current = false;
-        isHardRef.current = false;
-        hardHapticFired.current = false;
-        if (isOpenRef.current) {
-          Animated.spring(translateX, {
-            toValue: -REVEAL_W,
-            useNativeDriver: true,
-            damping: 24,
-            stiffness: 380,
-            mass: 0.7,
-          }).start();
-          Animated.spring(revealProgress, {
-            toValue: 1,
-            useNativeDriver: false,
-            damping: 24,
-            stiffness: 380,
-            mass: 0.7,
-          }).start();
-          startXRef.current = -REVEAL_W;
-        } else {
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 24,
-            stiffness: 380,
-            mass: 0.7,
-          }).start();
-          Animated.spring(revealProgress, {
-            toValue: 0,
-            useNativeDriver: false,
-            damping: 24,
-            stiffness: 380,
-            mass: 0.7,
-          }).start();
-          Animated.timing(hardPullProgress, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: false,
-          }).start();
-          startXRef.current = 0;
-        }
-      },
-    })
-  ).current;
-
-  const iconScale = revealProgress.interpolate({
-    inputRange: [0, 0.6, 1],
-    outputRange: [0.4, 1.1, 1],
-  });
-
-  const deleteBg = hardPullProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#c0392b', '#e53935'],
-  });
+  const iconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }));
 
   const handleInfo = useCallback(() => {
-    snapClose();
-    onInfoRef.current();
-  }, [snapClose]);
+    closeRow(true);
+    onInfo();
+  }, [closeRow, onInfo]);
 
   const handleSwap = useCallback(() => {
-    snapClose();
-    onSwapRef.current();
-  }, [snapClose]);
+    closeRow(true);
+    onSwap();
+  }, [closeRow, onSwap]);
 
   const handleDelete = useCallback(() => {
-    onDeleteRef.current();
-  }, []);
+    onDelete();
+  }, [onDelete]);
+
+  const pan = Gesture.Pan()
+    .activeOffsetX([-10, 10]) // locks into horizontal swipe after 10px
+    .failOffsetY([-8, 8]) // fails quickly on vertical movement (closest equivalent to failVerticalPointers)
+    .onBegin(() => {
+      startX.value = translateX.value;
+      hardHapticFired.value = false;
+    })
+    .onUpdate((e) => {
+      const next = Math.min(0, startX.value + e.translationX);
+      translateX.value = next;
+
+      const progress = clamp((Math.abs(next) - REVEAL_W) / (DELETE_THRESHOLD - REVEAL_W), 0, 1);
+      hardPullProgress.value = progress;
+
+      if (Math.abs(next) >= DELETE_THRESHOLD) {
+        if (!hardHapticFired.value) {
+          hardHapticFired.value = true;
+          if (Platform.OS !== 'web') {
+            runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Heavy);
+          }
+        }
+      } else {
+        hardHapticFired.value = false;
+      }
+    })
+    .onEnd((e) => {
+      const currentX = translateX.value;
+      const hardPull = Math.abs(currentX) >= DELETE_THRESHOLD;
+      if (hardPull) {
+        if (Platform.OS !== 'web') {
+          runOnJS(Haptics.notificationAsync)(Haptics.NotificationFeedbackType.Warning);
+        }
+        translateX.value = withTiming(-600, { duration: 200 }, () => {
+          runOnJS(onDelete)();
+        });
+        return;
+      }
+
+      const shouldOpen = Math.abs(currentX) > SNAP_THRESHOLD || e.velocityX < -500;
+      if (shouldOpen) {
+        isOpenSV.value = true;
+        translateX.value = withSpring(-REVEAL_W, { damping: 20, stiffness: 360, mass: 0.7 });
+        runOnJS(onOpen)(id);
+      } else {
+        isOpenSV.value = false;
+        translateX.value = withSpring(0, { damping: 24, stiffness: 400, mass: 0.7 });
+        hardPullProgress.value = withTiming(0, { duration: 200 });
+        runOnJS(onOpen)(null);
+      }
+    });
+
+  if (waitForGesture) {
+    pan.requireExternalGestureToFail(waitForGesture);
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.actions} pointerEvents="box-none">
-        <TouchableOpacity
-          style={styles.infoBtn}
+      <Animated.View style={[styles.actions, actionsAnimatedStyle]} pointerEvents="box-none">
+        <Pressable
+          style={({ pressed }) => [styles.infoBtn, pressed && { opacity: 0.75 }]}
           onPress={handleInfo}
-          activeOpacity={0.75}
         >
-          <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+          <Animated.View style={iconAnimatedStyle}>
             <Info size={20} color="#ffffff" strokeWidth={2.2} />
           </Animated.View>
-        </TouchableOpacity>
+        </Pressable>
 
         <View style={[styles.divider, { left: BTN_W }]} />
 
-        <TouchableOpacity
-          style={styles.swapBtn}
+        <Pressable
+          style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.75 }]}
           onPress={handleSwap}
-          activeOpacity={0.75}
         >
-          <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+          <Animated.View style={iconAnimatedStyle}>
             <ArrowLeftRight size={20} color="#ffffff" strokeWidth={2.2} />
           </Animated.View>
-        </TouchableOpacity>
+        </Pressable>
 
         <View style={[styles.divider, { left: BTN_W * 2 }]} />
 
-        <Animated.View style={[styles.deleteBtn, { backgroundColor: deleteBg }]}>
-          <TouchableOpacity
-            style={styles.deleteBtnInner}
+        <Animated.View style={[styles.deleteBtn, deleteBtnAnimatedStyle]}>
+          <Pressable
+            style={({ pressed }) => [styles.deleteBtnInner, pressed && { opacity: 0.75 }]}
             onPress={handleDelete}
-            activeOpacity={0.75}
           >
-            <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+            <Animated.View style={iconAnimatedStyle}>
               <Trash2 size={20} color="#ffffff" strokeWidth={2.2} />
             </Animated.View>
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
-      </View>
-
-      <Animated.View
-        style={[styles.rowContent, { backgroundColor: rowBg, transform: [{ translateX }] }]}
-        {...panResponder.panHandlers}
-      >
-        {children}
       </Animated.View>
+
+      <GestureDetector gesture={pan}>
+        <Animated.View style={[styles.rowContent, rowAnimatedStyle]}>
+          {children}
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }
+
+export default memo(SwipeableExerciseRow);
 
 const styles = StyleSheet.create({
   container: {

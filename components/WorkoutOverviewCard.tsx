@@ -9,6 +9,8 @@ import {
 import { Sparkles, Clock, Zap } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 import type { WorkoutPlan } from '@/context/AppContext';
+import { BlurView } from 'expo-blur';
+import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 
 const DYNAMIC_LABELS = [
   "TODAY'S FOCUS",
@@ -38,6 +40,7 @@ interface Props {
   onPress?: () => void;
   activePlan?: WorkoutPlan | null;
   onViewPlan?: () => void;
+  variant?: 'solid' | 'glass';
 }
 
 export default function WorkoutOverviewCard({
@@ -49,8 +52,10 @@ export default function WorkoutOverviewCard({
   onPress,
   activePlan,
   onViewPlan,
+  variant = 'solid',
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
+  const styleAccent = workoutStyle ? (WORKOUT_STYLE_COLORS[workoutStyle] ?? accent) : accent;
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -89,23 +94,14 @@ export default function WorkoutOverviewCard({
         elevation: 3,
       };
 
-  const cardBorder = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
   const label = getDynamicLabel();
 
   const isRestDay = title === 'Rest Day';
 
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={onPress ? 0.78 : 1}
-      disabled={!onPress}
-      style={[
-        styles.card,
-        { backgroundColor: colors.card, borderColor: cardBorder },
-        cardShadow,
-      ]}
-      testID="workout-overview-card"
-    >
+  const tint = isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)';
+  const CardContent = (
+    <View style={styles.inner}>
       {activePlan && onViewPlan && (
         <TouchableOpacity
           style={styles.planLink}
@@ -121,7 +117,7 @@ export default function WorkoutOverviewCard({
       <View style={styles.labelRow}>
         <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
         <Animated.View
-          style={[styles.pulseDot, { backgroundColor: accent, opacity: pulseAnim }]}
+          style={[styles.pulseDot, { backgroundColor: styleAccent, opacity: pulseAnim }]}
         />
       </View>
 
@@ -162,6 +158,35 @@ export default function WorkoutOverviewCard({
       )}
 
 
+    </View>
+  );
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={onPress ? 0.78 : 1}
+      disabled={!onPress}
+      style={[
+        styles.card,
+        { borderColor: cardBorder },
+        cardShadow,
+        variant === 'glass' && { backgroundColor: tint },
+        variant !== 'glass' && { backgroundColor: colors.card },
+      ]}
+      testID="workout-overview-card"
+    >
+      {variant === 'glass' ? (
+        <>
+          <BlurView
+            intensity={isDark ? 70 : 40}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          {CardContent}
+        </>
+      ) : (
+        CardContent
+      )}
     </TouchableOpacity>
   );
 }
@@ -173,6 +198,10 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 18,
     borderWidth: 1,
+    gap: 10,
+    overflow: 'hidden',
+  },
+  inner: {
     gap: 10,
   },
   planLink: {
@@ -192,8 +221,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.4,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.2,
   },
   pulseDot: {
     width: 7,
@@ -203,13 +232,13 @@ const styles = StyleSheet.create({
   workoutTitle: {
     fontSize: 30,
     fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.8,
+    letterSpacing: -0.2,
     lineHeight: 34,
     marginTop: -2,
   },
   muscleGroups: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: 'Outfit_300Light',
     letterSpacing: 0.1,
     marginTop: -2,
   },
@@ -229,11 +258,11 @@ const styles = StyleSheet.create({
   },
   metaChipText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: 'Outfit_300Light',
   },
   restSubline: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: 'Outfit_300Light',
     marginTop: -2,
   },
 

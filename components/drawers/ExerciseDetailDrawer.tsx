@@ -16,6 +16,7 @@ import { useWorkoutTracking, type WorkoutLog } from '@/context/WorkoutTrackingCo
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import type { WorkoutExercise } from '@/services/workoutEngine';
+import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -387,6 +388,43 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
     []
   );
 
+  const canonical = useMemo<ZealExercise | null>(() => {
+    if (!exercise) return null;
+    try {
+      const db = getZealExerciseDatabase();
+      const id = (exercise.exerciseRef?.id ?? '').trim();
+      const name = (exercise.name ?? '').trim().toLowerCase();
+      if (id) {
+        const byId = db.find((e) => e.id === id) ?? null;
+        if (byId) return byId;
+      }
+      // Exact name or alias match
+      const byName =
+        db.find((e) => e.name.trim().toLowerCase() === name) ??
+        db.find((e) => (e.aliases ?? []).some((a) => a.trim().toLowerCase() === name)) ??
+        null;
+      if (byName) return byName;
+      // Fallback: strip parentheticals and equipment qualifiers then retry
+      // e.g. "Standing Overhead Press (Barbell)" → "standing overhead press"
+      const nameNoParens = name.replace(/\s*\([^)]*\)/g, '').trim();
+      if (nameNoParens && nameNoParens !== name) {
+        const byStripped =
+          db.find((e) => e.name.trim().toLowerCase() === nameNoParens) ??
+          db.find((e) => (e.aliases ?? []).some((a) => a.trim().toLowerCase() === nameNoParens)) ??
+          null;
+        if (byStripped) return byStripped;
+      }
+      // Final fallback: substring contains match (e.g. "Cable Tricep Rope Pushdown" ⊃ "Cable Tricep Pushdown")
+      const byContains =
+        db.find((e) => name.includes(e.name.trim().toLowerCase())) ??
+        db.find((e) => (e.aliases ?? []).some((a) => name.includes(a.trim().toLowerCase()))) ??
+        null;
+      return byContains;
+    } catch {
+      return null;
+    }
+  }, [exercise?.exerciseRef?.id, exercise?.name]);
+
   if (!exercise) return null;
 
   const ref = exercise.exerciseRef;
@@ -443,7 +481,9 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
       >
         {/* ── Animation ── */}
         <ExerciseAnimationView
-          exerciseName={exercise.name}
+          exerciseName={canonical?.name ?? exercise.name}
+          exerciseId={canonical?.id ?? exercise.exerciseRef?.id}
+          aliases={canonical?.aliases}
           cardBg={colors.card}
         />
 

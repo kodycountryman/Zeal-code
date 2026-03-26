@@ -180,7 +180,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
     const db = getExerciseDatabase();
     return db.filter(ex =>
       ex.name.toLowerCase().includes(q) ||
-      (ex.primary_muscles ?? []).some((m: string) => m.toLowerCase().replace(/_/g, ' ').includes(q))
+      (ex.primaryMuscles ?? []).some((m: string) => m.toLowerCase().replace(/_/g, ' ').includes(q))
     ).slice(0, 15);
   }, [search]);
 

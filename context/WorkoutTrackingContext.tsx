@@ -3,9 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useAppContext } from '@/context/AppContext';
+import { useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 import { healthService } from '@/services/healthService';
+import { generateWorkoutAsync, generateCoreFinisher } from '@/services/aiWorkoutGenerator';
+import { generateWorkout } from '@/services/workoutEngine';
+import { PRO_STYLES_SET } from '@/services/proGate';
+import { useSubscription } from '@/context/SubscriptionContext';
 import {
   showRestTimerNotification,
   dismissRestTimerNotification,
@@ -254,6 +258,7 @@ function getSuggestedWeight(
 
 export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook(() => {
   const ctx = useAppContext();
+  const { hasPro, proStatusReady } = useSubscription();
 
   const [isWorkoutActive, setIsWorkoutActive] = useState<boolean>(false);
   const [_workoutStartTime, setWorkoutStartTime] = useState<number>(0);
@@ -284,6 +289,162 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
   const [activeWorkout, setActiveWorkout] = useState<GeneratedWorkout | null>(null);
   const [currentGeneratedWorkout, setCurrentGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
+  const [isGeneratingWorkout, setIsGeneratingWorkout] = useState(false);
+  const generatedForDateRef = useRef<string | null>(null);
+  const generationReqIdRef = useRef(0);
+  const generationInFlightRef = useRef(false);
+  const proWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
+    const readinessMap: Record<string, number> = {};
+    for (const m of muscleReadiness) readinessMap[m.name] = m.value;
+
+    const avg = (muscles: string[]) => {
+      const vals = muscles.map(m => readinessMap[m] ?? 80);
+      return vals.reduce((a, b) => a + b, 0) / vals.length;
+    };
+
+    const pushScore = avg(['Chest', 'Shoulders', 'Triceps']);
+    const pullScore = avg(['Back', 'Biceps']);
+    const legsScore = avg(['Quads', 'Hamstrings', 'Glutes', 'Calves']);
+
+    if (pushScore >= pullScore && pushScore >= legsScore) return 'Push';
+    if (pullScore > pushScore && pullScore >= legsScore) return 'Pull';
+    return 'Legs';
+  }
+
+  const ensureTodayWorkoutGenerated = useCallback(() => {
+    // Re-entrancy guard for quick tab presses.
+    if (isGeneratingWorkout) return;
+    if (generationInFlightRef.current) return;
+    if (isWorkoutActive) return;
+
+    // Avoid generating with a wrong entitlement snapshot on fresh open.
+    if (!proStatusReady) {
+      if (!proWaitTimerRef.current) {
+        proWaitTimerRef.current = setTimeout(() => {
+          proWaitTimerRef.current = null;
+          ensureTodayWorkoutGenerated();
+        }, 250);
+      }
+      return;
+    }
+
+    const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+    // If we already have a populated workout for this session, don't regenerate.
+    if (currentGeneratedWorkout) return;
+
+    const ov = ctx.workoutOverride;
+    const todayPrescription = ctx.getTodayPrescription();
+    const lm = ctx.lastModifyState;
+    const hasPlan = !!ctx.activePlan;
+
+    // Mimic the effective-params logic from the Workout tab.
+    let effectiveStyle = ov?.style ?? (
+      hasPlan && todayPrescription?.style
+        ? todayPrescription.style
+        : (lm?.style ?? ctx.workoutStyle)
+    );
+    const rawSplit = ov?.split ?? (
+      hasPlan && todayPrescription?.session_type
+        ? todayPrescription.session_type
+        : (lm?.split ?? ctx.trainingSplit)
+    );
+    const effectiveSplit = rawSplit === 'Push, Pull, Legs'
+      ? resolvePushPullLegs(ctx.muscleReadiness)
+      : rawSplit;
+    const effectiveDuration = ov?.duration ?? (
+      hasPlan && todayPrescription?.target_duration
+        ? todayPrescription.target_duration
+        : (lm?.duration ?? ctx.targetDuration)
+    );
+    const effectiveRest = ov?.rest ?? (lm?.rest ?? ctx.restBetweenSets);
+    const effectiveMuscles = hasPlan ? [] : (lm?.muscles ?? []);
+
+    if (!hasPro && PRO_STYLES_SET.has(effectiveStyle)) {
+      effectiveStyle = 'Strength';
+    }
+
+    const prescription = (!ov && hasPlan) ? todayPrescription : null;
+
+    const params = {
+      style: effectiveStyle,
+      split: effectiveSplit,
+      targetDuration: effectiveDuration,
+      restSlider: effectiveRest,
+      availableEquipment: ctx.selectedEquipment,
+      fitnessLevel: ctx.fitnessLevel,
+      sex: ctx.sex,
+      specialLifeCase: ctx.specialLifeCase,
+      specialLifeCaseDetail: ctx.specialLifeCaseDetail,
+      warmUp: ctx.warmUp,
+      coolDown: ctx.coolDown,
+      recovery: ctx.recovery,
+      addCardio: ctx.addCardio,
+      specificMuscles: effectiveMuscles,
+      seedOffset: 0,
+    } as const;
+
+    const reqId = ++generationReqIdRef.current;
+    generationInFlightRef.current = true;
+    setIsGeneratingWorkout(true);
+
+    const aiPromise = (async (): Promise<GeneratedWorkout> => {
+      try {
+        let w = await generateWorkoutAsync(params as any, prescription, hasPro);
+        if (ctx.coreFinisher) {
+          try {
+            const coreExercises = await Promise.race([
+              generateCoreFinisher({
+                fitnessLevel: ctx.fitnessLevel,
+                sex: ctx.sex,
+                availableEquipment: ctx.selectedEquipment,
+              }),
+              new Promise<WorkoutExercise[]>((_, reject) => {
+                setTimeout(() => reject(new Error('core finisher timeout')), 5000);
+              }),
+            ]);
+            w = { ...w, coreFinisher: coreExercises };
+          } catch (err) {
+            console.log('[WorkoutTracking] Core finisher failed, skipping:', err);
+          }
+        }
+        return w;
+      } catch (err) {
+        console.log('[WorkoutTracking] Generation failed, falling back:', err);
+        return generateWorkout(params as any, prescription);
+      }
+    })();
+
+    const timeoutPromise = new Promise<GeneratedWorkout>((resolve) => {
+      setTimeout(() => {
+        resolve(generateWorkout(params as any, prescription));
+      }, 20000);
+    });
+
+    Promise.race([aiPromise, timeoutPromise])
+      .then((w) => {
+        if (generationReqIdRef.current !== reqId) return;
+        generatedForDateRef.current = todayStr;
+        setCurrentGeneratedWorkout(w);
+        ctx.setCurrentWorkoutTitle(w.split);
+      })
+      .catch((err) => {
+        console.log('[WorkoutTracking] ensureTodayWorkoutGenerated error:', err);
+      })
+      .finally(() => {
+        if (generationReqIdRef.current !== reqId) return;
+        generationInFlightRef.current = false;
+        setIsGeneratingWorkout(false);
+      });
+  }, [
+    isGeneratingWorkout,
+    isWorkoutActive,
+    currentGeneratedWorkout,
+    ctx,
+    hasPro,
+    proStatusReady,
+  ]);
 
   const [logPreviousVisible, setLogPreviousVisible] = useState<boolean>(false);
   const [calendarModalVisible, setCalendarModalVisible] = useState<boolean>(false);
@@ -1198,6 +1359,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     activeWorkout,
     currentGeneratedWorkout,
     setCurrentGeneratedWorkout,
+    isGeneratingWorkout,
+    ensureTodayWorkoutGenerated,
     logPreviousVisible,
     setLogPreviousVisible,
     calendarModalVisible,
@@ -1268,6 +1431,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     selectedLogId, selectedLog, completedExerciseCount, liveTrainingScore,
     readinessPercent, weeklyHoursMin, todayLogs,
     currentGeneratedWorkout, setCurrentGeneratedWorkout,
+    isGeneratingWorkout, ensureTodayWorkoutGenerated,
     startWorkout, pauseWorkout, resetWorkout, startRestTimer, adjustRestTimer,
     setRestPreset, cancelRestTimer, initExerciseLog, updateSetLog,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,

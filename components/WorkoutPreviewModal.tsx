@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import {
   X,
@@ -61,6 +62,7 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
   const tracking = useWorkoutTracking();
 
   const workout = tracking.currentGeneratedWorkout;
+  const isGenerating = tracking.isGeneratingWorkout && !workout;
   const grouped = workout ? groupExercises(workout.workout) : [];
   const warmupCount = workout?.warmup?.length ?? 0;
   const exerciseCount = workout?.workout?.length ?? 0;
@@ -152,17 +154,32 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
             <View style={[styles.emptyIcon, { backgroundColor: `${accent}14` }]}>
               <Dumbbell size={28} color={accent} />
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Workout not generated yet</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>Head to the Workout tab to generate today's session</Text>
-            <TouchableOpacity
-              style={[styles.goBtn, { backgroundColor: accent }]}
-              onPress={handleGoToWorkout}
-              activeOpacity={0.85}
-              testID="preview-go-to-workout-empty"
-            >
-              <Text style={styles.goBtnText}>Go to Workout</Text>
-              <ChevronRight size={16} color="#fff" />
-            </TouchableOpacity>
+
+            {isGenerating ? (
+              <>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>Building your workout...</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                  Tailoring to your goals & equipment
+                </Text>
+                <ActivityIndicator style={{ marginTop: 10 }} color={accent} />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>Workout not generated yet</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                  Head to the Workout tab to generate today's session
+                </Text>
+                <TouchableOpacity
+                  style={[styles.goBtn, { backgroundColor: accent }]}
+                  onPress={handleGoToWorkout}
+                  activeOpacity={0.85}
+                  testID="preview-go-to-workout-empty"
+                >
+                  <Text style={styles.goBtnText}>Go to Workout</Text>
+                  <ChevronRight size={16} color="#fff" />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         ) : (
           <>

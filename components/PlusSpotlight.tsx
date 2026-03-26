@@ -221,10 +221,18 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
                 onPress={onStartPlan}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.startBtnText, { color: getContrastTextColor(accent) }]}>
+                <Text
+                  style={[
+                    styles.startBtnText,
+                    styles.startBtnTextCentered,
+                    { color: getContrastTextColor(accent) },
+                  ]}
+                >
                   Start a Plan
                 </Text>
-                <ArrowRight size={16} color={getContrastTextColor(accent)} strokeWidth={2.5} />
+                <View style={styles.startBtnArrow}>
+                  <ArrowRight size={16} color={getContrastTextColor(accent)} strokeWidth={2.5} />
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -329,7 +337,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    position: 'relative',
     borderRadius: 16,
     paddingVertical: 16,
     shadowOffset: { width: 0, height: 4 },
@@ -341,6 +349,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 0.2,
+  },
+  startBtnTextCentered: {
+    flex: 1,
+    textAlign: 'center',
+    paddingHorizontal: 18,
+  },
+  startBtnArrow: {
+    position: 'absolute',
+    right: 18,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   laterBtn: {
     borderRadius: 14,

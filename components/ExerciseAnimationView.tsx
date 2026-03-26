@@ -49,11 +49,19 @@ function getUrl(folder: string, index: 0 | 1): string {
 
 interface Props {
   exerciseName: string;
+  exerciseId?: string;
+  aliases?: string[];
   cardBg: string;
 }
 
-export default function ExerciseAnimationView({ exerciseName, cardBg }: Props) {
-  const variants = nameVariants(exerciseName);
+export default function ExerciseAnimationView({ exerciseName, exerciseId, aliases, cardBg }: Props) {
+  const candidates = [
+    exerciseName,
+    ...(exerciseId ? [exerciseId] : []),
+    ...(aliases ?? []),
+  ].filter(Boolean) as string[];
+
+  const variants = [...new Set(candidates.flatMap((c) => nameVariants(c)))];
   const [variantIdx, setVariantIdx] = useState(0);
   const [img0Loaded, setImg0Loaded] = useState(false);
   const [img1Loaded, setImg1Loaded] = useState(false);

@@ -283,6 +283,8 @@ export const STYLE_ENGINE_CONFIGS: Record<string, StyleEngineConfig> = {
     pattern_priority: ['push', 'pull', 'squat', 'hinge', 'isolation'],
   },
   crossfit: {
+    rep_range_override: { min: 5, max: 15 },
+    set_range_override: { min: 3, max: 5 },
     allow_supersets: false,
     superset_min: 0,
     superset_max: 0,

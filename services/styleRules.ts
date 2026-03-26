@@ -1025,7 +1025,8 @@ export function getAMRAPParams(
   timeBudgetMinutes: number,
   fitnessLevel: FitnessLevel,
 ): { time_cap_minutes: number; target_exercises: number } {
-  const cap = Math.min(20, Math.max(6, timeBudgetMinutes));
+  // AMRAP rarely exceeds 25 min even in long sessions — athletes need to sustain max effort
+  const cap = Math.min(25, Math.max(6, timeBudgetMinutes));
   const target = fitnessLevel === 'beginner' ? 3
     : fitnessLevel === 'intermediate' ? 4
     : 5;
@@ -1036,7 +1037,8 @@ export function getEMOMParams(
   timeBudgetMinutes: number,
   fitnessLevel: FitnessLevel,
 ): { total_minutes: number; exercises_per_rotation: number } {
-  const total = Math.min(20, Math.max(8, timeBudgetMinutes));
+  // EMOM minutes = rounds; cap at 24 to keep intensity sustainable
+  const total = Math.min(24, Math.max(8, timeBudgetMinutes));
   const exercises = fitnessLevel === 'beginner' ? 2
     : fitnessLevel === 'intermediate' ? 3
     : 4;
@@ -1046,20 +1048,26 @@ export function getEMOMParams(
 export function getRFTParams(
   fitnessLevel: FitnessLevel,
   rng: () => number,
+  timeBudgetMinutes?: number,
 ): { rounds: number; time_cap_minutes: number } {
   const baseRounds = fitnessLevel === 'beginner' ? 3
     : fitnessLevel === 'intermediate' ? 4
     : 5;
   const rounds = baseRounds + Math.floor(rng() * 2);
-  return { rounds, time_cap_minutes: 20 };
+  // Scale time cap with the session's metcon budget (clamp to sane RFT range 12–35 min)
+  const cap = timeBudgetMinutes != null
+    ? Math.max(12, Math.min(35, timeBudgetMinutes))
+    : 20;
+  return { rounds, time_cap_minutes: cap };
 }
 
 export function getChipperParams(
   fitnessLevel: FitnessLevel,
-): { min_exercises: number; max_exercises: number; min_reps: number; max_reps: number } {
-  if (fitnessLevel === 'beginner') return { min_exercises: 6, max_exercises: 7, min_reps: 10, max_reps: 20 };
-  if (fitnessLevel === 'intermediate') return { min_exercises: 7, max_exercises: 8, min_reps: 15, max_reps: 30 };
-  return { min_exercises: 8, max_exercises: 10, min_reps: 20, max_reps: 50 };
+): { min_exercises: number; max_exercises: number; min_reps: number; max_reps: number; min_time_cap: number; max_time_cap: number } {
+  // Chipper: one pass through a long list; reps are high since each movement is done only once
+  if (fitnessLevel === 'beginner') return { min_exercises: 5, max_exercises: 7, min_reps: 10, max_reps: 20, min_time_cap: 12, max_time_cap: 22 };
+  if (fitnessLevel === 'intermediate') return { min_exercises: 6, max_exercises: 8, min_reps: 15, max_reps: 30, min_time_cap: 15, max_time_cap: 30 };
+  return { min_exercises: 7, max_exercises: 10, min_reps: 20, max_reps: 50, min_time_cap: 18, max_time_cap: 40 };
 }
 
 export function getLadderParams(
