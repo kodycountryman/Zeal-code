@@ -21,6 +21,7 @@ import {
   Animated as RNAnimated,
   PanResponder,
   InteractionManager,
+  TextInput,
   type ViewStyle,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -76,6 +77,7 @@ import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 import ModifyWorkoutDrawer from '@/components/drawers/ModifyWorkoutDrawer';
 import AddToWorkoutSheet, { type AddMode } from '@/components/AddToWorkoutSheet';
 import SwipeableExerciseRow from '@/components/SwipeableExerciseRow';
+import SwipeableSetRow from '@/components/SwipeableSetRow';
 import ExerciseDetailDrawer from '@/components/drawers/ExerciseDetailDrawer';
 import AthleteProfileDrawer from '@/components/drawers/AthleteProfileDrawer';
 import AboutMeDrawer from '@/components/drawers/AboutMeDrawer';
@@ -538,6 +540,8 @@ export default function WorkoutScreen() {
   const [coreStyleBannerDismissed, setCoreStyleBannerDismissed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
+  const [logEditMode, setLogEditMode] = useState(false);
+  const [swipeOpenSetKey, setSwipeOpenSetKey] = useState<string | null>(null);
   const [swapTargetExercise, setSwapTargetExercise] = useState<WorkoutExercise | null>(null);
   const [addSheetMuscleFilter, setAddSheetMuscleFilter] = useState<string>('');
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -1188,6 +1192,8 @@ export default function WorkoutScreen() {
       chipExpandHeight.value = CHIP_H;
     }
     setExpandedTrack((prev) => prev === exId ? null : exId);
+    setLogEditMode(false);
+    setSwipeOpenSetKey(null);
   }, [tracking]);
 
   const openChip = useCallback((cell: { exId: string; setIdx: number; field: 'weight' | 'reps' }) => {
@@ -1723,6 +1729,18 @@ export default function WorkoutScreen() {
         reps: metricDefault,
         done: false,
       }));
+      const lastSets = tracking.getLastSetsForExercise(ex.name);
+      const panelTitle = isCaloriesMovement ? 'Log calories'
+        : isHoldForTime ? 'Log holds'
+        : isDistanceOnly ? 'Log distance'
+        : isWeightDistance ? 'Log carries'
+        : isRepsOnly ? 'Log reps'
+        : 'Log sets';
+      const formatHoldTime = (s: number): string => {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `${sec}s`;
+      };
       return (
         <View style={[
           styles.trackPanel,
@@ -1737,12 +1755,27 @@ export default function WorkoutScreen() {
           ]}>
             <View style={styles.trackPanelHeader}>
               <View style={styles.trackPanelTitleRow}>
-                <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>Log sets</Text>
+                <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>{panelTitle}</Text>
+                {isRepsOnly && (
+                  <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '500' as const }}>Bodyweight</Text>
+                  </View>
+                )}
                 {setsData.length > 0 && (
                   <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '500' as const }}>
                     {setsData.filter(s => s.done).length}/{setsData.length}
                   </Text>
                 )}
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity
+                  onPress={() => { setLogEditMode(e => !e); setSwipeOpenSetKey(null); }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={{ fontSize: 12, color: logEditMode ? currentAccent : colors.textSecondary, fontWeight: '500' as const }}>
+                    {logEditMode ? 'Done' : 'Edit'}
+                  </Text>
+                </TouchableOpacity>
               </View>
               {!isRepsOnly && !isWeightDistance && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && suggestion.lastWeight > 0 && (
                 <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
@@ -1777,18 +1810,17 @@ export default function WorkoutScreen() {
             </View>
 
             <View style={styles.trackTableHeader}>
-              <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
+              <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>set</Text>
               {!isRepsOnly && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && (
                 <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
-                  {`WEIGHT${isDumbbell ? ' ea.' : ''}`}
+                  {`weight${isDumbbell ? ' ea.' : ''}`}
                 </Text>
               )}
               <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
-                {isHoldForTime ? 'TIME (SEC)' : isCaloriesMovement ? 'CALS' : (isDistanceOnly || isWeightDistance) ? 'DIST (M)' : 'REPS'}
+                {isHoldForTime ? 'time (mm:ss)' : isCaloriesMovement ? 'cals' : (isDistanceOnly || isWeightDistance) ? 'dist (m)' : 'reps'}
               </Text>
               <View style={{ flex: 1 }} />
-              <View style={styles.trackDoneColSpacer} />
-              <View style={styles.trackRemoveSpacer} />
+              <View style={{ width: 32 }} />
             </View>
 
             {setsData.map((set, setIdx) => {
@@ -1801,15 +1833,62 @@ export default function WorkoutScreen() {
                 : isCaloriesMovement ? CALORIES_VALUES
                 : (isDistanceOnly || isWeightDistance) ? DISTANCE_VALUES_METERS
                 : REPS_VALUES;
+              const setKey = `${ex.id}_${setIdx}`;
+              const chipBg = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
               return (
-                <View key={setIdx} style={styles.trackSetRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, opacity: set.done ? 0.4 : 1 }}>
-                    <Text style={[styles.trackSetNumCol, { color: colors.textMuted, fontSize: 16, fontWeight: '700' as const, textAlign: 'center' as const }]}>
-                      {set.setNumber}
-                    </Text>
-                    {hasWeight && (
+                <SwipeableSetRow
+                  key={setIdx}
+                  id={setKey}
+                  isOpen={swipeOpenSetKey === setKey}
+                  onOpen={setSwipeOpenSetKey}
+                  onDelete={() => tracking.removeSet(ex.id, setIdx)}
+                  waitForGesture={scrollGesture}
+                >
+                  <View style={styles.trackSetRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, opacity: set.done ? 0.4 : 1 }}>
+                      <Text style={[styles.trackSetNumCol, { color: colors.textMuted, fontSize: 16, fontWeight: '700' as const, textAlign: 'center' as const }]}>
+                        {set.setNumber}
+                      </Text>
+                      {hasWeight && (
+                        <TouchableOpacity
+                          onPress={() => isWeightActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'weight' })}
+                          activeOpacity={0.85}
+                          style={{ flex: 1, maxWidth: 110 }}
+                        >
+                          <Animated.View
+                            style={[
+                              {
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: isWeightActive ? `${currentAccent}88` : `${colors.textMuted}35`,
+                                backgroundColor: isWeightActive ? chipBg : chipBg,
+                                alignItems: 'center' as const,
+                                justifyContent: 'center' as const,
+                              },
+                              isWeightActive ? chipExpandStyle : { height: CHIP_H },
+                            ]}
+                          >
+                            {isWeightActive ? (
+                              <WheelPicker
+                                values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
+                                selectedValue={set.weight}
+                                onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
+                                textColor={colors.text}
+                                mutedColor={mutedWheelColor}
+                                accentColor={currentAccent}
+                                bgColor={isDark ? '#1c1c1c' : '#f0f0f0'}
+                                visibleItems={3}
+                              />
+                            ) : (
+                              <Text style={[styles.trackValueChipText, { color: colors.text }]}>
+                                {set.weight}
+                              </Text>
+                            )}
+                          </Animated.View>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
-                        onPress={() => isWeightActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'weight' })}
+                        onPress={() => isRepsActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'reps' })}
                         activeOpacity={0.85}
                         style={{ flex: 1, maxWidth: 110 }}
                       >
@@ -1818,94 +1897,77 @@ export default function WorkoutScreen() {
                             {
                               borderRadius: 12,
                               borderWidth: 1,
-                              borderColor: isWeightActive ? `${currentAccent}88` : `${colors.textMuted}28`,
-                              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                              borderColor: isRepsActive ? `${currentAccent}88` : `${colors.textMuted}35`,
+                              backgroundColor: chipBg,
                               alignItems: 'center' as const,
                               justifyContent: 'center' as const,
                             },
-                            isWeightActive ? chipExpandStyle : { height: CHIP_H },
+                            isRepsActive ? chipExpandStyle : { height: CHIP_H },
                           ]}
                         >
-                          {isWeightActive ? (
+                          {isRepsActive ? (
                             <WheelPicker
-                              values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
-                              selectedValue={set.weight}
-                              onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
+                              values={repsPickerValues}
+                              selectedValue={set.reps}
+                              onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
                               textColor={colors.text}
                               mutedColor={mutedWheelColor}
                               accentColor={currentAccent}
                               bgColor={isDark ? '#1c1c1c' : '#f0f0f0'}
                               visibleItems={3}
+                              formatValue={isHoldForTime ? formatHoldTime : undefined}
                             />
                           ) : (
                             <Text style={[styles.trackValueChipText, { color: colors.text }]}>
-                              {set.weight}
+                              {isHoldForTime ? formatHoldTime(set.reps) : set.reps}
                             </Text>
                           )}
                         </Animated.View>
                       </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      onPress={() => isRepsActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'reps' })}
-                      activeOpacity={0.85}
-                      style={{ flex: 1, maxWidth: 110 }}
-                    >
-                      <Animated.View
-                        style={[
-                          {
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: isRepsActive ? `${currentAccent}88` : `${colors.textMuted}28`,
-                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                            alignItems: 'center' as const,
-                            justifyContent: 'center' as const,
-                          },
-                          isRepsActive ? chipExpandStyle : { height: CHIP_H },
-                        ]}
-                      >
-                        {isRepsActive ? (
-                          <WheelPicker
-                            values={repsPickerValues}
-                            selectedValue={set.reps}
-                            onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                            textColor={colors.text}
-                            mutedColor={mutedWheelColor}
-                            accentColor={currentAccent}
-                            bgColor={isDark ? '#1c1c1c' : '#f0f0f0'}
-                            visibleItems={3}
-                          />
-                        ) : (
-                          <Text style={[styles.trackValueChipText, { color: colors.text }]}>
-                            {set.reps}
+                      {(() => {
+                        const prev = lastSets[setIdx];
+                        if (!prev || !prev.done) return <View style={{ flex: 1 }} />;
+                        const label = hasWeight
+                          ? `${prev.weight} × ${prev.reps}`
+                          : isHoldForTime
+                          ? formatHoldTime(prev.reps)
+                          : `${prev.reps}`;
+                        return (
+                          <Text style={{ flex: 1, fontSize: 11, color: colors.textMuted, opacity: 0.55, textAlign: 'right', paddingRight: 4, fontFamily: 'Outfit_400Regular' }} numberOfLines={1}>
+                            {label}
                           </Text>
-                        )}
-                      </Animated.View>
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }} />
+                        );
+                      })()}
+                    </View>
+                    {logEditMode ? (
+                      setsData.length > 1 ? (
+                        <TouchableOpacity
+                          onPress={() => tracking.removeSet(ex.id, setIdx)}
+                          style={styles.trackSetDoneBtn}
+                          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                          activeOpacity={0.6}
+                        >
+                          <Minus size={15} color="#ef4444" />
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.trackSetDoneBtn} />
+                      )
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleToggleSet(ex.id, setIdx, ex)}
+                        activeOpacity={0.7}
+                        style={[styles.trackSetDoneBtn, {
+                          borderColor: set.done ? '#22c55e' : `${colors.textMuted}40`,
+                          backgroundColor: set.done
+                            ? 'rgba(34,197,94,0.15)'
+                            : (isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
+                        }]}
+                      >
+                        <Check size={15} color={set.done ? '#22c55e' : colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  <TouchableOpacity
-                    onPress={() => handleToggleSet(ex.id, setIdx, ex)}
-                    activeOpacity={0.7}
-                    style={[styles.trackSetDoneBtn, {
-                      borderColor: set.done ? '#22c55e' : `${colors.textMuted}55`,
-                      backgroundColor: set.done ? 'rgba(34,197,94,0.15)' : 'transparent',
-                    }]}
-                  >
-                    <Check size={15} color={set.done ? '#22c55e' : colors.textMuted} />
-                  </TouchableOpacity>
-                  {setsData.length > 1 ? (
-                    <TouchableOpacity
-                      onPress={() => tracking.removeSet(ex.id, setIdx)}
-                      style={styles.trackRemoveBtn}
-                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                      activeOpacity={0.6}
-                    >
-                      <Minus size={15} color="#ef4444" />
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.trackRemoveSpacer} />
-                  )}
-                </View>
+                </SwipeableSetRow>
               );
             })}
 
@@ -1913,11 +1975,12 @@ export default function WorkoutScreen() {
               <TouchableOpacity
                 onPress={() => handleExerciseTap(ex)}
                 activeOpacity={0.7}
-                style={styles.logSetsGuideBtn}
+                style={[styles.trackBtn, { borderColor: colors.border }]}
               >
                 <Clipboard size={11} color={colors.textSecondary} />
-                <Text style={[styles.logSetsGuideBtnText, { color: colors.textSecondary }]}>Guide</Text>
+                <Text style={[styles.trackBtnText, { color: colors.textSecondary }]}>Guide</Text>
               </TouchableOpacity>
+              <View style={{ flex: 1 }} />
               <TouchableOpacity
                 onPress={() => tracking.addSet(ex.id)}
                 activeOpacity={0.7}
@@ -1926,25 +1989,31 @@ export default function WorkoutScreen() {
                 <Plus size={11} color={colors.textSecondary} />
                 <Text style={[styles.trackBtnText, { color: colors.textSecondary }]}>Add Set</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.trackDoneBtn,
-                  isCompleted
-                    ? { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.1)' }
-                    : { backgroundColor: accent, borderColor: accent },
-                ]}
-                onPress={() => {
-                  closeChip();
-                  setsData.forEach((set, idx) => {
-                    if (!set.done) tracking.markSetDone(ex.id, idx, 0);
-                  });
-                  handleMarkExerciseDone(ex.id, ex);
-                }}
-                activeOpacity={0.8}
-              >
-                <Check size={10} color={isCompleted ? colors.textMuted : '#fff'} />
-                <Text style={[styles.trackDoneBtnText, { color: isCompleted ? colors.textMuted : '#fff' }]}>{isCompleted ? 'Completed' : 'Complete'}</Text>
-              </TouchableOpacity>
+              {isCompleted ? (
+                <TouchableOpacity
+                  style={[styles.trackDoneBtn, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.1)' }]}
+                  onPress={() => tracking.unmarkExerciseComplete(ex.id)}
+                  activeOpacity={0.8}
+                >
+                  <RotateCcw size={10} color={colors.textMuted} />
+                  <Text style={[styles.trackDoneBtnText, { color: colors.textMuted }]}>Undo</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.trackDoneBtn, { backgroundColor: accent, borderColor: accent }]}
+                  onPress={() => {
+                    closeChip();
+                    setsData.forEach((set, idx) => {
+                      if (!set.done) tracking.markSetDone(ex.id, idx, 0);
+                    });
+                    handleMarkExerciseDone(ex.id, ex);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Check size={10} color="#fff" />
+                  <Text style={[styles.trackDoneBtnText, { color: '#fff' }]}>Complete</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -1959,21 +2028,38 @@ export default function WorkoutScreen() {
             <View style={styles.trackResultRow}>
               <View style={styles.trackResultField}>
                 <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>TIME / CAP</Text>
-                <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                  <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.timeCap ?? '12:30'}</Text>
-                </View>
+                <TextInput
+                  style={[styles.trackInputWrapLarge, styles.trackInputTextLg, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0', color: colors.text }]}
+                  value={log?.timeCap ?? ''}
+                  placeholder="12:30"
+                  placeholderTextColor={colors.textMuted}
+                  onChangeText={(v) => tracking.updateExerciseResult(ex.id, 'timeCap', v)}
+                  keyboardType="numbers-and-punctuation"
+                  returnKeyType="done"
+                />
               </View>
               <View style={styles.trackResultField}>
                 <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>SCORE / ROUNDS</Text>
-                <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                  <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.scoreRounds ?? ''}</Text>
-                </View>
+                <TextInput
+                  style={[styles.trackInputWrapLarge, styles.trackInputTextLg, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0', color: colors.text }]}
+                  value={log?.scoreRounds ?? ''}
+                  placeholder="e.g. 5+2"
+                  placeholderTextColor={colors.textMuted}
+                  onChangeText={(v) => tracking.updateExerciseResult(ex.id, 'scoreRounds', v)}
+                  returnKeyType="done"
+                />
               </View>
             </View>
             <Text style={[styles.trackFieldLabel, { color: colors.textMuted, marginTop: 8 }]}>NOTES (OPTIONAL)</Text>
-            <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-              <Text style={[styles.trackInputTextLg, { color: colors.textMuted }]}>{log?.notes ?? 'Rx / Scaled, notes...'}</Text>
-            </View>
+            <TextInput
+              style={[styles.trackInputWrapLarge, styles.trackInputTextLg, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0', color: colors.text }]}
+              value={log?.notes ?? ''}
+              placeholder="Rx / Scaled, notes..."
+              placeholderTextColor={colors.textMuted}
+              onChangeText={(v) => tracking.updateExerciseResult(ex.id, 'notes', v)}
+              multiline
+              returnKeyType="default"
+            />
             <TouchableOpacity
               style={[styles.trackSaveBtn, { backgroundColor: isCrossFit ? '#06b6d4' : '#60a5fa' }]}
               onPress={() => handleMarkExerciseDone(ex.id, ex)}
@@ -1998,15 +2084,27 @@ export default function WorkoutScreen() {
             <View style={styles.trackResultRow}>
               <View style={styles.trackResultField}>
                 <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>DURATION (MM:SS)</Text>
-                <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                  <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.duration ?? '30:00'}</Text>
-                </View>
+                <TextInput
+                  style={[styles.trackInputWrapLarge, styles.trackInputTextLg, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0', color: colors.text }]}
+                  value={log?.duration ?? ''}
+                  placeholder="30:00"
+                  placeholderTextColor={colors.textMuted}
+                  onChangeText={(v) => tracking.updateExerciseResult(ex.id, 'duration', v)}
+                  keyboardType="numbers-and-punctuation"
+                  returnKeyType="done"
+                />
               </View>
               <View style={styles.trackResultField}>
                 <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>DISTANCE (KM)</Text>
-                <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                  <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.distance ?? '5.0'}</Text>
-                </View>
+                <TextInput
+                  style={[styles.trackInputWrapLarge, styles.trackInputTextLg, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0', color: colors.text }]}
+                  value={log?.distance ?? ''}
+                  placeholder="5.0"
+                  placeholderTextColor={colors.textMuted}
+                  onChangeText={(v) => tracking.updateExerciseResult(ex.id, 'distance', v)}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                />
               </View>
             </View>
             <TouchableOpacity
@@ -2029,9 +2127,15 @@ export default function WorkoutScreen() {
             <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG TIME</Text>
             <View style={styles.trackResultField}>
               <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>TIME (MM:SS)</Text>
-              <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.timeCap ?? '2:45'}</Text>
-              </View>
+              <TextInput
+                style={[styles.trackInputWrapLarge, styles.trackInputTextLg, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0', color: colors.text }]}
+                value={log?.timeCap ?? ''}
+                placeholder="2:45"
+                placeholderTextColor={colors.textMuted}
+                onChangeText={(v) => tracking.updateExerciseResult(ex.id, 'timeCap', v)}
+                keyboardType="numbers-and-punctuation"
+                returnKeyType="done"
+              />
             </View>
             <TouchableOpacity
               style={[styles.trackSaveBtn, { backgroundColor: '#eab308' }]}
@@ -2085,7 +2189,7 @@ export default function WorkoutScreen() {
       </View>
       </View>
     );
-  }, [expandedTrack, completedSets, currentAccent, colors, isDark, currentStyle, cfData, tracking, handleToggleSet, handleMarkExerciseDone, wheelRepsW, wheelWeightW, logWheelItemH, logWheelSingleColW, accent, handleExerciseTap, activeEditCell, setActiveEditCell, openChip, closeChip, chipExpandStyle]);
+  }, [expandedTrack, completedSets, currentAccent, colors, isDark, currentStyle, cfData, tracking, handleToggleSet, handleMarkExerciseDone, wheelRepsW, wheelWeightW, logWheelItemH, logWheelSingleColW, accent, handleExerciseTap, activeEditCell, setActiveEditCell, openChip, closeChip, chipExpandStyle, logEditMode, swipeOpenSetKey, scrollGesture]);
 
   const renderGroupSeparator = useCallback((ex: WorkoutExercise, prevEx: WorkoutExercise | null) => {
     const isGroupStart = ex.groupType && (!prevEx || prevEx.groupId !== ex.groupId);

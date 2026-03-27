@@ -1424,6 +1424,15 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     return getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex);
   }, [prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex]);
 
+  // Returns the set array from the most recent session containing this exercise
+  const getLastSetsForExercise = useCallback((exerciseName: string): SetLog[] => {
+    for (const log of workoutHistory) {
+      const exLog = log.exercises.find(e => e.exerciseName === exerciseName);
+      if (exLog && exLog.sets.some(s => s.done)) return exLog.sets;
+    }
+    return [];
+  }, [workoutHistory]);
+
   const completedExerciseCount = useMemo(() => {
     return Object.values(exerciseLogs).filter(l => l.completed).length;
   }, [exerciseLogs]);
@@ -1541,6 +1550,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     getLogForDate,
     getLogsForDate,
     getExerciseSuggestion,
+    getLastSetsForExercise,
     pendingHealthImports,
     duplicateCandidates,
     healthImportReviewVisible,
@@ -1568,7 +1578,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout, prepareSaveStep,
     saveWorkout, discardWorkout, completeWorkout,
     logPreviousWorkout, removeWorkoutLog, getLogForDate, getLogsForDate,
-    getExerciseSuggestion,
+    getExerciseSuggestion, getLastSetsForExercise,
     pendingHealthImports, duplicateCandidates, healthImportReviewVisible, setHealthImportReviewVisible,
     acceptHealthImport, dismissHealthImport, mergeDuplicate, keepBothDuplicate, dismissDuplicate,
     resetTrackingData,
