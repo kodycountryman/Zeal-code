@@ -2366,25 +2366,34 @@ export default function WorkoutScreen() {
         {cfData.metcon.length > 0 && (
           <>
             <TouchableOpacity
-              style={[styles.cfSectionHeader, { marginTop: 4 }]}
+              style={[styles.cfSectionHeader, { marginTop: 4, flexDirection: 'column', alignItems: 'flex-start', gap: 5 }]}
               onPress={() => setInfoLabel(`WOD — ${workout.metconFormat?.toUpperCase() ?? 'AMRAP'}`)}
               activeOpacity={0.7}
             >
-              <Zap size={15} color={colors.textSecondary} />
-              <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>
-                {(() => {
-                  const fmt = workout.metconFormat ?? 'AMRAP';
-                  const cap = workout.metconTimeCap;
-                  const rds = workout.metconRounds;
-                  let label = `WOD — ${fmt}`;
-                  if (cap) label += ` ${cap} min`;
-                  if (fmt === 'For Time' && rds) label += ` · ${rds} rds`;
-                  if (fmt === 'EMOM' && rds) label += ` · ${rds} min`;
-                  if (fmt === 'Chipper' && cfData.metcon.length > 0) label += ` · ${cfData.metcon.length} ex`;
-                  if (fmt === 'Ladder' && rds) label += ` · +${rds}/rd`;
-                  return label;
-                })()}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Zap size={15} color={colors.textSecondary} />
+                <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>WOD</Text>
+              </View>
+              {(() => {
+                const fmt = workout.metconFormat ?? 'AMRAP';
+                const cap = workout.metconTimeCap;
+                const rds = workout.metconRounds;
+                const chips: string[] = [fmt];
+                if (cap) chips.push(`${cap} min`);
+                if (fmt === 'For Time' && rds && rds > 1) chips.push(`${rds} rds`);
+                if (fmt === 'EMOM' && rds) chips.push(`${rds} min`);
+                if (fmt === 'Chipper' && cfData.metcon.length > 0) chips.push(`${cfData.metcon.length} ex`);
+                if (fmt === 'Ladder' && rds) chips.push(`+${rds}/rd`);
+                return (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, paddingLeft: 21 }}>
+                    {chips.map((chip) => (
+                      <View key={chip} style={[styles.wodChip, { backgroundColor: `${colors.textSecondary}18` }]}>
+                        <Text style={[styles.wodChipText, { color: colors.textSecondary }]}>{chip}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
             </TouchableOpacity>
             {cfData.metcon.map((ex, exIdx) => {
               const isCFMetconExpanded = expandedTrack === ex.id;
@@ -4765,6 +4774,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
     letterSpacing: 0,
     flexShrink: 1,
+  },
+  wodChip: {
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  wodChipText: {
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
   },
   hyroxRunDivider: {
     flexDirection: 'row',
