@@ -3009,14 +3009,13 @@ export default function WorkoutScreen() {
                 <View style={styles.workoutInfoLabelRow}>
                   <View style={styles.workoutInfoLabelLeft}>
                     <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today's Workout</Text>
-                    <View style={styles.styleChipInline}>
-                      <View style={[styles.styleBadgeDot, { backgroundColor: `${colors.textMuted}80` }]} />
+                    <View style={[styles.workoutStyleChip, { backgroundColor: `${colors.textMuted}18`, borderWidth: 1, borderColor: `${colors.textMuted}30` }]}>
                       <Text style={[styles.workoutStyleChipText, { color: colors.textSecondary }]}>{currentStyle}</Text>
                     </View>
                   </View>
                   <View style={{ flex: 1 }} />
                   <TouchableOpacity
-                    style={[styles.shuffleBtn, { borderColor: `${currentAccent}80` }]}
+                    style={[styles.shuffleBtn, { borderColor: currentAccent, backgroundColor: `${currentAccent}12` }]}
                     onPress={handleRegenerate}
                     activeOpacity={0.7}
                     testID="shuffle-workout"
@@ -4349,7 +4348,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   workoutInfoCard: {
-    borderRadius: 22,
+    borderRadius: 26,
     overflow: 'hidden',
   },
   workoutInfoTop: {
@@ -4486,13 +4485,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: 6,
+    gap: 7,
     borderRadius: 16,
     paddingVertical: 13,
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
   },
   workoutModifyBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Outfit_600SemiBold',
   },
   workoutStartBtn: {
@@ -4590,7 +4589,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   workoutSection: {
-    borderRadius: 22,
+    borderRadius: 26,
     overflow: 'hidden',
     marginHorizontal: -12,
   },

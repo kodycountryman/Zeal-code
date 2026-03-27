@@ -54,7 +54,7 @@ export default function GlassCard({
 const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 26,
     overflow: 'hidden',
     position: 'relative',
   },
