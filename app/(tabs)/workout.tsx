@@ -2134,21 +2134,21 @@ export default function WorkoutScreen() {
       let icon: React.ReactNode;
       let label: string;
       if (ex.groupType === 'superset') {
-        icon = <Link2 size={13} color={currentAccent} />;
-        label = 'SUPERSET';
+        icon = <Link2 size={13} color={colors.textSecondary} />;
+        label = 'Superset';
       } else if (ex.groupType === 'circuit') {
-        icon = <RotateCcw size={13} color={currentAccent} />;
-        label = 'CIRCUIT';
+        icon = <RotateCcw size={13} color={colors.textSecondary} />;
+        label = 'Circuit';
       } else {
-        icon = <Circle size={13} color={currentAccent} />;
-        label = 'ROUNDS';
+        icon = <Circle size={13} color={colors.textSecondary} />;
+        label = 'Rounds';
       }
       return (
-        <View style={[styles.groupHeader, { backgroundColor: isDark ? `${currentAccent}12` : `${currentAccent}0e` }]}>
+        <View style={styles.groupHeader}>
           {renderGroupGripDots(ex)}
           {icon}
           <TouchableOpacity onPress={() => setInfoLabel(label)} activeOpacity={0.7}>
-            <Text style={[styles.groupLabel, { color: currentAccent }]}>{label}</Text>
+            <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>{label}</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
           <Text style={[styles.groupRest, { color: currentAccent }]}>{ex.rest}</Text>
@@ -2163,7 +2163,6 @@ export default function WorkoutScreen() {
           style={[
             styles.groupLinkRow,
             isSuperset && { borderLeftWidth: 2, borderLeftColor: currentAccent + '66' },
-            { backgroundColor: isDark ? `${currentAccent}08` : `${currentAccent}06` },
           ]}
         >
           <Link2
@@ -2278,7 +2277,7 @@ export default function WorkoutScreen() {
           onInfo={() => handleExerciseTap(ex)}
           onSwap={() => handleSwapExercise(ex)}
           onDelete={() => handleDeleteExercise(ex.id)}
-          rowBg={colors.card}
+          rowBg={'transparent'}
           waitForGesture={scrollGesture}
           enabled={activeDragId === null}
         >
@@ -2320,8 +2319,8 @@ export default function WorkoutScreen() {
               onPress={() => setInfoLabel('STRENGTH')}
               activeOpacity={0.7}
             >
-              <Dumbbell size={15} color={currentAccent} />
-              <Text style={[styles.cfSectionLabel, { color: currentAccent }]}>STRENGTH</Text>
+              <Dumbbell size={15} color={colors.textSecondary} />
+              <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>Strength</Text>
             </TouchableOpacity>
             {cfData.strength.map((ex, exIdx) => {
               const isCFExpanded = expandedTrack === ex.id;
@@ -2334,7 +2333,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.card}
+                    rowBg={'transparent'}
                     waitForGesture={scrollGesture}
                     enabled={activeDragId === null}
                   >
@@ -2372,19 +2371,18 @@ export default function WorkoutScreen() {
               onPress={() => setInfoLabel(`WOD — ${workout.metconFormat?.toUpperCase() ?? 'AMRAP'}`)}
               activeOpacity={0.7}
             >
-              <Zap size={15} color={currentAccent} />
-              <Text style={[styles.cfSectionLabel, { color: currentAccent }]}>
+              <Zap size={15} color={colors.textSecondary} />
+              <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>
                 {(() => {
                   const fmt = workout.metconFormat ?? 'AMRAP';
                   const cap = workout.metconTimeCap;
                   const rds = workout.metconRounds;
-                  const fmtUp = fmt.toUpperCase();
-                  let label = `WOD — ${fmtUp}`;
-                  if (cap) label += ` ${cap} MIN`;
-                  if (fmt === 'For Time' && rds) label += ` · ${rds} RDS`;
-                  if (fmt === 'EMOM' && rds) label += ` · ${rds} MIN`;
-                  if (fmt === 'Chipper' && cfData.metcon.length > 0) label += ` · ${cfData.metcon.length} EX`;
-                  if (fmt === 'Ladder' && rds) label += ` · +${rds}/RD`;
+                  let label = `WOD — ${fmt}`;
+                  if (cap) label += ` ${cap} min`;
+                  if (fmt === 'For Time' && rds) label += ` · ${rds} rds`;
+                  if (fmt === 'EMOM' && rds) label += ` · ${rds} min`;
+                  if (fmt === 'Chipper' && cfData.metcon.length > 0) label += ` · ${cfData.metcon.length} ex`;
+                  if (fmt === 'Ladder' && rds) label += ` · +${rds}/rd`;
                   return label;
                 })()}
               </Text>
@@ -2422,7 +2420,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.card}
+                    rowBg={'transparent'}
                     waitForGesture={scrollGesture}
                     enabled={activeDragId === null}
                   >
@@ -2511,7 +2509,7 @@ export default function WorkoutScreen() {
                 onInfo={() => handleExerciseTap(ex)}
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
-                rowBg={colors.background}
+                rowBg={'transparent'}
                 waitForGesture={scrollGesture}
                 enabled={activeDragId === null}
               >
@@ -2569,7 +2567,7 @@ export default function WorkoutScreen() {
               onInfo={() => handleExerciseTap(ex)}
               onSwap={() => handleSwapExercise(ex)}
               onDelete={() => handleDeleteExercise(ex.id)}
-              rowBg={colors.background}
+              rowBg={'transparent'}
               waitForGesture={scrollGesture}
               enabled={activeDragId === null}
             >
@@ -2619,7 +2617,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.card}
+                    rowBg={'transparent'}
                     waitForGesture={scrollGesture}
                     enabled={activeDragId === null}
                   >
@@ -2683,7 +2681,7 @@ export default function WorkoutScreen() {
                 onInfo={() => handleExerciseTap(ex)}
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
-                rowBg={colors.card}
+                rowBg={'transparent'}
                 waitForGesture={scrollGesture}
                 enabled={activeDragId === null}
               >
@@ -2745,7 +2743,7 @@ export default function WorkoutScreen() {
                 onInfo={() => handleExerciseTap(ex)}
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
-                rowBg={colors.background}
+                rowBg={'transparent'}
                 waitForGesture={scrollGesture}
                 enabled={activeDragId === null}
               >
@@ -2813,7 +2811,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.card}
+                    rowBg={'transparent'}
                     waitForGesture={scrollGesture}
                     enabled={activeDragId === null}
                   >
@@ -3219,7 +3217,7 @@ export default function WorkoutScreen() {
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
               <View style={[styles.workoutSection, {
-                backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(235,235,235,0.98)',
+                backgroundColor: isDark ? 'rgba(14,14,14,0.99)' : 'rgba(232,232,232,0.99)',
                 borderWidth: 1,
                 borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               }]}>
@@ -3275,7 +3273,7 @@ export default function WorkoutScreen() {
                           onInfo={() => handleExerciseTap(ex)}
                           onSwap={() => handleSwapExercise(ex)}
                           onDelete={() => handleDeleteExercise(ex.id)}
-                          rowBg={colors.background}
+                          rowBg={'transparent'}
                           waitForGesture={scrollGesture}
                           enabled={activeDragId === null}
                         >
@@ -4764,9 +4762,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cfSectionLabel: {
-    fontSize: 13,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.2,
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
     flexShrink: 1,
   },
   hyroxRunDivider: {

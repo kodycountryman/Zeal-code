@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "start",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["rork", "start", "-p", "7s0at91o0glp1nhgft32r", "--tunnel"],
+      "port": 8081
+    },
+    {
+      "name": "start-web",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["rork", "start", "-p", "7s0at91o0glp1nhgft32r", "--web", "--tunnel"],
+      "port": 19006
+    },
+    {
+      "name": "start-web-dev",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["rork", "start", "-p", "7s0at91o0glp1nhgft32r", "--web", "--tunnel"],
+      "port": 19006,
+      "env": {
+        "DEBUG": "expo*"
+      }
+    }
+  ]
+}
