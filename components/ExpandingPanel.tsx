@@ -1,30 +1,12 @@
 /**
- * ExpandingPanel — smooth "unroll from top" expansion animation.
+ * ExpandingPanel — instant open, short fade on close (no height animation).
  *
- * Strategy:
- *  - Inner content is absolutely positioned so it renders at its natural height
- *    regardless of the outer container's animated height.
- *  - overflow: 'hidden' on the outer Animated.View clips the content as it
- *    unrolls, giving a true reveal-from-top effect with no layout shift.
- *  - The last non-null children are cached so the content stays visible during
- *    the close animation (avoids an abrupt disappear-then-shrink sequence).
- *  - Easing: cubic-bezier(0.4, 0, 0.2, 1) — Material Design standard curve.
- *
- * Bug fixes vs original implementation:
- *  1. Removed the `changed` guard in onLayout — it prevented reopening when
- *     measuredH already equalled the new height after a close/remount cycle.
- *  2. visibleRef guards the close-animation callback so it never unmounts the
- *     panel if visible has already flipped back to true (rapid open/close race).
- *  3. When visible flips to true and we already have a measurement, we animate
- *     immediately from the effect rather than waiting for a new onLayout event.
+ * Height animation caused layout jumps because measured height wasn't ready on
+ * the first frame. Opacity + natural layout height avoids that; open is not
+ * faded so parent toggles (log sets, etc.) feel immediate.
  */
-import React, {
-  useRef,
-  useState,
-  useEffect,
-  useCallback,
-} from 'react';
-import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   runOnJS,
@@ -33,7 +15,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const DURATION = 280;
+/** Opening is immediate so toggles (e.g. log sets) feel snappy; closing keeps a short fade. */
+const FADE_OUT_DURATION = 120;
 const BEZIER = Easing.bezier(0.4, 0, 0.2, 1);
 
 interface Props {
@@ -42,16 +25,13 @@ interface Props {
 }
 
 export default function ExpandingPanel({ visible, children }: Props) {
-  const heightSV = useSharedValue(0);
-  const measuredH = useRef(0);
+  const opacitySV = useSharedValue(visible ? 1 : 0);
   const [mounted, setMounted] = useState(visible);
 
-  // Track latest visible without stale-closure issues inside worklet callbacks.
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
 
-  // Always cache the last non-null children so the content stays
-  // visible during the closing animation instead of vanishing instantly.
+  // Cache last non-null children so content stays during close fade.
   const savedChildren = useRef<React.ReactNode>(children);
   if (children != null) {
     savedChildren.current = children;
@@ -60,66 +40,34 @@ export default function ExpandingPanel({ visible, children }: Props) {
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      // If we already have a prior measurement (i.e. this is a re-open after
-      // a previous close), animate open immediately. Otherwise onLayout will
-      // fire once the freshly-mounted content has laid out and trigger the
-      // animation from there.
-      if (measuredH.current > 0) {
-        heightSV.value = withTiming(measuredH.current, { duration: DURATION, easing: BEZIER });
-      }
+      opacitySV.value = 1;
     } else {
-      heightSV.value = withTiming(0, { duration: DURATION, easing: BEZIER }, (finished) => {
-        // Guard: only unmount if visible hasn't flipped back to true while the
-        // close animation was running (rapid open→close→open race condition).
+      opacitySV.value = withTiming(0, { duration: FADE_OUT_DURATION, easing: BEZIER }, (finished) => {
         if (finished && !visibleRef.current) {
           runOnJS(setMounted)(false);
         }
       });
     }
-  }, [visible, heightSV]);
+  }, [visible, opacitySV]);
 
-  // Measure the inner content's natural height and animate the outer
-  // container to match it on open (or when content size changes while open).
-  // The `changed` guard has been intentionally removed: without it, a
-  // remounted panel (same content height as before) still triggers the
-  // open animation correctly.
-  const onLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const h = e.nativeEvent.layout.height;
-      if (h <= 0) return;
-      measuredH.current = h;
-      if (visible) {
-        heightSV.value = withTiming(h, { duration: DURATION, easing: BEZIER });
-      }
-    },
-    [visible, heightSV],
-  );
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacitySV.value,
+  }), []);
 
-  const outerStyle = useAnimatedStyle(
-    () => ({ height: heightSV.value, overflow: 'hidden' }),
-    [],
-  );
+  if (!mounted) return null;
 
   return (
-    <Animated.View style={outerStyle}>
-      {mounted && (
-        <View
-          style={styles.inner}
-          onLayout={onLayout}
-          pointerEvents={visible ? 'box-none' : 'none'}
-        >
-          {children ?? savedChildren.current}
-        </View>
-      )}
+    <Animated.View
+      style={[styles.container, animStyle]}
+      pointerEvents={visible ? 'box-none' : 'none'}
+    >
+      {children ?? savedChildren.current}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  inner: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
+  container: {
+    overflow: 'hidden',
   },
 });

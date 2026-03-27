@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { X, Flame } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
 
 interface Props {
   visible: boolean;
@@ -19,9 +19,7 @@ interface Props {
 export default function StreakBottomSheet({ visible, streak, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['55%'], []);
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
+  const { topOffset } = useDrawerSizing({ minHeight: 280 });
 
   useEffect(() => {
     if (visible) {
@@ -51,7 +49,7 @@ export default function StreakBottomSheet({ visible, streak, onClose }: Props) {
   return (
     <BottomSheetModal
       ref={bottomSheetRef}
-      snapPoints={snapPoints}
+      enableDynamicSizing
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -59,6 +57,7 @@ export default function StreakBottomSheet({ visible, streak, onClose }: Props) {
       enablePanDownToClose
       enableOverDrag={false}
       topInset={topOffset}
+      stackBehavior="push"
     >
       <BottomSheetView style={styles.container}>
         <View style={styles.header}>

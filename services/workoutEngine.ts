@@ -357,6 +357,47 @@ function resolveSliderMultiplier(rawSlider: number): number {
   return clamp(rawSlider * 2.0, 0.5, 2.0);
 }
 
+function resolveAutoStyle(params: EngineParams): string {
+  const rawStyle = (params.style ?? '').toLowerCase().trim();
+  if (rawStyle !== 'auto') return params.style;
+
+  const split = (params.split ?? '').toLowerCase().trim();
+  if (['amrap', 'emom', 'rft', 'chipper', 'ladder'].includes(split)) return 'CrossFit';
+  if (split.includes('hyrox') || split.includes('simulation')) return 'Hyrox';
+  if (split.includes('zone') || split.includes('fartlek') || split.includes('tempo') || split.includes('interval')) return 'Cardio';
+  if (split.includes('flow') || split.includes('recovery')) return 'Mobility';
+  if (split.includes('pilates') || split.includes('reformer')) return 'Pilates';
+  return 'Strength';
+}
+
+function resolveAutoSplitForStyle(style: string, split: string, duration: number, level: FitnessLevel): string {
+  const rawSplit = (split ?? '').trim();
+  if (rawSplit.toLowerCase() !== 'auto') return rawSplit;
+
+  // Deterministic, context-driven Auto resolver (never random).
+  switch (style) {
+    case 'crossfit':
+      if (duration >= 65) return 'Chipper';
+      if (duration >= 50) return 'RFT';
+      if (duration <= 35) return 'EMOM';
+      return level === 'beginner' ? 'AMRAP' : 'Ladder';
+    case 'hyrox':
+      if (duration >= 75) return 'Half Simulation';
+      if (duration >= 55) return 'Compromised Run';
+      return 'Station Practice';
+    case 'cardio':
+      if (duration >= 50) return 'Steady-State (Zone 2)';
+      if (duration <= 30) return 'Intervals';
+      return 'Tempo';
+    case 'mobility':
+      return duration <= 20 ? 'Recovery Day' : 'Full-Body Flow';
+    case 'pilates':
+      return duration >= 45 ? 'Classical Mat Flow' : 'Pilates Circuit';
+    default:
+      return rawSplit;
+  }
+}
+
 function stage1PlanCheck(params: EngineParams): {
   effectiveStyle: string;
   effectiveSplit: string;
@@ -392,7 +433,8 @@ function stage1PlanCheck(params: EngineParams): {
     };
   }
 
-  const engineStyle = mapLegacyStyleToEngine(params.style);
+  const resolvedStyle = resolveAutoStyle(params);
+  const engineStyle = mapLegacyStyleToEngine(resolvedStyle);
   let effectiveDuration = params.targetDuration;
 
   const durationOverride = STYLE_DURATION_OVERRIDES[engineStyle];
@@ -403,9 +445,14 @@ function stage1PlanCheck(params: EngineParams): {
   }
 
   console.log('[EngineV2] No plan active. style=', engineStyle, 'duration=', effectiveDuration);
+  const level = (params.fitnessLevel as FitnessLevel) || 'intermediate';
+  const resolvedSplit = resolveAutoSplitForStyle(engineStyle, params.split, effectiveDuration, level);
+  if (resolvedSplit !== params.split) {
+    console.log('[EngineV2] Auto split resolved:', params.split, '→', resolvedSplit, 'for style', engineStyle);
+  }
   return {
     effectiveStyle: engineStyle,
-    effectiveSplit: params.split,
+    effectiveSplit: resolvedSplit,
     effectiveDuration,
     volumeModifier: 1.0,
     intensityModifier: 1.0,
@@ -1422,6 +1469,7 @@ function applyStyleAwareGrouping(
   config: StyleEngineConfig,
   fitnessLevel: string,
   rng: () => number,
+  availableEquipment: Record<string, number>,
   targetDuration?: number,
   requestedSplit?: string,
 ): { format: string | null; timeCap: number | null; rounds: number | null } {
@@ -1429,10 +1477,74 @@ function applyStyleAwareGrouping(
   const level = (fitnessLevel as FitnessLevel) || 'intermediate';
 
   if (style === 'crossfit') {
-    // Separate strength and conditioning exercises
-    const strengthExercises = exercises.filter(e => e.role === 'primary' || e.role === 'secondary');
-    const metconExercises = exercises.filter(e => e.role === 'accessory' || (!e.exerciseRef.is_compound));
-    const metconPool = metconExercises.length >= 3 ? metconExercises : exercises.slice(Math.min(2, exercises.length));
+    const normalizedEquip = normalizeEquipmentIds(availableEquipment);
+    const hasGymEquipment = Object.entries(normalizedEquip).some(([k, v]) => k !== 'bodyweight' && v > 0);
+
+    const isBodyweightOnly = (e: EngineWorkoutExercise): boolean => {
+      const req = e.exerciseRef.equipment_required ?? [];
+      return req.length === 0 || (req.length === 1 && req[0] === 'bodyweight');
+    };
+
+    const isGoodCrossfitStrengthLift = (e: EngineWorkoutExercise): boolean => {
+      if (!e.exerciseRef.is_compound) return false;
+      if (e.exerciseRef.movement_pattern === 'cardio' || e.exerciseRef.movement_pattern === 'plyometric') return false;
+      // Prefer loaded barbell/dumbbell/kettlebell lifts when equipment exists.
+      if (hasGymEquipment && isBodyweightOnly(e)) return false;
+      // Nudge toward "heavy" patterns over things like bodyweight lunges.
+      if (hasGymEquipment && (e.exerciseRef.spinal_load === 'none' || e.exerciseRef.spinal_load === 'light')) return false;
+      return ['squat', 'hinge', 'push', 'pull'].includes(e.exerciseRef.movement_pattern as unknown as string);
+    };
+
+    // Strength block: ALWAYS start CrossFit with 2-4 movements.
+    // Prefer heavy compounds, but hard-fallback so a strength opener is never missing.
+    const cfSessionDuration = targetDuration ?? 45;
+    const targetStrengthCount = hasGymEquipment ? (cfSessionDuration >= 50 ? 4 : 3) : 2;
+    const minStrengthCount = Math.min(2, exercises.length);
+
+    const strengthCandidates = exercises.filter(isGoodCrossfitStrengthLift);
+    const fallbackCompoundCandidates = exercises.filter(e =>
+      e.exerciseRef.is_compound &&
+      e.exerciseRef.movement_pattern !== 'cardio' &&
+      e.exerciseRef.movement_pattern !== 'plyometric'
+    );
+    const fallbackAnyStrengthish = exercises.filter(e =>
+      e.exerciseRef.movement_pattern !== 'cardio'
+    );
+
+    const strengthBlock: EngineWorkoutExercise[] = [];
+    const usedStrengthIds = new Set<string>();
+    const tryAddStrength = (pool: EngineWorkoutExercise[], maxToTake: number) => {
+      for (const ex of pool) {
+        if (strengthBlock.length >= maxToTake) break;
+        if (usedStrengthIds.has(ex.exerciseRef.id)) continue;
+        strengthBlock.push(ex);
+        usedStrengthIds.add(ex.exerciseRef.id);
+      }
+    };
+
+    tryAddStrength(strengthCandidates, targetStrengthCount);
+    if (strengthBlock.length < minStrengthCount) {
+      tryAddStrength(fallbackCompoundCandidates, targetStrengthCount);
+    }
+    if (strengthBlock.length < minStrengthCount) {
+      tryAddStrength(fallbackAnyStrengthish, targetStrengthCount);
+    }
+
+    const strengthIds = new Set(strengthBlock.map(s => s.exerciseRef.id));
+
+    // Reorder so the session always opens with the strength block.
+    if (strengthBlock.length > 0) {
+      const ordered = [
+        ...strengthBlock,
+        ...exercises.filter(e => !strengthIds.has(e.exerciseRef.id)),
+      ];
+      exercises.splice(0, exercises.length, ...ordered);
+    }
+
+    // Metcon pool is everything not in strength block.
+    const metconCandidates = exercises.filter(e => !strengthIds.has(e.exerciseRef.id));
+    // If we're short (tiny sessions), just take what we have.
+    let metconPool = metconCandidates;
 
     // Honour the user's explicit format choice; fall back to random when 'Auto'.
     const pinnedFormat = requestedSplit ? cfSplitToFormatId(requestedSplit) : null;
@@ -1454,6 +1566,9 @@ function applyStyleAwareGrouping(
     let rounds: number | null = null;
 
     if (formatId === 'amrap') {
+      // Keep AMRAP concise: too many 1-set stations reads noisy and kills pacing.
+      const maxAmrapExercises = sessionDuration >= 55 ? 6 : 5;
+      metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxAmrapExercises, metconCandidates.length)));
       const params = getAMRAPParams(metconBudgetMin, level);
       timeCap = params.time_cap_minutes;
       // AMRAP: single timed block — sets = 1, reps are moderate (cycle through repeatedly)
@@ -1466,17 +1581,44 @@ function applyStyleAwareGrouping(
       }
     } else if (formatId === 'emom') {
       const params = getEMOMParams(metconBudgetMin, level);
-      timeCap = params.total_minutes;
-      rounds = timeCap;
+      const emomMinutes = params.total_minutes;
+      timeCap = emomMinutes;
+      rounds = emomMinutes;
+      // EMOM structure should divide evenly into the total minutes so rounds end cleanly.
+      // Example: 24 min -> 4 or 6 exercises, 25 min -> 5 exercises.
+      const emomDivisors = [6, 5, 4, 3, 2].filter(n => emomMinutes % n === 0);
+      const preferredCount =
+        emomDivisors.find(d => d <= metconCandidates.length)
+        ?? 1; // 1 always divides; ensures EMOM "ends cleanly" even with limited pool
+      const emomExerciseCount = Math.max(1, preferredCount);
+      metconPool = metconCandidates.slice(0, emomExerciseCount);
+
       // EMOM: small rep counts completable within ~40 s to earn rest within the minute
       for (const ex of metconPool) {
-        const emomMin = level === 'beginner' ? 5 : level === 'intermediate' ? 8 : 10;
-        const emomMax = level === 'beginner' ? 9 : level === 'intermediate' ? 12 : 15;
-        ex.reps = emomMin + Math.floor(rng() * (emomMax - emomMin + 1));
+        const req = ex.exerciseRef.equipment_required ?? [];
+        const name = (ex.exerciseRef.name ?? '').toLowerCase();
+        const id = (ex.exerciseRef.id ?? '').toLowerCase();
+        const pattern = (ex.exerciseRef.movement_pattern as unknown as string) ?? '';
+        const isRowingMachine =
+          req.includes('rowing_machine' as never) ||
+          (pattern === 'cardio' && (name.includes('rowing') || name.includes('rower') || name.includes('erg') || id.includes('rowing')));
+
+        if (isRowingMachine) {
+          // 200–500m is realistic per-minute work for most users.
+          // We store as a small integer so CrossFit metadata normalization renders `${n*100}m`.
+          ex.reps = 2 + Math.floor(rng() * 4); // 2..5 → 200..500m
+        } else {
+          const emomMin = level === 'beginner' ? 5 : level === 'intermediate' ? 8 : 10;
+          const emomMax = level === 'beginner' ? 9 : level === 'intermediate' ? 12 : 15;
+          ex.reps = emomMin + Math.floor(rng() * (emomMax - emomMin + 1));
+        }
         ex.sets = 1;
         ex.restSeconds = 0;
       }
+      console.log('[EngineV2] EMOM structure:', emomMinutes, 'min with', emomExerciseCount, 'exercise(s) (divisors:', emomDivisors.join(',') || 'none', ')');
     } else if (formatId === 'rft') {
+      const maxRftExercises = sessionDuration >= 55 ? 5 : 4;
+      metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxRftExercises, metconCandidates.length)));
       const params = getRFTParams(level, rng, metconBudgetMin);
       timeCap = params.time_cap_minutes;
       rounds = params.rounds;
@@ -1489,22 +1631,92 @@ function applyStyleAwareGrouping(
         ex.restSeconds = 0;
       }
     } else if (formatId === 'chipper') {
+      const maxChipperExercises = sessionDuration >= 60 ? 8 : 6;
+      metconPool = metconCandidates.slice(0, Math.max(4, Math.min(maxChipperExercises, metconCandidates.length)));
       const chipParams = getChipperParams(level);
       timeCap = Math.max(chipParams.min_time_cap, Math.min(chipParams.max_time_cap, metconBudgetMin));
-      // Chipper: high reps, each exercise done exactly once — sets = 1
-      for (const ex of metconPool) {
-        ex.reps = chipParams.min_reps + Math.floor(rng() * (chipParams.max_reps - chipParams.min_reps + 1));
+      // Chipper: bigger descending rep schemes feel more "real" than random 15–30.
+      // Keep it simple and consistent so it reads like classic chipper programming.
+      const count = metconPool.length;
+      const baseScheme =
+        level === 'beginner'
+          ? [40, 30, 20, 10]
+          : level === 'intermediate'
+            ? [60, 50, 40, 30, 20, 10]
+            : [80, 70, 60, 50, 40, 30, 20, 10];
+      const scheme = baseScheme.slice(0, Math.max(1, Math.min(count, baseScheme.length)));
+
+      // If more exercises than the base scheme, extend with 20s then finish with 10.
+      while (scheme.length < count) scheme.splice(Math.max(0, scheme.length - 1), 0, 20);
+      if (scheme.length > count) scheme.length = count;
+
+      for (let i = 0; i < metconPool.length; i++) {
+        const ex = metconPool[i];
+        const target = scheme[i] ?? chipParams.max_reps;
+
+        const req = ex.exerciseRef.equipment_required ?? [];
+        const name = (ex.exerciseRef.name ?? '').toLowerCase();
+        const id = (ex.exerciseRef.id ?? '').toLowerCase();
+        const pattern = (ex.exerciseRef.movement_pattern as unknown as string) ?? '';
+
+        const isRowingMachine =
+          req.includes('rowing_machine' as never) ||
+          (pattern === 'cardio' && (name.includes('rowing') || name.includes('rower') || name.includes('erg') || id.includes('rowing')));
+        const isAssaultBike =
+          req.includes('assault_bike' as never) ||
+          (pattern === 'cardio' && (name.includes('assault bike') || id.includes('assault_bike')));
+        const isSkiErg =
+          req.includes('ski_erg' as never) ||
+          (pattern === 'cardio' && (name.includes('ski') || id.includes('ski_erg')));
+        const isRunLike =
+          req.includes('treadmill' as never) ||
+          (pattern === 'cardio' && (name.includes('run') || id.includes('treadmill') || id.includes('run')));
+
+        // For machines, store a small integer so the CrossFit metadata normalizer renders sensible units.
+        // - Row/Ski/Run: `${reps*100}m`
+        // - Assault bike: `${reps*2} cal`
+        if (isRowingMachine || isSkiErg || isRunLike) {
+          // 300–1200m typical chipper chunk; clamp by level.
+          const meters = clampInt(target * 20, 300, level === 'beginner' ? 800 : 1200);
+          ex.reps = Math.round(meters / 100); // normalizer will display `${reps*100}m`
+        } else if (isAssaultBike) {
+          // 15–60 cal typical chipper chunk depending on level.
+          const cals = clampInt(target, 15, level === 'beginner' ? 35 : level === 'intermediate' ? 50 : 70);
+          ex.reps = Math.round(cals / 2); // normalizer will display `${reps*2} cal`
+        } else {
+          ex.reps = target;
+        }
+
         ex.sets = 1;
         ex.restSeconds = 0;
       }
     } else if (formatId === 'ladder') {
+      const maxLadderExercises = sessionDuration >= 55 ? 5 : 4;
+      metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxLadderExercises, metconCandidates.length)));
       const ladderParams = getLadderParams(level, rng);
       // Ladders are shorter structured pieces; cap is lower than a full chipper
       timeCap = Math.max(10, Math.min(20, metconBudgetMin));
-      rounds = ladderParams.exercises;
-      // Set reps to the starting point; direction is encoded in the metconFormat display
+      // Use metconRounds to encode the ladder increment so the UI can display "start X · +Y/rd".
+      // (We don't track "target round" yet — this is strictly metadata clarity.)
+      const ladderInc = level === 'beginner' ? 2 : level === 'intermediate' ? 2 : 3;
+      rounds = ladderInc;
+      // Set reps to the starting point; direction is encoded in the metconFormat display.
       for (const ex of metconPool) {
-        ex.reps = ladderParams.direction === 'ascending' ? ladderParams.start_reps : ladderParams.end_reps;
+        const req = ex.exerciseRef.equipment_required ?? [];
+        const name = (ex.exerciseRef.name ?? '').toLowerCase();
+        const id = (ex.exerciseRef.id ?? '').toLowerCase();
+        const pattern = (ex.exerciseRef.movement_pattern as unknown as string) ?? '';
+        const isRowingMachine =
+          req.includes('rowing_machine' as never) ||
+          (pattern === 'cardio' && (name.includes('rowing') || name.includes('rower') || name.includes('erg') || id.includes('rowing')));
+
+        if (isRowingMachine) {
+          // For ladders, rowing reads best as calories: start 8–12 cal, +2/rd.
+          const startCals = level === 'beginner' ? 8 : level === 'intermediate' ? 10 : 12;
+          ex.reps = Math.round(startCals / 2); // normalizer will show `${reps*2} cal`
+        } else {
+          ex.reps = ladderParams.direction === 'ascending' ? ladderParams.start_reps : ladderParams.end_reps;
+        }
         ex.sets = 1;
         ex.restSeconds = 0;
       }
@@ -1561,7 +1773,11 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
     { name: 'Wall Balls',       work: '100 reps',  sets: 1, reps: 100, notes: '100 reps (14/20 lb) — full squat depth, hit target on every rep',  stationSeconds: 330 },
   ];
 
-  const stations = HYROX_RACE_STATIONS.slice(0, stationCount);
+  const daySeedRng = seededRandom(getDaySeed() + params.targetDuration * 13 + (params.seedOffset ?? 0) * 97);
+  const isBackHalf = !fullRace && daySeedRng() >= 0.5;
+  const startStationIndex = fullRace ? 0 : (isBackHalf ? 4 : 0);
+  const stations = HYROX_RACE_STATIONS.slice(startStationIndex, startStationIndex + stationCount);
+  console.log('[EngineV2] Hyrox Half Simulation selection:', fullRace ? 'full' : (isBackHalf ? 'back half' : 'front half'));
   const workoutExercises: EngineWorkoutExercise[] = [];
 
   const makeExerciseRef = (id: string, name: string, variationFamily: string): ZealExercise => ({
@@ -1597,9 +1813,10 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
 
   // Race format: Run → Station for each of the stationCount pairs. No trailing run after the last station.
   for (let i = 0; i < stations.length; i++) {
+    const raceLegNumber = startStationIndex + i + 1;
     // 1 km run leg (360s ≈ 6 min/km, realistic for recreational competitor)
     workoutExercises.push({
-      exerciseRef: makeExerciseRef(`hyrox_run_${i + 1}`, `Run — Leg ${i + 1}`, 'hyrox_run'),
+      exerciseRef: makeExerciseRef(`hyrox_run_${raceLegNumber}`, `Run — Leg ${raceLegNumber}`, 'hyrox_run'),
       role: 'primary', sets: 1, reps: 1, loadLbs: 0, restSeconds: 0,
       setDurationSeconds: 360, exerciseTotalSeconds: 360, groupType: null, groupId: null,
     });
@@ -1607,7 +1824,7 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
     const station = stations[i];
     workoutExercises.push({
       exerciseRef: makeExerciseRef(
-        `hyrox_station_${i + 1}`,
+        `hyrox_station_${raceLegNumber}`,
         `${station.name} — ${station.work}`,
         'hyrox_station',
       ),
@@ -1791,6 +2008,7 @@ export function runEngine(params: EngineParams): EngineResult {
     styleConfig ?? { allow_supersets: false, superset_min: 0, superset_max: 0, compounds_first: false, pattern_priority: [] },
     params.fitnessLevel,
     rng,
+    params.availableEquipment,
     params.targetDuration,
     params.split,
   );
@@ -1901,6 +2119,111 @@ function formatLoadDisplay(loadLbs: number, exercise: EngineWorkoutExercise): st
   return `${loadLbs} lb`;
 }
 
+function hashStringToInt(s: string): number {
+  // Stable tiny hash for deterministic formatting choices (no crypto needs)
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function clampInt(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function normalizeCrossfitRepsString(
+  engineEx: EngineWorkoutExercise,
+  fallbackReps: string,
+  metconFormat?: string | null,
+): string {
+  const z = engineEx.exerciseRef;
+  const name = (z.name ?? '').toLowerCase();
+  const id = (z.id ?? '').toLowerCase();
+  const equip = z.equipment_required ?? [];
+  const pattern = (z.movement_pattern as unknown as string) ?? '';
+  const base = Number.isFinite(engineEx.reps) ? engineEx.reps : 0;
+
+  const isPlankLike =
+    name.includes('plank') ||
+    id.includes('plank') ||
+    name.includes('hollow hold') ||
+    id.includes('hollow') ||
+    name.includes('superman hold') ||
+    id.includes('superman') ||
+    name.includes('l-sit') ||
+    id.includes('l_sit');
+
+  if (isPlankLike) {
+    const seconds = clampInt(base * 5, 20, 120);
+    return `${seconds}s`;
+  }
+
+  const isCarryLike =
+    pattern === 'carry' ||
+    name.includes('carry') ||
+    id.includes('carry');
+
+  if (isCarryLike) {
+    const meters = clampInt(base * 10, 20, 400);
+    return `${meters}m`;
+  }
+
+  // Rowing machine is the only "row" that should convert to meters/calories.
+  // Barbell/dumbbell rows must remain reps.
+  const usesFreeWeights =
+    equip.includes('barbell' as never) ||
+    equip.includes('dumbbell' as never) ||
+    equip.includes('kettlebell' as never);
+
+  const isRowingMachine =
+    equip.includes('rowing_machine' as never) ||
+    // Some data sources name this differently; keep a small fallback gate.
+    (pattern === 'cardio' && (name.includes('rowing') || name.includes('rower') || name.includes('erg') || id.includes('rowing')));
+
+  if (isRowingMachine && !usesFreeWeights) {
+    // Ladders read better in calories (incrementing by +2/round is intuitive).
+    if ((metconFormat ?? '').toLowerCase() === 'ladder') {
+      const cals = clampInt(base * 2, 6, 50);
+      return `${cals} cal`;
+    }
+
+    const useMeters = hashStringToInt(`${z.id}|${z.name}`) % 2 === 0;
+    if (useMeters) {
+      const meters = clampInt(base * 100, 200, 2000);
+      return `${meters}m`;
+    }
+    const cals = clampInt(base * 2, 10, 60);
+    return `${cals} cal`;
+  }
+
+  const isAssaultBike =
+    equip.includes('assault_bike' as never) ||
+    (pattern === 'cardio' && (name.includes('assault bike') || id.includes('assault_bike')));
+  if (isAssaultBike) {
+    const cals = clampInt(base * 2, 10, 90);
+    return `${cals} cal`;
+  }
+
+  const isSkiErg =
+    equip.includes('ski_erg' as never) ||
+    (pattern === 'cardio' && (name.includes('ski') || id.includes('ski_erg')));
+  if (isSkiErg) {
+    const meters = clampInt(base * 100, 200, 2000);
+    return `${meters}m`;
+  }
+
+  const isRunLike =
+    equip.includes('treadmill' as never) ||
+    (pattern === 'cardio' && (name.includes('run') || id.includes('treadmill') || id.includes('run')));
+  if (isRunLike) {
+    const meters = clampInt(base * 100, 200, 1600);
+    return `${meters}m`;
+  }
+
+  return fallbackReps;
+}
+
 function findLegacyExercise(id: string): Exercise | undefined {
   return getExerciseDatabase().find(e => e.id === id);
 }
@@ -1909,6 +2232,7 @@ function convertEngineExerciseToLegacy(
   engineEx: EngineWorkoutExercise,
   index: number,
   displayStyle: string,
+  metconFormat?: string | null,
 ): WorkoutExercise {
   const z = engineEx.exerciseRef;
   const legacyEx = findLegacyExercise(z.id);
@@ -1945,6 +2269,19 @@ function convertEngineExerciseToLegacy(
       displayName = z.name.slice(0, dashIdx);            // "SkiErg"
       displayReps = z.name.slice(dashIdx + 3);           // "1000m"
     }
+  }
+
+  // CrossFit metadata normalization: ensure carries are in meters, row is meters or calories,
+  // and planks/holds are time-based. The UI infers time-based movements by suffixes like "s"/"min".
+  if (displayStyle === 'CrossFit' && !isHyroxRun && !isHyroxStation) {
+    displayReps = normalizeCrossfitRepsString(engineEx, displayReps, metconFormat);
+
+    // Clean up machine naming (avoid "intervals" wording in WOD context).
+    const req = z.equipment_required ?? [];
+    const isRower = req.includes('rowing_machine' as never) || z.id === 'rowing_machine_intervals';
+    if (isRower) displayName = 'Rowing Machine';
+    const isBike = req.includes('assault_bike' as never) || z.id === 'assault_bike_intervals';
+    if (isBike) displayName = 'Assault Bike';
   }
 
   return {
@@ -2260,7 +2597,7 @@ export function generateWorkout(params: GenerateWorkoutParams, prescription?: Da
   const displayStyle = mapEngineStyleToDisplay(result.engineStyle);
 
   const workoutExercises = result.exercises.map((ex, i) =>
-    convertEngineExerciseToLegacy(ex, i, displayStyle)
+    convertEngineExerciseToLegacy(ex, i, displayStyle, result.metconFormat)
   );
 
   const warmupItems: WarmupItem[] = result.warmup.map(w => ({

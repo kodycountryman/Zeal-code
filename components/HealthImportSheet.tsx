@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
+import PanDownHandle from '@/components/PanDownHandle';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import type { HealthImportItem, DuplicateCandidate } from '@/context/WorkoutTrackingContext';
 
@@ -301,7 +302,7 @@ export default function HealthImportSheet() {
     >
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          <PanDownHandle onDismiss={handleClose} indicatorColor={colors.border} />
 
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>

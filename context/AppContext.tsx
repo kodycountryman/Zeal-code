@@ -105,6 +105,8 @@ const NOTIF_PREFS_KEY = '@zeal_notif_prefs_v1';
 const LAST_MODIFY_KEY = '@zeal_last_modify_v1';
 const PLANNED_WORKOUTS_KEY = '@zeal_planned_workouts_v1';
 const IS_LOGGED_IN_KEY = '@zeal_is_logged_in_v1';
+/** Same key as WorkoutTrackingContext — today’s generated workout + creative title. */
+const DAILY_GENERATED_SNAPSHOT_KEY = '@zeal_daily_generated_workout_v1';
 
 export interface NotifPrefs {
   dailyEnabled: boolean;
@@ -305,6 +307,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [showPlusSpotlight, setShowPlusSpotlight] = useState<boolean>(false);
   const [googlePrefill, setGooglePrefill] = useState<{ name: string; photoUri: string | null } | null>(null);
+  const [newUserResetToken, setNewUserResetToken] = useState<number>(0);
 
   useEffect(() => {
     Promise.all([
@@ -319,8 +322,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       AsyncStorage.getItem(LAST_MODIFY_KEY),
       AsyncStorage.getItem(PLANNED_WORKOUTS_KEY),
       AsyncStorage.getItem(IS_LOGGED_IN_KEY),
+      AsyncStorage.getItem(DAILY_GENERATED_SNAPSHOT_KEY),
     ])
-      .then(([raw, overrideRaw, savedWRaw, prefRaw, planRaw, scheduleRaw, onboardingRaw, notifPrefsRaw, lastModifyRaw, plannedWorkoutsRaw, isLoggedInRaw]) => {
+      .then(([raw, overrideRaw, savedWRaw, prefRaw, planRaw, scheduleRaw, onboardingRaw, notifPrefsRaw, lastModifyRaw, plannedWorkoutsRaw, isLoggedInRaw, dailySnapshotRaw]) => {
         if (onboardingRaw === 'true') setOnboardingCompleteState(true);
         if (isLoggedInRaw === 'true') {
           console.log('[AppContext] Restored logged in session');
@@ -386,6 +390,21 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
             if (d.hoursTrainedToday) setHoursTrainedToday(d.hoursTrainedToday);
             if (d.targetDone !== undefined) setTargetDone(d.targetDone);
             if (d.currentWorkoutTitle) setCurrentWorkoutTitle(d.currentWorkoutTitle);
+            // Prefer today’s creative title from the daily workout snapshot (same source as Workout tab).
+            // Avoids stale main-storage title and fixes load-order vs WorkoutTrackingContext hydrate.
+            if (dailySnapshotRaw) {
+              try {
+                const snap = JSON.parse(dailySnapshotRaw) as { date?: string; title?: string };
+                const today = getTodayDateStr();
+                if (snap.date === today && typeof snap.title === 'string' && snap.title.trim()) {
+                  setCurrentWorkoutTitle(snap.title);
+                } else if (snap.date && snap.date !== today) {
+                  setCurrentWorkoutTitle('');
+                }
+              } catch (e) {
+                console.log('[AppContext] daily snapshot title parse error:', e);
+              }
+            }
             if (d.healthSyncEnabled !== undefined) setHealthSyncEnabled(d.healthSyncEnabled);
             if (d.healthConnected !== undefined) {
               setHealthConnected(d.healthConnected);
@@ -636,8 +655,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     );
   }, []);
 
-  const deleteAccount = useCallback(async () => {
-    console.log('[AppContext] Deleting account — clearing all storage and resetting state');
+  const performFullReset = useCallback(async () => {
     try {
       await AsyncStorage.clear();
       console.log('[AppContext] AsyncStorage fully cleared');
@@ -700,7 +718,94 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setOnboardingCompleteState(false);
     setShowPlusSpotlight(false);
     setGooglePrefill(null);
+    setNewUserResetToken(t => t + 1);
     console.log('[AppContext] All in-memory state reset to defaults');
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    console.log('[AppContext] Deleting account — clearing all storage and resetting state');
+    await performFullReset();
+  }, [performFullReset]);
+
+  const resetForNewUser = useCallback(async () => {
+    console.log('[AppContext] Resetting for new user — clearing all storage and state');
+    await performFullReset();
+  }, [performFullReset]);
+
+  const saveOnboardingProfile = useCallback((profile: {
+    userName: string;
+    userPhotoUri: string | null;
+    dateOfBirth: string;
+    heightFt: number;
+    heightIn: number;
+    weight: number;
+    sex: Sex;
+    fitnessLevel: FitnessLevel;
+    trainingGoals: string[];
+    workoutStyle: string;
+    selectedEquipment: Record<string, number>;
+    warmUp: boolean;
+    coolDown: boolean;
+    recovery: boolean;
+    addCardio: boolean;
+    coreFinisher: boolean;
+  }) => {
+    setUserName(profile.userName);
+    setUserPhotoUri(profile.userPhotoUri);
+    setDateOfBirth(profile.dateOfBirth);
+    setHeightFt(profile.heightFt);
+    setHeightIn(profile.heightIn);
+    setWeight(profile.weight);
+    setSex(profile.sex);
+    setFitnessLevel(profile.fitnessLevel);
+    setTrainingGoals(profile.trainingGoals);
+    setWorkoutStyle(profile.workoutStyle);
+    setSelectedEquipment(profile.selectedEquipment);
+    setWarmUp(profile.warmUp);
+    setCoolDown(profile.coolDown);
+    setRecovery(profile.recovery);
+    setAddCardio(profile.addCardio);
+    setCoreFinisher(profile.coreFinisher);
+    const data = {
+      userName: profile.userName,
+      userPhotoUri: profile.userPhotoUri,
+      dateOfBirth: profile.dateOfBirth,
+      heightFt: profile.heightFt,
+      heightIn: profile.heightIn,
+      weight: profile.weight,
+      sex: profile.sex,
+      bodyFat: 15,
+      fitnessLevel: profile.fitnessLevel,
+      trainingGoals: profile.trainingGoals,
+      specialLifeCase: 'none',
+      specialLifeCaseDetail: '',
+      muscleReadiness: DEFAULT_MUSCLE_READINESS,
+      workoutStyle: profile.workoutStyle,
+      trainingSplit: 'Push',
+      targetDuration: 60,
+      restBetweenSets: 0.5,
+      warmUp: profile.warmUp,
+      coolDown: profile.coolDown,
+      recovery: profile.recovery,
+      addCardio: profile.addCardio,
+      coreFinisher: profile.coreFinisher,
+      appTheme: 'system',
+      reflectWorkoutColor: false,
+      selectedEquipment: profile.selectedEquipment,
+      savedGyms: DEFAULT_SAVED_GYMS,
+      streak: 1,
+      lastStreakDate: getTodayDateStr(),
+      trainingScore: 0,
+      hoursTrainedToday: '0h',
+      targetDone: 0,
+      currentWorkoutTitle: '',
+      healthSyncEnabled: false,
+      healthConnected: false,
+    };
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(e =>
+      console.log('[AppContext] saveOnboardingProfile error:', e)
+    );
+    console.log('[AppContext] Saved onboarding profile for', profile.userName);
   }, []);
 
   const completeOnboarding = useCallback(() => {
@@ -953,6 +1058,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       googlePrefill,
       setGooglePrefill,
       deleteAccount,
+      resetForNewUser,
+      saveOnboardingProfile,
+      newUserResetToken,
     }),
     [
       userName, userPhotoUri, dateOfBirth, heightFt, heightIn, weight, sex, bodyFat,
@@ -978,7 +1086,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       lastModifyState, saveLastModifyState,
       plannedWorkouts, savePlannedWorkout, deletePlannedWorkout, getPlannedWorkoutForDate,
       showPlusSpotlight, setShowPlusSpotlight,
-      googlePrefill, setGooglePrefill, deleteAccount,
+      googlePrefill, setGooglePrefill, deleteAccount, resetForNewUser, saveOnboardingProfile, newUserResetToken,
     ]
   );
 });

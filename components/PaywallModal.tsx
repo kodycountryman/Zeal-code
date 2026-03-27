@@ -107,16 +107,16 @@ export default function PaywallModal({
 
       Animated.loop(
         Animated.sequence([
-          Animated.timing(glowPulse, { toValue: 1, duration: 1800, useNativeDriver: true }),
-          Animated.timing(glowPulse, { toValue: 0.7, duration: 1800, useNativeDriver: true }),
+          Animated.timing(glowPulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
+          Animated.timing(glowPulse, { toValue: 0.7, duration: 1000, useNativeDriver: true }),
         ])
       ).start();
 
       Animated.loop(
         Animated.sequence([
-          Animated.timing(crownRotate, { toValue: 1, duration: 3000, useNativeDriver: true }),
-          Animated.timing(crownRotate, { toValue: -1, duration: 3000, useNativeDriver: true }),
-          Animated.timing(crownRotate, { toValue: 0, duration: 1500, useNativeDriver: true }),
+          Animated.timing(crownRotate, { toValue: 1, duration: 1200, useNativeDriver: true }),
+          Animated.timing(crownRotate, { toValue: -1, duration: 1200, useNativeDriver: true }),
+          Animated.timing(crownRotate, { toValue: 0, duration: 800, useNativeDriver: true }),
         ])
       ).start();
     } else {

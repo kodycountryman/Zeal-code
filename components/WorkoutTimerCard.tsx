@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { RotateCcw, Pause, Play } from 'lucide-react-native';
@@ -11,6 +11,13 @@ function formatTime(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+/** Isolated from the card shell so timer ticks don’t re-render chrome/controls. */
+const TimerDigits = memo(function TimerDigits({ elapsed, color }: { elapsed: number; color: string }) {
+  return (
+    <Text style={[styles.timer, { color }]}>{formatTime(elapsed)}</Text>
+  );
+});
+
 export default function WorkoutTimerCard() {
   const { colors, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
@@ -18,28 +25,30 @@ export default function WorkoutTimerCard() {
 
   const handleReset = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(
-      'Reset Workout?',
-      'This will clear all tracking data for this session.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Reset', style: 'destructive', onPress: tracking.resetWorkout },
-      ]
-    );
+    requestAnimationFrame(() => {
+      Alert.alert(
+        'Reset Workout?',
+        'This will clear all tracking data for this session.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Reset', style: 'destructive', onPress: tracking.resetWorkout },
+        ]
+      );
+    });
   }, [tracking.resetWorkout]);
 
   const handlePauseResume = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    tracking.pauseWorkout();
+    requestAnimationFrame(() => {
+      tracking.pauseWorkout();
+    });
   }, [tracking]);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: cardBorder }]}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>WORKOUT TIMER</Text>
       <View style={styles.row}>
-        <Text style={[styles.timer, { color: colors.text }]}>
-          {formatTime(tracking.workoutElapsed)}
-        </Text>
+        <TimerDigits elapsed={tracking.workoutElapsed} color={colors.text} />
         <View style={styles.controls}>
           <TouchableOpacity
             style={[styles.resetBtn, { borderColor: colors.border }]}
@@ -51,7 +60,7 @@ export default function WorkoutTimerCard() {
           <TouchableOpacity
             style={styles.pauseBtn}
             onPress={handlePauseResume}
-            activeOpacity={0.85}
+            activeOpacity={0.7}
           >
             {tracking.isPaused ? (
               <Play size={22} color="#fff" fill="#fff" />

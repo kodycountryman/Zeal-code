@@ -9,8 +9,8 @@ import {
 import { Sparkles, Clock, Zap } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 import type { WorkoutPlan } from '@/context/AppContext';
-import { BlurView } from 'expo-blur';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
+import GlassCard from '@/components/GlassCard';
 
 const DYNAMIC_LABELS = [
   "TODAY'S FOCUS",
@@ -64,12 +64,12 @@ export default function WorkoutOverviewCard({
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 0.3,
-          duration: 1200,
+          duration: 600,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 600,
           useNativeDriver: true,
         }),
       ])
@@ -99,7 +99,6 @@ export default function WorkoutOverviewCard({
 
   const isRestDay = title === 'Rest Day';
 
-  const tint = isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)';
   const CardContent = (
     <View style={styles.inner}>
       {activePlan && onViewPlan && (
@@ -121,7 +120,7 @@ export default function WorkoutOverviewCard({
         />
       </View>
 
-      <Text style={[styles.workoutTitle, { color: colors.text }]} numberOfLines={1}>
+      <Text style={[styles.workoutTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
         {title}
       </Text>
 
@@ -162,32 +161,15 @@ export default function WorkoutOverviewCard({
   );
 
   return (
-    <TouchableOpacity
+    <GlassCard
       onPress={onPress}
       activeOpacity={onPress ? 0.78 : 1}
-      disabled={!onPress}
-      style={[
-        styles.card,
-        { borderColor: cardBorder },
-        cardShadow,
-        variant === 'glass' && { backgroundColor: tint },
-        variant !== 'glass' && { backgroundColor: colors.card },
-      ]}
+      variant={variant}
+      style={[styles.card, { borderColor: cardBorder }, cardShadow]}
       testID="workout-overview-card"
     >
-      {variant === 'glass' ? (
-        <>
-          <BlurView
-            intensity={isDark ? 70 : 40}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-          {CardContent}
-        </>
-      ) : (
-        CardContent
-      )}
-    </TouchableOpacity>
+      {CardContent}
+    </GlassCard>
   );
 }
 
@@ -230,10 +212,10 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   workoutTitle: {
-    fontSize: 30,
+    fontSize: 28,
     fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.2,
-    lineHeight: 34,
+    letterSpacing: -0.5,
+    lineHeight: 32,
     marginTop: -2,
   },
   muscleGroups: {

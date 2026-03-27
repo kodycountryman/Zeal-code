@@ -9,7 +9,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { X, ChevronDown, ChevronUp, Bookmark, Building2, Check, User } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Bookmark, Building2, Check, User, X } from 'lucide-react-native';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme, useAppContext, SavedGym } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EQUIPMENT_CATEGORIES, ALL_EQUIPMENT_IDS } from '@/mocks/equipmentData';
@@ -17,9 +18,10 @@ import { EQUIPMENT_CATEGORIES, ALL_EQUIPMENT_IDS } from '@/mocks/equipmentData';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
 }
 
-export default function EquipmentDrawer({ visible, onClose }: Props) {
+export default function EquipmentDrawer({ visible, onClose, onBack }: Props) {
   const { colors, accent } = useZealTheme();
   const { selectedEquipment, setSelectedEquipment, savedGyms, setSavedGyms, saveState, bumpSettingsSaveVersion } =
     useAppContext();
@@ -269,40 +271,20 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleBtn}
-          onPress={onClose}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <X size={16} color="#888" strokeWidth={2.5} />
-        </TouchableOpacity>
-        <View style={styles.headerLeft}>
-          <View style={[styles.headerIcon, { backgroundColor: `${accent}22` }]}>
-            <Building2 size={18} color={accent} />
-          </View>
-          <Text style={[styles.title, { color: colors.text }]}>Equipment</Text>
-          <Text style={[styles.selectedCount, { color: colors.textSecondary }]}>
-            {totalSelected}/{totalItems}
-          </Text>
-          {activeGymId && (
-            <View style={[styles.activeGymPill, { backgroundColor: `${accent}20` }]}>
-              <Bookmark size={10} color={accent} />
-              <Text style={[styles.activeGymPillText, { color: accent }]}>
-                {savedGyms.find(g => g.id === activeGymId)?.name ?? 'Gym'}
-              </Text>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity
-          style={[styles.headerDoneBtn, { backgroundColor: accent }]}
-          onPress={handleDone}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.headerDoneText}>Done</Text>
-        </TouchableOpacity>
-      </View>
+      <DrawerHeader
+        title={`Equipment · ${totalSelected}/${totalItems}`}
+        onBack={onBack}
+        onClose={onBack ? undefined : onClose}
+        rightContent={
+          <TouchableOpacity
+            style={[styles.headerDoneBtn, { backgroundColor: accent }]}
+            onPress={handleDone}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.headerDoneText}>Done</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}

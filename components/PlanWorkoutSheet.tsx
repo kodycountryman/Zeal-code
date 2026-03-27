@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
 import {
   X, CalendarPlus, Trash2, CheckCircle, ChevronRight, AlertCircle, Clock,
   Dumbbell, RefreshCw, Plus, ArrowUp, ArrowDown, ArrowUpDown, Search,
@@ -94,9 +95,8 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
   const ctx = useAppContext();
   const { hasPro } = useSubscription();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['70%', '92%'], []);
+  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
   const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
 
   const [step, setStep] = useState<Step>('style');
   const [selectedStyle, setSelectedStyle] = useState<string>('');
@@ -569,6 +569,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -576,13 +577,16 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       enablePanDownToClose
       enableOverDrag={false}
       topInset={topOffset}
+      stackBehavior="push"
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
     >
       <BottomSheetScrollView
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={scrollEnabled}
         keyboardShouldPersistTaps="handled"
+        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -844,7 +848,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
 
               <View style={[styles.nextWorkoutHint, { backgroundColor: `${styleColor}0c`, borderColor: `${styleColor}25` }]}>
                 <Text style={[styles.nextWorkoutHintText, { color: colors.textSecondary }]}>
-                  Next you'll preview and customize the generated exercise list
+                  Next you&apos;ll preview and customize the generated exercise list
                 </Text>
               </View>
 

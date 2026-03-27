@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useZealTheme } from '@/context/AppContext';
 import WheelPicker from '@/components/WheelPicker';
+import PanDownHandle from '@/components/PanDownHandle';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -74,12 +75,12 @@ export default function WheelGuideModal({ visible, onDismiss, accentColor = '#f8
         Animated.sequence([
           Animated.timing(bounceAnim, {
             toValue: 9,
-            duration: 550,
+            duration: 280,
             useNativeDriver: true,
           }),
           Animated.timing(bounceAnim, {
             toValue: -9,
-            duration: 550,
+            duration: 280,
             useNativeDriver: true,
           }),
         ])
@@ -135,7 +136,7 @@ export default function WheelGuideModal({ visible, onDismiss, accentColor = '#f8
           { backgroundColor: colors.card, transform: [{ translateY: slideAnim }] },
         ]}
       >
-        <View style={[styles.handle, { backgroundColor: colors.border }]} />
+        <PanDownHandle onDismiss={onDismiss} indicatorColor={colors.border} />
 
         <Text style={[styles.title, { color: colors.text }]}>How to log sets</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -216,7 +217,7 @@ export default function WheelGuideModal({ visible, onDismiss, accentColor = '#f8
           onPress={onDismiss}
           activeOpacity={0.84}
         >
-          <Text style={styles.ctaBtnText}>Got it, let's go!</Text>
+          <Text style={styles.ctaBtnText}>Got it, let&apos;s go!</Text>
         </TouchableOpacity>
       </Animated.View>
     </Modal>

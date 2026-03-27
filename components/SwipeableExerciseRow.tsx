@@ -1,24 +1,20 @@
-import React, { useCallback, useEffect, memo } from 'react';
+import React, { useCallback, useEffect, useRef, memo } from 'react';
 import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Info, ArrowLeftRight, Trash2 } from 'lucide-react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { type RelationPropType } from 'react-native-gesture-handler/lib/typescript/components/utils';
 import Animated, {
-  clamp,
-  Extrapolation,
   interpolate,
-  runOnJS,
+  Extrapolation,
   useAnimatedStyle,
-  useDerivedValue,
-  useSharedValue,
-  withSpring,
-  withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 const BTN_W = 64;
 const REVEAL_W = BTN_W * 3;
-const SNAP_THRESHOLD = 30;
-const DELETE_THRESHOLD = REVEAL_W + 80;
 
 interface Props {
   id: string;
@@ -29,11 +25,58 @@ interface Props {
   onDelete: () => void;
   rowBg: string;
   /**
-   * External gesture that should take priority (eg the list/ScrollView gesture).
-   * We wire this via requireExternalGestureToFail which is the gesture-handler equivalent of waitFor={...}.
+   * External gesture that should take priority (e.g. the list/ScrollView gesture).
    */
-  waitForGesture?: Parameters<ReturnType<typeof Gesture.Pan>['requireExternalGestureToFail']>[0];
+  waitForGesture?: RelationPropType;
+  /** When false, horizontal swipe is disabled (e.g. while reordering via grip drag). */
+  enabled?: boolean;
   children: React.ReactNode;
+}
+
+// Individual action button — animates in as the row opens
+function ActionButton({
+  progress,
+  color,
+  icon,
+  onPress,
+  style,
+}: {
+  progress: SharedValue<number>;
+  color: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  style?: object;
+}) {
+  const animStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      progress.value,
+      [0, 0.6, 1],
+      [0.5, 1.05, 1],
+      Extrapolation.CLAMP,
+    );
+    const opacity = interpolate(
+      progress.value,
+      [0, 0.4, 1],
+      [0, 0.9, 1],
+      Extrapolation.CLAMP,
+    );
+    return { transform: [{ scale }], opacity };
+  });
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.actionBtn,
+        { backgroundColor: color, width: BTN_W },
+        style,
+        pressed && { opacity: 0.8 },
+      ]}
+      onPress={onPress}
+      hitSlop={0}
+    >
+      <Animated.View style={animStyle}>{icon}</Animated.View>
+    </Pressable>
+  );
 }
 
 function SwipeableExerciseRow({
@@ -45,171 +88,110 @@ function SwipeableExerciseRow({
   onDelete,
   rowBg,
   waitForGesture,
+  enabled = true,
   children,
 }: Props) {
-  const translateX = useSharedValue(0);
-  const startX = useSharedValue(0);
-  const hardPullProgress = useSharedValue(0);
-  const revealProgress = useDerivedValue(() => {
-    const v = Math.abs(translateX.value) / REVEAL_W;
-    return clamp(v, 0, 1);
-  });
-  const isOpenSV = useSharedValue(false);
-  const hardHapticFired = useSharedValue(false);
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
-  const closeRow = useCallback((animated = true) => {
-    isOpenSV.value = false;
-    if (animated) {
-      translateX.value = withSpring(0, { damping: 24, stiffness: 380, mass: 0.7 });
-    } else {
-      translateX.value = 0;
-    }
-    hardPullProgress.value = withTiming(0, { duration: 150 });
-  }, [hardPullProgress, isOpenSV, translateX]);
-
-  // Snap close when another row opens (isOpen toggled to false externally)
   useEffect(() => {
-    if (!isOpen) closeRow(true);
-  }, [isOpen, closeRow]);
+    if (!enabled) {
+      swipeableRef.current?.close();
+    }
+  }, [enabled]);
 
-  const iconScale = useDerivedValue(() => (
-    interpolate(revealProgress.value, [0, 0.6, 1], [0.4, 1.1, 1], Extrapolation.CLAMP)
-  ));
-  const deleteBg = useDerivedValue(() => (
-    hardPullProgress.value > 0.5 ? '#e53935' : '#c0392b'
-  ));
+  // Close this row when another row becomes the open one
+  useEffect(() => {
+    if (!isOpen) {
+      swipeableRef.current?.close();
+    }
+  }, [isOpen]);
 
-  const rowAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-    // Transparent so ambient glow / background shows through the list
-    backgroundColor: 'transparent',
-  }));
+  const handleSwipeOpen = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onOpen(id);
+  }, [id, onOpen]);
 
-  const actionsAnimatedStyle = useAnimatedStyle(() => ({
-    // Fade buttons in only as the user swipes — at rest they're invisible
-    opacity: clamp(revealProgress.value * 2, 0, 1),
-  }));
-
-  const deleteBtnAnimatedStyle = useAnimatedStyle(() => ({
-    backgroundColor: deleteBg.value,
-  }));
-
-  const iconAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }],
-  }));
+  const handleSwipeClose = useCallback(() => {
+    onOpen(null);
+  }, [onOpen]);
 
   const handleInfo = useCallback(() => {
-    closeRow(true);
+    swipeableRef.current?.close();
     onInfo();
-  }, [closeRow, onInfo]);
+  }, [onInfo]);
 
   const handleSwap = useCallback(() => {
-    closeRow(true);
+    swipeableRef.current?.close();
     onSwap();
-  }, [closeRow, onSwap]);
+  }, [onSwap]);
 
   const handleDelete = useCallback(() => {
+    swipeableRef.current?.close();
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
     onDelete();
   }, [onDelete]);
 
-  const pan = Gesture.Pan()
-    .activeOffsetX([-10, 10]) // locks into horizontal swipe after 10px
-    .failOffsetY([-8, 8]) // fails quickly on vertical movement (closest equivalent to failVerticalPointers)
-    .onBegin(() => {
-      startX.value = translateX.value;
-      hardHapticFired.value = false;
-    })
-    .onUpdate((e) => {
-      const next = Math.min(0, startX.value + e.translationX);
-      translateX.value = next;
-
-      const progress = clamp((Math.abs(next) - REVEAL_W) / (DELETE_THRESHOLD - REVEAL_W), 0, 1);
-      hardPullProgress.value = progress;
-
-      if (Math.abs(next) >= DELETE_THRESHOLD) {
-        if (!hardHapticFired.value) {
-          hardHapticFired.value = true;
-          if (Platform.OS !== 'web') {
-            runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Heavy);
-          }
-        }
-      } else {
-        hardHapticFired.value = false;
-      }
-    })
-    .onEnd((e) => {
-      const currentX = translateX.value;
-      const hardPull = Math.abs(currentX) >= DELETE_THRESHOLD;
-      if (hardPull) {
-        if (Platform.OS !== 'web') {
-          runOnJS(Haptics.notificationAsync)(Haptics.NotificationFeedbackType.Warning);
-        }
-        translateX.value = withTiming(-600, { duration: 200 }, () => {
-          runOnJS(onDelete)();
-        });
-        return;
-      }
-
-      const shouldOpen = Math.abs(currentX) > SNAP_THRESHOLD || e.velocityX < -500;
-      if (shouldOpen) {
-        isOpenSV.value = true;
-        translateX.value = withSpring(-REVEAL_W, { damping: 20, stiffness: 360, mass: 0.7 });
-        runOnJS(onOpen)(id);
-      } else {
-        isOpenSV.value = false;
-        translateX.value = withSpring(0, { damping: 24, stiffness: 400, mass: 0.7 });
-        hardPullProgress.value = withTiming(0, { duration: 200 });
-        runOnJS(onOpen)(null);
-      }
-    });
-
-  if (waitForGesture) {
-    pan.requireExternalGestureToFail(waitForGesture);
-  }
+  const renderRightActions = useCallback(
+    (progress: SharedValue<number>) => (
+      <View style={styles.actionsContainer}>
+        <ActionButton
+          progress={progress}
+          color="#1d6fce"
+          icon={<Info size={20} color="#fff" strokeWidth={2.2} />}
+          onPress={handleInfo}
+        />
+        <View style={styles.divider} />
+        <ActionButton
+          progress={progress}
+          color="#b8600a"
+          icon={<ArrowLeftRight size={20} color="#fff" strokeWidth={2.2} />}
+          onPress={handleSwap}
+        />
+        <View style={styles.divider} />
+        <ActionButton
+          progress={progress}
+          color="#c0392b"
+          icon={<Trash2 size={20} color="#fff" strokeWidth={2.2} />}
+          onPress={handleDelete}
+        />
+      </View>
+    ),
+    [handleInfo, handleSwap, handleDelete],
+  );
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.actions, actionsAnimatedStyle]} pointerEvents="box-none">
-        <Pressable
-          style={({ pressed }) => [styles.infoBtn, pressed && { opacity: 0.75 }]}
-          onPress={handleInfo}
-        >
-          <Animated.View style={iconAnimatedStyle}>
-            <Info size={20} color="#ffffff" strokeWidth={2.2} />
-          </Animated.View>
-        </Pressable>
-
-        <View style={[styles.divider, { left: BTN_W }]} />
-
-        <Pressable
-          style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.75 }]}
-          onPress={handleSwap}
-        >
-          <Animated.View style={iconAnimatedStyle}>
-            <ArrowLeftRight size={20} color="#ffffff" strokeWidth={2.2} />
-          </Animated.View>
-        </Pressable>
-
-        <View style={[styles.divider, { left: BTN_W * 2 }]} />
-
-        <Animated.View style={[styles.deleteBtn, deleteBtnAnimatedStyle]}>
-          <Pressable
-            style={({ pressed }) => [styles.deleteBtnInner, pressed && { opacity: 0.75 }]}
-            onPress={handleDelete}
-          >
-            <Animated.View style={iconAnimatedStyle}>
-              <Trash2 size={20} color="#ffffff" strokeWidth={2.2} />
-            </Animated.View>
-          </Pressable>
-        </Animated.View>
-      </Animated.View>
-
-      <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.rowContent, rowAnimatedStyle]}>
-          {children}
-        </Animated.View>
-      </GestureDetector>
-    </View>
+    <ReanimatedSwipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      rightThreshold={REVEAL_W / 2}
+      overshootRight={false}
+      enableTrackpadTwoFingerGesture={false}
+      friction={1}
+      onSwipeableOpen={handleSwipeOpen}
+      onSwipeableClose={handleSwipeClose}
+      // Run simultaneously with the scroll gesture instead of waiting for it to
+      // fail — the pan wins on horizontal movement, scroll wins on vertical.
+      simultaneousWithExternalGesture={waitForGesture}
+      enabled={enabled}
+      // Lower threshold so RNGH activates (and cancels the Pressable's JS
+      // responder) after just 5 px of horizontal travel instead of the default 10.
+      dragOffsetFromRightEdge={5}
+      dragOffsetFromLeftEdge={5}
+      animationOptions={{
+        mass: 0.5,
+        damping: 40,
+        stiffness: 500,
+        overshootClamping: true,
+      }}
+      containerStyle={styles.container}
+    >
+      {/* Solid layer so the row does not show the swipe actions through while dragging */}
+      <View style={[styles.rowFront, { backgroundColor: rowBg }]}>{children}</View>
+    </ReanimatedSwipeable>
   );
 }
 
@@ -219,46 +201,22 @@ const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
   },
-  actions: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    flexDirection: 'row',
+  rowFront: {
+    alignSelf: 'stretch',
+    width: '100%',
+  },
+  actionsContainer: {
     width: REVEAL_W,
+    flexDirection: 'row',
+    alignItems: 'stretch',
   },
-  infoBtn: {
-    width: BTN_W,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1d6fce',
-  },
-  swapBtn: {
-    width: BTN_W,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#b8600a',
-  },
-  deleteBtn: {
-    width: BTN_W,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  deleteBtnInner: {
-    flex: 1,
-    width: '100%' as const,
+  actionBtn: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   divider: {
     width: 1,
-    top: 8,
-    bottom: 8,
-    position: 'absolute',
+    marginVertical: 8,
     backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  rowContent: {
-    width: '100%' as const,
   },
 });

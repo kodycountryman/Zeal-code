@@ -9,7 +9,6 @@ import {
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Svg, { Polygon, Line, Circle as SvgCircle } from 'react-native-svg';
 import {
-  X,
   ChevronDown,
   ChevronUp,
   Check,
@@ -26,18 +25,20 @@ import {
   HeartPulse,
   Activity,
 } from 'lucide-react-native';
+import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import { healthService } from '@/services/healthService';
 import { Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWorkoutTracking, type WorkoutLog, type PersonalRecord } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
 }
 
 type TabKey = 'workouts' | 'time' | 'streak' | 'prs';
@@ -364,15 +365,13 @@ function RadarChart({ values, colors: themeColors, accent }: { values: Record<st
   );
 }
 
-export default function InsightsDrawer({ visible, onClose }: Props) {
+export default function InsightsDrawer({ visible, onClose, onBack }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
   const { hasPro, openPaywall } = useSubscription();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['92%'], []);
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
+  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
 
   const [activeTab, setActiveTab] = useState<TabKey>('workouts');
   const [prSectionOpen, setPrSectionOpen] = useState<boolean>(false);
@@ -537,6 +536,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.background }]}
@@ -544,21 +544,20 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
       enablePanDownToClose
       enableOverDrag={false}
       topInset={topOffset}
+      stackBehavior="push"
     >
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.headerLabel, { color: colors.textSecondary }]}>YOUR PROGRESS</Text>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Insights</Text>
-        </View>
-        <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn} testID="insights-close">
-          <X size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
+      <DrawerHeader
+        title="Insights"
+        onBack={onBack}
+        onClose={onBack ? undefined : onClose}
+      />
 
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
         bounces={false}
+        scrollEnabled={scrollEnabled}
         contentContainerStyle={styles.scrollContent}
+        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
       >
         {!hasPro && (
           <TouchableOpacity

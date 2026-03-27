@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
+import PanDownHandle from '@/components/PanDownHandle';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 
@@ -115,6 +116,7 @@ export default function FullCalendarModal() {
     >
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+          <PanDownHandle onDismiss={handleClose} indicatorColor={colors.border} />
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
             <X size={20} color={colors.textSecondary} />
           </TouchableOpacity>

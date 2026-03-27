@@ -105,14 +105,14 @@ export default function ExerciseAnimationView({ exerciseName, exerciseId, aliase
         Animated.delay(800),
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 1200,
-          useNativeDriver: false,
+          duration: 500,
+          useNativeDriver: true,
         }),
         Animated.delay(800),
         Animated.timing(fadeAnim, {
           toValue: 0,
-          duration: 1200,
-          useNativeDriver: false,
+          duration: 500,
+          useNativeDriver: true,
         }),
       ])
     );
@@ -213,13 +213,13 @@ function SkeletonPulse() {
       Animated.sequence([
         Animated.timing(pulse, {
           toValue: 0.7,
-          duration: 800,
-          useNativeDriver: false,
+          duration: 400,
+          useNativeDriver: true,
         }),
         Animated.timing(pulse, {
           toValue: 0.3,
-          duration: 800,
-          useNativeDriver: false,
+          duration: 400,
+          useNativeDriver: true,
         }),
       ])
     );

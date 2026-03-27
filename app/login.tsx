@@ -104,7 +104,7 @@ export default function LoginScreen() {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 700,
+        duration: 350,
         useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {

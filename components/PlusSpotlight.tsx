@@ -45,7 +45,7 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
         Animated.delay(delay),
         Animated.timing(anim, {
           toValue: 1,
-          duration: 1600,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(anim, {
@@ -71,7 +71,7 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
 
     Animated.timing(overlayFade, {
       toValue: 1,
-      duration: 350,
+      duration: 180,
       useNativeDriver: true,
     }).start();
 
@@ -80,21 +80,21 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
         toValue: 0,
         tension: 60,
         friction: 10,
-        delay: 300,
+        delay: 150,
         useNativeDriver: true,
       }),
       Animated.timing(cardFade, {
         toValue: 1,
-        duration: 350,
-        delay: 300,
+        duration: 180,
+        delay: 150,
         useNativeDriver: true,
       }),
     ]).start();
 
     Animated.loop(
       Animated.sequence([
-        Animated.timing(plusPulse, { toValue: 1.08, duration: 700, useNativeDriver: true }),
-        Animated.timing(plusPulse, { toValue: 0.97, duration: 700, useNativeDriver: true }),
+        Animated.timing(plusPulse, { toValue: 1.08, duration: 400, useNativeDriver: true }),
+        Animated.timing(plusPulse, { toValue: 0.97, duration: 400, useNativeDriver: true }),
       ])
     ).start();
 

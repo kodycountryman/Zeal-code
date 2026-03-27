@@ -11,7 +11,7 @@ import { Calendar, Flame, Check } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 import { getContrastTextColor, WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import type { PlannedWorkout } from '@/context/AppContext';
-import { BlurView } from 'expo-blur';
+import GlassCard from '@/components/GlassCard';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CELL_WIDTH = 56;
@@ -106,8 +106,6 @@ export default function CalendarCard({
   } : {};
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
-
-  const tint = isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)';
 
   const CardContent = (
     <View style={styles.row}>
@@ -225,28 +223,9 @@ export default function CalendarCard({
   );
 
   return (
-    <View
-      style={[
-        styles.card,
-        { borderColor: cardBorder },
-        cardShadow,
-        variant === 'glass' && { backgroundColor: tint },
-        variant !== 'glass' && { backgroundColor: colors.card },
-      ]}
-    >
-      {variant === 'glass' ? (
-        <>
-          <BlurView
-            intensity={isDark ? 70 : 40}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-          {CardContent}
-        </>
-      ) : (
-        CardContent
-      )}
-    </View>
+    <GlassCard style={[styles.card, { borderColor: cardBorder }, cardShadow]} variant={variant}>
+      {CardContent}
+    </GlassCard>
   );
 }
 

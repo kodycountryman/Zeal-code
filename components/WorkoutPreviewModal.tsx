@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  PanResponder,
+  Animated,
+  Platform,
 } from 'react-native';
 import {
   X,
@@ -71,6 +74,54 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
     onClose();
     onGoToWorkout();
   }, [onClose, onGoToWorkout]);
+
+  // Full-sheet pan-down-to-dismiss ─────────────────────────────────────────
+  const sheetY = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(0);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    scrollY.current = 0;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, [visible]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      // Only capture when at the top of the scroll AND moving downward
+      onMoveShouldSetPanResponder: (_e, gs) =>
+        scrollY.current <= 2 && gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_e, gs) => {
+        if (gs.dy > 0) sheetY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_e, gs) => {
+        if (gs.dy > 80 || gs.vy > 0.5) {
+          // Fast dismiss: slide out then close
+          Animated.timing(sheetY, {
+            toValue: 800,
+            duration: 220,
+            useNativeDriver: true,
+          }).start(() => {
+            sheetY.setValue(0);
+            onClose();
+          });
+        } else {
+          // Snap back
+          Animated.spring(sheetY, {
+            toValue: 0,
+            useNativeDriver: true,
+            stiffness: 320,
+            damping: 32,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(sheetY, { toValue: 0, useNativeDriver: true }).start();
+      },
+    })
+  ).current;
 
   const renderGroupBadge = (type: 'superset' | 'circuit' | 'rounds' | null) => {
     if (!type) return null;
@@ -142,8 +193,14 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
       statusBarTranslucent
     >
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.card }]}> 
-        <View style={[styles.handle, { backgroundColor: colors.border }]} />
+      <Animated.View
+        style={[styles.sheet, { backgroundColor: colors.card, transform: [{ translateY: sheetY }] }]}
+        {...panResponder.panHandlers}
+      >
+        {/* Visual pill handle */}
+        <View style={styles.handleWrap}>
+          <View style={[styles.pill, { backgroundColor: colors.border }]} />
+        </View>
 
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7} testID="preview-close-button">
           <X size={20} color={colors.textSecondary} />
@@ -167,7 +224,7 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
               <>
                 <Text style={[styles.emptyTitle, { color: colors.text }]}>Workout not generated yet</Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-                  Head to the Workout tab to generate today's session
+                  Head to the Workout tab to generate today&apos;s session
                 </Text>
                 <TouchableOpacity
                   style={[styles.goBtn, { backgroundColor: accent }]}
@@ -183,14 +240,24 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
           </View>
         ) : (
           <>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              ref={scrollRef}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              bounces={false}
+              alwaysBounceVertical={false}
+              {...(Platform.OS === 'android' ? { overScrollMode: 'never' as const } : {})}
+              onScroll={(e) => {
+                scrollY.current = Math.max(0, e.nativeEvent.contentOffset.y);
+              }}
+            >
               <View style={styles.eyebrowRow}>
                 <View style={[styles.styleDot, { backgroundColor: accent }]} />
                 <Text style={[styles.eyebrowText, { color: colors.textSecondary }]}>{workout.style.toUpperCase()}</Text>
               </View>
 
               <Text style={[styles.workoutName, { color: colors.text }]}>{workout.split}</Text>
-              <Text style={[styles.dateText, { color: colors.textSecondary }]}>Today's Workout Preview</Text>
+              <Text style={[styles.dateText, { color: colors.textSecondary }]}>Today&apos;s Workout Preview</Text>
 
               <View style={styles.statsRow}>
                 <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
@@ -244,7 +311,7 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
             </View>
           </>
         )}
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -257,16 +324,21 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
-    padding: 22,
+    paddingHorizontal: 22,
+    paddingTop: 0,
     paddingBottom: 34,
     maxHeight: '90%',
   },
-  handle: {
+  handleWrap: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  pill: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 14,
   },
   closeBtn: {
     position: 'absolute',

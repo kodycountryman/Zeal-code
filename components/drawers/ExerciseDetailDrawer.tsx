@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { Target, Lightbulb, Settings2, ThumbsUp, ThumbsDown, TrendingUp, Zap } from 'lucide-react-native';
 import ExerciseAnimationView from '@/components/ExerciseAnimationView';
 import Svg, { Polyline, Circle as SvgCircle } from 'react-native-svg';
@@ -13,7 +15,6 @@ import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate } from '@/services/proGate';
 import { useWorkoutTracking, type WorkoutLog } from '@/context/WorkoutTrackingContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import type { WorkoutExercise } from '@/services/workoutEngine';
 import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
@@ -33,6 +34,7 @@ function fmt(s: string): string { return s.replace(/_/g, ' '); }
 
 function generateSetup(ref: any): string {
   if (!ref) return 'Set up according to the exercise prescription.';
+  if (typeof ref.setup === 'string' && ref.setup.trim().length > 0) return ref.setup.trim();
   const rawEquip: string[] = ref.equipment_required ?? ref.equipment ?? [];
   const equipment = rawEquip.filter((e: string) => e !== 'bodyweight');
   const equipStr = equipment.length > 0
@@ -63,6 +65,14 @@ function generateSteps(ref: any, exerciseName?: string): string[] {
       'Complete all reps maintaining consistent form.',
     ];
     return ['Set up with appropriate equipment.', 'Perform the movement with control.', 'Complete all prescribed reps.'];
+  }
+
+  // If the database provides explicit steps, prefer them.
+  if (Array.isArray(ref.steps) && ref.steps.length > 0) {
+    return ref.steps
+      .map((s: string) => String(s).trim())
+      .filter(Boolean)
+      .slice(0, 6);
   }
 
   if (ref.description && !ref.movement_pattern && !ref.movementPattern) {
@@ -350,17 +360,16 @@ interface Props {
   exercise: WorkoutExercise | null;
   workoutStyle: string;
   onClose: () => void;
+  onBack?: () => void;
 }
 
-export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, onClose }: Props) {
+export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, onClose, onBack }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
   const { hasPro, openPaywall } = useSubscription();
   const { workoutHistory } = useWorkoutTracking();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['92%'], []);
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
+  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
   const styleAccent = WORKOUT_STYLE_COLORS[workoutStyle] ?? accent;
 
   useEffect(() => {
@@ -465,6 +474,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -474,10 +484,17 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
       topInset={topOffset}
       stackBehavior="push"
     >
+      <DrawerHeader
+        title={exercise?.name ?? ''}
+        onBack={onBack}
+        onClose={onBack ? undefined : onClose}
+      />
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
         bounces={false}
+        scrollEnabled={scrollEnabled}
         contentContainerStyle={styles.content}
+        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
       >
         {/* ── Animation ── */}
         <ExerciseAnimationView
@@ -553,7 +570,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
               </Text>
               {currentOrmStr ? (
                 <Text style={[styles.noHistorySub, { color: styleAccent }]}>
-                  Today's estimate: {currentOrmStr}
+                  Today&apos;s estimate: {currentOrmStr}
                 </Text>
               ) : null}
             </View>
@@ -597,24 +614,23 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
           </>
         )}
 
-        {/* ── Setup ── */}
-        <View style={styles.sectionRow}>
-          <Settings2 size={13} color={styleAccent} />
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>SETUP</Text>
-        </View>
-        <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
-          <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>
-            {equipDisplay}
-          </Text>
-          <Text style={[styles.infoText, { color: colors.textSecondary }]}>{setupText}</Text>
-        </View>
-
         {/* ── How to Perform ── */}
         <View style={styles.sectionRow}>
           <Lightbulb size={13} color={styleAccent} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>HOW TO PERFORM</Text>
         </View>
         <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
+          <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>
+            {equipDisplay}
+          </Text>
+          <View style={styles.stepRow}>
+            <View style={[styles.stepNum, { backgroundColor: styleAccent }]}>
+              <Text style={styles.stepNumText}>S</Text>
+            </View>
+            <Text style={[styles.stepText, { color: colors.text }]}>
+              {setupText}
+            </Text>
+          </View>
           {steps.map((step: string, idx: number) => (
             <View key={idx} style={styles.stepRow}>
               <View style={[styles.stepNum, { backgroundColor: styleAccent }]}>

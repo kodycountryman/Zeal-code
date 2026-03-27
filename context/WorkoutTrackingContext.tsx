@@ -17,11 +17,20 @@ import {
   cancelRestCompleteNotification,
   scheduleWeeklySummary,
 } from '@/services/notificationService';
+import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 
 const HISTORY_KEY = '@zeal_workout_history_v1';
 const PR_KEY = '@zeal_pr_history_v1';
 const WEEKLY_HOURS_KEY = '@zeal_weekly_hours_v1';
 const SEEN_HEALTH_IMPORTS_KEY = '@zeal_health_seen_imports_v1';
+/** Persists today’s generated workout + title until local calendar day changes (survives app kill). */
+const DAILY_GENERATED_SNAPSHOT_KEY = '@zeal_daily_generated_workout_v1';
+
+interface DailyGeneratedSnapshot {
+  date: string;
+  workout: GeneratedWorkout;
+  title?: string;
+}
 
 export type DifficultyLevel = 'easy' | 'moderate' | 'hard' | 'brutal';
 export type PostWorkoutStep = 'prs' | 'feedback' | 'save' | null;
@@ -258,6 +267,8 @@ function getSuggestedWeight(
 
 export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook(() => {
   const ctx = useAppContext();
+  const currentWorkoutTitleRef = useRef(ctx.currentWorkoutTitle);
+  currentWorkoutTitleRef.current = ctx.currentWorkoutTitle;
   const { hasPro, proStatusReady } = useSubscription();
 
   const [isWorkoutActive, setIsWorkoutActive] = useState<boolean>(false);
@@ -294,6 +305,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const generationReqIdRef = useRef(0);
   const generationInFlightRef = useRef(false);
   const proWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** False until AsyncStorage daily snapshot has been read (avoids duplicate generation on cold start). */
+  const snapshotHydratedRef = useRef(false);
+  const pendingEnsureAfterHydrateRef = useRef(false);
+  const ensureTodayWorkoutGeneratedRef = useRef<() => void>(() => {});
 
   function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
     const readinessMap: Record<string, number> = {};
@@ -319,6 +334,11 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     if (generationInFlightRef.current) return;
     if (isWorkoutActive) return;
 
+    if (!snapshotHydratedRef.current) {
+      pendingEnsureAfterHydrateRef.current = true;
+      return;
+    }
+
     // Avoid generating with a wrong entitlement snapshot on fresh open.
     if (!proStatusReady) {
       if (!proWaitTimerRef.current) {
@@ -330,9 +350,20 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       return;
     }
 
-    const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
-    // If we already have a populated workout for this session, don't regenerate.
-    if (currentGeneratedWorkout) return;
+    const todayStr = getTodayStr();
+    // Drop stale workout if calendar day rolled (e.g. app left open past midnight).
+    if (currentGeneratedWorkout) {
+      const refDay = generatedForDateRef.current;
+      if (refDay === todayStr) return;
+      if (refDay !== null && refDay !== todayStr) {
+        setCurrentGeneratedWorkout(null);
+        generatedForDateRef.current = null;
+        void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
+      } else {
+        generatedForDateRef.current = todayStr;
+        return;
+      }
+    }
 
     const ov = ctx.workoutOverride;
     const todayPrescription = ctx.getTodayPrescription();
@@ -427,7 +458,15 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         if (generationReqIdRef.current !== reqId) return;
         generatedForDateRef.current = todayStr;
         setCurrentGeneratedWorkout(w);
-        ctx.setCurrentWorkoutTitle(w.split);
+        ctx.setCurrentWorkoutTitle(
+          buildCreativeWorkoutTitle({
+            style: w.style,
+            split: w.split,
+            metconFormat: w.metconFormat,
+            duration: w.estimatedDuration,
+            previousTitle: currentWorkoutTitleRef.current,
+          })
+        );
       })
       .catch((err) => {
         console.log('[WorkoutTracking] ensureTodayWorkoutGenerated error:', err);
@@ -446,6 +485,12 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     proStatusReady,
   ]);
 
+  useEffect(() => {
+    ensureTodayWorkoutGeneratedRef.current = () => {
+      void ensureTodayWorkoutGenerated();
+    };
+  }, [ensureTodayWorkoutGenerated]);
+
   const [logPreviousVisible, setLogPreviousVisible] = useState<boolean>(false);
   const [calendarModalVisible, setCalendarModalVisible] = useState<boolean>(false);
   const [workoutLogDetailVisible, setWorkoutLogDetailVisible] = useState<boolean>(false);
@@ -459,6 +504,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
   const [healthImportReviewVisible, setHealthImportReviewVisible] = useState<boolean>(false);
   const [historyLoaded, setHistoryLoaded] = useState<boolean>(false);
+  /** Becomes true after daily workout snapshot is read from disk (triggers persist effect). */
+  const [dailySnapshotReady, setDailySnapshotReady] = useState(false);
   const hasScanedHealthRef = useRef<boolean>(false);
   const saveTimeRef = useRef<number>(0);
 
@@ -473,7 +520,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       AsyncStorage.getItem(HISTORY_KEY),
       AsyncStorage.getItem(PR_KEY),
       AsyncStorage.getItem(WEEKLY_HOURS_KEY),
-    ]).then(([historyRaw, prRaw, hoursRaw]) => {
+      AsyncStorage.getItem(DAILY_GENERATED_SNAPSHOT_KEY),
+    ]).then(([historyRaw, prRaw, hoursRaw, dailyRaw]) => {
       if (historyRaw) {
         try { setWorkoutHistory(JSON.parse(historyRaw)); } catch (e) { console.log('[Tracking] history parse error', e); }
       }
@@ -488,10 +536,91 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
           }
         } catch (e) { console.log('[Tracking] hours parse error', e); }
       }
+
+      const todayStr = getTodayStr();
+      if (dailyRaw) {
+        try {
+          const data = JSON.parse(dailyRaw) as DailyGeneratedSnapshot;
+          if (data?.date === todayStr && data?.workout) {
+            setCurrentGeneratedWorkout(data.workout);
+            generatedForDateRef.current = todayStr;
+            if (typeof data.title === 'string' && data.title.trim()) {
+              ctx.setCurrentWorkoutTitle(data.title);
+            } else {
+              ctx.setCurrentWorkoutTitle(
+                buildCreativeWorkoutTitle({
+                  style: data.workout.style,
+                  split: data.workout.split,
+                  metconFormat: data.workout.metconFormat,
+                  duration: data.workout.estimatedDuration,
+                })
+              );
+            }
+          } else if (data?.date && data.date !== todayStr) {
+            void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
+          }
+        } catch (e) {
+          console.log('[Tracking] daily snapshot parse error', e);
+          void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
+        }
+      }
+
+      snapshotHydratedRef.current = true;
+      setDailySnapshotReady(true);
       setHistoryLoaded(true);
-      console.log('[Tracking] Loaded history, PRs, hours');
+      console.log('[Tracking] Loaded history, PRs, hours, daily snapshot');
+
+      if (pendingEnsureAfterHydrateRef.current) {
+        pendingEnsureAfterHydrateRef.current = false;
+        setTimeout(() => {
+          ensureTodayWorkoutGeneratedRef.current();
+        }, 0);
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time hydrate; ctx.setCurrentWorkoutTitle is stable
   }, []);
+
+  useEffect(() => {
+    if (!dailySnapshotReady || !currentGeneratedWorkout) return;
+    const day = getTodayStr();
+    const payload: DailyGeneratedSnapshot = {
+      date: day,
+      workout: currentGeneratedWorkout,
+      title: ctx.currentWorkoutTitle || '',
+    };
+    void AsyncStorage.setItem(DAILY_GENERATED_SNAPSHOT_KEY, JSON.stringify(payload));
+  }, [dailySnapshotReady, currentGeneratedWorkout, ctx.currentWorkoutTitle]);
+
+  const resetTrackingData = useCallback(async () => {
+    console.log('[Tracking] Resetting all tracking data for new user');
+    setWorkoutHistory([]);
+    setPrHistory([]);
+    setWeeklyHoursMin(0);
+    setHistoryLoaded(false);
+    setCurrentGeneratedWorkout(null);
+    generatedForDateRef.current = null;
+    hasScanedHealthRef.current = false;
+    try {
+      await Promise.all([
+        AsyncStorage.removeItem(HISTORY_KEY),
+        AsyncStorage.removeItem(PR_KEY),
+        AsyncStorage.removeItem(WEEKLY_HOURS_KEY),
+        AsyncStorage.removeItem(SEEN_HEALTH_IMPORTS_KEY),
+        AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY),
+      ]);
+    } catch (e) {
+      console.log('[Tracking] error clearing tracking storage', e);
+    }
+    setHistoryLoaded(true);
+  }, []);
+
+  const prevResetTokenRef = useRef<number>(ctx.newUserResetToken);
+  useEffect(() => {
+    if (ctx.newUserResetToken !== 0 && ctx.newUserResetToken !== prevResetTokenRef.current) {
+      prevResetTokenRef.current = ctx.newUserResetToken;
+      void resetTrackingData();
+    }
+  }, [ctx.newUserResetToken, resetTrackingData]);
 
   useEffect(() => {
     if (!historyLoaded) return;
@@ -1421,6 +1550,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     mergeDuplicate,
     keepBothDuplicate,
     dismissDuplicate,
+    resetTrackingData,
   }), [
     isWorkoutActive, workoutElapsed, isPaused, isRestActive, restTimeRemaining,
     restTimeTotal, showRestTimer, isTimerMinimized, setIsTimerMinimized, exerciseLogs, expandedExercise,
@@ -1441,5 +1571,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     getExerciseSuggestion,
     pendingHealthImports, duplicateCandidates, healthImportReviewVisible, setHealthImportReviewVisible,
     acceptHealthImport, dismissHealthImport, mergeDuplicate, keepBothDuplicate, dismissDuplicate,
+    resetTrackingData,
   ]);
 });

@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import WheelPicker from '@/components/WheelPicker';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { X, RefreshCw, Stethoscope } from 'lucide-react-native';
+import { RefreshCw, Stethoscope } from 'lucide-react-native';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme, useAppContext, MuscleStatus, SpecialLifeCase, FitnessLevel, Sex } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -69,9 +70,10 @@ function bmiCategory(bmi: number): { label: string; color: string } {
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
 }
 
-export default function AboutMeDrawer({ visible, onClose }: Props) {
+export default function AboutMeDrawer({ visible, onClose, onBack }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
@@ -226,26 +228,20 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleBtn}
-          onPress={onClose}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <X size={16} color="#888" strokeWidth={2.5} />
-        </TouchableOpacity>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.title, { color: colors.text }]}>About Me</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.headerDoneBtn, { backgroundColor: accent }]}
-          onPress={handleDone}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.headerDoneText}>Done</Text>
-        </TouchableOpacity>
-      </View>
+      <DrawerHeader
+        title="About Me"
+        onBack={onBack}
+        onClose={onBack ? undefined : onClose}
+        rightContent={
+          <TouchableOpacity
+            style={[styles.headerDoneBtn, { backgroundColor: accent }]}
+            onPress={handleDone}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.headerDoneText}>Done</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
@@ -411,7 +407,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
             </View>
           </View>
           <Text style={[styles.pickerHint, { color: colors.textMuted }]}>
-            Current: {localHFt}'{localHIn}"
+            Current: {localHFt}&apos;{localHIn}&quot;
           </Text>
         </View>
 

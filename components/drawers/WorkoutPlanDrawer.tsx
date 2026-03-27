@@ -11,6 +11,7 @@ import {
 
 const SCREEN_H = Dimensions.get('window').height;
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
@@ -43,6 +44,7 @@ import { PLAN_GOALS, type PlanGoal, type PlanLength, type ExperienceLevel as Pla
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
 }
 
 interface GoalOption {
@@ -126,7 +128,7 @@ function getTodayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
+export default function WorkoutPlanDrawer({ visible, onClose, onBack }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
@@ -274,19 +276,16 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       enablePanDownToClose
       enableOverDrag={false}
       topInset={topOffset}
+      stackBehavior="push"
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Sparkles size={16} color={accent} />
-          <Text style={[styles.headerLabel, { color: accent }]}>WORKOUT PLAN</Text>
-        </View>
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={16} color="#888" strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
+      <DrawerHeader
+        title="Workout Plan"
+        onBack={onBack}
+        onClose={onBack ? undefined : onClose}
+      />
 
       <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
         <View style={[styles.progressFill, { width: progressWidth, backgroundColor: accent }]} />
@@ -295,8 +294,8 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         {step === 1 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>What's your main goal?</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Choose what you're training toward</Text>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>What&apos;s your main goal?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Choose what you&apos;re training toward</Text>
             <View style={styles.goalGrid}>
               {GOALS.map(g => {
                 const isSelected = goal === g.id;

@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -97,9 +98,9 @@ export default function RestTimerBar() {
   useEffect(() => {
     const shouldExpand = isActive && !isMinimized;
     if (shouldExpand) {
-      expandShared.value = withSpring(1, { damping: 20, stiffness: 200, mass: 0.8 });
+      expandShared.value = withSpring(1, SWIFT_REANIMATED_SPRING);
     } else {
-      expandShared.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.cubic) });
+      expandShared.value = withSpring(0, SWIFT_REANIMATED_SPRING);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, isMinimized]);

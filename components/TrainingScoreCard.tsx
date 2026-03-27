@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { ChevronRight, Zap, Target, Flame, Footprints, HeartPulse, Clock, X, Info } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
-import { BlurView } from 'expo-blur';
+import GlassCard from '@/components/GlassCard';
+import { SWIFT_SPRING } from '@/constants/animation';
 
 interface Props {
   score: number;
@@ -51,6 +52,54 @@ function formatSteps(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return String(n);
 }
+
+const METRIC_KEYS: MetricKey[] = ['calories', 'steps', 'heartRate', 'weeklyHours'];
+
+function MetricIcon({ metricKey, size, iconColor }: { metricKey: MetricKey; size: number; iconColor: string }) {
+  if (metricKey === 'calories') return <Flame size={size} color={iconColor} strokeWidth={2.5} />;
+  if (metricKey === 'steps') return <Footprints size={size} color={iconColor} strokeWidth={2.5} />;
+  if (metricKey === 'heartRate') return <HeartPulse size={size} color={iconColor} strokeWidth={2.5} />;
+  return <Clock size={size} color={iconColor} strokeWidth={2.5} />;
+}
+
+const TrainingScoreMetricsRow = React.memo(function TrainingScoreMetricsRow({
+  metricDetails,
+  verticalDivider,
+  iconColor,
+  colorsText,
+  onMetricPress,
+}: {
+  metricDetails: Record<MetricKey, MetricDetail>;
+  verticalDivider: string;
+  iconColor: string;
+  colorsText: string;
+  onMetricPress: (k: MetricKey) => void;
+}) {
+  return (
+    <View style={styles.metricsRow}>
+      {METRIC_KEYS.map((key, index) => {
+        const detail = metricDetails[key];
+        return (
+          <React.Fragment key={key}>
+            {index > 0 && <View style={[styles.verticalDivider, { backgroundColor: verticalDivider }]} />}
+            <TouchableOpacity
+              style={styles.metricCol}
+              onPress={(e) => {
+                e.stopPropagation();
+                onMetricPress(key);
+              }}
+              activeOpacity={0.7}
+              testID={`metric-${key}`}
+            >
+              <MetricIcon metricKey={key} size={15} iconColor={iconColor} />
+              <Text style={[styles.metricValue, { color: colorsText }]}>{detail.value}</Text>
+            </TouchableOpacity>
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+});
 
 export default function TrainingScoreCard({
   score,
@@ -96,8 +145,8 @@ export default function TrainingScoreCard({
       } else {
         setDisplayScore(score);
         Animated.sequence([
-          Animated.spring(scaleAnim, { toValue: 1.08, useNativeDriver: true, speed: 50, bounciness: 12 }),
-          Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 8 }),
+          Animated.spring(scaleAnim, { toValue: 1.08, ...SWIFT_SPRING }),
+          Animated.spring(scaleAnim, { toValue: 1, ...SWIFT_SPRING }),
         ]).start();
       }
     };
@@ -126,7 +175,7 @@ export default function TrainingScoreCard({
 
   const targetCapped = Math.min(targetDone, targetTotal);
 
-  const metricDetails: Record<MetricKey, MetricDetail> = {
+  const metricDetails: Record<MetricKey, MetricDetail> = useMemo(() => ({
     calories: {
       key: 'calories',
       label: 'Calories Burned',
@@ -169,41 +218,37 @@ export default function TrainingScoreCard({
       tracking: 'Calculated from your workout logs in Zeal. Every logged session contributes to this total.',
       tip: 'Most training goals align with 3–6 hours of structured training per week depending on intensity and recovery.',
     },
-  };
+  }), [
+    caloriesDisplay,
+    stepsDisplay,
+    hrDisplay,
+    hoursDisplay,
+    calories,
+    steps,
+    heartRate,
+  ]);
 
   const activeDetail = activeMetric ? metricDetails[activeMetric] : null;
 
   const modalBg = isDark ? '#1c1c1c' : '#ffffff';
   const modalBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
 
-  const MetricIcon = ({ metricKey, size }: { metricKey: MetricKey; size: number }) => {
-    if (metricKey === 'calories') return <Flame size={size} color={iconColor} strokeWidth={2.5} />;
-    if (metricKey === 'steps') return <Footprints size={size} color={iconColor} strokeWidth={2.5} />;
-    if (metricKey === 'heartRate') return <HeartPulse size={size} color={iconColor} strokeWidth={2.5} />;
-    return <Clock size={size} color={iconColor} strokeWidth={2.5} />;
-  };
+  const handleMetricPress = useCallback((key: MetricKey) => {
+    requestAnimationFrame(() => setActiveMetric(key));
+  }, []);
 
-  const tint = isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)';
+  const handleCardPress = useCallback(() => {
+    requestAnimationFrame(() => onPress());
+  }, [onPress]);
+
   return (
     <>
-      <TouchableOpacity
-        style={[
-          styles.card,
-          { borderWidth: 1, borderColor: cardBorder },
-          cardShadow,
-          variant === 'glass' ? { backgroundColor: tint } : { backgroundColor: colors.card },
-        ]}
-        onPress={onPress}
+      <GlassCard
+        style={[styles.card, { borderWidth: 1, borderColor: cardBorder }, cardShadow]}
+        onPress={handleCardPress}
         testID="training-score-card"
-        activeOpacity={0.85}
+        variant={variant}
       >
-        {variant === 'glass' ? (
-          <BlurView
-            intensity={isDark ? 70 : 40}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-        ) : null}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -249,29 +294,14 @@ export default function TrainingScoreCard({
 
         <View style={[styles.metricsDivider, { backgroundColor: dividerColor }]} />
 
-        <View style={styles.metricsRow}>
-          {(['calories', 'steps', 'heartRate', 'weeklyHours'] as MetricKey[]).map((key, index) => {
-            const detail = metricDetails[key];
-            return (
-              <React.Fragment key={key}>
-                {index > 0 && <View style={[styles.verticalDivider, { backgroundColor: verticalDivider }]} />}
-                <TouchableOpacity
-                  style={styles.metricCol}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setActiveMetric(key);
-                  }}
-                  activeOpacity={0.6}
-                  testID={`metric-${key}`}
-                >
-                  <MetricIcon metricKey={key} size={15} />
-                  <Text style={[styles.metricValue, { color: colors.text }]}>{detail.value}</Text>
-                </TouchableOpacity>
-              </React.Fragment>
-            );
-          })}
-        </View>
-      </TouchableOpacity>
+        <TrainingScoreMetricsRow
+          metricDetails={metricDetails}
+          verticalDivider={verticalDivider}
+          iconColor={iconColor}
+          colorsText={colors.text}
+          onMetricPress={handleMetricPress}
+        />
+      </GlassCard>
 
       <Modal
         visible={activeMetric !== null}
@@ -288,10 +318,14 @@ export default function TrainingScoreCard({
               <>
                 <View style={styles.modalHeader}>
                   <View style={styles.modalTitleRow}>
-                    <MetricIcon metricKey={activeDetail.key} size={18} />
+                    <MetricIcon metricKey={activeDetail.key} size={18} iconColor={iconColor} />
                     <Text style={[styles.modalTitle, { color: colors.text }]}>{activeDetail.label}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setActiveMetric(null)} hitSlop={12}>
+                  <TouchableOpacity
+                    onPress={() => requestAnimationFrame(() => setActiveMetric(null))}
+                    hitSlop={12}
+                    activeOpacity={0.7}
+                  >
                     <X size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
@@ -313,7 +347,7 @@ export default function TrainingScoreCard({
                 <View style={[styles.modalDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]} />
 
                 <View style={styles.modalSection}>
-                  <Text style={[styles.modalSectionLabel, { color: colors.textSecondary }]}>HOW IT'S TRACKED</Text>
+                  <Text style={[styles.modalSectionLabel, { color: colors.textSecondary }]}>HOW IT&apos;S TRACKED</Text>
                   <Text style={[styles.modalBody, { color: colors.text }]}>{activeDetail.tracking}</Text>
                 </View>
 

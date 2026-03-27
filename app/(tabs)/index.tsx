@@ -23,7 +23,7 @@ import StreakBottomSheet from '@/components/StreakBottomSheet';
 import ZealBackground from '@/components/ZealBackground';
 import AmbientGlow from '@/components/AmbientGlow';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import GlassCard from '@/components/GlassCard';
 import AthleteProfileDrawer from '@/components/drawers/AthleteProfileDrawer';
 import AboutMeDrawer from '@/components/drawers/AboutMeDrawer';
 import SettingsDrawer from '@/components/drawers/SettingsDrawer';
@@ -42,6 +42,7 @@ import WorkoutPreviewModal from '@/components/WorkoutPreviewModal';
 import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
 import { mockBibleVerse } from '@/mocks/homeData';
 import { WORKOUT_STYLE_COLORS, TRAINING_SPLITS } from '@/constants/colors';
+import { PRO_STYLES_SET } from '@/services/proGate';
 
 
 function getSmartCoachMessage({
@@ -130,6 +131,23 @@ function getMuscleGroupsFromSplit(split: string, style: string): string {
 const DURATION_CHIPS = [30, 45, 60, 75, 90] as const;
 const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact'] as const;
 
+function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
+  const readinessMap: Record<string, number> = {};
+  for (const m of muscleReadiness) {
+    readinessMap[m.name] = m.value;
+  }
+  const avg = (muscles: string[]) => {
+    const vals = muscles.map(m => readinessMap[m] ?? 80);
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
+  const pushScore = avg(['Chest', 'Shoulders', 'Triceps']);
+  const pullScore = avg(['Back', 'Biceps']);
+  const legsScore = avg(['Quads', 'Hamstrings', 'Glutes', 'Calves']);
+  if (pushScore >= pullScore && pushScore >= legsScore) return 'Push';
+  if (pullScore > pushScore && pullScore >= legsScore) return 'Pull';
+  return 'Legs';
+}
+
 export default function HomeScreen() {
   const { colors, accent, isZeal, isDark } = useZealTheme();
   const ctx = useAppContext();
@@ -153,19 +171,65 @@ export default function HomeScreen() {
     return ctx.getPlannedWorkoutForDate(dateStr);
   }, [ctx.getPlannedWorkoutForDate, ctx.plannedWorkouts]);
 
+  const effectiveWorkout = useMemo(() => {
+    const ov = ctx.workoutOverride;
+    const lm = ctx.lastModifyState;
+    const hasPlan = !!ctx.activePlan;
+
+    let effectiveStyle = ov?.style ?? (
+      hasPlan && todayPrescription?.style
+        ? todayPrescription.style
+        : (lm?.style ?? ctx.workoutStyle)
+    );
+
+    if (!hasPro && PRO_STYLES_SET.has(effectiveStyle)) {
+      effectiveStyle = 'Strength';
+    }
+
+    const rawSplit = ov?.split ?? (
+      hasPlan && todayPrescription?.session_type
+        ? todayPrescription.session_type
+        : (lm?.split ?? ctx.trainingSplit)
+    );
+    const effectiveSplit = rawSplit === 'Push, Pull, Legs'
+      ? resolvePushPullLegs(ctx.muscleReadiness)
+      : rawSplit;
+
+    const effectiveDuration = ov?.duration ?? (
+      hasPlan && todayPrescription?.target_duration
+        ? todayPrescription.target_duration
+        : (lm?.duration ?? ctx.targetDuration)
+    );
+
+    return { style: effectiveStyle, split: effectiveSplit, duration: effectiveDuration };
+  }, [
+    ctx.workoutOverride,
+    ctx.lastModifyState,
+    ctx.activePlan,
+    ctx.workoutStyle,
+    ctx.trainingSplit,
+    ctx.targetDuration,
+    ctx.muscleReadiness,
+    todayPrescription?.style,
+    todayPrescription?.session_type,
+    todayPrescription?.target_duration,
+    hasPro,
+  ]);
+
   const workoutTitle = todayPrescription?.is_rest
     ? 'Rest Day'
     : ctx.currentWorkoutTitle
       || (todayPlannedWorkout ? todayPlannedWorkout.split : null)
-      || (todayPrescription?.session_type || ctx.trainingSplit);
+      || (todayPrescription?.session_type || effectiveWorkout.split);
   const workoutDuration = todayPrescription?.is_rest
     ? todayPrescription.rest_suggestion || 'Recovery'
-    : `${todayPlannedWorkout?.duration ?? todayPrescription?.target_duration ?? ctx.targetDuration} min`;
+    : `${todayPlannedWorkout?.duration ?? todayPrescription?.target_duration ?? effectiveWorkout.duration} min`;
 
-  const numericDuration = parseInt(workoutDuration) || ctx.targetDuration || 60;
+  const numericDuration = parseInt(workoutDuration) || effectiveWorkout.duration || 60;
   const exerciseCount = Math.round(numericDuration / 8);
+  const titleSourceSplit = todayPlannedWorkout?.split ?? todayPrescription?.session_type ?? effectiveWorkout.split;
   const muscleGroups = !todayPrescription?.is_rest && workoutTitle !== 'Rest Day'
-    ? getMuscleGroupsFromSplit(workoutTitle, ctx.workoutStyle)
+    ? getMuscleGroupsFromSplit(titleSourceSplit, effectiveWorkout.style)
     : undefined;
 
   const [healthCalories, setHealthCalories] = useState<number | null>(null);
@@ -380,7 +444,7 @@ export default function HomeScreen() {
         <Animated.View entering={enterCard(150)}>
           <WorkoutOverviewCard
             title={workoutTitle}
-            style={ctx.workoutStyle}
+            style={effectiveWorkout.style}
             duration={workoutDuration}
             muscleGroups={muscleGroups}
             exerciseCount={exerciseCount}
@@ -409,11 +473,7 @@ export default function HomeScreen() {
 
         {tracking.workoutHistory.length > 0 && (
           <Animated.View entering={enterCard(270)}>
-            <View style={[styles.coachCard, {
-              backgroundColor: isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)',
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-            }]}>
-              <BlurView intensity={isDark ? 70 : 40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
+            <GlassCard style={styles.coachCard} variant={isDark ? 'glass' : 'solid'}>
               <Brain size={14} color={accent} strokeWidth={1.8} />
               <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
                 {getSmartCoachMessage({
@@ -426,29 +486,25 @@ export default function HomeScreen() {
                   hasTodayWorkout,
                 })}
               </Text>
-            </View>
+            </GlassCard>
           </Animated.View>
         )}
 
         {hasTodayWorkout && (
           <View style={styles.todayCardsSection}>
-            <TouchableOpacity
-              style={[styles.todayCard, {
-                backgroundColor: isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)',
-                borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-              }, miniCardShadow]}
+            <GlassCard
+              style={[styles.todayCard, miniCardShadow]}
               onPress={handleViewTodayLog}
               activeOpacity={0.8}
               testID="view-today-log"
+              variant={isDark ? 'glass' : 'solid'}
             >
-              <BlurView intensity={isDark ? 70 : 40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
               <View style={styles.todayCardLeft}>
                 <View style={[styles.todayCardIcon, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
                   <ClipboardList size={18} color="#3b82f6" />
                 </View>
                 <View style={styles.todayCardText}>
-                  <Text style={[styles.todayCardTitle, { color: colors.text }]}>View Today's Workout</Text>
+                  <Text style={[styles.todayCardTitle, { color: colors.text }]}>View Today&apos;s Workout</Text>
                   <View style={styles.todayCardMeta}>
                     {latestTodayLog && (
                       <>
@@ -472,19 +528,15 @@ export default function HomeScreen() {
                 </View>
               </View>
               <ChevronRight size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
+            </GlassCard>
 
-            <TouchableOpacity
-              style={[styles.todayCard, {
-                backgroundColor: isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)',
-                borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-              }, miniCardShadow]}
+            <GlassCard
+              style={[styles.todayCard, miniCardShadow]}
               onPress={handleStartAnother}
               activeOpacity={0.8}
               testID="start-another-workout"
+              variant={isDark ? 'glass' : 'solid'}
             >
-              <BlurView intensity={isDark ? 70 : 40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
               <View style={styles.todayCardLeft}>
                 <View style={[styles.todayCardIcon, { backgroundColor: 'rgba(248,113,22,0.12)' }]}>
                   <Dumbbell size={18} color="#f87116" />
@@ -497,7 +549,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <ChevronRight size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
+            </GlassCard>
           </View>
         )}
 
@@ -607,7 +659,7 @@ export default function HomeScreen() {
                   })}
                 </View>
                 <TouchableOpacity style={styles.letsGoBtn} onPress={handleAnotherLetsGo} activeOpacity={0.85}>
-                  <Text style={styles.letsGoBtnText}>Let's Go</Text>
+                  <Text style={styles.letsGoBtnText}>Let&apos;s Go</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -624,48 +676,37 @@ export default function HomeScreen() {
       <AthleteProfileDrawer
         visible={profileVisible}
         onClose={() => setProfileVisible(false)}
-        onOpenAboutMe={() => {
-          setProfileVisible(false);
-          setTimeout(() => setAboutMeVisible(true), 320);
-        }}
-        onOpenInsights={() => {
-          setProfileVisible(false);
-          setTimeout(() => setInsightsVisible(true), 320);
-        }}
-        onOpenSettings={() => {
-          setProfileVisible(false);
-          setTimeout(() => setSettingsVisible(true), 320);
-        }}
+        onOpenAboutMe={() => setAboutMeVisible(true)}
+        onOpenInsights={() => setInsightsVisible(true)}
+        onOpenSettings={() => setSettingsVisible(true)}
       />
 
       <AboutMeDrawer
         visible={aboutMeVisible}
         onClose={() => setAboutMeVisible(false)}
+        onBack={() => setAboutMeVisible(false)}
       />
 
       <SettingsDrawer
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
+        onBack={() => setSettingsVisible(false)}
         onOpenColorTheme={() => setColorThemeVisible(true)}
         onOpenEquipment={() => setEquipmentVisible(true)}
-        onOpenExerciseCatalog={() => {
-          setSettingsVisible(false);
-          setTimeout(() => tracking.setExerciseCatalogVisible(true), 520);
-        }}
-        onOpenHelpFaq={() => {
-          setSettingsVisible(false);
-          setTimeout(() => setHelpFaqVisible(true), 520);
-        }}
+        onOpenExerciseCatalog={() => tracking.setExerciseCatalogVisible(true)}
+        onOpenHelpFaq={() => setHelpFaqVisible(true)}
       />
 
       <ColorThemeDrawer
         visible={colorThemeVisible}
         onClose={() => setColorThemeVisible(false)}
+        onBack={() => setColorThemeVisible(false)}
       />
 
       <EquipmentDrawer
         visible={equipmentVisible}
         onClose={() => setEquipmentVisible(false)}
+        onBack={() => setEquipmentVisible(false)}
       />
 
       <FullCalendarModal />
@@ -675,6 +716,7 @@ export default function HomeScreen() {
       <InsightsDrawer
         visible={insightsVisible}
         onClose={() => setInsightsVisible(false)}
+        onBack={() => setInsightsVisible(false)}
       />
 
       <BuildWorkoutDrawer
@@ -686,11 +728,13 @@ export default function HomeScreen() {
       <WorkoutPlanDrawer
         visible={tracking.workoutPlanVisible}
         onClose={() => tracking.setWorkoutPlanVisible(false)}
+        onBack={() => tracking.setWorkoutPlanVisible(false)}
       />
 
       <ExerciseCatalogDrawer
         visible={tracking.exerciseCatalogVisible}
         onClose={() => tracking.setExerciseCatalogVisible(false)}
+        onBack={() => tracking.setExerciseCatalogVisible(false)}
       />
 
       <ActivePlanDrawer
@@ -702,6 +746,7 @@ export default function HomeScreen() {
       <HelpFaqDrawer
         visible={helpFaqVisible}
         onClose={() => setHelpFaqVisible(false)}
+        onBack={() => setHelpFaqVisible(false)}
       />
 
       <WorkoutPreviewModal

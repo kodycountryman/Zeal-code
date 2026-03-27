@@ -42,6 +42,7 @@ import AppWalkthrough from '@/components/AppWalkthrough';
 import { healthService } from '@/services/healthService';
 import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
 import type { Sex, FitnessLevel } from '@/context/AppContext';
+import { requestNotificationPermissions } from '@/services/notificationService';
 
 const { width: SW } = Dimensions.get('window');
 const ACCENT = '#f87116';
@@ -189,6 +190,10 @@ export default function OnboardingScreen() {
       setWalkthroughVisible(true);
       return;
     }
+    if (step === 9 && equipPreset === 'custom' && !customEquipDone) {
+      setEquipDrawerVisible(true);
+      return;
+    }
     slideDir.current = 1;
     setStep((s) => s + 1);
   }, [step, equipPreset, customEquipDone]);
@@ -212,27 +217,31 @@ export default function OnboardingScreen() {
 
     const dob = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
 
-    ctx.setUserName(name.trim());
-    ctx.setDateOfBirth(dob);
-    ctx.setHeightFt(heightFt);
-    ctx.setHeightIn(heightIn);
-    ctx.setWeight(finalWeight);
-    ctx.setSex(sex ?? 'male');
-    ctx.setFitnessLevel(fitnessLevel ?? 'beginner');
-    ctx.setTrainingGoals([goal ?? 'Build Muscle']);
-    ctx.setWorkoutStyle(workoutStyle ?? 'Strength');
-    ctx.setSelectedEquipment(finalEquip);
-    // Persist workout component selections from step 10
-    ctx.setWarmUp(warmUpEnabled);
-    ctx.setCoolDown(coolDownEnabled);
-    ctx.setRecovery(recoveryEnabled);
-    ctx.setAddCardio(addCardioEnabled);
-    ctx.setCoreFinisher(coreFinisherEnabled);
-    if (ctx.googlePrefill?.photoUri) {
-      ctx.setUserPhotoUri(ctx.googlePrefill.photoUri);
-    }
-    ctx.setGooglePrefill(null);
-    ctx.saveState();
+    const googlePhotoUri = ctx.googlePrefill?.photoUri ?? null;
+
+    // Reset ALL previous user data before applying the new user's profile
+    await ctx.resetForNewUser();
+
+    // Use saveOnboardingProfile to atomically set all values and persist to storage
+    // (avoids stale-closure issues with calling saveState() after individual setters)
+    ctx.saveOnboardingProfile({
+      userName: name.trim(),
+      userPhotoUri: googlePhotoUri,
+      dateOfBirth: dob,
+      heightFt,
+      heightIn,
+      weight: finalWeight,
+      sex: sex ?? 'male',
+      fitnessLevel: fitnessLevel ?? 'beginner',
+      trainingGoals: [goal ?? 'Build Muscle'],
+      workoutStyle: workoutStyle ?? 'Strength',
+      selectedEquipment: finalEquip,
+      warmUp: warmUpEnabled,
+      coolDown: coolDownEnabled,
+      recovery: recoveryEnabled,
+      addCardio: addCardioEnabled,
+      coreFinisher: coreFinisherEnabled,
+    });
 
     await new Promise((r) => setTimeout(r, 1800));
 
@@ -244,15 +253,21 @@ export default function OnboardingScreen() {
 
   const handleRequestNotifications = useCallback(async () => {
     if (Platform.OS !== 'web') {
-      Alert.alert(
-        'Enable Notifications',
-        'You can enable workout reminders and streak alerts from your device Settings.',
-        [{ text: 'OK' }]
-      );
+      try {
+        const status = await requestNotificationPermissions();
+        if (status === 'granted') {
+          ctx.saveNotifPrefs({ dailyEnabled: true, dailyHour: 8, dailyMinute: 0 });
+          console.log('[Onboarding] Notification permission granted, daily reminder enabled');
+        } else {
+          console.log('[Onboarding] Notification permission not granted:', status);
+        }
+      } catch (e) {
+        console.log('[Onboarding] Error requesting notification permissions:', e);
+      }
     }
     slideDir.current = 1;
     setStep(12);
-  }, []);
+  }, [ctx]);
 
   const handleConnectHealth = useCallback(async () => {
     try {
@@ -457,7 +472,7 @@ function StepName({ name, onChange, onSubmit }: { name: string; onChange: (v: st
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
         <Text style={styles.stepHeadline}>What should we call you?</Text>
-        <Text style={styles.stepSubtext}>We'll use this to personalize your experience.</Text>
+        <Text style={styles.stepSubtext}>We&apos;ll use this to personalize your experience.</Text>
       </View>
       <TextInput
         style={styles.nameInput}
@@ -490,7 +505,7 @@ function StepBirthday({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>When's your birthday?</Text>
+        <Text style={styles.stepHeadline}>When&apos;s your birthday?</Text>
         <Text style={styles.stepSubtext}>Used to calculate age-appropriate programming.</Text>
       </View>
       <View style={styles.birthdayPickerArea}>
@@ -625,7 +640,7 @@ function StepHeight({
           <Text style={styles.pickerColLabel}>Inches</Text>
         </View>
       </View>
-      <Text style={styles.pickerLabel}>{ft}'{inches}"</Text>
+      <Text style={styles.pickerLabel}>{ft}&apos;{inches}&quot;</Text>
     </View>
   );
 }
@@ -641,7 +656,7 @@ function StepWeight({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What's your current weight?</Text>
+        <Text style={styles.stepHeadline}>What&apos;s your current weight?</Text>
       </View>
       <View style={styles.pickerCenteredWrap}>
         <View style={styles.pickerContainer}>
@@ -686,7 +701,7 @@ function StepFitnessLevel({ value, onChange }: { value: FitnessLevel | null; onC
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What's your fitness level?</Text>
+        <Text style={styles.stepHeadline}>What&apos;s your fitness level?</Text>
       </View>
       <View style={styles.cardList}>
         {OPTIONS.map((o) => {
@@ -719,7 +734,7 @@ function StepGoal({ value, onChange }: { value: Goal | null; onChange: (v: Goal)
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What's your main goal?</Text>
+        <Text style={styles.stepHeadline}>What&apos;s your main goal?</Text>
       </View>
       <View style={styles.goalGrid}>
         {GOALS.map((g) => {
@@ -795,13 +810,13 @@ function StepEquipment({
     { key: 'commercial' as const, label: 'Commercial Gym', desc: 'Full access to machines, barbells, cables', Icon: Building2 },
     { key: 'home' as const, label: 'Home Gym', desc: 'Dumbbells, bench, some equipment', Icon: Home },
     { key: 'bodyweight' as const, label: 'Bodyweight Only', desc: 'No equipment needed', Icon: User },
-    { key: 'custom' as const, label: "Choose Later", desc: "I'll pick my equipment inside the app", Icon: Dumbbell },
+    { key: 'custom' as const, label: 'Custom', desc: 'Pick exactly which equipment you have', Icon: Dumbbell },
   ];
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
         <Text style={styles.stepHeadline}>What equipment do you have?</Text>
-        <Text style={styles.stepSubtext}>We'll only generate workouts you can actually do.</Text>
+        <Text style={styles.stepSubtext}>We&apos;ll only generate workouts you can actually do.</Text>
       </View>
       <View style={styles.cardList}>
         {OPTIONS.map((o) => {

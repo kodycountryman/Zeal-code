@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,12 @@ import {
   Alert,
   Platform,
   Animated,
-  useWindowDimensions,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Settings, X, ChevronRight, Camera, PersonStanding, BarChart3, Crown, Sparkles } from 'lucide-react-native';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import * as ImagePicker from 'expo-image-picker';
-
+import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AchievementModal, { ACHIEVEMENTS, Achievement, getAchievementIcon } from '@/components/drawers/AchievementModal';
@@ -42,20 +41,12 @@ export default function AthleteProfileDrawer({
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 0) + 16;
-  const { height: windowH } = useWindowDimensions();
-  const maxDynamicContentSize = useMemo(() => {
-    // Leave breathing room under the status bar + handle.
-    return Math.max(420, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.92)));
-  }, [windowH, topOffset]);
-  const [contentH, setContentH] = useState(0);
-  // Compute a tight snap height so the sheet never opens past content.
-  const snapPoints = useMemo(() => {
-    const HEADER_AND_HANDLE_EST = 74; // header padding + handle/spacing
-    const FOOTER_EST = 16; // safe padding/breathing room
-    const desired = contentH > 0 ? contentH + HEADER_AND_HANDLE_EST + FOOTER_EST : maxDynamicContentSize;
-    const clamped = Math.min(maxDynamicContentSize, Math.max(320, Math.round(desired)));
-    return [clamped];
-  }, [contentH, maxDynamicContentSize]);
+  const {
+    snapPoints,
+    maxDynamicContentSize,
+    scrollEnabled,
+    setContentH,
+  } = useDrawerSizing({ minHeight: 320, headerEst: 74, footerEst: 16 });
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userName);
@@ -151,7 +142,7 @@ export default function AthleteProfileDrawer({
         <BottomSheetScrollView
           showsVerticalScrollIndicator={false}
           bounces={false}
-          scrollEnabled={contentH > maxDynamicContentSize - 120}
+          scrollEnabled={scrollEnabled}
           contentContainerStyle={styles.content}
           onContentSizeChange={(_w: number, h: number) => setContentH(h)}
         >

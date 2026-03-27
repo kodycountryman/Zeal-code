@@ -16,7 +16,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomSlider from '@/components/CustomSlider';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { X, ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, PlayCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download } from 'lucide-react-native';
+import { ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, PlayCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download } from 'lucide-react-native';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY, PRO_STYLES, PRO_STYLES_SET } from '@/services/proGate';
 import AppWalkthrough from '@/components/AppWalkthrough';
 import { useZealTheme, useAppContext, type NotifPrefs } from '@/context/AppContext';
@@ -73,6 +74,7 @@ function buildDisplaySplitOptions(raw: string[]): string[] {
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
   onOpenColorTheme: () => void;
   onOpenEquipment: () => void;
   onOpenExerciseCatalog?: () => void;
@@ -81,7 +83,7 @@ interface Props {
 
 const DANGER_ZONE_HEIGHT = 100;
 
-export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq }: Props) {
+export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const router = useRouter();
@@ -119,8 +121,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
     Animated.spring(dangerAnim, {
       toValue,
       useNativeDriver: false,
-      tension: 60,
-      friction: 10,
+      speed: 20,
+      bounciness: 4,
     }).start();
   }, [dangerOpen, dangerAnim]);
 
@@ -145,7 +147,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
     onClose();
     setTimeout(() => {
       router.replace('/login');
-    }, 350);
+    }, 150);
   }, [onClose, router, ctx]);
 
   const handleDeleteAccount = useCallback(() => {
@@ -165,7 +167,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
               onClose();
               setTimeout(() => {
                 router.replace('/login');
-              }, 350);
+              }, 150);
             } catch (e) {
               console.error('[Settings] Error deleting account:', e);
               Alert.alert('Error', 'Could not delete account data. Please try again.');
@@ -451,27 +453,21 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
       stackBehavior="push"
       topInset={topOffset}
     >
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleBtn}
-          onPress={onClose}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <X size={16} color="#888" strokeWidth={2.5} />
-        </TouchableOpacity>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.headerSaveBtn}
-          onPress={handleSave}
-          activeOpacity={0.85}
-          testID="settings-save"
-        >
-          <Text style={styles.headerSaveText}>Save</Text>
-        </TouchableOpacity>
-      </View>
+      <DrawerHeader
+        title="Settings"
+        onBack={onBack}
+        onClose={onBack ? undefined : onClose}
+        rightContent={
+          <TouchableOpacity
+            style={styles.headerSaveBtn}
+            onPress={handleSave}
+            activeOpacity={0.85}
+            testID="settings-save"
+          >
+            <Text style={styles.headerSaveText}>Save</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <BottomSheetScrollView
         ref={scrollRef}
@@ -598,12 +594,12 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
             ))}
           </View>
 
-          {false && restVisible && (
+          {restVisible && (
             <>
               <View style={styles.restSliderHeaderRow}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>REST BETWEEN SETS</Text>
                 <Text style={[styles.sliderValue, { color: styleAccent }]}>
-                  {localRest < 0.33 ? 'Less' : localRest < 0.67 ? 'Standard' : 'Longer rest'}
+                  {localRest < 0.33 ? 'Less rest' : localRest < 0.67 ? 'Standard' : 'More rest'}
                 </Text>
               </View>
               <CustomSlider

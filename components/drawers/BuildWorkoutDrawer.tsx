@@ -8,7 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import {
   X,
   Search,
@@ -56,8 +57,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
   const ctx = useAppContext();
   const { hasPro, openPaywall } = useSubscription();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['92%'], []);
-  const insets = useSafeAreaInsets();
+  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
 
   const [tab, setTab] = useState<TabKey>('build');
   const [workoutName, setWorkoutName] = useState('Custom Workout');
@@ -216,12 +216,11 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
   }, [ctx.savedWorkouts, savedSearch, savedFilter]);
 
   const hasSaved = ctx.savedWorkouts.length > 0;
-  const topOffset = Math.max(insets.top, 0) + 16;
-
   return (
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -229,16 +228,15 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
       enablePanDownToClose
       enableOverDrag={false}
       topInset={topOffset}
+      stackBehavior="push"
       keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Workouts</Text>
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={16} color="#888" strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
+      <DrawerHeader
+        title="Workouts"
+        onClose={onClose}
+      />
 
       <View style={styles.tabRow}>
         <TouchableOpacity
@@ -258,7 +256,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
         </TouchableOpacity>
       </View>
 
-      <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} scrollEnabled={scrollEnabled} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} onContentSizeChange={(_w: number, h: number) => setContentH(h)}>
         {tab === 'build' && (
           <View style={styles.buildContent}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>WORKOUT NAME</Text>

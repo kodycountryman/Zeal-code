@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   TextInput,
   Dimensions,
+  InteractionManager,
 } from 'react-native';
 import { Calendar, X } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
@@ -28,6 +29,74 @@ function getTodayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+const LogPreviousWheels = memo(function LogPreviousWheels({
+  duration,
+  setDuration,
+  calories,
+  setCalories,
+  wheelBg,
+  wheelText,
+  wheelMuted,
+  colors,
+  durationFormatValue,
+  caloriesFormatValue,
+}: {
+  duration: number;
+  setDuration: (n: number) => void;
+  calories: number;
+  setCalories: (n: number) => void;
+  wheelBg: string;
+  wheelText: string;
+  wheelMuted: string;
+  colors: { border: string; textSecondary: string; textMuted: string };
+  durationFormatValue: (v: number) => string;
+  caloriesFormatValue: (v: number) => string;
+}) {
+  return (
+    <View style={styles.wheelRow}>
+      <View style={styles.wheelBlock}>
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>DURATION</Text>
+        <View style={[styles.wheelCard, { backgroundColor: wheelBg, borderColor: colors.border }]}>
+          <WheelPicker
+            values={DURATION_VALUES}
+            selectedValue={duration}
+            onValueChange={setDuration}
+            width={WHEEL_W}
+            visibleItems={5}
+            textColor={wheelText}
+            mutedColor={wheelMuted}
+            accentColor="#f87116"
+            bgColor={wheelBg}
+            formatValue={durationFormatValue}
+          />
+        </View>
+        <Text style={[styles.wheelUnit, { color: colors.textMuted }]}>minutes</Text>
+      </View>
+
+      <View style={[styles.wheelDivider, { backgroundColor: colors.border }]} />
+
+      <View style={styles.wheelBlock}>
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>CALORIES</Text>
+        <View style={[styles.wheelCard, { backgroundColor: wheelBg, borderColor: colors.border }]}>
+          <WheelPicker
+            values={CALORIES_VALUES}
+            selectedValue={calories}
+            onValueChange={setCalories}
+            width={WHEEL_W}
+            visibleItems={5}
+            textColor={wheelText}
+            mutedColor={wheelMuted}
+            accentColor="#f87116"
+            bgColor={wheelBg}
+            formatValue={caloriesFormatValue}
+          />
+        </View>
+        <Text style={[styles.wheelUnit, { color: colors.textMuted }]}>kcal · 0 = skip</Text>
+      </View>
+    </View>
+  );
+});
+
 export default function LogPreviousWorkout() {
   const { colors, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
@@ -45,27 +114,41 @@ export default function LogPreviousWorkout() {
   const durationFormatValue = useMemo(() => (v: number) => `${v}m`, []);
   const caloriesFormatValue = useMemo(() => (v: number) => v === 0 ? '—' : `${v}`, []);
 
-  if (!tracking.logPreviousVisible) return null;
-
-  const handleSave = () => {
-    tracking.logPreviousWorkout({
-      date,
-      style,
-      duration,
-      calories: calories > 0 ? calories : undefined,
-      muscleGroups: selectedMuscles,
+  useEffect(() => {
+    if (!tracking.logPreviousVisible) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      // Heavy work after sheet slide; reserved for future prefetch.
     });
-    tracking.setLogPreviousVisible(false);
-    setDate(getTodayStr());
-    setStyle('Strength');
-    setDuration(45);
-    setCalories(0);
-    setSelectedMuscles([]);
-  };
+    return () => task.cancel();
+  }, [tracking.logPreviousVisible]);
 
-  const toggleMuscle = (m: string) => {
+  const handleSave = useCallback(() => {
+    requestAnimationFrame(() => {
+      tracking.logPreviousWorkout({
+        date,
+        style,
+        duration,
+        calories: calories > 0 ? calories : undefined,
+        muscleGroups: selectedMuscles,
+      });
+      tracking.setLogPreviousVisible(false);
+      setDate(getTodayStr());
+      setStyle('Strength');
+      setDuration(45);
+      setCalories(0);
+      setSelectedMuscles([]);
+    });
+  }, [tracking, date, style, duration, calories, selectedMuscles]);
+
+  const toggleMuscle = useCallback((m: string) => {
     setSelectedMuscles(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
-  };
+  }, []);
+
+  const closeModal = useCallback(() => {
+    requestAnimationFrame(() => tracking.setLogPreviousVisible(false));
+  }, [tracking]);
+
+  if (!tracking.logPreviousVisible) return null;
 
   const inputBg = isDark ? '#1e1e1e' : '#f0f0f0';
 
@@ -74,7 +157,7 @@ export default function LogPreviousWorkout() {
       visible={tracking.logPreviousVisible}
       transparent
       animationType="slide"
-      onRequestClose={() => tracking.setLogPreviousVisible(false)}
+      onRequestClose={closeModal}
       statusBarTranslucent
     >
       <View style={styles.backdrop}>
@@ -83,7 +166,7 @@ export default function LogPreviousWorkout() {
 
           <View style={styles.headerRow}>
             <Text style={[styles.title, { color: colors.text }]}>Log Previous Workout</Text>
-            <TouchableOpacity onPress={() => tracking.setLogPreviousVisible(false)} activeOpacity={0.7}>
+            <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
               <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -118,48 +201,18 @@ export default function LogPreviousWorkout() {
               ))}
             </View>
 
-            {/* Duration + Calories — rolodex wheels */}
-            <View style={styles.wheelRow}>
-              <View style={styles.wheelBlock}>
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>DURATION</Text>
-                <View style={[styles.wheelCard, { backgroundColor: wheelBg, borderColor: colors.border }]}>
-                  <WheelPicker
-                    values={DURATION_VALUES}
-                    selectedValue={duration}
-                    onValueChange={setDuration}
-                    width={WHEEL_W}
-                    visibleItems={5}
-                    textColor={wheelText}
-                    mutedColor={wheelMuted}
-                    accentColor="#f87116"
-                    bgColor={wheelBg}
-                    formatValue={durationFormatValue}
-                  />
-                </View>
-                <Text style={[styles.wheelUnit, { color: colors.textMuted }]}>minutes</Text>
-              </View>
-
-              <View style={[styles.wheelDivider, { backgroundColor: colors.border }]} />
-
-              <View style={styles.wheelBlock}>
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>CALORIES</Text>
-                <View style={[styles.wheelCard, { backgroundColor: wheelBg, borderColor: colors.border }]}>
-                  <WheelPicker
-                    values={CALORIES_VALUES}
-                    selectedValue={calories}
-                    onValueChange={setCalories}
-                    width={WHEEL_W}
-                    visibleItems={5}
-                    textColor={wheelText}
-                    mutedColor={wheelMuted}
-                    accentColor="#f87116"
-                    bgColor={wheelBg}
-                    formatValue={caloriesFormatValue}
-                  />
-                </View>
-                <Text style={[styles.wheelUnit, { color: colors.textMuted }]}>kcal · 0 = skip</Text>
-              </View>
-            </View>
+            <LogPreviousWheels
+              duration={duration}
+              setDuration={setDuration}
+              calories={calories}
+              setCalories={setCalories}
+              wheelBg={wheelBg}
+              wheelText={wheelText}
+              wheelMuted={wheelMuted}
+              colors={colors}
+              durationFormatValue={durationFormatValue}
+              caloriesFormatValue={caloriesFormatValue}
+            />
 
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>MUSCLE GROUPS</Text>
             <View style={styles.chipsWrap}>
@@ -181,7 +234,7 @@ export default function LogPreviousWorkout() {
               ))}
             </View>
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.7}>
               <Text style={styles.saveBtnText}>Save Workout Log</Text>
             </TouchableOpacity>
 

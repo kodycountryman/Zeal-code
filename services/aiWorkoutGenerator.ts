@@ -219,6 +219,56 @@ function deriveMovementPattern(movementType: string): string {
   }
 }
 
+function normalizeCrossfitRepsForAI(exerciseName: string, repsRaw: string, split: string): string {
+  const name = (exerciseName ?? '').toLowerCase();
+  const reps = (repsRaw ?? '').trim();
+  if (!reps) return reps;
+
+  // If AI already provided explicit units, respect them.
+  if (/[a-z]/i.test(reps)) return reps;
+
+  const n = Number.parseInt(reps, 10);
+  if (!Number.isFinite(n) || n <= 0) return reps;
+
+  const isPlankLike =
+    name.includes('plank') ||
+    name.includes('hollow hold') ||
+    name.includes('superman hold') ||
+    name.includes('l-sit');
+  if (isPlankLike) {
+    const seconds = Math.max(20, Math.min(120, Math.round(n * 5)));
+    return `${seconds}s`;
+  }
+
+  const isCarryLike = name.includes('carry');
+  if (isCarryLike) {
+    const meters = Math.max(20, Math.min(400, Math.round(n * 10)));
+    return `${meters}m`;
+  }
+
+  // Only convert true rowing-machine work to meters.
+  const isRowingMachine =
+    name.includes('rowing machine') ||
+    name.includes('rower') ||
+    name.includes('row erg') ||
+    name.includes('rowerg') ||
+    name.includes('concept2') ||
+    name.includes('erg');
+  if (isRowingMachine) {
+    // Interpret bare numbers safely:
+    // - If it's already a plausible meter number (e.g. 250), treat as meters.
+    // - Otherwise treat as "hundreds of meters" like the engine normalization.
+    const baseMeters = n >= 100 ? n : Math.round(n * 100);
+    const isEmom = split.toLowerCase().trim() === 'emom';
+    const meters = isEmom
+      ? Math.max(200, Math.min(500, baseMeters))
+      : Math.max(200, Math.min(2000, baseMeters));
+    return `${meters}m`;
+  }
+
+  return reps;
+}
+
 export async function generateAIWorkout(params: GenerateWorkoutParams): Promise<GeneratedWorkout> {
   console.log('[AIWorkoutGenerator] Calling AI for style:', params.style, '| duration:', params.targetDuration, 'min | level:', params.fitnessLevel);
 
@@ -235,7 +285,7 @@ export async function generateAIWorkout(params: GenerateWorkoutParams): Promise<
     id: `ai_${params.style.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${i}_${Date.now()}`,
     name: ex.name,
     sets: ex.sets,
-    reps: ex.reps,
+    reps: params.style === 'CrossFit' ? normalizeCrossfitRepsForAI(ex.name, ex.reps, params.split) : ex.reps,
     rest: ex.rest,
     muscleGroup: ex.muscleGroup,
     equipment: ex.equipment,

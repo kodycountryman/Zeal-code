@@ -21,6 +21,7 @@ import { getContrastTextColor } from '@/constants/colors';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import RestTimerBar from '@/components/RestTimerBar';
+import { SWIFT_SPRING } from '@/constants/animation';
 
 
 
@@ -63,14 +64,14 @@ const blueGradient: [string, string, string] = isDark
     setMenuOpen(true);
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, ...SWIFT_SPRING }),
     ]).start();
   };
 
   const closeMenu = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 30, duration: 180, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 30, ...SWIFT_SPRING }),
     ]).start(() => setMenuOpen(false));
   };
 
@@ -85,12 +86,12 @@ const blueGradient: [string, string, string] = isDark
 
   const handleLogPrevious = () => {
     closeMenu();
-    setTimeout(() => tracking.setLogPreviousVisible(true), 200);
+    setTimeout(() => tracking.setLogPreviousVisible(true), 100);
   };
 
   const handleBuildWorkout = () => {
     closeMenu();
-    setTimeout(() => tracking.setBuildWorkoutVisible(true), 200);
+    setTimeout(() => tracking.setBuildWorkoutVisible(true), 100);
   };
 
   const handleStartPlan = () => {
@@ -100,7 +101,7 @@ const blueGradient: [string, string, string] = isDark
       return;
     }
     closeMenu();
-    setTimeout(() => tracking.setWorkoutPlanVisible(true), 200);
+    setTimeout(() => tracking.setWorkoutPlanVisible(true), 100);
   };
 
   const dockBottom = insets.bottom > 0 ? insets.bottom : 16;

@@ -72,12 +72,14 @@ import {
 } from '@/services/workoutEngine';
 import type { MovementType } from '@/mocks/exerciseDatabase';
 import { generateWorkoutAsync, generateCoreFinisher, getAIStyles } from '@/services/aiWorkoutGenerator';
+import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 import ModifyWorkoutDrawer from '@/components/drawers/ModifyWorkoutDrawer';
 import AddToWorkoutSheet, { type AddMode } from '@/components/AddToWorkoutSheet';
 import SwipeableExerciseRow from '@/components/SwipeableExerciseRow';
 import ExerciseDetailDrawer from '@/components/drawers/ExerciseDetailDrawer';
 import AthleteProfileDrawer from '@/components/drawers/AthleteProfileDrawer';
 import AboutMeDrawer from '@/components/drawers/AboutMeDrawer';
+import InsightsDrawer from '@/components/drawers/InsightsDrawer';
 import SettingsDrawer from '@/components/drawers/SettingsDrawer';
 import ColorThemeDrawer from '@/components/drawers/ColorThemeDrawer';
 import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
@@ -94,6 +96,7 @@ import WheelPicker from '@/components/WheelPicker';
 import WheelGuideModal from '@/components/WheelGuideModal';
 import WorkoutWalkthrough from '@/components/WorkoutWalkthrough';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import GlassCard from '@/components/GlassCard';
 
 const WALKTHROUGH_KEY = '@zeal_workout_walkthrough_seen_v1';
 
@@ -103,12 +106,35 @@ import { PRO_STYLES_SET } from '@/services/proGate';
 
 const WEIGHT_VALUES = Array.from({ length: 201 }, (_, i) => i * 5);
 const REPS_VALUES = Array.from({ length: 50 }, (_, i) => i + 1);
+const DISTANCE_VALUES_METERS = Array.from({ length: 201 }, (_, i) => i * 10); // 0..2000m
+const CALORIES_VALUES = Array.from({ length: 151 }, (_, i) => i); // 0..150 cal
+const TIME_VALUES_SECONDS = Array.from({ length: 121 }, (_, i) => i * 5); // 0..600s
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const PRESET_DURATIONS = [30, 45, 60, 75, 90] as const;
+
+function TabContentSpring({ children }: { children: React.ReactNode }) {
+  const anim = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    RNAnimated.spring(anim, {
+      toValue: 1,
+      tension: 120,
+      friction: 14,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+  return (
+    <RNAnimated.View style={{
+      opacity: anim,
+      transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+    }}>
+      {children}
+    </RNAnimated.View>
+  );
+}
 function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
   const readinessMap: Record<string, number> = {};
   for (const m of muscleReadiness) {
@@ -136,6 +162,65 @@ function snapToPreset(d: number): number {
 function formatDate(): string {
   const today = new Date();
   return today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function isRepsOnlyMovement(ex: WorkoutExercise): boolean {
+  const name = (ex.name ?? '').toLowerCase();
+  const equipment = (ex.equipment ?? '').toLowerCase();
+  const ref = ex.exerciseRef as { movement_pattern?: string; equipment_required?: string[] } | null;
+  const pattern = (ref?.movement_pattern ?? '').toLowerCase();
+  const req = (ref?.equipment_required ?? []).map(r => r.toLowerCase());
+
+  const bodyweightByName =
+    name.includes('push up') ||
+    name.includes('push-up') ||
+    name.includes('pull up') ||
+    name.includes('pull-up') ||
+    name.includes('box jump') ||
+    name.includes('burpee') ||
+    name.includes('sit-up') ||
+    name.includes('sit up') ||
+    name.includes('air squat');
+
+  const bodyweightByPattern = pattern === 'plyometric' || pattern === 'calisthenics';
+  const explicitlyBodyweight =
+    equipment === 'bodyweight' ||
+    equipment.includes('bodyweight') ||
+    equipment === 'body weight' ||
+    req.length === 0 ||
+    (req.length === 1 && req[0] === 'bodyweight');
+
+  // If an exercise clearly uses an external load implement, it's not reps-only.
+  const externalLoad =
+    equipment.includes('barbell') ||
+    equipment.includes('dumbbell') ||
+    equipment.includes('kettlebell') ||
+    req.includes('barbell') ||
+    req.includes('dumbbell') ||
+    req.includes('kettlebell');
+
+  return (bodyweightByName || bodyweightByPattern || explicitlyBodyweight) && !externalLoad;
+}
+
+function isWeightDistanceMovement(ex: WorkoutExercise): boolean {
+  const name = (ex.name ?? '').toLowerCase();
+  const ref = ex.exerciseRef as { equipment_required?: string[] } | null;
+  const req = (ref?.equipment_required ?? []).map(r => r.toLowerCase());
+  return name.includes('sled push') || name.includes('sled pull') || req.includes('sled');
+}
+
+function parseNumberPrefix(raw: string): number | null {
+  const m = raw.trim().match(/^(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  return Math.round(Number(m[1]));
+}
+
+function parseSecondsFromRepsLabel(reps: string): number {
+  const v = parseNumberPrefix(reps);
+  if (v == null) return 30;
+  const lower = reps.toLowerCase();
+  if (lower.includes('min')) return Math.max(5, v * 60);
+  return Math.max(5, v);
 }
 
 function getBreathCue(name: string): string {
@@ -411,6 +496,8 @@ export default function WorkoutScreen() {
   const { colors, accent, isZeal, isDark } = useZealTheme();
   const ZEAL_ORANGE = '#f87116';
   const ctx = useAppContext();
+  const currentWorkoutTitleRef = useRef(ctx.currentWorkoutTitle);
+  currentWorkoutTitleRef.current = ctx.currentWorkoutTitle;
   const tracking = useWorkoutTracking();
   const { hasPro } = useSubscription();
 
@@ -434,10 +521,10 @@ export default function WorkoutScreen() {
   const [trackedExercises, setTrackedExercises] = useState<Set<string>>(new Set());
   const [doneExercises, setDoneExercises] = useState<Set<string>>(new Set());
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null);
-  const [panelHydratedId, setPanelHydratedId] = useState<string | null>(null);
   const [completedSets, setCompletedSets] = useState<Record<string, Set<number>>>({});
   const [profileVisible, setProfileVisible] = useState(false);
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
+  const [insightsVisible, setInsightsVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [colorThemeVisible, setColorThemeVisible] = useState(false);
   const [equipmentVisible, setEquipmentVisible] = useState(false);
@@ -452,23 +539,38 @@ export default function WorkoutScreen() {
   const [scrollEnabled, setScrollEnabled] = useState<boolean>(true);
   const [activePanel, setActivePanel] = useState<0 | 1 | 2>(1);
   const activePanelRef = useRef<0 | 1 | 2>(1);
-  const tabIndicatorAnim = useRef(new RNAnimated.Value(1)).current;
+  const tab0Anim = useRef(new RNAnimated.Value(0)).current;
+  const tab1Anim = useRef(new RNAnimated.Value(1)).current;
+  const tab2Anim = useRef(new RNAnimated.Value(0)).current;
+  const pillAnim = useRef(new RNAnimated.Value(1)).current;
 
   const switchPanelTab = useCallback((tab: 0 | 1 | 2) => {
     activePanelRef.current = tab;
+    LayoutAnimation.configureNext({
+      duration: 280,
+      create: { type: 'easeInEaseOut', property: 'scaleXY' },
+      update: { type: 'spring', springDamping: 0.7 },
+    });
     setActivePanel(tab);
-    RNAnimated.spring(tabIndicatorAnim, {
+    // Slide pill to new position, then shift color + fade label in
+    RNAnimated.spring(pillAnim, {
       toValue: tab,
       useNativeDriver: false,
-      tension: 80,
-      friction: 12,
-    }).start();
+      tension: 120,
+      friction: 14,
+    }).start(() => {
+      RNAnimated.parallel([
+        RNAnimated.spring(tab0Anim, { toValue: tab === 0 ? 1 : 0, useNativeDriver: true, speed: 28, bounciness: 0 }),
+        RNAnimated.spring(tab1Anim, { toValue: tab === 1 ? 1 : 0, useNativeDriver: true, speed: 28, bounciness: 0 }),
+        RNAnimated.spring(tab2Anim, { toValue: tab === 2 ? 1 : 0, useNativeDriver: true, speed: 28, bounciness: 0 }),
+      ]).start();
+    });
     if (Platform.OS !== 'web') {
       Haptics.selectionAsync();
     }
-  }, [tabIndicatorAnim]);
+  }, [pillAnim, tab0Anim, tab1Anim, tab2Anim]);
 
-  const [tabBarWidth, setTabBarWidth] = useState(0);
+  const [tabBarWidth, setTabBarWidth] = useState(0); // kept for walkthrough refs
   const activeDragIdRef = useRef<string | null>(null);
   const [dragInsertIdx, setDragInsertIdx] = useState<number | null>(null);
   const [dragGhostItems, setDragGhostItems] = useState<WorkoutExercise[]>([]);
@@ -499,6 +601,7 @@ export default function WorkoutScreen() {
 
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const walkthroughChecked = useRef(false);
+  const lastResetToken = useRef(ctx.newUserResetToken);
   const preTabRef = useRef<View | null>(null);
   const postTabRef = useRef<View | null>(null);
   const workoutTabRef = useRef<View | null>(null);
@@ -570,30 +673,17 @@ export default function WorkoutScreen() {
     workoutRef.current = workout;
   }, [workout]);
 
-  // Hydrate the tracking panel.
-  // If a log already exists for this exercise (re-open case), mark it hydrated
-  // synchronously on the same render so there's no "Loading…" flash.
-  // For a fresh exercise, defer one tick so initExerciseLog can populate the log.
-  useEffect(() => {
-    if (!expandedTrack) {
-      setPanelHydratedId(null);
-      return;
-    }
-    if (tracking.exerciseLogs[expandedTrack]) {
-      // Already initialized — hydrate immediately, no loading state needed.
-      setPanelHydratedId(expandedTrack);
-    } else {
-      // Fresh exercise: give initExerciseLog's setTimeout(0) a chance to run.
-      const id = setTimeout(() => setPanelHydratedId(expandedTrack), 50);
-      return () => clearTimeout(id);
-    }
-  }, [expandedTrack, tracking.exerciseLogs]);
-
   useEffect(() => {
     gripPanResponderMap.current.clear();
     groupGripPanResponderMap.current.clear();
     rowLayoutsRef.current.clear();
   }, [workout]);
+
+  useEffect(() => {
+    if (activeDragId !== null) {
+      setSwipeOpenId(null);
+    }
+  }, [activeDragId]);
 
   const startWorkoutScale = useSharedValue(1);
   const completeWorkoutScale = useSharedValue(1);
@@ -603,6 +693,9 @@ export default function WorkoutScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const wheelWeightW = screenWidth < 400 ? 80 : 96;
   const wheelRepsW = screenWidth < 400 ? 50 : 60;
+  /** Shorter wheels in log sets; must match WheelPicker default width for single-column headers. */
+  const logWheelItemH = 38;
+  const logWheelSingleColW = 80;
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
@@ -620,8 +713,8 @@ export default function WorkoutScreen() {
     );
     pulseLoopRef.current = RNAnimated.loop(
       RNAnimated.sequence([
-        RNAnimated.timing(dumbbellPulseAnim, { toValue: 1.18, duration: 700, useNativeDriver: true }),
-        RNAnimated.timing(dumbbellPulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        RNAnimated.spring(dumbbellPulseAnim, { toValue: 1.18, useNativeDriver: true, speed: 20, bounciness: 4 }),
+        RNAnimated.spring(dumbbellPulseAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }),
       ])
     );
     rotateLoopRef.current.start();
@@ -752,7 +845,15 @@ export default function WorkoutScreen() {
         if (generateReqIdRef.current !== reqId) return;
         setWorkout(finalWorkout);
         tracking.setCurrentGeneratedWorkout(finalWorkout);
-        ctx.setCurrentWorkoutTitle(finalWorkout.split);
+        ctx.setCurrentWorkoutTitle(
+          buildCreativeWorkoutTitle({
+            style: finalWorkout.style,
+            split: finalWorkout.split,
+            metconFormat: finalWorkout.metconFormat,
+            duration: finalWorkout.estimatedDuration,
+            previousTitle: currentWorkoutTitleRef.current,
+          })
+        );
         setWarmupHidden(false);
         setTrackedExercises(new Set());
         setDoneExercises(new Set());
@@ -815,7 +916,15 @@ export default function WorkoutScreen() {
           setGeneratingIsAI(false);
           setGeneratingElapsed(0);
           setWorkout(tracking.currentGeneratedWorkout);
-          ctx.setCurrentWorkoutTitle(tracking.currentGeneratedWorkout.split);
+          ctx.setCurrentWorkoutTitle(
+            buildCreativeWorkoutTitle({
+              style: tracking.currentGeneratedWorkout.style,
+              split: tracking.currentGeneratedWorkout.split,
+              metconFormat: tracking.currentGeneratedWorkout.metconFormat,
+              duration: tracking.currentGeneratedWorkout.estimatedDuration,
+              previousTitle: currentWorkoutTitleRef.current,
+            })
+          );
           setWarmupHidden(false);
           setTrackedExercises(new Set());
           setDoneExercises(new Set());
@@ -832,6 +941,14 @@ export default function WorkoutScreen() {
       }
     }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx])
   );
+
+  useEffect(() => {
+    if (ctx.newUserResetToken !== 0 && ctx.newUserResetToken !== lastResetToken.current) {
+      lastResetToken.current = ctx.newUserResetToken;
+      walkthroughChecked.current = false;
+      console.log('[WorkoutScreen] New user reset detected — will re-check walkthrough');
+    }
+  }, [ctx.newUserResetToken]);
 
   useEffect(() => {
     if (workout && !walkthroughChecked.current) {
@@ -1049,11 +1166,10 @@ export default function WorkoutScreen() {
       setTimeout(() => setShowWheelGuide(true), 320);
     }
     setSwipeOpenId(null);
-    setExpandedTrack((prev) => prev === exId ? null : exId);
     if (exercise && !tracking.exerciseLogs[exId]) {
-      // Defer initialization to keep the tap-to-open interaction snappy.
-      setTimeout(() => tracking.initExerciseLog(exercise), 0);
+      tracking.initExerciseLog(exercise);
     }
+    setExpandedTrack((prev) => prev === exId ? null : exId);
   }, [tracking]);
 
   const handleToggleSet = useCallback((exId: string, setIdx: number, exercise?: WorkoutExercise) => {
@@ -1513,24 +1629,6 @@ export default function WorkoutScreen() {
 
   const renderTrackingPanel = useCallback((ex: WorkoutExercise) => {
     if (expandedTrack !== ex.id) return null;
-    if (panelHydratedId !== ex.id) {
-      return (
-        <View style={[styles.trackPanel, { backgroundColor: 'transparent' }]}>
-          <View style={[styles.logSetsCard, {
-            backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
-            borderColor: isDark ? `${colors.border}40` : `${colors.border}30`,
-          }]}>
-            <View style={styles.trackPanelHeader}>
-              <View style={styles.trackPanelTitleRow}>
-                <View style={[styles.trackPanelDot, { backgroundColor: accent }]} />
-                <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG SETS</Text>
-              </View>
-              <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>Loading…</Text>
-            </View>
-          </View>
-        </View>
-      );
-    }
     const trackStyle = currentStyle;
     const isStrengthStyle = ['Strength', 'Bodybuilding'].includes(trackStyle);
     const isCrossFit = trackStyle === 'CrossFit';
@@ -1546,18 +1644,42 @@ export default function WorkoutScreen() {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const isInSuperset = ex.groupType === 'superset';
     const mutedWheelColor = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)';
-    const wheelBg = colors.background;
+    const wheelBg = isDark ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.30)';
 
-    if (isStrengthStyle || isMobility || isCFStrengthEx) {
+    if (!isHyrox) {
       const targetReps = parseInt(ex.reps, 10) || 8;
       const isDumbbell = ex.equipment.toLowerCase().includes('dumbbell');
-      const isBodyweight = ex.equipment.toLowerCase() === 'bodyweight' ||
-        ex.equipment.toLowerCase().includes('bodyweight') ||
-        ex.equipment.toLowerCase() === 'body weight';
+      const exName = (ex.name ?? '').toLowerCase();
+      const isRepsOnly = isRepsOnlyMovement(ex);
+      const isHoldForTime =
+        !isRepsOnly &&
+        (/s$|sec|min/i.test(ex.reps ?? '') ||
+          exName.includes('plank') ||
+          exName.includes('hold') ||
+          exName.includes('hollow'));
+      const isCaloriesMovement =
+        !isHoldForTime &&
+        (/\bcal\b/i.test(ex.reps ?? '') || exName.includes('assault bike') || exName.includes('echo bike'));
+      const isCarryLike = exName.includes('carry');
+      const isWeightDistance = isWeightDistanceMovement(ex) || isCarryLike;
+      const isDistanceOnly =
+        !isWeightDistance &&
+        !isCaloriesMovement &&
+        !isHoldForTime &&
+        /\bm$/.test((ex.reps ?? '').toLowerCase());
+
+      const metricDefault = isHoldForTime
+        ? parseSecondsFromRepsLabel(ex.reps ?? '')
+        : isCaloriesMovement
+          ? (parseNumberPrefix(ex.reps ?? '') ?? 10)
+          : isDistanceOnly || isWeightDistance
+            ? (parseNumberPrefix(ex.reps ?? '') ?? 100)
+            : (suggestion.lastReps > 0 ? suggestion.lastReps : targetReps);
+
       const setsData = log?.sets ?? Array.from({ length: ex.sets }, (_, i) => ({
         setNumber: i + 1,
-        weight: isBodyweight ? 0 : Math.round(suggestion.suggestedWeight / 5) * 5,
-        reps: suggestion.lastReps > 0 ? suggestion.lastReps : targetReps,
+        weight: isRepsOnly ? 0 : Math.round(suggestion.suggestedWeight / 5) * 5,
+        reps: metricDefault,
         done: false,
       }));
       return (
@@ -1575,36 +1697,103 @@ export default function WorkoutScreen() {
           ]}>
             <View style={styles.trackPanelHeader}>
               <View style={styles.trackPanelTitleRow}>
-                <View style={[styles.trackPanelDot, { backgroundColor: accent }]} />
+                <View style={[styles.trackPanelDot, { backgroundColor: currentAccent }]} />
                 <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG SETS</Text>
               </View>
-              {!isBodyweight && suggestion.lastWeight > 0 && (
+              {!isRepsOnly && !isWeightDistance && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && suggestion.lastWeight > 0 && (
                 <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
                   Last: {suggestion.lastWeight} lb × {suggestion.lastReps}
                 </Text>
               )}
-              {isBodyweight && suggestion.lastReps > 0 && (
+              {isRepsOnly && suggestion.lastReps > 0 && (
                 <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
                   Last: {suggestion.lastReps} reps
                 </Text>
               )}
+              {isHoldForTime && (
+                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
+                  Log hold time
+                </Text>
+              )}
+              {isCaloriesMovement && (
+                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
+                  Log calories
+                </Text>
+              )}
+              {isDistanceOnly && (
+                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
+                  Log distance (meters)
+                </Text>
+              )}
+              {isWeightDistance && (
+                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
+                  Log load + distance
+                </Text>
+              )}
             </View>
 
-            {isBodyweight ? (
+            {isRepsOnly ? (
               <View style={styles.trackTableHeader}>
                 <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <Text style={[styles.trackTableCol, { flex: 1, color: colors.textSecondary, textAlign: 'center' as const }]}>REPS</Text>
+                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>REPS</Text>
+                </View>
+                <View style={{ flex: 1 }} />
+                <View style={styles.trackDoneColSpacer} />
+                <View style={styles.trackRemoveSpacer} />
+              </View>
+            ) : isHoldForTime ? (
+              <View style={styles.trackTableHeader}>
+                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
+                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>TIME (SEC)</Text>
+                </View>
+                <View style={{ flex: 1 }} />
+                <View style={styles.trackDoneColSpacer} />
+                <View style={styles.trackRemoveSpacer} />
+              </View>
+            ) : isCaloriesMovement ? (
+              <View style={styles.trackTableHeader}>
+                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
+                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>CALS</Text>
+                </View>
+                <View style={{ flex: 1 }} />
+                <View style={styles.trackDoneColSpacer} />
+                <View style={styles.trackRemoveSpacer} />
+              </View>
+            ) : isDistanceOnly ? (
+              <View style={styles.trackTableHeader}>
+                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
+                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>DIST (M)</Text>
+                </View>
+                <View style={{ flex: 1 }} />
+                <View style={styles.trackDoneColSpacer} />
+                <View style={styles.trackRemoveSpacer} />
+              </View>
+            ) : isWeightDistance ? (
+              <View style={styles.trackTableHeader}>
+                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
+                <View style={{ width: wheelWeightW, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>WEIGHT</Text>
+                </View>
+                <View style={{ width: wheelRepsW, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>DIST (M)</Text>
+                </View>
+                <View style={{ flex: 1 }} />
                 <View style={styles.trackDoneColSpacer} />
                 <View style={styles.trackRemoveSpacer} />
               </View>
             ) : (
               <View style={styles.trackTableHeader}>
                 <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <View style={{ width: wheelWeightW, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                <View style={{ width: wheelWeightW, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>WEIGHT</Text>
-
                 </View>
-                <Text style={[styles.trackTableCol, styles.trackWheelLabelR, { color: colors.textSecondary }]}>REPS</Text>
+                <View style={{ width: wheelRepsW, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>REPS</Text>
+                </View>
                 <View style={{ flex: 1 }} />
                 <View style={styles.trackDoneColSpacer} />
                 <View style={styles.trackRemoveSpacer} />
@@ -1612,11 +1801,11 @@ export default function WorkoutScreen() {
             )}
 
             {setsData.map((set, setIdx) => (
-              <View key={setIdx} style={[styles.trackSetRow, isBodyweight && { gap: 16 }]}>
+              <View key={setIdx} style={[styles.trackSetRow, isRepsOnly && { gap: 16 }]}>
                 <Text style={[styles.trackSetNumCol, { color: colors.textMuted, fontSize: 16, fontWeight: '700' as const, textAlign: 'center' as const }]}>
                   {set.setNumber}
                 </Text>
-                {isBodyweight ? (
+                {isRepsOnly ? (
                   <>
                     <WheelPicker
                       values={REPS_VALUES}
@@ -1627,6 +1816,80 @@ export default function WorkoutScreen() {
                       mutedColor={mutedWheelColor}
                       accentColor={currentAccent}
                       bgColor={wheelBg}
+                      itemHeight={logWheelItemH}
+                    />
+                    <View style={{ flex: 1 }} />
+                  </>
+                ) : isHoldForTime ? (
+                  <>
+                    <WheelPicker
+                      values={TIME_VALUES_SECONDS}
+                      selectedValue={set.reps}
+                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
+                      width={undefined as unknown as number}
+                      textColor={colors.text}
+                      mutedColor={mutedWheelColor}
+                      accentColor={currentAccent}
+                      bgColor={wheelBg}
+                      itemHeight={logWheelItemH}
+                    />
+                    <View style={{ flex: 1 }} />
+                  </>
+                ) : isCaloriesMovement ? (
+                  <>
+                    <WheelPicker
+                      values={CALORIES_VALUES}
+                      selectedValue={set.reps}
+                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
+                      width={undefined as unknown as number}
+                      textColor={colors.text}
+                      mutedColor={mutedWheelColor}
+                      accentColor={currentAccent}
+                      bgColor={wheelBg}
+                      itemHeight={logWheelItemH}
+                    />
+                    <View style={{ flex: 1 }} />
+                  </>
+                ) : isDistanceOnly ? (
+                  <>
+                    <WheelPicker
+                      values={DISTANCE_VALUES_METERS}
+                      selectedValue={set.reps}
+                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
+                      width={undefined as unknown as number}
+                      textColor={colors.text}
+                      mutedColor={mutedWheelColor}
+                      accentColor={currentAccent}
+                      bgColor={wheelBg}
+                      itemHeight={logWheelItemH}
+                    />
+                    <View style={{ flex: 1 }} />
+                  </>
+                ) : isWeightDistance ? (
+                  <>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', width: wheelWeightW }}>
+                      <WheelPicker
+                        values={WEIGHT_VALUES}
+                        selectedValue={set.weight}
+                        onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
+                        width={wheelWeightW}
+                        textColor={colors.text}
+                        mutedColor={mutedWheelColor}
+                        accentColor={currentAccent}
+                        bgColor={wheelBg}
+                        itemHeight={logWheelItemH}
+                      />
+                    </View>
+                    <WheelPicker
+                      values={DISTANCE_VALUES_METERS}
+                      selectedValue={set.reps}
+                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
+                      width={wheelRepsW}
+                      textColor={colors.text}
+                      mutedColor={mutedWheelColor}
+                      accentColor={currentAccent}
+                      bgColor={wheelBg}
+                      itemHeight={logWheelItemH}
                     />
                     <View style={{ flex: 1 }} />
                   </>
@@ -1642,6 +1905,7 @@ export default function WorkoutScreen() {
                         mutedColor={mutedWheelColor}
                         accentColor={currentAccent}
                         bgColor={wheelBg}
+                        itemHeight={logWheelItemH}
                       />
                       {isDumbbell && (
                         <Text style={{ fontSize: 10, fontWeight: '500' as const, color: 'rgba(255,255,255,0.35)', marginLeft: 3, letterSpacing: 0.2 }}>ea.</Text>
@@ -1656,6 +1920,7 @@ export default function WorkoutScreen() {
                       mutedColor={mutedWheelColor}
                       accentColor={currentAccent}
                       bgColor={wheelBg}
+                      itemHeight={logWheelItemH}
                     />
                     <View style={{ flex: 1 }} />
                   </>
@@ -1800,19 +2065,11 @@ export default function WorkoutScreen() {
       return (
         <View style={_trackPanelStyle}>
           <View style={_logSetsCardStyle}>
-            <Text style={[styles.trackPanelLabel, { color: currentAccent }]}>LOG PERFORMANCE</Text>
-            <View style={styles.trackResultRow}>
-              <View style={styles.trackResultField}>
-                <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>TIME (MM:SS)</Text>
-                <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                  <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.timeCap ?? '2:45'}</Text>
-                </View>
-              </View>
-              <View style={styles.trackResultField}>
-                <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>DISTANCE (OPTIONAL)</Text>
-                <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                  <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.distance ?? ''}</Text>
-                </View>
+            <Text style={[styles.trackPanelLabel, { color: currentAccent }]}>LOG TIME</Text>
+            <View style={styles.trackResultField}>
+              <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>TIME (MM:SS)</Text>
+              <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
+                <Text style={[styles.trackInputTextLg, { color: colors.text }]}>{log?.timeCap ?? '2:45'}</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -1867,7 +2124,7 @@ export default function WorkoutScreen() {
       </View>
       </View>
     );
-  }, [expandedTrack, panelHydratedId, completedSets, currentAccent, colors, isDark, currentStyle, cfData, tracking, handleToggleSet, handleMarkExerciseDone, wheelRepsW, wheelWeightW, accent, handleExerciseTap]);
+  }, [expandedTrack, completedSets, currentAccent, colors, isDark, currentStyle, cfData, tracking, handleToggleSet, handleMarkExerciseDone, wheelRepsW, wheelWeightW, logWheelItemH, logWheelSingleColW, accent, handleExerciseTap]);
 
   const renderGroupSeparator = useCallback((ex: WorkoutExercise, prevEx: WorkoutExercise | null) => {
     const isGroupStart = ex.groupType && (!prevEx || prevEx.groupId !== ex.groupId);
@@ -1887,7 +2144,7 @@ export default function WorkoutScreen() {
         label = 'ROUNDS';
       }
       return (
-        <View style={styles.groupHeader}>
+        <View style={[styles.groupHeader, { backgroundColor: isDark ? `${currentAccent}12` : `${currentAccent}0e` }]}>
           {renderGroupGripDots(ex)}
           {icon}
           <TouchableOpacity onPress={() => setInfoLabel(label)} activeOpacity={0.7}>
@@ -1906,6 +2163,7 @@ export default function WorkoutScreen() {
           style={[
             styles.groupLinkRow,
             isSuperset && { borderLeftWidth: 2, borderLeftColor: currentAccent + '66' },
+            { backgroundColor: isDark ? `${currentAccent}08` : `${currentAccent}06` },
           ]}
         >
           <Link2
@@ -2020,16 +2278,16 @@ export default function WorkoutScreen() {
           onInfo={() => handleExerciseTap(ex)}
           onSwap={() => handleSwapExercise(ex)}
           onDelete={() => handleDeleteExercise(ex.id)}
-          rowBg={colors.background}
+          rowBg={colors.card}
           waitForGesture={scrollGesture}
+          enabled={activeDragId === null}
         >
           <Pressable
             style={({ pressed }) => [
               styles.exerciseRow,
-              { borderBottomColor: isFollowedBySameGroup ? 'transparent' : `${colors.border}40` },
               isInSuperset && { borderLeftWidth: 2, borderLeftColor: currentAccent + '66', paddingLeft: 12 },
               isRowBeingDragged && { opacity: 0.3 },
-              pressed && { opacity: 0.75 },
+              pressed && { backgroundColor: `${colors.border}22` },
             ]}
             onPress={() => handleToggleTrackPanel(ex.id, ex)}
             onLongPress={() => handleExerciseLongPress(ex)}
@@ -2040,6 +2298,7 @@ export default function WorkoutScreen() {
             {renderGripDots(ex)}
           </Pressable>
         </SwipeableExerciseRow>
+        {!isFollowedBySameGroup && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
         <View ref={isFirstExercise && isExpanded ? trackPanelRef : undefined} collapsable={false}>
           <ExpandingPanel visible={isExpanded}>
             {renderTrackingPanel(ex)}
@@ -2075,15 +2334,16 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.background}
+                    rowBg={colors.card}
                     waitForGesture={scrollGesture}
+                    enabled={activeDragId === null}
                   >
                     <TouchableOpacity
-                      style={[styles.exerciseRow, { borderBottomColor: `${colors.border}40` }]}
+                      style={styles.exerciseRow}
                       onPress={() => handleToggleTrackPanel(ex.id, ex)}
                       onLongPress={() => handleExerciseLongPress(ex)}
                       delayLongPress={350}
-                      activeOpacity={0.75}
+                      activeOpacity={1}
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
@@ -2096,6 +2356,7 @@ export default function WorkoutScreen() {
                       {renderGripDots(ex)}
                     </TouchableOpacity>
                   </SwipeableExerciseRow>
+                  <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />
                   <ExpandingPanel visible={isCFExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
@@ -2123,7 +2384,7 @@ export default function WorkoutScreen() {
                   if (fmt === 'For Time' && rds) label += ` · ${rds} RDS`;
                   if (fmt === 'EMOM' && rds) label += ` · ${rds} MIN`;
                   if (fmt === 'Chipper' && cfData.metcon.length > 0) label += ` · ${cfData.metcon.length} EX`;
-                  if (fmt === 'Ladder' && rds) label += ` · ${rds} EX`;
+                  if (fmt === 'Ladder' && rds) label += ` · +${rds}/RD`;
                   return label;
                 })()}
               </Text>
@@ -2134,9 +2395,10 @@ export default function WorkoutScreen() {
               const rds = workout.metconRounds;
               const repsStr = ex.reps ?? '';
               const isTimeBased = /sec|s$|min/i.test(repsStr);
+              const isDistanceOrCals = /\bm$|\bcal\b/i.test(repsStr);
               // Per-format exercise subtitle so the rep scheme is unambiguous
               let repsMeta: string;
-              if (isTimeBased) {
+              if (isTimeBased || isDistanceOrCals) {
                 repsMeta = `${repsStr} · ${ex.muscleGroup}`;
               } else if (fmt === 'For Time' && rds && rds > 1) {
                 repsMeta = `${repsStr} reps × ${rds} rds · ${ex.muscleGroup}`;
@@ -2145,7 +2407,9 @@ export default function WorkoutScreen() {
               } else if (fmt === 'Chipper') {
                 repsMeta = `${repsStr} reps total · ${ex.muscleGroup}`;
               } else if (fmt === 'Ladder') {
-                repsMeta = `start ${repsStr} reps · ${ex.muscleGroup}`;
+                repsMeta = rds
+                  ? `start ${repsStr} · +${rds}/rd · ${ex.muscleGroup}`
+                  : `start ${repsStr} · ${ex.muscleGroup}`;
               } else {
                 repsMeta = `${repsStr} reps · ${ex.muscleGroup}`;
               }
@@ -2158,15 +2422,16 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.background}
+                    rowBg={colors.card}
                     waitForGesture={scrollGesture}
+                    enabled={activeDragId === null}
                   >
                     <TouchableOpacity
-                      style={[styles.exerciseRow, { borderBottomColor: `${colors.border}40` }]}
+                      style={styles.exerciseRow}
                       onPress={() => handleToggleTrackPanel(ex.id, ex)}
                       onLongPress={() => handleExerciseLongPress(ex)}
                       delayLongPress={350}
-                      activeOpacity={0.75}
+                      activeOpacity={1}
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
@@ -2177,6 +2442,7 @@ export default function WorkoutScreen() {
                       {renderGripDots(ex)}
                     </TouchableOpacity>
                   </SwipeableExerciseRow>
+                  <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />
                   <ExpandingPanel visible={isCFMetconExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
@@ -2187,7 +2453,7 @@ export default function WorkoutScreen() {
         )}
       </>
     );
-  }, [cfData, workout, currentAccent, colors, handleExerciseTap, handleExerciseLongPress, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, swipeOpenId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
+  }, [cfData, workout, currentAccent, colors, handleExerciseTap, handleExerciseLongPress, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, swipeOpenId, activeDragId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
 
   const renderHyroxContent = useCallback(() => {
     if (!workout) return null;
@@ -2247,13 +2513,14 @@ export default function WorkoutScreen() {
                 onDelete={() => handleDeleteExercise(ex.id)}
                 rowBg={colors.background}
                 waitForGesture={scrollGesture}
+                enabled={activeDragId === null}
               >
                 <TouchableOpacity
                   style={[styles.exerciseRow, { borderBottomColor: `${colors.border}40` }]}
                   onPress={() => handleToggleTrackPanel(ex.id, ex)}
                   onLongPress={() => handleExerciseLongPress(ex)}
                   delayLongPress={350}
-                  activeOpacity={0.75}
+                  activeOpacity={1}
                 >
                   <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{currentStationIdx + 1}</Text>
                   <View style={styles.exerciseInfo}>
@@ -2264,6 +2531,7 @@ export default function WorkoutScreen() {
                   {renderGripDots(ex)}
                 </TouchableOpacity>
               </SwipeableExerciseRow>
+              <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />
               <ExpandingPanel visible={isHyroxExpanded}>
                 {renderTrackingPanel(ex)}
               </ExpandingPanel>
@@ -2272,7 +2540,7 @@ export default function WorkoutScreen() {
         })}
       </>
     );
-  }, [workout, currentAccent, colors, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, handleExerciseTap, swipeOpenId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
+  }, [workout, currentAccent, colors, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, handleExerciseTap, swipeOpenId, activeDragId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
 
   const renderHIITContent = useCallback(() => {
     if (!workout) return null;
@@ -2303,6 +2571,7 @@ export default function WorkoutScreen() {
               onDelete={() => handleDeleteExercise(ex.id)}
               rowBg={colors.background}
               waitForGesture={scrollGesture}
+              enabled={activeDragId === null}
             >
               <View style={[styles.compactMovementRow, { borderBottomColor: `${colors.border}40` }]}>
                 <TouchableOpacity onPress={() => handleExerciseTap(ex)} activeOpacity={0.7} style={{ flex: 1 }}>
@@ -2317,7 +2586,7 @@ export default function WorkoutScreen() {
         ))}
       </>
     );
-  }, [workout, currentAccent, colors, hiitRounds, hiitTotalTime, renderGripDots, handleExerciseTap, swipeOpenId, handleDeleteExercise, handleSwapExercise]);
+  }, [workout, currentAccent, colors, hiitRounds, hiitTotalTime, renderGripDots, handleExerciseTap, swipeOpenId, activeDragId, handleDeleteExercise, handleSwapExercise]);
 
   const renderCardioContent = useCallback(() => {
     if (!workout) return null;
@@ -2350,15 +2619,16 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.background}
+                    rowBg={colors.card}
                     waitForGesture={scrollGesture}
+                    enabled={activeDragId === null}
                   >
                     <TouchableOpacity
-                      style={[styles.exerciseRow, { borderBottomColor: `${colors.border}40` }]}
+                      style={styles.exerciseRow}
                       onPress={() => handleToggleTrackPanel(ex.id, ex)}
                       onLongPress={() => handleExerciseLongPress(ex)}
                       delayLongPress={350}
-                      activeOpacity={0.75}
+                      activeOpacity={1}
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
@@ -2372,6 +2642,7 @@ export default function WorkoutScreen() {
                       {renderGripDots(ex)}
                     </TouchableOpacity>
                   </SwipeableExerciseRow>
+                  <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />
                   <ExpandingPanel visible={isCardioExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
@@ -2382,7 +2653,7 @@ export default function WorkoutScreen() {
         )}
       </>
     );
-  }, [workout, currentAccent, colors, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, handleExerciseTap, swipeOpenId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
+  }, [workout, currentAccent, colors, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, handleExerciseTap, swipeOpenId, activeDragId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
 
   const renderMobilityContent = useCallback(() => {
     if (!workout) return null;
@@ -2412,10 +2683,11 @@ export default function WorkoutScreen() {
                 onInfo={() => handleExerciseTap(ex)}
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
-                rowBg={colors.background}
+                rowBg={colors.card}
                 waitForGesture={scrollGesture}
+                enabled={activeDragId === null}
               >
-                <View style={[styles.exerciseRow, { borderBottomColor: `${colors.border}40` }]}>
+                <View style={styles.exerciseRow}>
                   <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                   <View style={styles.exerciseInfo}>
                     <Text style={[styles.exerciseName, { color: isDone ? colors.textMuted : colors.text, fontFamily: 'Outfit_500Medium' }]}>
@@ -2436,12 +2708,13 @@ export default function WorkoutScreen() {
                   </TouchableOpacity>
                 </View>
               </SwipeableExerciseRow>
+              <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />
             </View>
           );
         })}
       </>
     );
-  }, [workout, currentAccent, colors, doneExercises, handleExerciseTap, handleToggleMobilityDone, swipeOpenId, handleDeleteExercise, handleSwapExercise]);
+  }, [workout, currentAccent, colors, doneExercises, handleExerciseTap, handleToggleMobilityDone, swipeOpenId, activeDragId, handleDeleteExercise, handleSwapExercise]);
 
   const renderPilatesContent = useCallback(() => {
     if (!workout) return null;
@@ -2474,13 +2747,14 @@ export default function WorkoutScreen() {
                 onDelete={() => handleDeleteExercise(ex.id)}
                 rowBg={colors.background}
                 waitForGesture={scrollGesture}
+                enabled={activeDragId === null}
               >
                 <TouchableOpacity
                   style={[styles.exerciseRow, { borderBottomColor: `${colors.border}40` }]}
                   onPress={() => handleToggleTrackPanel(ex.id, ex)}
                   onLongPress={() => handleExerciseLongPress(ex)}
                   delayLongPress={350}
-                  activeOpacity={0.75}
+                  activeOpacity={1}
                 >
                   <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                   <View style={styles.exerciseInfo}>
@@ -2496,6 +2770,7 @@ export default function WorkoutScreen() {
                   {renderGripDots(ex)}
                 </TouchableOpacity>
               </SwipeableExerciseRow>
+              <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />
               <ExpandingPanel visible={expandedTrack === ex.id}>
                 {renderTrackingPanel(ex)}
               </ExpandingPanel>
@@ -2504,7 +2779,7 @@ export default function WorkoutScreen() {
         })}
       </>
     );
-  }, [workout, currentAccent, colors, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, handleExerciseTap, swipeOpenId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
+  }, [workout, currentAccent, colors, handleToggleTrackPanel, renderTrackButton, renderTrackingPanel, renderGripDots, handleExerciseTap, swipeOpenId, activeDragId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
 
   const render75HardContent = useCallback(() => {
     if (!workout || !sessions75Hard) return null;
@@ -2538,15 +2813,16 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={colors.background}
+                    rowBg={colors.card}
                     waitForGesture={scrollGesture}
+                    enabled={activeDragId === null}
                   >
                     <TouchableOpacity
-                      style={[styles.exerciseRow, { borderBottomColor: `${colors.border}40` }]}
+                      style={styles.exerciseRow}
                       onPress={() => handleToggleTrackPanel(ex.id, ex)}
                       onLongPress={() => handleExerciseLongPress(ex)}
                       delayLongPress={350}
-                      activeOpacity={0.75}
+                      activeOpacity={1}
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
@@ -2563,6 +2839,7 @@ export default function WorkoutScreen() {
                       {renderGripDots(ex)}
                     </TouchableOpacity>
                   </SwipeableExerciseRow>
+                  <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />
                   <ExpandingPanel visible={is75HardExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
@@ -2573,7 +2850,7 @@ export default function WorkoutScreen() {
         ))}
       </>
     );
-  }, [workout, sessions75Hard, isDark, colors, tracking.exerciseLogs, handleToggleTrackPanel, renderTrackButton, renderGripDots, renderTrackingPanel, handleExerciseTap, swipeOpenId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
+  }, [workout, sessions75Hard, isDark, colors, tracking.exerciseLogs, handleToggleTrackPanel, renderTrackButton, renderGripDots, renderTrackingPanel, handleExerciseTap, swipeOpenId, activeDragId, handleDeleteExercise, handleSwapExercise, expandedTrack]);
 
   const renderWorkoutExercises = useCallback(() => {
     if (!workout) return null;
@@ -2712,29 +2989,18 @@ export default function WorkoutScreen() {
           <>
             <HealthImportBanner />
 
-            <View
-              style={[
-                styles.workoutInfoCard,
-                {
-                  borderWidth: 1,
-                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-                },
-                isDark ? { backgroundColor: 'rgba(22,22,22,0.62)' } : { backgroundColor: 'rgba(255,255,255,0.70)' },
-              ]}
+            <GlassCard
+              style={[styles.workoutInfoCard, { borderWidth: 1 }]}
+              variant={isDark ? 'glass' : 'solid'}
               testID="workout-info-card"
             >
-              <BlurView
-                intensity={isDark ? 70 : 40}
-                tint={isDark ? 'dark' : 'light'}
-                style={StyleSheet.absoluteFill}
-              />
               <View style={styles.workoutInfoTop}>
                 <View style={styles.workoutInfoLabelRow}>
                   <View style={styles.workoutInfoLabelLeft}>
-                    <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>TODAY'S WORKOUT</Text>
+                    <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today's Workout</Text>
                     <View style={styles.styleChipInline}>
-                      <View style={[styles.styleBadgeDot, { backgroundColor: currentAccent }]} />
-                      <Text style={[styles.workoutStyleChipText, { color: colors.textSecondary }]}>{currentStyle.toUpperCase()}</Text>
+                      <View style={[styles.styleBadgeDot, { backgroundColor: `${currentAccent}60` }]} />
+                      <Text style={[styles.workoutStyleChipText, { color: colors.textSecondary }]}>{currentStyle}</Text>
                     </View>
                   </View>
                   <View style={{ flex: 1 }} />
@@ -2764,12 +3030,10 @@ export default function WorkoutScreen() {
                 </Text>
               </View>
 
-              <View style={[styles.workoutInfoDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]} />
-
               <View style={styles.workoutInfoActions}>
                 <View ref={modifyBtnRef} collapsable={false}>
                   <TouchableOpacity
-                    style={[styles.workoutModifyBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}
+                    style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
                     onPress={() => setModifyVisible(true)}
                     activeOpacity={0.7}
                     testID="modify-workout-card"
@@ -2793,71 +3057,83 @@ export default function WorkoutScreen() {
                   </TouchableOpacity>
                 </Animated.View>
               </View>
-            </View>
+            </GlassCard>
           </>
         )}
 
-        {/* 3-Tab Header — single card, no outer wrapper */}
-        <View
-          style={[styles.tabBarOuter, {
-            backgroundColor: isDark ? 'rgba(22,22,22,0.62)' : 'rgba(255,255,255,0.70)',
-            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-            borderWidth: 1,
-            marginTop: 12,
-          }]}
-          onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
-        >
-          <BlurView intensity={isDark ? 70 : 40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-          {tabBarWidth > 0 && (
-            <RNAnimated.View
-              pointerEvents="none"
-              style={[styles.tabIndicator, {
-                backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#ffffff',
-                borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)',
-                width: tabBarWidth / 3 - 8,
-                transform: [{
-                  translateX: tabIndicatorAnim.interpolate({
-                    inputRange: [0, 1, 2],
-                    outputRange: [4, tabBarWidth / 3 + 4, 2 * (tabBarWidth / 3) + 4],
-                  }),
-                }],
+        {/* 3-Tab Header */}
+        {(() => {
+          const pillInnerW = Math.max(tabBarWidth - 12, 0);
+          const pillLeftAnim = pillInnerW > 0 ? pillAnim.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [6, 6 + pillInnerW * 0.2, 6 + pillInnerW * 0.65],
+          }) : 6;
+          const pillWidthAnim = pillInnerW > 0 ? pillAnim.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [pillInnerW * 0.35, pillInnerW * 0.6, pillInnerW * 0.35],
+          }) : 0;
+          return (
+            <View
+              style={[styles.tabBarOuter, {
+                marginTop: 12,
+                backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(235,235,235,0.98)',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               }]}
-            />
-          )}
-          <View ref={preTabRef} collapsable={false} style={{ flex: 1, alignSelf: 'stretch' }}>
-            <TouchableOpacity style={styles.tabBtn} onPress={() => switchPanelTab(0)} activeOpacity={0.7} testID="tab-pre-workout">
-              <Flame size={14} color={activePanel === 0 ? '#f87116' : colors.textMuted} />
-              {activePanel === 0 && (
-                <Text style={[styles.tabLabel, { color: '#f87116' }]} numberOfLines={1} adjustsFontSizeToFit>
-                  PRE-WORKOUT
-                </Text>
+              onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
+            >
+              {/* Single sliding pill */}
+              {tabBarWidth > 0 && (
+                <RNAnimated.View
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    top: 5,
+                    bottom: 5,
+                    left: pillLeftAnim,
+                    width: pillWidthAnim,
+                    borderRadius: 999,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)',
+                  }}
+                >
+                  <RNAnimated.View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(248,113,22,0.28)' : 'rgba(248,113,22,0.2)', opacity: tab0Anim }]} />
+                  <RNAnimated.View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? `${currentAccent}55` : `${currentAccent}44`, opacity: tab1Anim }]} />
+                  <RNAnimated.View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(239,68,68,0.28)' : 'rgba(239,68,68,0.2)', opacity: tab2Anim }]} />
+                </RNAnimated.View>
               )}
-            </TouchableOpacity>
-          </View>
-          <View ref={workoutTabRef} collapsable={false} style={{ flex: 1, alignSelf: 'stretch' }}>
-            <TouchableOpacity style={styles.tabBtn} onPress={() => switchPanelTab(1)} activeOpacity={0.7} testID="tab-workout">
-              <Dumbbell size={14} color={activePanel === 1 ? currentAccent : colors.textMuted} />
-              {activePanel === 1 && (
-                <Text style={[styles.tabLabel, { color: currentAccent }]} numberOfLines={1} adjustsFontSizeToFit>
-                  WORKOUT
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-          <View ref={postTabRef} collapsable={false} style={{ flex: 1, alignSelf: 'stretch' }}>
-            <TouchableOpacity style={styles.tabBtn} onPress={() => switchPanelTab(2)} activeOpacity={0.7} testID="tab-post-workout">
-              <Heart size={14} color={activePanel === 2 ? '#ef4444' : colors.textMuted} />
-              {activePanel === 2 && (
-                <Text style={[styles.tabLabel, { color: '#ef4444' }]} numberOfLines={1} adjustsFontSizeToFit>
-                  POST-WORKOUT
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+
+              <View ref={preTabRef} collapsable={false} style={{ flex: activePanel === 0 ? 1.1 : 1, flexDirection: 'row' }}>
+                <TouchableOpacity style={[styles.tabBtn, { flex: 1, justifyContent: activePanel === 0 ? 'center' : 'flex-start' }]} onPress={() => switchPanelTab(0)} activeOpacity={0.8} testID="tab-pre-workout">
+                  <Flame size={14} color={activePanel === 0 ? '#f87116' : colors.textMuted} />
+                  {activePanel === 0 && (
+                    <RNAnimated.Text style={[styles.tabLabel, { color: '#f87116', opacity: tab0Anim }]} numberOfLines={1}>Pre-Workout</RNAnimated.Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <View ref={workoutTabRef} collapsable={false} style={{ flex: activePanel === 1 ? 3 : 1, flexDirection: 'row' }}>
+                <TouchableOpacity style={[styles.tabBtn, { flex: 1, justifyContent: 'center' }]} onPress={() => switchPanelTab(1)} activeOpacity={0.8} testID="tab-workout">
+                  <Dumbbell size={14} color={activePanel === 1 ? currentAccent : colors.textMuted} />
+                  {activePanel === 1 && (
+                    <RNAnimated.Text style={[styles.tabLabel, { color: currentAccent, opacity: tab1Anim }]} numberOfLines={1}>Workout</RNAnimated.Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <View ref={postTabRef} collapsable={false} style={{ flex: activePanel === 2 ? 1.1 : 1, flexDirection: 'row' }}>
+                <TouchableOpacity style={[styles.tabBtn, { flex: 1, justifyContent: activePanel === 2 ? 'center' : 'flex-end' }]} onPress={() => switchPanelTab(2)} activeOpacity={0.8} testID="tab-post-workout">
+                  <Heart size={14} color={activePanel === 2 ? '#ef4444' : colors.textMuted} />
+                  {activePanel === 2 && (
+                    <RNAnimated.Text style={[styles.tabLabel, { color: '#ef4444', opacity: tab2Anim }]} numberOfLines={1}>Post-Workout</RNAnimated.Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Tab Content (transparent, no outer card) */}
         {activePanel === 0 && (
+          <TabContentSpring>
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
               {ctx.warmUp && !warmupHidden && (workout?.warmup?.length ?? 0) > 0 ? (
@@ -2935,12 +3211,18 @@ export default function WorkoutScreen() {
               )}
             </View>
           </View>
+          </TabContentSpring>
         )}
 
         {activePanel === 1 && (
+          <TabContentSpring>
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
-              <View style={[styles.workoutSection, { backgroundColor: 'transparent' }]}>
+              <View style={[styles.workoutSection, {
+                backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(235,235,235,0.98)',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              }]}>
                 <View
                   ref={(ref) => { exercisesSectionRef.current = ref; }}
                   collapsable={false}
@@ -2995,13 +3277,14 @@ export default function WorkoutScreen() {
                           onDelete={() => handleDeleteExercise(ex.id)}
                           rowBg={colors.background}
                           waitForGesture={scrollGesture}
+                          enabled={activeDragId === null}
                         >
                           <TouchableOpacity
                             style={[styles.exerciseRow, { borderBottomColor: isLast ? 'transparent' : `${colors.border}40` }]}
                             onPress={() => handleToggleTrackPanel(ex.id, ex)}
                             onLongPress={() => handleExerciseLongPress(ex)}
                             delayLongPress={350}
-                            activeOpacity={0.75}
+                            activeOpacity={1}
                           >
                             <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                             <View style={styles.exerciseInfo}>
@@ -3018,6 +3301,7 @@ export default function WorkoutScreen() {
                             {renderGripDots(ex)}
                           </TouchableOpacity>
                         </SwipeableExerciseRow>
+                        {!isLast && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
                         <ExpandingPanel visible={isExpanded}>
                           {renderTrackingPanel(ex)}
                         </ExpandingPanel>
@@ -3067,7 +3351,7 @@ export default function WorkoutScreen() {
                             {c.duration} · RPE {c.rpe}
                           </Text>
                           {c.notes ? (
-                            <Text style={[styles.cardioNotes, { color: colors.textMuted }]}>"{c.notes}"</Text>
+                            <Text style={[styles.cardioNotes, { color: colors.textMuted }]}>&quot;{c.notes}&quot;</Text>
                           ) : null}
                         </View>
                         <TouchableOpacity activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -3176,9 +3460,11 @@ export default function WorkoutScreen() {
               </View>
             </View>
           </View>
+          </TabContentSpring>
         )}
 
         {activePanel === 2 && (
+          <TabContentSpring>
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
               {hasPostContent ? (
@@ -3347,6 +3633,7 @@ export default function WorkoutScreen() {
               )}
             </View>
           </View>
+          </TabContentSpring>
         )}
 
         {/* Generate New Workout moved to header as 'Shuffle' ghost button */}
@@ -3385,25 +3672,27 @@ export default function WorkoutScreen() {
       <AthleteProfileDrawer
         visible={profileVisible}
         onClose={() => setProfileVisible(false)}
-        onOpenAboutMe={() => {
-          setProfileVisible(false);
-          setTimeout(() => setAboutMeVisible(true), 320);
-        }}
-        onOpenInsights={() => setProfileVisible(false)}
-        onOpenSettings={() => {
-          setProfileVisible(false);
-          setTimeout(() => setSettingsVisible(true), 320);
-        }}
+        onOpenAboutMe={() => setAboutMeVisible(true)}
+        onOpenInsights={() => setInsightsVisible(true)}
+        onOpenSettings={() => setSettingsVisible(true)}
       />
 
       <AboutMeDrawer
         visible={aboutMeVisible}
         onClose={() => setAboutMeVisible(false)}
+        onBack={() => setAboutMeVisible(false)}
+      />
+
+      <InsightsDrawer
+        visible={insightsVisible}
+        onClose={() => setInsightsVisible(false)}
+        onBack={() => setInsightsVisible(false)}
       />
 
       <SettingsDrawer
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
+        onBack={() => setSettingsVisible(false)}
         onOpenColorTheme={() => setColorThemeVisible(true)}
         onOpenEquipment={() => setEquipmentVisible(true)}
       />
@@ -3411,11 +3700,13 @@ export default function WorkoutScreen() {
       <ColorThemeDrawer
         visible={colorThemeVisible}
         onClose={() => setColorThemeVisible(false)}
+        onBack={() => setColorThemeVisible(false)}
       />
 
       <EquipmentDrawer
         visible={equipmentVisible}
         onClose={() => setEquipmentVisible(false)}
+        onBack={() => setEquipmentVisible(false)}
       />
 
       <PostWorkoutFlow />
@@ -4043,7 +4334,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   workoutInfoCard: {
-    borderRadius: 22,
+    borderRadius: 26,
     overflow: 'hidden',
   },
   workoutInfoTop: {
@@ -4068,9 +4359,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   workoutInfoLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.2,
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0,
   },
   workoutInfoTitleRow: {
     flexDirection: 'row' as const,
@@ -4082,14 +4373,13 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontFamily: 'Outfit_800ExtraBold',
     letterSpacing: -0.2,
-    lineHeight: 34,
+    lineHeight: 38,
     color: '#ffffff',
   },
   workoutInfoSubtitle: {
     fontSize: 13,
     fontFamily: 'Outfit_400Regular',
     letterSpacing: 0.1,
-    opacity: 0.6,
     marginTop: -2,
   },
   workoutInfoChips: {
@@ -4107,8 +4397,8 @@ const styles = StyleSheet.create({
   },
   workoutStyleChipText: {
     fontSize: 10,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.8,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.2,
   },
   workoutInfoChip: {
     flexDirection: 'row' as const,
@@ -4128,7 +4418,9 @@ const styles = StyleSheet.create({
   workoutInfoActions: {
     flexDirection: 'row' as const,
     gap: 8,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 4,
   },
   muscleGroupsRow: {
     flexDirection: 'row' as const,
@@ -4175,12 +4467,12 @@ const styles = StyleSheet.create({
     height: 28,
   },
   workoutModifyBtn: {
-    flex: 2,
+    flex: 1,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     gap: 6,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 13,
     paddingHorizontal: 14,
   },
@@ -4194,7 +4486,7 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     gap: 7,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 13,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
@@ -4283,8 +4575,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   workoutSection: {
-    borderRadius: 0,
-    overflow: 'visible',
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginHorizontal: -12,
   },
   workoutSectionNoBottomRadius: {
     borderBottomLeftRadius: 0,
@@ -4320,8 +4613,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 11,
-    borderBottomWidth: 1,
     gap: 8,
+  },
+  exerciseRowSeparator: {
+    height: 1,
+    marginLeft: 38,
   },
   exerciseInfo: {
     flex: 1,
@@ -4696,39 +4992,25 @@ const styles = StyleSheet.create({
   },
   tabBarOuter: {
     flexDirection: 'row' as const,
-    alignItems: 'stretch' as const,
-    paddingHorizontal: 4,
-    borderRadius: 22,
-    height: 52,
-    position: 'relative' as const,
-    overflow: 'hidden' as const,
-  },
-  tabIndicator: {
-    position: 'absolute' as const,
-    top: 4,
-    height: 44,
-    borderRadius: 16,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingVertical: 5,
     paddingHorizontal: 6,
   },
+  tabBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    position: 'relative' as const,
+  },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
     includeFontPadding: false,
-    flexShrink: 1,
   },
   tabContent: {
     paddingHorizontal: 12,
@@ -4797,7 +5079,7 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     gap: 4,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 9,
     paddingVertical: 5,
     backgroundColor: 'transparent',
@@ -4892,7 +5174,6 @@ const styles = StyleSheet.create({
   },
   checklistRowDesc: {
     fontSize: 12,
-    opacity: 0.65,
   },
   avatarBtn: {
     width: 34,
@@ -5009,9 +5290,9 @@ const styles = StyleSheet.create({
   trackTableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingBottom: 6,
-    marginBottom: 4,
+    gap: 6,
+    paddingBottom: 4,
+    marginBottom: 2,
   },
   trackTableCol: {
     fontSize: 13,
@@ -5271,7 +5552,6 @@ const styles = StyleSheet.create({
   },
   warmupModalItemDesc: {
     fontSize: 12,
-    opacity: 0.6,
   },
   warmupModalDoneBtn: {
     flexDirection: 'row',

@@ -133,7 +133,7 @@ export default function WorkoutWalkthrough({
       onRequestTab(0);
       Animated.timing(overlayFade, {
         toValue: 1,
-        duration: 350,
+        duration: 200,
         useNativeDriver: true,
       }).start(() => {
         showTooltip();
@@ -190,20 +190,20 @@ export default function WorkoutWalkthrough({
       if (nextStep === 3) {
         setTimeout(() => {
           showTooltip();
-        }, 400);
+        }, 200);
       } else if (nextStep === 4) {
         onRequestExpandFirstExercise();
         setTimeout(() => {
           showTooltip();
-        }, 600);
+        }, 300);
       } else if (nextStep >= 6) {
         setTimeout(() => {
           showTooltip();
-        }, 600);
+        }, 300);
       } else {
         setTimeout(() => {
           showTooltip();
-        }, 350);
+        }, 175);
       }
     });
   }, [tooltipFade, tooltipSlide, onRequestTab, onRequestExpandFirstExercise, onRequestCollapseExercise, onRequestScrollToTop, onRequestScrollToBottom, showTooltip]);

@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
@@ -123,7 +124,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
             onClose();
             setTimeout(() => {
               ctx.saveActivePlan(null, null);
-            }, 400);
+            }, 200);
           },
         },
       ]
@@ -132,7 +133,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
 
   const handleStartNew = useCallback(() => {
     onClose();
-    setTimeout(() => onStartNewPlan(), 350);
+    setTimeout(() => onStartNewPlan(), 150);
   }, [onClose, onStartNewPlan]);
 
   const handlePrevWeek = useCallback(() => {
@@ -180,16 +181,12 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
       enablePanDownToClose
       enableOverDrag={false}
       topInset={topOffset}
+      stackBehavior="push"
     >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Sparkles size={16} color={accent} />
-          <Text style={[styles.headerLabel, { color: accent }]}>ACTIVE PLAN</Text>
-        </View>
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={16} color="#888" strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
+      <DrawerHeader
+        title="Active Plan"
+        onClose={onClose}
+      />
 
       <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={styles.content}>
         <Text style={[styles.planName, { color: colors.text }]}>{plan.name}</Text>

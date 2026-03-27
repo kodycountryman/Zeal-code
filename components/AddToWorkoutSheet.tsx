@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
 import {
   X,
   Search,
@@ -140,9 +141,8 @@ function getRecommendations(source: WorkoutExercise): ZealExercise[] {
 export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleGroupFilter, swapSourceExercise, onClose, onAdd }: Props) {
   const { colors, accent } = useZealTheme();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['90%'], []);
+  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
   const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
 
   const isSwapMode = swapSourceExercise != null;
 
@@ -235,6 +235,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
@@ -242,6 +243,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
       enablePanDownToClose
       enableOverDrag={false}
       topInset={topOffset}
+      stackBehavior="push"
       keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
@@ -294,8 +296,10 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
         bounces={false}
+        scrollEnabled={scrollEnabled}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, isSwapMode && styles.contentSwap]}
+        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
       >
         {!isSwapMode && activeMode !== 'exercise' && pending.length > 0 && (
           <View style={[styles.pendingGroup, { backgroundColor: `${modeColor}0C`, borderColor: `${modeColor}30` }]}>
