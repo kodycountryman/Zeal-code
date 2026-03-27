@@ -33,7 +33,6 @@ import {
   Flame,
   Link2,
   RefreshCw,
-  GripVertical,
   ArrowLeftRight,
   X,
   Plus,
@@ -1555,11 +1554,11 @@ export default function WorkoutScreen() {
         {...pr.panHandlers}
         style={[styles.gripDots, isMoving && { opacity: 0.25 }]}
       >
-        <GripVertical
-          size={18}
-          color={colors.textMuted}
-          style={{ transform: [{ rotate: '90deg' }] }}
-        />
+        <View style={{ gap: 3 }}>
+          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+        </View>
       </View>
     );
   }, [colors.textMuted, createDragPanResponder]);
@@ -1575,10 +1574,11 @@ export default function WorkoutScreen() {
         {...pr.panHandlers}
         style={[styles.gripDots, isMoving && { opacity: 0.25 }]}
       >
-        <GripVertical
-          size={16}
-          color={currentAccent}
-        />
+        <View style={{ gap: 3 }}>
+          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+        </View>
       </View>
     );
   }, [currentAccent, createDragPanResponder]);
@@ -2176,8 +2176,10 @@ export default function WorkoutScreen() {
     return null;
   }, [currentAccent, renderGroupGripDots]);
 
-  const renderStrengthRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean) => {
+  const renderStrengthRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
+    const reps = ex.reps && ex.reps !== 'NaN' ? ex.reps : '—';
+    const weight = ex.suggestedWeight && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
@@ -2185,7 +2187,7 @@ export default function WorkoutScreen() {
           <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
+              {ex.sets}×{reps}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
             </Text>
           )}
         </View>
@@ -2193,10 +2195,11 @@ export default function WorkoutScreen() {
     );
   }, [colors, tracking.exerciseLogs]);
 
-  const renderBodybuildingRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean) => {
+  const renderBodybuildingRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const repsNum = parseInt(ex.reps, 10);
-    const repRange = !isNaN(repsNum) ? `${repsNum}–${repsNum + 2}` : ex.reps;
+    const repRange = !isNaN(repsNum) ? `${repsNum}–${repsNum + 2}` : (ex.reps && ex.reps !== 'NaN' ? ex.reps : '—');
+    const weight = ex.suggestedWeight && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
@@ -2204,7 +2207,7 @@ export default function WorkoutScreen() {
           <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{repRange}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
+              {ex.sets}×{repRange}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
             </Text>
           )}
         </View>
@@ -2212,8 +2215,10 @@ export default function WorkoutScreen() {
     );
   }, [colors, tracking.exerciseLogs]);
 
-  const renderDefaultRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean) => {
+  const renderDefaultRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
+    const reps = ex.reps && ex.reps !== 'NaN' ? ex.reps : '—';
+    const weight = ex.suggestedWeight && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
@@ -2221,7 +2226,7 @@ export default function WorkoutScreen() {
           <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
+              {ex.sets}×{reps}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
             </Text>
           )}
         </View>
@@ -2241,13 +2246,13 @@ export default function WorkoutScreen() {
     let infoContent: React.ReactNode;
     switch (currentStyle) {
       case 'Strength':
-        infoContent = renderStrengthRow(ex, idx, isExpanded);
+        infoContent = renderStrengthRow(ex, idx, isExpanded, !!isFollowedBySameGroup);
         break;
       case 'Bodybuilding':
-        infoContent = renderBodybuildingRow(ex, idx, isExpanded);
+        infoContent = renderBodybuildingRow(ex, idx, isExpanded, !!isFollowedBySameGroup);
         break;
       default:
-        infoContent = renderDefaultRow(ex, idx, isExpanded);
+        infoContent = renderDefaultRow(ex, idx, isExpanded, !!isFollowedBySameGroup);
         break;
     }
 
@@ -4080,7 +4085,7 @@ export default function WorkoutScreen() {
               return (
                 <>
                   <View style={styles.infoTitleRow}>
-                    <Info size={16} color={currentAccent} />
+                    <Info size={16} color={colors.textSecondary} />
                     <Text style={[styles.infoTitle, { color: colors.text }]}>{info.title}</Text>
                   </View>
                   <Text style={[styles.infoBody, { color: colors.textSecondary }]}>{info.body}</Text>
@@ -4112,7 +4117,11 @@ export default function WorkoutScreen() {
         >
           {dragGhostItems.map((item) => (
             <View key={item.id} style={styles.dragGhostRow}>
-              <GripVertical size={13} color={colors.textMuted} style={{ transform: [{ rotate: '90deg' }] }} />
+              <View style={{ gap: 2.5 }}>
+                <View style={{ width: 12, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+                <View style={{ width: 12, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+                <View style={{ width: 12, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+              </View>
               <Text style={[styles.dragGhostName, { color: colors.text }]} numberOfLines={1}>
                 {item.name}
               </Text>
@@ -4340,7 +4349,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   workoutInfoCard: {
-    borderRadius: 18,
+    borderRadius: 22,
     overflow: 'hidden',
   },
   workoutInfoTop: {
@@ -4581,7 +4590,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   workoutSection: {
-    borderRadius: 18,
+    borderRadius: 22,
     overflow: 'hidden',
     marginHorizontal: -12,
   },
@@ -4637,7 +4646,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Outfit_500Medium',
     minWidth: 22,
-    textAlign: 'center' as const,
+    textAlign: 'right' as const,
   },
   exerciseMeta: {
     fontSize: 11,
