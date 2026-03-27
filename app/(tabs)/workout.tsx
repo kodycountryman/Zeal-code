@@ -3217,7 +3217,7 @@ export default function WorkoutScreen() {
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
               <View style={[styles.workoutSection, {
-                backgroundColor: isDark ? 'rgba(14,14,14,0.99)' : 'rgba(232,232,232,0.99)',
+                backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(235,235,235,0.98)',
                 borderWidth: 1,
                 borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               }]}>
