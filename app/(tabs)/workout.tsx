@@ -1686,7 +1686,6 @@ export default function WorkoutScreen() {
         <View style={[
           styles.trackPanel,
           { backgroundColor: 'transparent', borderTopColor: `${colors.border}30` },
-          isInSuperset && { borderLeftWidth: 2, borderLeftColor: colors.border },
         ]}>
           <View style={[
             styles.logSetsCard,
@@ -2162,7 +2161,7 @@ export default function WorkoutScreen() {
         <View
           style={[
             styles.groupLinkRow,
-            isSuperset && { borderLeftWidth: 2, borderLeftColor: colors.border },
+            isSuperset && { backgroundColor: `${currentAccent}0d` },
           ]}
         >
           <Link2
@@ -2183,10 +2182,10 @@ export default function WorkoutScreen() {
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
-          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{ex.reps} · Rest {ex.rest} · {ex.muscleGroup}
+              {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
             </Text>
           )}
         </View>
@@ -2202,10 +2201,10 @@ export default function WorkoutScreen() {
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
-          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{repRange} · Rest {ex.rest} · {ex.muscleGroup}
+              {ex.sets}×{repRange}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
             </Text>
           )}
         </View>
@@ -2219,10 +2218,10 @@ export default function WorkoutScreen() {
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
-          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{ex.reps} · Rest {ex.rest} · {ex.muscleGroup}
+              {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
             </Text>
           )}
         </View>
@@ -2284,7 +2283,7 @@ export default function WorkoutScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.exerciseRow,
-              isInSuperset && { borderLeftWidth: 2, borderLeftColor: colors.border, paddingLeft: 12 },
+              isInSuperset && { backgroundColor: `${currentAccent}0d` },
               isRowBeingDragged && { opacity: 0.3 },
               pressed && { backgroundColor: `${colors.border}22` },
             ]}
@@ -2346,9 +2345,9 @@ export default function WorkoutScreen() {
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                          {ex.sets}×{ex.reps} · Rest {ex.rest} · {ex.muscleGroup}
+                          {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
                         </Text>
                       </View>
                       {renderTrackButton(ex)}
@@ -2433,7 +2432,7 @@ export default function WorkoutScreen() {
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFMetconExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFMetconExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>{repsMeta}</Text>
                       </View>
                       {renderTrackButton(ex)}
@@ -2522,7 +2521,7 @@ export default function WorkoutScreen() {
                 >
                   <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{currentStationIdx + 1}</Text>
                   <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isHyroxExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isHyroxExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                     <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>{metaLine}</Text>
                   </View>
                   {renderTrackButton(ex)}
@@ -2630,7 +2629,7 @@ export default function WorkoutScreen() {
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCardioExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCardioExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
                           {ex.reps} · {ex.muscleGroup}
                         </Text>
@@ -2756,7 +2755,7 @@ export default function WorkoutScreen() {
                 >
                   <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                   <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: expandedTrack === ex.id ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: expandedTrack === ex.id ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                     <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
                       {repsDisplay}
                     </Text>
@@ -2824,12 +2823,12 @@ export default function WorkoutScreen() {
                     >
                       <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: is75HardExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>
+                        <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: is75HardExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>
                           {ex.name}
                         </Text>
                         {!isCompleted && (
                           <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                            {ex.sets}×{ex.reps} · Rest {ex.rest} · {ex.muscleGroup}
+                            {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
                           </Text>
                         )}
                       </View>
@@ -3286,12 +3285,12 @@ export default function WorkoutScreen() {
                           >
                             <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                             <View style={styles.exerciseInfo}>
-                              <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_700Bold' : 'Outfit_500Medium' }]}>
+                              <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>
                                 {ex.name}
                               </Text>
                               {!isCompleted && (
                                 <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                                  {ex.sets}×{ex.reps} · Rest {ex.rest} · {ex.muscleGroup}
+                                  {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
                                 </Text>
                               )}
                             </View>
