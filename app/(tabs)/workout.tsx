@@ -3032,11 +3032,11 @@ export default function WorkoutScreen() {
                 </View>
 
                 <Text style={[styles.workoutInfoSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {[
-                    `${displayDuration} min`,
-                    targetedMuscles.length > 0 ? targetedMuscles.slice(0, 2).join(', ') : null,
-                    totalExercises > 0 ? `${totalExercises} exercises` : null,
-                  ].filter(Boolean).join(' · ')}
+                  {`${displayDuration} min`}
+                  {targetedMuscles.length > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
+                  {targetedMuscles.length > 0 && targetedMuscles.slice(0, 2).join(', ')}
+                  {totalExercises > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
+                  {totalExercises > 0 && `${totalExercises} exercises`}
                 </Text>
               </View>
 
@@ -4650,7 +4650,7 @@ const styles = StyleSheet.create({
   },
   exerciseMeta: {
     fontSize: 13,
-    fontFamily: 'Outfit_400Regular',
+    fontFamily: 'Outfit_500Medium',
   },
   exerciseLast: {
     fontSize: 10,
