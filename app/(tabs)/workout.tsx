@@ -2161,12 +2161,12 @@ export default function WorkoutScreen() {
         <View
           style={[
             styles.groupLinkRow,
-            isSuperset && { backgroundColor: `${currentAccent}0d` },
+            isSuperset && { borderLeftWidth: 2, borderLeftColor: `${currentAccent}66` },
           ]}
         >
           <Link2
-            size={16}
-            color={colors.textMuted}
+            size={14}
+            color={`${currentAccent}66`}
             style={{ transform: [{ rotate: '90deg' }] }}
           />
         </View>
@@ -2288,7 +2288,7 @@ export default function WorkoutScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.exerciseRow,
-              isInSuperset && { backgroundColor: `${currentAccent}0d` },
+              isInSuperset && { borderLeftWidth: 2, borderLeftColor: `${currentAccent}66` },
               isRowBeingDragged && { opacity: 0.3 },
               pressed && { backgroundColor: `${colors.border}22` },
             ]}
@@ -3087,7 +3087,7 @@ export default function WorkoutScreen() {
             <View
               style={[styles.tabBarOuter, {
                 marginTop: 12,
-                backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(235,235,235,0.98)',
+                backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
                 borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               }]}
               onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
@@ -3230,7 +3230,7 @@ export default function WorkoutScreen() {
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
               <View style={[styles.workoutSection, {
-                backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(235,235,235,0.98)',
+                backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
                 borderWidth: 1,
                 borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               }]}>
@@ -4616,7 +4616,8 @@ const styles = StyleSheet.create({
   },
   groupLinkRow: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
+    paddingLeft: 8,
   },
   groupLinkLine: {
     width: 2,
@@ -4628,7 +4629,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 11,
-    gap: 8,
+    gap: 6,
   },
   exerciseRowSeparator: {
     height: 1,
@@ -4643,9 +4644,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
   },
   exerciseNum: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Outfit_500Medium',
-    minWidth: 22,
+    minWidth: 16,
     textAlign: 'right' as const,
   },
   exerciseMeta: {
