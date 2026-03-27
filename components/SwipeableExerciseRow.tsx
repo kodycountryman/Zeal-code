@@ -140,22 +140,22 @@ function SwipeableExerciseRow({
       <View style={styles.actionsContainer}>
         <ActionButton
           progress={progress}
-          color="#1d6fce"
-          icon={<Info size={20} color="#fff" strokeWidth={2.2} />}
+          color="rgba(10,132,255,0.82)"
+          icon={<Info size={20} color="#fff" strokeWidth={2} />}
           onPress={handleInfo}
         />
         <View style={styles.divider} />
         <ActionButton
           progress={progress}
-          color="#b8600a"
-          icon={<ArrowLeftRight size={20} color="#fff" strokeWidth={2.2} />}
+          color="rgba(255,159,10,0.82)"
+          icon={<ArrowLeftRight size={20} color="#fff" strokeWidth={2} />}
           onPress={handleSwap}
         />
         <View style={styles.divider} />
         <ActionButton
           progress={progress}
-          color="#c0392b"
-          icon={<Trash2 size={20} color="#fff" strokeWidth={2.2} />}
+          color="rgba(255,69,58,0.82)"
+          icon={<Trash2 size={20} color="#fff" strokeWidth={2} />}
           onPress={handleDelete}
         />
       </View>

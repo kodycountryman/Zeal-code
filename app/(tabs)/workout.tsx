@@ -3325,8 +3325,8 @@ export default function WorkoutScreen() {
                 <View style={[
                   styles.cardioStandaloneCard,
                   {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                    borderColor: isDark ? 'rgba(139,92,246,0.22)' : 'rgba(139,92,246,0.15)',
+                    backgroundColor: isDark ? 'rgba(14,14,14,0.99)' : 'rgba(232,232,232,0.99)',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                   },
                 ]}>
                   <View style={styles.cardioStandaloneHeader}>
@@ -3434,11 +3434,11 @@ export default function WorkoutScreen() {
                   <View style={styles.addBtnWrap}>
                     <View ref={addBtnRef} collapsable={false}>
                       <TouchableOpacity
-                        style={[styles.addBtnFull, { borderColor: `${currentAccent}60`, backgroundColor: 'transparent' }]}
+                        style={[styles.addBtnFull, { borderColor: `${currentAccent}30`, backgroundColor: 'transparent' }]}
                         onPress={() => setAddMenuVisible(!addMenuVisible)}
                         activeOpacity={0.7}
                       >
-                        <Plus size={18} color={currentAccent} />
+                        <Plus size={15} color={currentAccent} />
                         <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
                       </TouchableOpacity>
                     </View>
@@ -4615,7 +4615,7 @@ const styles = StyleSheet.create({
   },
   groupLinkRow: {
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: 0,
     paddingLeft: 8,
   },
   groupLinkLine: {
@@ -4926,7 +4926,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 14,
   },
   cardioStandaloneCard: {
-    borderRadius: 14,
+    borderRadius: 26,
     overflow: 'hidden',
     borderWidth: 1,
   },
@@ -5116,15 +5116,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: 8,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingVertical: 13,
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 9,
     width: '100%' as const,
   },
   addBtnFullText: {
-    fontSize: 15,
-    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
   },
   checklistCard: {
     borderRadius: 14,
