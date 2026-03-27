@@ -103,7 +103,7 @@ import GlassCard from '@/components/GlassCard';
 const WALKTHROUGH_KEY = '@zeal_workout_walkthrough_seen_v1';
 
 const SPRING_BTN = { damping: 15, stiffness: 400, mass: 0.5 } as const;
-const CHIP_H = 48;
+const CHIP_H = 44;
 const PICKER_H = 132;
 const CHIP_SPRING = { damping: 22, stiffness: 280, mass: 0.8 } as const;
 
@@ -553,27 +553,58 @@ export default function WorkoutScreen() {
   const tab2Anim = useRef(new RNAnimated.Value(0)).current;
   const pillAnim = useRef(new RNAnimated.Value(1)).current;
 
+  // Dynamic flex ratios: [pre, workout, post]
+  const TAB_FLEX: Record<number, [number, number, number]> = {
+    0: [2, 1.5, 1.5],   // Pre active: 40% / 30% / 30%
+    1: [1, 3, 1],        // Workout active: 20% / 60% / 20%
+    2: [1.5, 1.5, 2],   // Post active: 30% / 30% / 40%
+  };
+
+  const labelFadeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const switchPanelTab = useCallback((tab: 0 | 1 | 2) => {
+    const prev = activePanelRef.current;
+    if (prev === tab) return;
     activePanelRef.current = tab;
+
+    // Cancel any pending label fade-in from a previous quick tap
+    if (labelFadeTimeout.current) clearTimeout(labelFadeTimeout.current);
+
+    // Smoothly fade out the outgoing label
+    const prevAnim = prev === 0 ? tab0Anim : prev === 1 ? tab1Anim : tab2Anim;
+    RNAnimated.timing(prevAnim, {
+      toValue: 0,
+      duration: 90,
+      useNativeDriver: true,
+    }).start();
+
+    // Springy flex expansion — icons push with a natural bounce
     LayoutAnimation.configureNext({
-      duration: 280,
+      duration: 340,
       create: { type: 'easeInEaseOut', property: 'scaleXY' },
-      update: { type: 'spring', springDamping: 0.7 },
+      update: { type: 'spring', springDamping: 0.62 },
     });
     setActivePanel(tab);
-    // Slide pill to new position, then shift color + fade label in
+
+    // Pill slides smoothly — gentle tension so it never catches or overshoots hard
     RNAnimated.spring(pillAnim, {
       toValue: tab,
       useNativeDriver: false,
-      tension: 120,
-      friction: 14,
-    }).start(() => {
-      RNAnimated.parallel([
-        RNAnimated.spring(tab0Anim, { toValue: tab === 0 ? 1 : 0, useNativeDriver: true, speed: 28, bounciness: 0 }),
-        RNAnimated.spring(tab1Anim, { toValue: tab === 1 ? 1 : 0, useNativeDriver: true, speed: 28, bounciness: 0 }),
-        RNAnimated.spring(tab2Anim, { toValue: tab === 2 ? 1 : 0, useNativeDriver: true, speed: 28, bounciness: 0 }),
-      ]).start();
-    });
+      tension: 72,
+      friction: 11,
+    }).start();
+
+    // Fade in the new label midway through the slide (overlapping feel)
+    const targetAnim = tab === 0 ? tab0Anim : tab === 1 ? tab1Anim : tab2Anim;
+    labelFadeTimeout.current = setTimeout(() => {
+      RNAnimated.spring(targetAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 18,
+        bounciness: 3,
+      }).start();
+    }, 150);
+
     if (Platform.OS !== 'web') {
       Haptics.selectionAsync();
     }
@@ -1749,7 +1780,7 @@ export default function WorkoutScreen() {
           <View style={[
             styles.logSetsCard,
             {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+              backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(0,0,0,0.04)',
               borderColor: isDark ? `${colors.border}55` : `${colors.border}40`,
             },
           ]}>
@@ -1767,6 +1798,14 @@ export default function WorkoutScreen() {
                   </Text>
                 )}
                 <View style={{ flex: 1 }} />
+                <TouchableOpacity
+                  onPress={() => handleExerciseTap(ex)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{ marginRight: 12 }}
+                >
+                  <Clipboard size={13} color={colors.textSecondary} />
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => { setLogEditMode(e => !e); setSwipeOpenSetKey(null); }}
                   activeOpacity={0.7}
@@ -1812,7 +1851,7 @@ export default function WorkoutScreen() {
             <View style={styles.trackTableHeader}>
               <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>set</Text>
               {!isRepsOnly && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && (
-                <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
+                <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 2, textAlign: 'center' as const }]}>
                   {`weight${isDumbbell ? ' ea.' : ''}`}
                 </Text>
               )}
@@ -1820,7 +1859,6 @@ export default function WorkoutScreen() {
                 {isHoldForTime ? 'time (mm:ss)' : isCaloriesMovement ? 'cals' : (isDistanceOnly || isWeightDistance) ? 'dist (m)' : 'reps'}
               </Text>
               <View style={{ flex: 1 }} />
-              <View style={{ width: 32 }} />
             </View>
 
             {setsData.map((set, setIdx) => {
@@ -1853,7 +1891,7 @@ export default function WorkoutScreen() {
                         <TouchableOpacity
                           onPress={() => isWeightActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'weight' })}
                           activeOpacity={0.85}
-                          style={{ flex: 1, maxWidth: 110 }}
+                          style={{ flex: 2 }}
                         >
                           <Animated.View
                             style={[
@@ -1890,7 +1928,7 @@ export default function WorkoutScreen() {
                       <TouchableOpacity
                         onPress={() => isRepsActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'reps' })}
                         activeOpacity={0.85}
-                        style={{ flex: 1, maxWidth: 110 }}
+                        style={{ flex: 1 }}
                       >
                         <Animated.View
                           style={[
@@ -1972,14 +2010,6 @@ export default function WorkoutScreen() {
             })}
 
             <View style={styles.trackActions}>
-              <TouchableOpacity
-                onPress={() => handleExerciseTap(ex)}
-                activeOpacity={0.7}
-                style={[styles.trackBtn, { borderColor: colors.border }]}
-              >
-                <Clipboard size={11} color={colors.textSecondary} />
-                <Text style={[styles.trackBtnText, { color: colors.textSecondary }]}>Guide</Text>
-              </TouchableOpacity>
               <View style={{ flex: 1 }} />
               <TouchableOpacity
                 onPress={() => tracking.addSet(ex.id)}
@@ -2023,7 +2053,7 @@ export default function WorkoutScreen() {
     if (isCFMetconEx || isHIIT) {
       return (
         <View style={[styles.trackPanel, { backgroundColor: 'transparent', borderTopColor: `${colors.border}30` }]}>
-          <View style={[styles.logSetsCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? `${colors.border}55` : `${colors.border}40` }]}>
+          <View style={[styles.logSetsCard, { backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? `${colors.border}55` : `${colors.border}40` }]}>
             <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG RESULT</Text>
             <View style={styles.trackResultRow}>
               <View style={styles.trackResultField}>
@@ -2073,7 +2103,7 @@ export default function WorkoutScreen() {
       );
     }
 
-    const _logSetsCardStyle: ViewStyle[] = [styles.logSetsCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? `${colors.border}55` : `${colors.border}40` }];
+    const _logSetsCardStyle: ViewStyle[] = [styles.logSetsCard, { backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? `${colors.border}55` : `${colors.border}40` }];
     const _trackPanelStyle: ViewStyle[] = [styles.trackPanel, { backgroundColor: 'transparent', borderTopColor: `${colors.border}30` }];
 
     if (isCardioStyle) {
@@ -3016,25 +3046,26 @@ export default function WorkoutScreen() {
       </SafeAreaView>
 
       <GestureDetector gesture={scrollGesture}>
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          removeClippedSubviews={true}
-          testID="workout-scroll"
-          scrollEventThrottle={16}
-          scrollEnabled={scrollEnabled}
-          onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
-          style={{ opacity: (tracking.isRestActive && tracking.restTimeRemaining > 0 && !tracking.isTimerMinimized) ? 0.6 : 1 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={tracking.isWorkoutActive ? undefined : handlePullRefresh}
-              tintColor={currentAccent}
-              colors={[currentAccent]}
-            />
-          }
-        >
+      <ScrollView
+        ref={scrollViewRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        testID="workout-scroll"
+        scrollEventThrottle={16}
+        scrollEnabled={scrollEnabled}
+        onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={tracking.isWorkoutActive ? undefined : handlePullRefresh}
+            tintColor={currentAccent}
+            colors={[currentAccent]}
+          />
+        }
+      >
+        <View style={{ paddingHorizontal: 16, paddingTop: 4 }}>
         {!hasPro && !coreStyleBannerDismissed && PRO_STYLES_SET.has(ctx.workoutStyle) && !tracking.isWorkoutActive && (
           <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
             <View style={styles.coreStyleBannerContent}>
@@ -3107,7 +3138,7 @@ export default function WorkoutScreen() {
               </View>
 
               <View style={styles.workoutInfoActions}>
-                <View ref={modifyBtnRef} collapsable={false}>
+                <View ref={modifyBtnRef} collapsable={false} style={{ flex: 1 }}>
                   <TouchableOpacity
                     style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
                     onPress={() => setModifyVisible(true)}
@@ -3119,7 +3150,7 @@ export default function WorkoutScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <Animated.View style={[startWorkoutAnimStyle, { flex: 3 }]}>
+                <Animated.View style={[startWorkoutAnimStyle, { flex: 2 }]}>
                   <TouchableOpacity
                     style={[styles.workoutStartBtn, { backgroundColor: currentAccent, shadowColor: currentAccent }]}
                     onPress={handleStartWorkout}
@@ -3137,78 +3168,116 @@ export default function WorkoutScreen() {
           </>
         )}
 
-        {/* 3-Tab Header */}
-        {(() => {
-          const pillInnerW = Math.max(tabBarWidth - 12, 0);
-          const pillLeftAnim = pillInnerW > 0 ? pillAnim.interpolate({
-            inputRange: [0, 1, 2],
-            outputRange: [6, 6 + pillInnerW * 0.2, 6 + pillInnerW * 0.65],
-          }) : 6;
-          const pillWidthAnim = pillInnerW > 0 ? pillAnim.interpolate({
-            inputRange: [0, 1, 2],
-            outputRange: [pillInnerW * 0.35, pillInnerW * 0.6, pillInnerW * 0.35],
-          }) : 0;
-          return (
-            <View
-              style={[styles.tabBarOuter, {
-                marginTop: 2,
-                backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
-                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-              }]}
-              onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
-            >
-              {/* Single sliding pill */}
-              {tabBarWidth > 0 && (
+        </View>
+
+        {/* Unified tab card — tab bar header + content */}
+        <View style={[styles.tabPanel, {
+          marginHorizontal: 16,
+          marginTop: 14,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: cardBorder,
+        }]}>
+          {/* Tab Bar — Apple-inspired dynamic pill */}
+          <View
+            style={styles.tabBarOuter}
+            onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
+          >
+            {tabBarWidth > 0 && (() => {
+              const innerWidth = tabBarWidth - 8; // account for padding: 4 each side
+              const pillLeftInterp = pillAnim.interpolate({
+                inputRange: [0, 1, 2],
+                outputRange: [0, innerWidth * 0.20, innerWidth * 0.60],
+              });
+              const pillWidthInterp = pillAnim.interpolate({
+                inputRange: [0, 1, 2],
+                outputRange: [innerWidth * 0.40, innerWidth * 0.60, innerWidth * 0.40],
+              });
+              // Convert currentAccent hex → rgba for glass morphism
+              const hexToRgba = (hex: string, a: number) => {
+                const r = parseInt(hex.slice(1, 3), 16) || 0;
+                const g = parseInt(hex.slice(3, 5), 16) || 0;
+                const b = parseInt(hex.slice(5, 7), 16) || 0;
+                return `rgba(${r},${g},${b},${a})`;
+              };
+              return (
                 <RNAnimated.View
                   pointerEvents="none"
-                  style={{
-                    position: 'absolute',
-                    top: 5,
-                    bottom: 5,
-                    left: pillLeftAnim,
-                    width: pillWidthAnim,
-                    borderRadius: 999,
-                    overflow: 'hidden',
-                    borderWidth: 1,
-                    borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <RNAnimated.View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(248,113,22,0.28)' : 'rgba(248,113,22,0.2)', opacity: tab0Anim }]} />
-                  <RNAnimated.View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? `${currentAccent}55` : `${currentAccent}44`, opacity: tab1Anim }]} />
-                  <RNAnimated.View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(239,68,68,0.28)' : 'rgba(239,68,68,0.2)', opacity: tab2Anim }]} />
-                </RNAnimated.View>
-              )}
-
-              <View ref={preTabRef} collapsable={false} style={{ flex: activePanel === 0 ? 1.1 : 1, flexDirection: 'row' }}>
-                <TouchableOpacity style={[styles.tabBtn, { flex: 1, justifyContent: activePanel === 0 ? 'center' : 'flex-start' }]} onPress={() => switchPanelTab(0)} activeOpacity={0.8} testID="tab-pre-workout">
-                  <Flame size={14} color={activePanel === 0 ? '#f87116' : colors.textMuted} />
-                  {activePanel === 0 && (
-                    <RNAnimated.Text style={[styles.tabLabel, { color: '#f87116', opacity: tab0Anim }]} numberOfLines={1}>Pre-Workout</RNAnimated.Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              <View ref={workoutTabRef} collapsable={false} style={{ flex: activePanel === 1 ? 3 : 1, flexDirection: 'row' }}>
-                <TouchableOpacity style={[styles.tabBtn, { flex: 1, justifyContent: 'center' }]} onPress={() => switchPanelTab(1)} activeOpacity={0.8} testID="tab-workout">
-                  <Dumbbell size={14} color={activePanel === 1 ? currentAccent : colors.textMuted} />
-                  {activePanel === 1 && (
-                    <RNAnimated.Text style={[styles.tabLabel, { color: currentAccent, opacity: tab1Anim }]} numberOfLines={1}>Workout</RNAnimated.Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              <View ref={postTabRef} collapsable={false} style={{ flex: activePanel === 2 ? 1.1 : 1, flexDirection: 'row' }}>
-                <TouchableOpacity style={[styles.tabBtn, { flex: 1, justifyContent: activePanel === 2 ? 'center' : 'flex-end' }]} onPress={() => switchPanelTab(2)} activeOpacity={0.8} testID="tab-post-workout">
-                  <Heart size={14} color={activePanel === 2 ? '#ef4444' : colors.textMuted} />
-                  {activePanel === 2 && (
-                    <RNAnimated.Text style={[styles.tabLabel, { color: '#ef4444', opacity: tab2Anim }]} numberOfLines={1}>Post-Workout</RNAnimated.Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+                  style={[styles.tabIndicator, {
+                    backgroundColor: pillAnim.interpolate({
+                      inputRange: [0, 1, 2],
+                      outputRange: [
+                        'rgba(248,113,22,0.22)',
+                        hexToRgba(currentAccent, 0.22),
+                        'rgba(239,68,68,0.22)',
+                      ],
+                    }),
+                    borderColor: pillAnim.interpolate({
+                      inputRange: [0, 1, 2],
+                      outputRange: [
+                        'rgba(248,113,22,0.65)',
+                        hexToRgba(currentAccent, 0.65),
+                        'rgba(239,68,68,0.65)',
+                      ],
+                    }),
+                    width: pillWidthInterp,
+                    transform: [{ translateX: pillLeftInterp }],
+                  }]}
+                />
+              );
+            })()}
+            <View ref={preTabRef} collapsable={false} style={{ flex: TAB_FLEX[activePanel][0] }}>
+              <TouchableOpacity
+                style={[styles.tabBtn, { justifyContent: activePanel === 0 ? 'center' : 'flex-start', paddingLeft: activePanel === 0 ? 0 : 12 }]}
+                onPress={() => switchPanelTab(0)}
+                activeOpacity={0.7}
+                testID="tab-pre-workout"
+              >
+                <Flame size={14} color={activePanel === 0 ? '#f87116' : 'rgba(255,255,255,0.4)'} />
+                {activePanel === 0 && (
+                  <RNAnimated.Text style={[styles.tabLabel, { color: '#fff', opacity: tab0Anim }]}>
+                    Pre-Workout
+                  </RNAnimated.Text>
+                )}
+              </TouchableOpacity>
             </View>
-          );
-        })()}
+            <View ref={workoutTabRef} collapsable={false} style={{ flex: TAB_FLEX[activePanel][1] }}>
+              <TouchableOpacity
+                style={[styles.tabBtn, { justifyContent: 'center' }]}
+                onPress={() => switchPanelTab(1)}
+                activeOpacity={0.7}
+                testID="tab-workout"
+              >
+                <Dumbbell size={14} color={activePanel === 1 ? currentAccent : 'rgba(255,255,255,0.4)'} />
+                {activePanel === 1 && (
+                  <RNAnimated.Text style={[styles.tabLabel, { color: '#fff', opacity: tab1Anim }]}>
+                    Workout
+                  </RNAnimated.Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            <View ref={postTabRef} collapsable={false} style={{ flex: TAB_FLEX[activePanel][2] }}>
+              <TouchableOpacity
+                style={[styles.tabBtn, { justifyContent: activePanel === 2 ? 'center' : 'flex-end', paddingRight: activePanel === 2 ? 0 : 12 }]}
+                onPress={() => switchPanelTab(2)}
+                activeOpacity={0.7}
+                testID="tab-post-workout"
+              >
+                <Heart size={14} color={activePanel === 2 ? '#ef4444' : 'rgba(255,255,255,0.4)'} />
+                {activePanel === 2 && (
+                  <RNAnimated.Text style={[styles.tabLabel, { color: '#fff', opacity: tab2Anim }]}>
+                    Post-Workout
+                  </RNAnimated.Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        {/* Tab Content (transparent, no outer card) */}
-        {activePanel === 0 && (
+          <View
+            style={{ paddingTop: 4, gap: 12, paddingBottom: 12, opacity: (tracking.isRestActive && tracking.restTimeRemaining > 0 && !tracking.isTimerMinimized) ? 0.6 : 1 }}
+          >
+          {/* Pre-Workout Panel */}
+          {activePanel === 0 && (
           <TabContentSpring>
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
@@ -3442,99 +3511,6 @@ export default function WorkoutScreen() {
                   })}
                 </View>
               )}
-              <View style={styles.tabCompleteWrap}>
-                {tracking.isWorkoutActive ? (
-                  /* Workout active: small square + button + Finish Workout */
-                  <View style={styles.completeRow}>
-                    <View style={styles.addBtnWrap}>
-                      <View ref={addBtnRef} collapsable={false}>
-                        <TouchableOpacity
-                          style={[styles.addBtnSquare, { borderColor: `${currentAccent}50`, backgroundColor: 'transparent', borderWidth: 1.5 }]}
-                          onPress={() => setAddMenuVisible(!addMenuVisible)}
-                          activeOpacity={0.7}
-                        >
-                          <Plus size={20} color={currentAccent} />
-                        </TouchableOpacity>
-                      </View>
-                      {addMenuVisible && (
-                        <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
-                          {Platform.OS !== 'web' ? (
-                            <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-                          ) : null}
-                          <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
-                          {([
-                            { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
-                            { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
-                            { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
-                          ]).map((item, idx) => (
-                            <TouchableOpacity
-                              key={idx}
-                              style={[styles.addMenuItem, idx < 2 && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
-                              onPress={() => handleOpenAddSheet(item.mode)}
-                              activeOpacity={0.7}
-                            >
-                              {item.icon}
-                              <Text style={[styles.addMenuText, { color: colors.text }]}>{item.label}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                    </View>
-                    <View ref={finishBtnRef} collapsable={false} style={{ flex: 1 }}>
-                      <Animated.View style={completeWorkoutAnimStyle}>
-                        <TouchableOpacity
-                          style={[styles.completeBtn, { backgroundColor: currentAccent }]}
-                          onPress={handleCompleteWorkout}
-                          onPressIn={() => { completeWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
-                          onPressOut={() => { completeWorkoutScale.value = withSpring(1, SPRING_BTN); }}
-                          activeOpacity={1}
-                          testID="complete-workout"
-                        >
-                          <Check size={18} color={getContrastTextColor(currentAccent)} />
-                          <Text style={[styles.completeBtnText, { color: getContrastTextColor(currentAccent) }]}>Finish Workout</Text>
-                        </TouchableOpacity>
-                      </Animated.View>
-                    </View>
-                  </View>
-                ) : (
-                  /* Before workout: full-width ghost + button */
-                  <View style={styles.addBtnWrap}>
-                    <View ref={addBtnRef} collapsable={false}>
-                      <TouchableOpacity
-                        style={[styles.addBtnFull, { borderColor: `${currentAccent}30`, backgroundColor: 'transparent' }]}
-                        onPress={() => setAddMenuVisible(!addMenuVisible)}
-                        activeOpacity={0.7}
-                      >
-                        <Plus size={15} color={currentAccent} />
-                        <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
-                      </TouchableOpacity>
-                    </View>
-                    {addMenuVisible && (
-                      <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
-                        {Platform.OS !== 'web' ? (
-                          <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-                        ) : null}
-                        <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
-                        {([
-                          { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
-                          { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
-                          { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
-                        ]).map((item, idx) => (
-                          <TouchableOpacity
-                            key={idx}
-                            style={[styles.addMenuItem, idx < 2 && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
-                            onPress={() => handleOpenAddSheet(item.mode)}
-                            activeOpacity={0.7}
-                          >
-                            {item.icon}
-                            <Text style={[styles.addMenuText, { color: colors.text }]}>{item.label}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
             </View>
           </View>
           </TabContentSpring>
@@ -3713,14 +3689,106 @@ export default function WorkoutScreen() {
           </TabContentSpring>
         )}
 
-        {/* Generate New Workout moved to header as 'Shuffle' ghost button */}
+        {/* Add / Finish button — outside the card, workout tab only */}
+        {activePanel === 1 && (
+          <View style={{ marginHorizontal: 16, marginTop: 8 }}>
+            <View style={styles.tabCompleteWrap}>
+              {tracking.isWorkoutActive ? (
+                <View style={styles.completeRow}>
+                  <View style={styles.addBtnWrap}>
+                    <View ref={addBtnRef} collapsable={false}>
+                      <TouchableOpacity
+                        style={[styles.addBtnSquare, { borderColor: `${currentAccent}50`, backgroundColor: 'transparent', borderWidth: 1.5 }]}
+                        onPress={() => setAddMenuVisible(!addMenuVisible)}
+                        activeOpacity={0.7}
+                      >
+                        <Plus size={20} color={currentAccent} />
+                      </TouchableOpacity>
+                    </View>
+                    {addMenuVisible && (
+                      <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
+                        {Platform.OS !== 'web' ? (
+                          <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+                        ) : null}
+                        <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
+                        {([
+                          { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                          { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                          { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                        ]).map((item, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            style={[styles.addMenuItem, idx < 2 && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
+                            onPress={() => handleOpenAddSheet(item.mode)}
+                            activeOpacity={0.7}
+                          >
+                            {item.icon}
+                            <Text style={[styles.addMenuText, { color: colors.text }]}>{item.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                  <View ref={finishBtnRef} collapsable={false} style={{ flex: 1 }}>
+                    <Animated.View style={completeWorkoutAnimStyle}>
+                      <TouchableOpacity
+                        style={[styles.completeBtn, { backgroundColor: currentAccent }]}
+                        onPress={handleCompleteWorkout}
+                        onPressIn={() => { completeWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
+                        onPressOut={() => { completeWorkoutScale.value = withSpring(1, SPRING_BTN); }}
+                        activeOpacity={1}
+                        testID="complete-workout"
+                      >
+                        <Check size={18} color={getContrastTextColor(currentAccent)} />
+                        <Text style={[styles.completeBtnText, { color: getContrastTextColor(currentAccent) }]}>Finish Workout</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.addBtnWrap}>
+                  <View ref={addBtnRef} collapsable={false}>
+                    <TouchableOpacity
+                      style={[styles.addBtnFull, { borderColor: `${currentAccent}30`, backgroundColor: 'transparent' }]}
+                      onPress={() => setAddMenuVisible(!addMenuVisible)}
+                      activeOpacity={0.7}
+                    >
+                      <Plus size={15} color={currentAccent} />
+                      <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {addMenuVisible && (
+                    <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
+                      {Platform.OS !== 'web' ? (
+                        <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+                      ) : null}
+                      <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
+                      {([
+                        { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                        { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                        { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                      ]).map((item, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[styles.addMenuItem, idx < 2 && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
+                          onPress={() => handleOpenAddSheet(item.mode)}
+                          activeOpacity={0.7}
+                        >
+                          {item.icon}
+                          <Text style={[styles.addMenuText, { color: colors.text }]}>{item.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
-        <View style={{ height:
-          (tracking.isRestActive && !tracking.isTimerMinimized) ? 320 :
-          (tracking.showRestTimer && tracking.isWorkoutActive) ? 220 :
-          130
-        }} />
-        </ScrollView>
+          </View>
+        </View>
+      </ScrollView>
       </GestureDetector>
 
       <ModifyWorkoutDrawer
@@ -4548,21 +4616,21 @@ const styles = StyleSheet.create({
     height: 28,
   },
   workoutModifyBtn: {
-    flex: 1,
+    alignSelf: 'stretch' as const,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: 7,
+    gap: 6,
     borderRadius: 16,
     paddingVertical: 13,
-    paddingHorizontal: 18,
+    paddingHorizontal: 12,
   },
   workoutModifyBtnText: {
     fontSize: 14,
     fontFamily: 'Outfit_600SemiBold',
   },
   workoutStartBtn: {
-    flex: 1,
+    alignSelf: 'stretch' as const,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
@@ -5083,18 +5151,37 @@ const styles = StyleSheet.create({
   tabBarOuter: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    borderRadius: 999,
+    height: 50,
+    padding: 4,
+    marginHorizontal: 10,
+    marginTop: 10,
+    marginBottom: 6,
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
+    backgroundColor: 'rgba(20,20,20,0.98)',
+    borderRadius: 25,
     borderWidth: 1,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  tabIndicator: {
+    position: 'absolute' as const,
+    top: 6,
+    bottom: 6,
+    left: 4,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   tabBtn: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    position: 'relative' as const,
+    height: 48,
+    zIndex: 1,
   },
   tabLabel: {
     fontSize: 12,
@@ -5104,7 +5191,7 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     paddingHorizontal: 12,
-    paddingBottom: 14,
+    paddingBottom: 0,
     paddingTop: 2,
     gap: 8,
   },
