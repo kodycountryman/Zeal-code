@@ -1,11 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { ScrollView, View, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface WheelPickerProps {
   values: number[];
   selectedValue: number;
-  onValueChange: (value: number) => number | void;
+  onValueChange: (value: number) => void;
   width?: number;
   textColor?: string;
   mutedColor?: string;
@@ -14,11 +14,10 @@ interface WheelPickerProps {
   visibleItems?: number;
   suffix?: string;
   formatValue?: (v: number) => string;
-  /** Row height for each value; snap interval. Default 48. Log sets use ~38 for a shorter wheel. */
   itemHeight?: number;
 }
 
-const DEFAULT_ITEM_H = 48;
+const ITEM_H = 44;
 
 function findClosestIndex(values: number[], target: number): number {
   let best = 0;
@@ -34,74 +33,68 @@ export default function WheelPicker({
   values,
   selectedValue,
   onValueChange,
-  width = 80,
+  width,
+  visibleItems = 3,
   suffix = '',
   formatValue,
-  textColor = '#FFFFFF',
-  bgColor = 'rgba(0,0,0,0.25)',
-  itemHeight = DEFAULT_ITEM_H,
+  textColor = '#fff',
+  bgColor,
 }: WheelPickerProps) {
-  const itemH = itemHeight;
-  const digitSize = itemH <= 40 ? 18 : 22;
-  const cornerR = itemH <= 40 ? 10 : 12;
   const scrollRef = useRef<ScrollView>(null);
   const initIndex = findClosestIndex(values, selectedValue);
   const [selIdx, setSelIdx] = useState<number>(initIndex);
   const lastEmitted = useRef<number>(-1);
   const mounted = useRef<boolean>(false);
 
+  const padding = ITEM_H * Math.floor(visibleItems / 2);
+  const containerH = ITEM_H * visibleItems;
+
   useEffect(() => {
     if (mounted.current) return;
     mounted.current = true;
     const t = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: initIndex * itemH, animated: false });
+      scrollRef.current?.scrollTo({ y: initIndex * ITEM_H, animated: false });
     }, 60);
     return () => clearTimeout(t);
-  }, [initIndex, itemH]);
+  }, [initIndex]);
+
+  // Re-snap when selectedValue changes externally (e.g. switching chips)
+  useEffect(() => {
+    const idx = findClosestIndex(values, selectedValue);
+    setSelIdx(idx);
+    scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: true });
+  }, [selectedValue, values]);
 
   const onScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = e.nativeEvent?.contentOffset?.y ?? 0;
-    const idx = Math.round(y / itemH);
+    const idx = Math.round(y / ITEM_H);
     const clamped = Math.max(0, Math.min(idx, values.length - 1));
     if (clamped !== lastEmitted.current) {
       lastEmitted.current = clamped;
       setSelIdx(clamped);
     }
-  }, [values.length, itemH]);
+  }, [values.length]);
 
   const onEnd = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = e.nativeEvent?.contentOffset?.y ?? 0;
-    const idx = Math.round(y / itemH);
+    const idx = Math.round(y / ITEM_H);
     const clamped = Math.max(0, Math.min(idx, values.length - 1));
     setSelIdx(clamped);
     onValueChange(values[clamped]);
-  }, [values, onValueChange, itemH]);
+  }, [values, onValueChange]);
 
-  const displayText = formatValue
-    ? formatValue(values[selIdx] ?? values[0])
-    : `${values[selIdx] ?? values[0]}${suffix}`;
+  const containerStyle = width
+    ? { width, height: containerH, overflow: 'hidden' as const }
+    : { alignSelf: 'stretch' as const, height: containerH, overflow: 'hidden' as const };
+
+  const fadeColor = bgColor ?? 'transparent';
 
   return (
-    <View style={[styles.container, { width, height: itemH, borderRadius: cornerR }]}>
-      {/* Glassy wheel background */}
-      <View pointerEvents="none" style={[styles.bgWrap, { backgroundColor: bgColor }]} />
-      <BlurView
-        pointerEvents="none"
-        intensity={22}
-        tint={textColor.toLowerCase() === '#ffffff' ? 'dark' : 'light'}
-        style={StyleSheet.absoluteFill}
-      />
-      <View pointerEvents="none" style={styles.specTop} />
-
-      {/* Top hairline */}
-      <View pointerEvents="none" style={[styles.hairline, { top: 0 }]} />
-      {/* Bottom hairline */}
-      <View pointerEvents="none" style={[styles.hairline, { bottom: 0 }]} />
-
+    <View style={[containerStyle, bgColor ? { backgroundColor: bgColor } : undefined]}>
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
-        snapToInterval={itemH}
+        snapToInterval={ITEM_H}
         decelerationRate="fast"
         onScroll={onScroll}
         onMomentumScrollEnd={onEnd}
@@ -109,65 +102,45 @@ export default function WheelPicker({
         scrollEventThrottle={16}
         nestedScrollEnabled
       >
+        <View style={{ height: padding }} />
         {values.map((val, i) => {
-          const isSelected = i === selIdx;
-          const displayVal = formatValue ? formatValue(val) : `${val}${suffix}`;
+          const dist = Math.abs(i - selIdx);
+          const opacity = dist === 0 ? 1 : dist === 1 ? 0.35 : 0;
+          const fontSize = dist === 0 ? 22 : 16;
+          const fontWeight = dist === 0 ? ('800' as const) : ('400' as const);
+          const displayText = formatValue ? formatValue(val) : `${val}${suffix}`;
           return (
-            <View key={`${val}-${i}`} style={[styles.item, { height: itemH }]}>
+            <View key={`${val}-${i}`} style={{ height: ITEM_H, justifyContent: 'center', alignItems: 'center' }}>
               <Text
-                style={[
-                  styles.itemText,
-                  {
-                    opacity: isSelected ? 1 : 0,
-                    fontSize: digitSize,
-                    fontFamily: 'Outfit_800ExtraBold',
-                    color: textColor,
-                    includeFontPadding: false,
-                  },
-                ]}
+                style={{
+                  fontSize,
+                  opacity,
+                  fontWeight,
+                  color: textColor,
+                  textAlign: 'center',
+                  letterSpacing: -0.3,
+                }}
               >
-                {displayVal}
+                {displayText}
               </Text>
             </View>
           );
         })}
+        <View style={{ height: padding }} />
       </ScrollView>
+
+      {/* Top fade */}
+      <LinearGradient
+        colors={[fadeColor, 'transparent']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H, zIndex: 3 }}
+        pointerEvents="none"
+      />
+      {/* Bottom fade */}
+      <LinearGradient
+        colors={['transparent', fadeColor]}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H, zIndex: 3 }}
+        pointerEvents="none"
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
-  bgWrap: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  specTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
-  hairline: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    zIndex: 2,
-  },
-  item: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  itemText: {
-    textAlign: 'center',
-    letterSpacing: -0.5,
-  },
-});

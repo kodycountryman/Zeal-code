@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import ExpandingPanel from '@/components/ExpandingPanel';
 import * as Haptics from 'expo-haptics';
 
@@ -20,6 +20,7 @@ import {
   useWindowDimensions,
   Animated as RNAnimated,
   PanResponder,
+  InteractionManager,
   type ViewStyle,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -100,10 +101,14 @@ import GlassCard from '@/components/GlassCard';
 const WALKTHROUGH_KEY = '@zeal_workout_walkthrough_seen_v1';
 
 const SPRING_BTN = { damping: 15, stiffness: 400, mass: 0.5 } as const;
+const CHIP_H = 48;
+const PICKER_H = 132;
+const CHIP_SPRING = { damping: 22, stiffness: 280, mass: 0.8 } as const;
 
 import { PRO_STYLES_SET } from '@/services/proGate';
 
 const WEIGHT_VALUES = Array.from({ length: 201 }, (_, i) => i * 5);
+const DUMBBELL_WEIGHT_VALUES = Array.from({ length: 401 }, (_, i) => i * 2.5);
 const REPS_VALUES = Array.from({ length: 50 }, (_, i) => i + 1);
 const DISTANCE_VALUES_METERS = Array.from({ length: 201 }, (_, i) => i * 10); // 0..2000m
 const CALORIES_VALUES = Array.from({ length: 151 }, (_, i) => i); // 0..150 cal
@@ -520,6 +525,7 @@ export default function WorkoutScreen() {
   const [trackedExercises, setTrackedExercises] = useState<Set<string>>(new Set());
   const [doneExercises, setDoneExercises] = useState<Set<string>>(new Set());
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null);
+  const [activeEditCell, setActiveEditCell] = useState<{ exId: string; setIdx: number; field: 'weight' | 'reps' } | null>(null);
   const [completedSets, setCompletedSets] = useState<Record<string, Set<number>>>({});
   const [profileVisible, setProfileVisible] = useState(false);
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
@@ -688,6 +694,12 @@ export default function WorkoutScreen() {
   const completeWorkoutScale = useSharedValue(1);
   const startWorkoutAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: startWorkoutScale.value }] }));
   const completeWorkoutAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: completeWorkoutScale.value }] }));
+
+  const chipExpandHeight = useSharedValue(CHIP_H);
+  const chipExpandStyle = useAnimatedStyle(() => ({
+    height: chipExpandHeight.value,
+    overflow: 'hidden' as const,
+  }));
 
   const { width: screenWidth } = useWindowDimensions();
   const wheelWeightW = screenWidth < 400 ? 80 : 96;
@@ -1165,13 +1177,40 @@ export default function WorkoutScreen() {
       setTimeout(() => setShowWheelGuide(true), 320);
     }
     setSwipeOpenId(null);
-    if (exercise && !tracking.exerciseLogs[exId]) {
-      tracking.initExerciseLog(exercise);
+    if (isOpening) {
+      if (exercise && !tracking.exerciseLogs[exId]) {
+        InteractionManager.runAfterInteractions(() => {
+          tracking.initExerciseLog(exercise);
+        });
+      }
+    } else {
+      setActiveEditCell(null);
+      chipExpandHeight.value = CHIP_H;
     }
     setExpandedTrack((prev) => prev === exId ? null : exId);
   }, [tracking]);
 
+  const openChip = useCallback((cell: { exId: string; setIdx: number; field: 'weight' | 'reps' }) => {
+    chipExpandHeight.value = CHIP_H;
+    setActiveEditCell(cell);
+    // expand animation deferred to useEffect so React commits first —
+    // prevents the old chip (still using chipExpandStyle) from expanding too
+  }, [chipExpandHeight]);
+
+  useEffect(() => {
+    if (activeEditCell) {
+      chipExpandHeight.value = withSpring(PICKER_H, CHIP_SPRING);
+    }
+  }, [activeEditCell]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const closeChip = useCallback(() => {
+    chipExpandHeight.value = withSpring(CHIP_H, CHIP_SPRING, (finished) => {
+      if (finished) runOnJS(setActiveEditCell)(null);
+    });
+  }, [chipExpandHeight]);
+
   const handleToggleSet = useCallback((exId: string, setIdx: number, exercise?: WorkoutExercise) => {
+    closeChip();
     if (!tracking.isWorkoutActive && workout) {
       tracking.startWorkout(workout, true);
     }
@@ -1198,7 +1237,7 @@ export default function WorkoutScreen() {
         tracking.markSetDone(exId, setIdx, effectiveRestSec);
       });
     }
-  }, [tracking, ctx.restBetweenSets, workout]);
+  }, [tracking, ctx.restBetweenSets, workout, closeChip]);
 
   const handleMarkExerciseDone = useCallback((exId: string, exercise?: WorkoutExercise) => {
     if (!tracking.isWorkoutActive && workout) {
@@ -1678,7 +1717,9 @@ export default function WorkoutScreen() {
 
       const setsData = log?.sets ?? Array.from({ length: ex.sets }, (_, i) => ({
         setNumber: i + 1,
-        weight: isRepsOnly ? 0 : Math.round(suggestion.suggestedWeight / 5) * 5,
+        weight: isRepsOnly ? 0 : isDumbbell
+          ? Math.round(suggestion.suggestedWeight / 2.5) * 2.5
+          : Math.round(suggestion.suggestedWeight / 5) * 5,
         reps: metricDefault,
         done: false,
       }));
@@ -1696,8 +1737,12 @@ export default function WorkoutScreen() {
           ]}>
             <View style={styles.trackPanelHeader}>
               <View style={styles.trackPanelTitleRow}>
-                <View style={[styles.trackPanelDot, { backgroundColor: currentAccent }]} />
-                <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG SETS</Text>
+                <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>Log sets</Text>
+                {setsData.length > 0 && (
+                  <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '500' as const }}>
+                    {setsData.filter(s => s.done).length}/{setsData.length}
+                  </Text>
+                )}
               </View>
               {!isRepsOnly && !isWeightDistance && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && suggestion.lastWeight > 0 && (
                 <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
@@ -1731,227 +1776,138 @@ export default function WorkoutScreen() {
               )}
             </View>
 
-            {isRepsOnly ? (
-              <View style={styles.trackTableHeader}>
-                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>REPS</Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <View style={styles.trackDoneColSpacer} />
-                <View style={styles.trackRemoveSpacer} />
-              </View>
-            ) : isHoldForTime ? (
-              <View style={styles.trackTableHeader}>
-                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>TIME (SEC)</Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <View style={styles.trackDoneColSpacer} />
-                <View style={styles.trackRemoveSpacer} />
-              </View>
-            ) : isCaloriesMovement ? (
-              <View style={styles.trackTableHeader}>
-                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>CALS</Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <View style={styles.trackDoneColSpacer} />
-                <View style={styles.trackRemoveSpacer} />
-              </View>
-            ) : isDistanceOnly ? (
-              <View style={styles.trackTableHeader}>
-                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <View style={{ width: logWheelSingleColW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>DIST (M)</Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <View style={styles.trackDoneColSpacer} />
-                <View style={styles.trackRemoveSpacer} />
-              </View>
-            ) : isWeightDistance ? (
-              <View style={styles.trackTableHeader}>
-                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <View style={{ width: wheelWeightW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>WEIGHT</Text>
-                </View>
-                <View style={{ width: wheelRepsW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>DIST (M)</Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <View style={styles.trackDoneColSpacer} />
-                <View style={styles.trackRemoveSpacer} />
-              </View>
-            ) : (
-              <View style={styles.trackTableHeader}>
-                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
-                <View style={{ width: wheelWeightW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>WEIGHT</Text>
-                </View>
-                <View style={{ width: wheelRepsW, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, textAlign: 'center' as const }]}>REPS</Text>
-                </View>
-                <View style={{ flex: 1 }} />
-                <View style={styles.trackDoneColSpacer} />
-                <View style={styles.trackRemoveSpacer} />
-              </View>
-            )}
-
-            {setsData.map((set, setIdx) => (
-              <View key={setIdx} style={[styles.trackSetRow, isRepsOnly && { gap: 16 }]}>
-                <Text style={[styles.trackSetNumCol, { color: colors.textMuted, fontSize: 16, fontWeight: '700' as const, textAlign: 'center' as const }]}>
-                  {set.setNumber}
+            <View style={styles.trackTableHeader}>
+              <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>SET</Text>
+              {!isRepsOnly && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && (
+                <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
+                  {`WEIGHT${isDumbbell ? ' ea.' : ''}`}
                 </Text>
-                {isRepsOnly ? (
-                  <>
-                    <WheelPicker
-                      values={REPS_VALUES}
-                      selectedValue={set.reps}
-                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                      width={undefined as unknown as number}
-                      textColor={colors.text}
-                      mutedColor={mutedWheelColor}
-                      accentColor={currentAccent}
-                      bgColor={wheelBg}
-                      itemHeight={logWheelItemH}
-                    />
+              )}
+              <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
+                {isHoldForTime ? 'TIME (SEC)' : isCaloriesMovement ? 'CALS' : (isDistanceOnly || isWeightDistance) ? 'DIST (M)' : 'REPS'}
+              </Text>
+              <View style={{ flex: 1 }} />
+              <View style={styles.trackDoneColSpacer} />
+              <View style={styles.trackRemoveSpacer} />
+            </View>
+
+            {setsData.map((set, setIdx) => {
+              const hasWeight = !isRepsOnly && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly;
+              const isWeightActive = activeEditCell?.exId === ex.id && activeEditCell?.setIdx === setIdx && activeEditCell?.field === 'weight';
+              const isRepsActive = activeEditCell?.exId === ex.id && activeEditCell?.setIdx === setIdx && activeEditCell?.field === 'reps';
+              const isRowActive = activeEditCell?.exId === ex.id && activeEditCell?.setIdx === setIdx;
+              const activeField = isRowActive ? activeEditCell!.field : null;
+              const repsPickerValues = isHoldForTime ? TIME_VALUES_SECONDS
+                : isCaloriesMovement ? CALORIES_VALUES
+                : (isDistanceOnly || isWeightDistance) ? DISTANCE_VALUES_METERS
+                : REPS_VALUES;
+              return (
+                <View key={setIdx} style={styles.trackSetRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, opacity: set.done ? 0.4 : 1 }}>
+                    <Text style={[styles.trackSetNumCol, { color: colors.textMuted, fontSize: 16, fontWeight: '700' as const, textAlign: 'center' as const }]}>
+                      {set.setNumber}
+                    </Text>
+                    {hasWeight && (
+                      <TouchableOpacity
+                        onPress={() => isWeightActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'weight' })}
+                        activeOpacity={0.85}
+                        style={{ flex: 1, maxWidth: 110 }}
+                      >
+                        <Animated.View
+                          style={[
+                            {
+                              borderRadius: 12,
+                              borderWidth: 1,
+                              borderColor: isWeightActive ? `${currentAccent}88` : `${colors.textMuted}28`,
+                              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                              alignItems: 'center' as const,
+                              justifyContent: 'center' as const,
+                            },
+                            isWeightActive ? chipExpandStyle : { height: CHIP_H },
+                          ]}
+                        >
+                          {isWeightActive ? (
+                            <WheelPicker
+                              values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
+                              selectedValue={set.weight}
+                              onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
+                              textColor={colors.text}
+                              mutedColor={mutedWheelColor}
+                              accentColor={currentAccent}
+                              bgColor={isDark ? '#1c1c1c' : '#f0f0f0'}
+                              visibleItems={3}
+                            />
+                          ) : (
+                            <Text style={[styles.trackValueChipText, { color: colors.text }]}>
+                              {set.weight}
+                            </Text>
+                          )}
+                        </Animated.View>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      onPress={() => isRepsActive ? closeChip() : openChip({ exId: ex.id, setIdx, field: 'reps' })}
+                      activeOpacity={0.85}
+                      style={{ flex: 1, maxWidth: 110 }}
+                    >
+                      <Animated.View
+                        style={[
+                          {
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: isRepsActive ? `${currentAccent}88` : `${colors.textMuted}28`,
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                            alignItems: 'center' as const,
+                            justifyContent: 'center' as const,
+                          },
+                          isRepsActive ? chipExpandStyle : { height: CHIP_H },
+                        ]}
+                      >
+                        {isRepsActive ? (
+                          <WheelPicker
+                            values={repsPickerValues}
+                            selectedValue={set.reps}
+                            onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
+                            textColor={colors.text}
+                            mutedColor={mutedWheelColor}
+                            accentColor={currentAccent}
+                            bgColor={isDark ? '#1c1c1c' : '#f0f0f0'}
+                            visibleItems={3}
+                          />
+                        ) : (
+                          <Text style={[styles.trackValueChipText, { color: colors.text }]}>
+                            {set.reps}
+                          </Text>
+                        )}
+                      </Animated.View>
+                    </TouchableOpacity>
                     <View style={{ flex: 1 }} />
-                  </>
-                ) : isHoldForTime ? (
-                  <>
-                    <WheelPicker
-                      values={TIME_VALUES_SECONDS}
-                      selectedValue={set.reps}
-                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                      width={undefined as unknown as number}
-                      textColor={colors.text}
-                      mutedColor={mutedWheelColor}
-                      accentColor={currentAccent}
-                      bgColor={wheelBg}
-                      itemHeight={logWheelItemH}
-                    />
-                    <View style={{ flex: 1 }} />
-                  </>
-                ) : isCaloriesMovement ? (
-                  <>
-                    <WheelPicker
-                      values={CALORIES_VALUES}
-                      selectedValue={set.reps}
-                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                      width={undefined as unknown as number}
-                      textColor={colors.text}
-                      mutedColor={mutedWheelColor}
-                      accentColor={currentAccent}
-                      bgColor={wheelBg}
-                      itemHeight={logWheelItemH}
-                    />
-                    <View style={{ flex: 1 }} />
-                  </>
-                ) : isDistanceOnly ? (
-                  <>
-                    <WheelPicker
-                      values={DISTANCE_VALUES_METERS}
-                      selectedValue={set.reps}
-                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                      width={undefined as unknown as number}
-                      textColor={colors.text}
-                      mutedColor={mutedWheelColor}
-                      accentColor={currentAccent}
-                      bgColor={wheelBg}
-                      itemHeight={logWheelItemH}
-                    />
-                    <View style={{ flex: 1 }} />
-                  </>
-                ) : isWeightDistance ? (
-                  <>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', width: wheelWeightW }}>
-                      <WheelPicker
-                        values={WEIGHT_VALUES}
-                        selectedValue={set.weight}
-                        onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
-                        width={wheelWeightW}
-                        textColor={colors.text}
-                        mutedColor={mutedWheelColor}
-                        accentColor={currentAccent}
-                        bgColor={wheelBg}
-                        itemHeight={logWheelItemH}
-                      />
-                    </View>
-                    <WheelPicker
-                      values={DISTANCE_VALUES_METERS}
-                      selectedValue={set.reps}
-                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                      width={wheelRepsW}
-                      textColor={colors.text}
-                      mutedColor={mutedWheelColor}
-                      accentColor={currentAccent}
-                      bgColor={wheelBg}
-                      itemHeight={logWheelItemH}
-                    />
-                    <View style={{ flex: 1 }} />
-                  </>
-                ) : (
-                  <>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', width: wheelWeightW }}>
-                      <WheelPicker
-                        values={WEIGHT_VALUES}
-                        selectedValue={set.weight}
-                        onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
-                        width={isDumbbell ? wheelWeightW - 22 : wheelWeightW}
-                        textColor={colors.text}
-                        mutedColor={mutedWheelColor}
-                        accentColor={currentAccent}
-                        bgColor={wheelBg}
-                        itemHeight={logWheelItemH}
-                      />
-                      {isDumbbell && (
-                        <Text style={{ fontSize: 10, fontWeight: '500' as const, color: 'rgba(255,255,255,0.35)', marginLeft: 3, letterSpacing: 0.2 }}>ea.</Text>
-                      )}
-                    </View>
-                    <WheelPicker
-                      values={REPS_VALUES}
-                      selectedValue={set.reps}
-                      onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                      width={wheelRepsW}
-                      textColor={colors.text}
-                      mutedColor={mutedWheelColor}
-                      accentColor={currentAccent}
-                      bgColor={wheelBg}
-                      itemHeight={logWheelItemH}
-                    />
-                    <View style={{ flex: 1 }} />
-                  </>
-                )}
-                <TouchableOpacity
-                  onPress={() => handleToggleSet(ex.id, setIdx, ex)}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.trackSetDoneBtn,
-                    {
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleToggleSet(ex.id, setIdx, ex)}
+                    activeOpacity={0.7}
+                    style={[styles.trackSetDoneBtn, {
                       borderColor: set.done ? '#22c55e' : `${colors.textMuted}55`,
                       backgroundColor: set.done ? 'rgba(34,197,94,0.15)' : 'transparent',
-                    },
-                  ]}
-                >
-                  <Check size={13} color={set.done ? '#22c55e' : colors.textMuted} />
-                  <Text style={[styles.trackSetDoneBtnText, { color: set.done ? '#22c55e' : colors.textMuted }]}>Done</Text>
-                </TouchableOpacity>
-                {setsData.length > 1 ? (
-                  <TouchableOpacity
-                    onPress={() => tracking.removeSet(ex.id, setIdx)}
-                    style={styles.trackRemoveBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                    activeOpacity={0.6}
+                    }]}
                   >
-                    <Minus size={15} color="#ef4444" />
+                    <Check size={15} color={set.done ? '#22c55e' : colors.textMuted} />
                   </TouchableOpacity>
-                ) : (
-                  <View style={styles.trackRemoveSpacer} />
-                )}
-              </View>
-            ))}
+                  {setsData.length > 1 ? (
+                    <TouchableOpacity
+                      onPress={() => tracking.removeSet(ex.id, setIdx)}
+                      style={styles.trackRemoveBtn}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      activeOpacity={0.6}
+                    >
+                      <Minus size={15} color="#ef4444" />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.trackRemoveSpacer} />
+                  )}
+                </View>
+              );
+            })}
 
             <View style={styles.trackActions}>
               <TouchableOpacity
@@ -1959,8 +1915,8 @@ export default function WorkoutScreen() {
                 activeOpacity={0.7}
                 style={styles.logSetsGuideBtn}
               >
-                <Clipboard size={11} color={currentAccent} style={{ opacity: 0.4 }} />
-                <Text style={[styles.logSetsGuideBtnText, { color: currentAccent }]}>Guide</Text>
+                <Clipboard size={11} color={colors.textSecondary} />
+                <Text style={[styles.logSetsGuideBtnText, { color: colors.textSecondary }]}>Guide</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => tracking.addSet(ex.id)}
@@ -1977,7 +1933,13 @@ export default function WorkoutScreen() {
                     ? { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.1)' }
                     : { backgroundColor: accent, borderColor: accent },
                 ]}
-                onPress={() => handleMarkExerciseDone(ex.id, ex)}
+                onPress={() => {
+                  closeChip();
+                  setsData.forEach((set, idx) => {
+                    if (!set.done) tracking.markSetDone(ex.id, idx, 0);
+                  });
+                  handleMarkExerciseDone(ex.id, ex);
+                }}
                 activeOpacity={0.8}
               >
                 <Check size={10} color={isCompleted ? colors.textMuted : '#fff'} />
@@ -2123,7 +2085,7 @@ export default function WorkoutScreen() {
       </View>
       </View>
     );
-  }, [expandedTrack, completedSets, currentAccent, colors, isDark, currentStyle, cfData, tracking, handleToggleSet, handleMarkExerciseDone, wheelRepsW, wheelWeightW, logWheelItemH, logWheelSingleColW, accent, handleExerciseTap]);
+  }, [expandedTrack, completedSets, currentAccent, colors, isDark, currentStyle, cfData, tracking, handleToggleSet, handleMarkExerciseDone, wheelRepsW, wheelWeightW, logWheelItemH, logWheelSingleColW, accent, handleExerciseTap, activeEditCell, setActiveEditCell, openChip, closeChip, chipExpandStyle]);
 
   const renderGroupSeparator = useCallback((ex: WorkoutExercise, prevEx: WorkoutExercise | null) => {
     const isGroupStart = ex.groupType && (!prevEx || prevEx.groupId !== ex.groupId);
@@ -3085,7 +3047,7 @@ export default function WorkoutScreen() {
           return (
             <View
               style={[styles.tabBarOuter, {
-                marginTop: 12,
+                marginTop: 2,
                 backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
                 borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               }]}
@@ -3327,6 +3289,7 @@ export default function WorkoutScreen() {
                   {
                     backgroundColor: isDark ? 'rgba(14,14,14,0.99)' : 'rgba(232,232,232,0.99)',
                     borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    marginHorizontal: -12,
                   },
                 ]}>
                   <View style={styles.cardioStandaloneHeader}>
@@ -4276,7 +4239,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    gap: 12,
+    gap: 8,
   },
   modifyCard: {
     flexDirection: 'row',
@@ -4754,7 +4717,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     borderWidth: 1.5,
-    borderRadius: 9,
+    borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 7,
   },
@@ -5011,7 +4974,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tabContentOuter: {
-    marginTop: 10,
+    marginTop: 2,
   },
   tabBarOuter: {
     flexDirection: 'row' as const,
@@ -5039,7 +5002,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 14,
     paddingTop: 2,
-    gap: 10,
+    gap: 8,
   },
   tabCompleteWrap: {
     marginTop: 4,
@@ -5295,7 +5258,7 @@ const styles = StyleSheet.create({
   trackPanelTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   trackPanelDot: {
     width: 6,
@@ -5372,7 +5335,7 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   logSetsCard: {
-    borderRadius: 16,
+    borderRadius: 26,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -5383,7 +5346,6 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     gap: 4,
     flex: 1,
-    opacity: 0.38,
   },
   logSetsGuideBtnText: {
     fontSize: 11,
@@ -5429,12 +5391,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   trackRemoveSpacer: {
-    width: 28,
+    width: 32,
   },
   trackRemoveBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(239,68,68,0.15)',
@@ -5448,22 +5410,25 @@ const styles = StyleSheet.create({
     textAlign: 'center' as const,
   },
   trackDoneColSpacer: {
-    width: 72,
+    width: 38,
   },
-  trackSetDoneBtn: {
-    flexDirection: 'row' as const,
+  trackValueChip: {
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    width: 72,
   },
-  trackSetDoneBtnText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
+  trackValueChipText: {
+    fontSize: 24,
+    fontFamily: 'Outfit_700Bold',
+  },
+  trackSetDoneBtn: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderWidth: 1,
+    borderRadius: 16,
+    width: 32,
+    height: 32,
   },
   exerciseInfoBtn: {
     flexDirection: 'row' as const,

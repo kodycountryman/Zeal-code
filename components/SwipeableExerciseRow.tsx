@@ -10,11 +10,14 @@ import Animated, {
   interpolate,
   Extrapolation,
   useAnimatedStyle,
+  useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
 
-const BTN_W = 64;
-const REVEAL_W = BTN_W * 3;
+const BTN_SIZE = 52;
+const BTN_GAP = 7;
+const BTN_PAD = 10;
+const REVEAL_W = BTN_SIZE * 3 + BTN_GAP * 2 + BTN_PAD * 2;
 
 interface Props {
   id: string;
@@ -33,19 +36,17 @@ interface Props {
   children: React.ReactNode;
 }
 
-// Individual action button — animates in as the row opens
+// Individual action button — glass rounded square with color tint
 function ActionButton({
   progress,
-  color,
+  accentColor,
   icon,
   onPress,
-  style,
 }: {
   progress: SharedValue<number>;
-  color: string;
+  accentColor: string;
   icon: React.ReactNode;
   onPress: () => void;
-  style?: object;
 }) {
   const animStyle = useAnimatedStyle(() => {
     const scale = interpolate(
@@ -67,9 +68,11 @@ function ActionButton({
     <Pressable
       style={({ pressed }) => [
         styles.actionBtn,
-        { backgroundColor: color, width: BTN_W },
-        style,
-        pressed && { opacity: 0.8 },
+        {
+          backgroundColor: accentColor.replace(/[\d.]+\)$/, '0.18)'),
+          borderColor: accentColor.replace(/[\d.]+\)$/, '0.4)'),
+        },
+        pressed && { opacity: 0.7 },
       ]}
       onPress={onPress}
       hitSlop={0}
@@ -92,6 +95,15 @@ function SwipeableExerciseRow({
   children,
 }: Props) {
   const swipeableRef = useRef<SwipeableMethods>(null);
+  const progressRef = useRef<SharedValue<number> | null>(null);
+
+  const rowAnimStyle = useAnimatedStyle(() => {
+    const p = progressRef.current;
+    if (!p) return { opacity: 1 };
+    return {
+      opacity: interpolate(p.value, [0, 0.35, 1], [1, 0.6, 0], Extrapolation.CLAMP),
+    };
+  });
 
   useEffect(() => {
     if (!enabled) {
@@ -136,30 +148,29 @@ function SwipeableExerciseRow({
   }, [onDelete]);
 
   const renderRightActions = useCallback(
-    (progress: SharedValue<number>) => (
-      <View style={styles.actionsContainer}>
+    (progress: SharedValue<number>) => {
+      progressRef.current = progress;
+      return (<View style={styles.actionsContainer}>
         <ActionButton
           progress={progress}
-          color="rgba(10,132,255,0.82)"
-          icon={<Info size={20} color="#fff" strokeWidth={2} />}
+          accentColor="rgba(10,132,255,0.82)"
+          icon={<Info size={19} color="rgba(10,132,255,0.9)" strokeWidth={2} />}
           onPress={handleInfo}
         />
-        <View style={styles.divider} />
         <ActionButton
           progress={progress}
-          color="rgba(255,159,10,0.82)"
-          icon={<ArrowLeftRight size={20} color="#fff" strokeWidth={2} />}
+          accentColor="rgba(255,159,10,0.82)"
+          icon={<ArrowLeftRight size={19} color="rgba(255,159,10,0.9)" strokeWidth={2} />}
           onPress={handleSwap}
         />
-        <View style={styles.divider} />
         <ActionButton
           progress={progress}
-          color="rgba(255,69,58,0.82)"
-          icon={<Trash2 size={20} color="#fff" strokeWidth={2} />}
+          accentColor="rgba(255,69,58,0.82)"
+          icon={<Trash2 size={19} color="rgba(255,69,58,0.9)" strokeWidth={2} />}
           onPress={handleDelete}
         />
-      </View>
-    ),
+      </View>);
+    },
     [handleInfo, handleSwap, handleDelete],
   );
 
@@ -189,8 +200,7 @@ function SwipeableExerciseRow({
       }}
       containerStyle={styles.container}
     >
-      {/* Solid layer so the row does not show the swipe actions through while dragging */}
-      <View style={[styles.rowFront, { backgroundColor: rowBg }]}>{children}</View>
+      <Animated.View style={[styles.rowFront, { backgroundColor: rowBg }, rowAnimStyle]}>{children}</Animated.View>
     </ReanimatedSwipeable>
   );
 }
@@ -208,15 +218,16 @@ const styles = StyleSheet.create({
   actionsContainer: {
     width: REVEAL_W,
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
+    gap: BTN_GAP,
+    paddingHorizontal: BTN_PAD,
   },
   actionBtn: {
+    width: BTN_SIZE,
+    height: BTN_SIZE,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  divider: {
-    width: 1,
-    marginVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.15)',
   },
 });
