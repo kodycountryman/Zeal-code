@@ -2179,7 +2179,7 @@ export default function WorkoutScreen() {
   const renderStrengthRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const reps = ex.reps && ex.reps !== 'NaN' ? ex.reps : '—';
-    const weight = ex.suggestedWeight && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
+    const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
@@ -2199,7 +2199,7 @@ export default function WorkoutScreen() {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const repsNum = parseInt(ex.reps, 10);
     const repRange = !isNaN(repsNum) ? `${repsNum}–${repsNum + 2}` : (ex.reps && ex.reps !== 'NaN' ? ex.reps : '—');
-    const weight = ex.suggestedWeight && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
+    const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
@@ -2218,7 +2218,7 @@ export default function WorkoutScreen() {
   const renderDefaultRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const reps = ex.reps && ex.reps !== 'NaN' ? ex.reps : '—';
-    const weight = ex.suggestedWeight && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
+    const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
@@ -2352,7 +2352,7 @@ export default function WorkoutScreen() {
                       <View style={styles.exerciseInfo}>
                         <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                          {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
+                          {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
                         </Text>
                       </View>
                       {renderTrackButton(ex)}
@@ -2842,7 +2842,7 @@ export default function WorkoutScreen() {
                         </Text>
                         {!isCompleted && (
                           <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                            {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
+                            {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
                           </Text>
                         )}
                       </View>
@@ -3304,7 +3304,7 @@ export default function WorkoutScreen() {
                               </Text>
                               {!isCompleted && (
                                 <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                                  {ex.sets}×{ex.reps}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''} · {ex.muscleGroup}
+                                  {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
                                 </Text>
                               )}
                             </View>
@@ -4639,7 +4639,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   exerciseName: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Outfit_500Medium',
   },
   exerciseNum: {
@@ -4649,9 +4649,8 @@ const styles = StyleSheet.create({
     textAlign: 'right' as const,
   },
   exerciseMeta: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: 'Outfit_400Regular',
-    opacity: 0.55,
   },
   exerciseLast: {
     fontSize: 10,

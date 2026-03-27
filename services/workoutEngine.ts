@@ -901,8 +901,8 @@ function stage5LoadAndReps(
   return scoredExercises.map(scored => {
     const ex = scored.exercise;
 
-    let minReps = ex.rep_range_floor;
-    let maxReps = ex.rep_range_ceiling;
+    let minReps = ex.rep_range_floor ?? 8;
+    let maxReps = ex.rep_range_ceiling ?? 12;
     if (config?.rep_range_override) {
       minReps = Math.max(minReps, config.rep_range_override.min);
       maxReps = Math.min(maxReps, config.rep_range_override.max);
@@ -910,12 +910,12 @@ function stage5LoadAndReps(
     }
     if (style === 'strength' && ex.is_compound) {
       if (scored.role === 'primary') {
-        minReps = Math.max(ex.rep_range_floor, 3);
-        maxReps = Math.min(ex.rep_range_ceiling, 6);
+        minReps = Math.max(ex.rep_range_floor ?? 8, 3);
+        maxReps = Math.min(ex.rep_range_ceiling ?? 12, 6);
         if (minReps > maxReps) maxReps = minReps;
       } else if (scored.role === 'secondary') {
-        minReps = Math.max(ex.rep_range_floor, 5);
-        maxReps = Math.min(ex.rep_range_ceiling, 8);
+        minReps = Math.max(ex.rep_range_floor ?? 8, 5);
+        maxReps = Math.min(ex.rep_range_ceiling ?? 12, 8);
         if (minReps > maxReps) maxReps = minReps;
       }
     }
@@ -951,7 +951,7 @@ function stage5LoadAndReps(
     }
 
     loadLbs = Math.round(loadLbs * intensityModifier);
-    loadLbs = Math.round(loadLbs / ex.weight_increment) * ex.weight_increment;
+    if (ex.weight_increment > 0) loadLbs = Math.round(loadLbs / ex.weight_increment) * ex.weight_increment;
     if (loadLbs < 0) loadLbs = 0;
 
     const restSeconds = calculateStyleAwareRest(style, scored.restTier, sliderMultiplier);
@@ -2111,6 +2111,7 @@ function formatRestTime(seconds: number): string {
 }
 
 function formatLoadDisplay(loadLbs: number, exercise: EngineWorkoutExercise): string {
+  if (!isFinite(loadLbs) || isNaN(loadLbs)) return '';
   const z = exercise.exerciseRef;
   const isBodyweight = z.equipment_required.length === 0 ||
     (z.equipment_required.length === 1 && z.equipment_required[0] === 'bodyweight');
