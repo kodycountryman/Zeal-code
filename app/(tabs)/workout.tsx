@@ -1686,7 +1686,7 @@ export default function WorkoutScreen() {
         <View style={[
           styles.trackPanel,
           { backgroundColor: 'transparent', borderTopColor: `${colors.border}30` },
-          isInSuperset && { borderLeftWidth: 2, borderLeftColor: currentAccent + '66' },
+          isInSuperset && { borderLeftWidth: 2, borderLeftColor: colors.border },
         ]}>
           <View style={[
             styles.logSetsCard,
@@ -1994,7 +1994,7 @@ export default function WorkoutScreen() {
       return (
         <View style={[styles.trackPanel, { backgroundColor: 'transparent', borderTopColor: `${colors.border}30` }]}>
           <View style={[styles.logSetsCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? `${colors.border}55` : `${colors.border}40` }]}>
-            <Text style={[styles.trackPanelLabel, { color: currentAccent }]}>LOG RESULT</Text>
+            <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG RESULT</Text>
             <View style={styles.trackResultRow}>
               <View style={styles.trackResultField}>
                 <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>TIME / CAP</Text>
@@ -2033,7 +2033,7 @@ export default function WorkoutScreen() {
       return (
         <View style={_trackPanelStyle}>
           <View style={_logSetsCardStyle}>
-            <Text style={[styles.trackPanelLabel, { color: currentAccent }]}>LOG SESSION</Text>
+            <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG SESSION</Text>
             <View style={styles.trackResultRow}>
               <View style={styles.trackResultField}>
                 <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>DURATION (MM:SS)</Text>
@@ -2065,7 +2065,7 @@ export default function WorkoutScreen() {
       return (
         <View style={_trackPanelStyle}>
           <View style={_logSetsCardStyle}>
-            <Text style={[styles.trackPanelLabel, { color: currentAccent }]}>LOG TIME</Text>
+            <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>LOG TIME</Text>
             <View style={styles.trackResultField}>
               <Text style={[styles.trackFieldLabel, { color: colors.textMuted }]}>TIME (MM:SS)</Text>
               <View style={[styles.trackInputWrapLarge, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
@@ -2151,7 +2151,7 @@ export default function WorkoutScreen() {
             <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>{label}</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
-          <Text style={[styles.groupRest, { color: currentAccent }]}>{ex.rest}</Text>
+          <Text style={[styles.groupRest, { color: colors.textSecondary }]}>{ex.rest}</Text>
         </View>
       );
     }
@@ -2162,12 +2162,12 @@ export default function WorkoutScreen() {
         <View
           style={[
             styles.groupLinkRow,
-            isSuperset && { borderLeftWidth: 2, borderLeftColor: currentAccent + '66' },
+            isSuperset && { borderLeftWidth: 2, borderLeftColor: colors.border },
           ]}
         >
           <Link2
             size={16}
-            color={currentAccent + '80'}
+            color={colors.textMuted}
             style={{ transform: [{ rotate: '90deg' }] }}
           />
         </View>
@@ -2284,7 +2284,7 @@ export default function WorkoutScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.exerciseRow,
-              isInSuperset && { borderLeftWidth: 2, borderLeftColor: currentAccent + '66', paddingLeft: 12 },
+              isInSuperset && { borderLeftWidth: 2, borderLeftColor: colors.border, paddingLeft: 12 },
               isRowBeingDragged && { opacity: 0.3 },
               pressed && { backgroundColor: `${colors.border}22` },
             ]}
@@ -2474,13 +2474,13 @@ export default function WorkoutScreen() {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={[`${currentAccent}15`, 'transparent']}
+                  colors={[`${colors.border}30`, 'transparent']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFill}
                 />
-                <Footprints size={16} color={currentAccent} />
-                <Text style={[styles.hyroxRunText, { color: currentAccent }]}>
+                <Footprints size={16} color={colors.textSecondary} />
+                <Text style={[styles.hyroxRunText, { color: colors.textSecondary }]}>
                   RUN — {ex.reps}
                 </Text>
                 {legLabel !== '' && (
@@ -2549,8 +2549,8 @@ export default function WorkoutScreen() {
           onPress={() => setInfoLabel(`CIRCUIT — ${hiitRounds} ROUNDS`)}
           activeOpacity={0.7}
         >
-          <RotateCcw size={15} color={currentAccent} />
-          <Text style={[styles.hiitCircuitLabel, { color: currentAccent }]}>
+          <RotateCcw size={15} color={colors.textSecondary} />
+          <Text style={[styles.hiitCircuitLabel, { color: colors.textSecondary }]}>
             CIRCUIT — {hiitRounds} ROUNDS
           </Text>
           <View style={{ flex: 1 }} />
@@ -2599,7 +2599,7 @@ export default function WorkoutScreen() {
               onPress={() => setInfoLabel('MAIN BLOCK')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.cardioBlockLabel, { color: currentAccent }]}>MAIN BLOCK</Text>
+              <Text style={[styles.cardioBlockLabel, { color: colors.textSecondary }]}>MAIN BLOCK</Text>
               {cardio.length > 0 && (
                 <Text style={[styles.cardioFormatBadge, { color: colors.textSecondary }]}>
                   {cardio[0]?.format}
@@ -2671,7 +2671,7 @@ export default function WorkoutScreen() {
                   onPress={() => setInfoLabel(phase)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.phaseLabel, { color: currentAccent }]}>{phase}</Text>
+                  <Text style={[styles.phaseLabel, { color: colors.textSecondary }]}>{phase}</Text>
                 </TouchableOpacity>
               )}
               <SwipeableExerciseRow
@@ -2733,7 +2733,7 @@ export default function WorkoutScreen() {
                   onPress={() => setInfoLabel(phase)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.phaseLabel, { color: currentAccent }]}>{phase}</Text>
+                  <Text style={[styles.phaseLabel, { color: colors.textSecondary }]}>{phase}</Text>
                 </TouchableOpacity>
               )}
               <SwipeableExerciseRow
@@ -2959,10 +2959,10 @@ export default function WorkoutScreen() {
         {!hasPro && !coreStyleBannerDismissed && PRO_STYLES_SET.has(ctx.workoutStyle) && !tracking.isWorkoutActive && (
           <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
             <View style={styles.coreStyleBannerContent}>
-              <Info size={14} color={currentAccent} />
+              <Info size={14} color={colors.textSecondary} />
               <Text style={[styles.coreStyleBannerText, { color: colors.text }]}>
                 You selected{' '}
-                <Text style={{ fontWeight: '700' as const, color: currentAccent }}>{ctx.workoutStyle}</Text>
+                <Text style={{ fontWeight: '700' as const, color: colors.text }}>{ctx.workoutStyle}</Text>
                 {' '}during setup. As a{' '}
                 <Text style={{ fontWeight: '700' as const }}>Zeal Core</Text>
                 {' '}member, you have access to{' '}
@@ -2997,7 +2997,7 @@ export default function WorkoutScreen() {
                   <View style={styles.workoutInfoLabelLeft}>
                     <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today's Workout</Text>
                     <View style={styles.styleChipInline}>
-                      <View style={[styles.styleBadgeDot, { backgroundColor: `${currentAccent}60` }]} />
+                      <View style={[styles.styleBadgeDot, { backgroundColor: `${colors.textMuted}80` }]} />
                       <Text style={[styles.workoutStyleChipText, { color: colors.textSecondary }]}>{currentStyle}</Text>
                     </View>
                   </View>
@@ -4332,7 +4332,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   workoutInfoCard: {
-    borderRadius: 26,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   workoutInfoTop: {
