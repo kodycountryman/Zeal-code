@@ -58,11 +58,11 @@ export default function WheelPicker({
     return () => clearTimeout(t);
   }, [initIndex]);
 
-  // Re-snap when selectedValue changes externally (e.g. switching chips)
+  // Re-snap when selectedValue changes externally (e.g. switching chips) — always instant, no animation
   useEffect(() => {
     const idx = findClosestIndex(values, selectedValue);
     setSelIdx(idx);
-    scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: true });
+    scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: false });
   }, [selectedValue, values]);
 
   const onScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {

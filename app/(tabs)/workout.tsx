@@ -1272,9 +1272,15 @@ export default function WorkoutScreen() {
       }
       requestAnimationFrame(() => {
         tracking.markSetDone(exId, setIdx, effectiveRestSec);
+        // Auto-complete: if this was the last undone set, collapse the card
+        const updatedSets = tracking.exerciseLogs[exId]?.sets ?? [];
+        const allDone = updatedSets.every((s, i) => i === setIdx ? true : s.done);
+        if (allDone) {
+          setTimeout(() => handleMarkExerciseDone(exId, exercise), 400);
+        }
       });
     }
-  }, [tracking, ctx.restBetweenSets, workout, closeChip]);
+  }, [tracking, ctx.restBetweenSets, workout, closeChip, handleMarkExerciseDone]);
 
   const handleMarkExerciseDone = useCallback((exId: string, exercise?: WorkoutExercise) => {
     if (!tracking.isWorkoutActive && workout) {
@@ -1777,39 +1783,56 @@ export default function WorkoutScreen() {
           styles.trackPanel,
           { backgroundColor: 'transparent', borderTopColor: `${colors.border}30` },
         ]}>
-          <View style={[
-            styles.logSetsCard,
-            {
-              backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(0,0,0,0.04)',
-              borderColor: isDark ? `${colors.border}55` : `${colors.border}40`,
-            },
-          ]}>
+          <Pressable
+            onPress={() => { if (activeEditCell) closeChip(); }}
+            style={[
+              styles.logSetsCard,
+              {
+                backgroundColor: isDark ? 'rgba(20,20,20,0.98)' : 'rgba(0,0,0,0.04)',
+                borderColor: isDark ? `${colors.border}55` : `${colors.border}40`,
+              },
+            ]}
+          >
             <View style={styles.trackPanelHeader}>
               <View style={styles.trackPanelTitleRow}>
-                <Text style={[styles.trackPanelLabel, { color: colors.textSecondary }]}>{panelTitle}</Text>
-                {isRepsOnly && (
-                  <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                    <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '500' as const }}>Bodyweight</Text>
-                  </View>
-                )}
-                {setsData.length > 0 && (
-                  <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '500' as const }}>
-                    {setsData.filter(s => s.done).length}/{setsData.length}
-                  </Text>
-                )}
-                <View style={{ flex: 1 }} />
+                {/* Left — Guide button */}
                 <TouchableOpacity
                   onPress={() => handleExerciseTap(ex)}
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={{ marginRight: 12 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}
                 >
                   <Clipboard size={13} color={colors.textSecondary} />
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const }}>Guide</Text>
                 </TouchableOpacity>
+                {isRepsOnly && (
+                  <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
+                    <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '500' as const }}>Bodyweight</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }} />
+                {/* Right — progress bar + counter + Edit */}
+                {setsData.length > 0 && (() => {
+                  const done = setsData.filter(s => s.done).length;
+                  const total = setsData.length;
+                  const pct = total > 0 ? done / total : 0;
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {/* Muted progress bar */}
+                      <View style={{ width: 52, height: 4, borderRadius: 2, backgroundColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)', overflow: 'hidden' }}>
+                        <View style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 2, backgroundColor: `${currentAccent}55` }} />
+                      </View>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '500' as const, minWidth: 24 }}>
+                        {done}/{total}
+                      </Text>
+                    </View>
+                  );
+                })()}
                 <TouchableOpacity
                   onPress={() => { setLogEditMode(e => !e); setSwipeOpenSetKey(null); }}
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{ marginLeft: 12 }}
                 >
                   <Text style={{ fontSize: 12, color: logEditMode ? currentAccent : colors.textSecondary, fontWeight: '500' as const }}>
                     {logEditMode ? 'Done' : 'Edit'}
@@ -1995,13 +2018,13 @@ export default function WorkoutScreen() {
                         onPress={() => handleToggleSet(ex.id, setIdx, ex)}
                         activeOpacity={0.7}
                         style={[styles.trackSetDoneBtn, {
-                          borderColor: set.done ? '#22c55e' : `${colors.textMuted}40`,
+                          borderColor: set.done ? `${currentAccent}70` : `${colors.textMuted}40`,
                           backgroundColor: set.done
-                            ? 'rgba(34,197,94,0.15)'
+                            ? `${currentAccent}22`
                             : (isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
                         }]}
                       >
-                        <Check size={15} color={set.done ? '#22c55e' : colors.textMuted} />
+                        <Check size={15} color={set.done ? `${currentAccent}CC` : colors.textMuted} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -2009,43 +2032,17 @@ export default function WorkoutScreen() {
               );
             })}
 
-            <View style={styles.trackActions}>
-              <View style={{ flex: 1 }} />
+            <View style={[styles.trackActions, { justifyContent: 'center' }]}>
               <TouchableOpacity
-                onPress={() => tracking.addSet(ex.id)}
+                onPress={() => { closeChip(); tracking.addSet(ex.id); }}
                 activeOpacity={0.7}
-                style={[styles.trackBtn, { borderColor: colors.border, marginRight: 8 }]}
+                style={[styles.trackBtn, { borderColor: colors.border }]}
               >
                 <Plus size={11} color={colors.textSecondary} />
                 <Text style={[styles.trackBtnText, { color: colors.textSecondary }]}>Add Set</Text>
               </TouchableOpacity>
-              {isCompleted ? (
-                <TouchableOpacity
-                  style={[styles.trackDoneBtn, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.1)' }]}
-                  onPress={() => tracking.unmarkExerciseComplete(ex.id)}
-                  activeOpacity={0.8}
-                >
-                  <RotateCcw size={10} color={colors.textMuted} />
-                  <Text style={[styles.trackDoneBtnText, { color: colors.textMuted }]}>Undo</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.trackDoneBtn, { backgroundColor: accent, borderColor: accent }]}
-                  onPress={() => {
-                    closeChip();
-                    setsData.forEach((set, idx) => {
-                      if (!set.done) tracking.markSetDone(ex.id, idx, 0);
-                    });
-                    handleMarkExerciseDone(ex.id, ex);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Check size={10} color="#fff" />
-                  <Text style={[styles.trackDoneBtnText, { color: '#fff' }]}>Complete</Text>
-                </TouchableOpacity>
-              )}
             </View>
-          </View>
+          </Pressable>
         </View>
       );
     }
