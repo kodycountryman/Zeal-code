@@ -11,8 +11,6 @@ import { generateWorkout } from '@/services/workoutEngine';
 import { PRO_STYLES_SET } from '@/services/proGate';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
-  showRestTimerNotification,
-  dismissRestTimerNotification,
   scheduleRestCompleteNotification,
   cancelRestCompleteNotification,
   scheduleWeeklySummary,
@@ -511,7 +509,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
   const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const notifUpdateRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTotalRef = useRef<number>(0);
   const restRemainingRef = useRef<number>(0);
 
@@ -707,13 +704,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
           restRemainingRef.current = next;
           if (next <= 0) {
             setIsRestActive(false);
-            if (notifUpdateRef.current) {
-              clearInterval(notifUpdateRef.current);
-              notifUpdateRef.current = null;
-            }
             if (Platform.OS !== 'web') {
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              void dismissRestTimerNotification();
             }
             return 0;
           }
@@ -776,22 +768,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setIsRestActive(true);
     setShowRestTimer(true);
     if (Platform.OS !== 'web') {
-      void showRestTimerNotification(seconds, seconds);
       void scheduleRestCompleteNotification(seconds);
-      if (notifUpdateRef.current) clearInterval(notifUpdateRef.current);
-      notifUpdateRef.current = setInterval(() => {
-        const remaining = restRemainingRef.current;
-        const total = restTotalRef.current;
-        if (remaining <= 0) {
-          if (notifUpdateRef.current) {
-            clearInterval(notifUpdateRef.current);
-            notifUpdateRef.current = null;
-          }
-          void dismissRestTimerNotification();
-          return;
-        }
-        void showRestTimerNotification(remaining, total);
-      }, 5000);
     }
   }, []);
 
@@ -800,7 +777,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       const next = Math.max(0, prev + delta);
       restRemainingRef.current = next;
       if (Platform.OS !== 'web' && next > 0) {
-        void showRestTimerNotification(next, restTotalRef.current);
         void scheduleRestCompleteNotification(next);
       }
       return next;
@@ -816,8 +792,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setRestTimeRemaining(seconds);
     setRestTimeTotal(seconds);
     setIsRestActive(true);
+    setShowRestTimer(true);
     if (Platform.OS !== 'web') {
-      void showRestTimerNotification(seconds, seconds);
       void scheduleRestCompleteNotification(seconds);
     }
   }, []);
@@ -827,12 +803,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     restRemainingRef.current = 0;
     setRestTimeRemaining(0);
     setIsTimerMinimized(false);
-    if (notifUpdateRef.current) {
-      clearInterval(notifUpdateRef.current);
-      notifUpdateRef.current = null;
-    }
     if (Platform.OS !== 'web') {
-      void dismissRestTimerNotification();
       void cancelRestCompleteNotification();
     }
   }, []);

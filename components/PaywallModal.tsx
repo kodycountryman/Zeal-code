@@ -196,7 +196,7 @@ export default function PaywallModal({
 
                 {isTrial ? (
                   <View style={styles.contractBadge}>
-                    <Text style={styles.contractBadgeText}>7-DAY FREE CONTRACT</Text>
+                    <Text style={styles.contractBadgeText}>7-DAY FREE TRIAL</Text>
                   </View>
                 ) : (
                   <View style={[styles.contractBadge, styles.contractBadgeAlt]}>
@@ -206,8 +206,8 @@ export default function PaywallModal({
 
                 <Text style={styles.heroDesc}>
                   {isTrial
-                    ? "Commit to 7 days of elite training. Your card is required but won't be charged until Day 8. Cancel anytime — no penalties."
-                    : 'Unlock the full Zeal experience. Train smarter with advanced workouts, full analytics, and unlimited programming.'}
+                    ? "Try everything free for 7 days. No charge until Day 8 — cancel anytime."
+                    : 'Unlock the full Zeal experience. Advanced workouts, full analytics, unlimited programming.'}
                 </Text>
               </View>
 
@@ -314,7 +314,7 @@ export default function PaywallModal({
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <Text style={styles.ctaBtnText}>
-                    {isTrial ? 'Start your free 7 days' : 'Accept the Contract'}
+                    {isTrial ? 'Start Free Trial' : 'Unlock Zeal Pro'}
                   </Text>
                 )}
               </TouchableOpacity>

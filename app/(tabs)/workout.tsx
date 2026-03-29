@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withRepeat, withSequence, cancelAnimation, runOnJS } from 'react-native-reanimated';
 import ExpandingPanel from '@/components/ExpandingPanel';
 import * as Haptics from 'expo-haptics';
 
@@ -56,6 +56,8 @@ import {
   Info,
   Minus,
   SlidersHorizontal,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import { useZealTheme, useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
@@ -99,6 +101,7 @@ import WheelGuideModal from '@/components/WheelGuideModal';
 import WorkoutWalkthrough from '@/components/WorkoutWalkthrough';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassCard from '@/components/GlassCard';
+import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 const WALKTHROUGH_KEY = '@zeal_workout_walkthrough_seen_v1';
 
@@ -170,55 +173,276 @@ function formatDate(): string {
   return today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
-function isRepsOnlyMovement(ex: WorkoutExercise): boolean {
+interface ExerciseTrackingType {
+  isRepsOnly: boolean;
+  isHoldForTime: boolean;
+  isCaloriesMovement: boolean;
+  isDistanceOnly: boolean;
+  isWeightDistance: boolean;
+}
+
+function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
   const name = (ex.name ?? '').toLowerCase();
   const equipment = (ex.equipment ?? '').toLowerCase();
+  const repsStr = (ex.reps ?? '').trim();
   const ref = ex.exerciseRef as { movement_pattern?: string; equipment_required?: string[] } | null;
   const pattern = (ref?.movement_pattern ?? '').toLowerCase();
   const req = (ref?.equipment_required ?? []).map(r => r.toLowerCase());
 
-  const bodyweightByName =
-    name.includes('push up') ||
-    name.includes('push-up') ||
-    name.includes('pull up') ||
-    name.includes('pull-up') ||
-    name.includes('box jump') ||
-    name.includes('burpee') ||
-    name.includes('sit-up') ||
-    name.includes('sit up') ||
-    name.includes('air squat');
+  // What metric did the AI prescribe?
+  const prescribedTime = /s$|sec|min/i.test(repsStr) || repsStr.includes(':');
+  const prescribedCals = /\bcal\b/i.test(repsStr);
+  const prescribedDistance = /\bm$/.test(repsStr.toLowerCase());
 
-  const bodyweightByPattern = pattern === 'plyometric' || pattern === 'calisthenics';
-  const explicitlyBodyweight =
-    equipment === 'bodyweight' ||
-    equipment.includes('bodyweight') ||
-    equipment === 'body weight' ||
-    req.length === 0 ||
-    (req.length === 1 && req[0] === 'bodyweight');
+  // Equipment presence
+  const hasExternalLoad =
+    equipment.includes('barbell') || equipment.includes('dumbbell') ||
+    equipment.includes('kettlebell') || equipment.includes('machine') ||
+    equipment.includes('cable') || equipment.includes('ez') ||
+    req.some(r => ['barbell','dumbbell','kettlebell','cable_machine','smith_machine',
+      'leg_press','lat_pulldown','ez_curl_bar','trap_bar'].includes(r));
 
-  // If an exercise clearly uses an external load implement, it's not reps-only.
-  const externalLoad =
-    equipment.includes('barbell') ||
-    equipment.includes('dumbbell') ||
-    equipment.includes('kettlebell') ||
-    req.includes('barbell') ||
-    req.includes('dumbbell') ||
-    req.includes('kettlebell');
+  const isBodyweightEquipment =
+    equipment === 'bodyweight' || equipment.includes('body weight') ||
+    req.length === 0 || (req.length === 1 && req[0] === 'bodyweight');
 
-  return (bodyweightByName || bodyweightByPattern || explicitlyBodyweight) && !externalLoad;
-}
+  // Movement pattern from exercise DB
+  const isCardioPattern = pattern === 'cardio';
+  const isMobilityPattern = pattern === 'mobility' || pattern === 'pilates';
+  const isPlyoPattern = pattern === 'plyometric';
+  const isCarryPattern = pattern === 'carry' || name.includes('carry');
+  const isSledPattern = name.includes('sled push') || name.includes('sled pull') || req.includes('sled');
 
-function isWeightDistanceMovement(ex: WorkoutExercise): boolean {
-  const name = (ex.name ?? '').toLowerCase();
-  const ref = ex.exerciseRef as { equipment_required?: string[] } | null;
-  const req = (ref?.equipment_required ?? []).map(r => r.toLowerCase());
-  return name.includes('sled push') || name.includes('sled pull') || req.includes('sled');
+  // Named exercise overrides
+  const isHoldByName =
+    name.includes('plank') || name.includes(' hold') || name.includes('hollow') ||
+    name.includes('dead hang') || name.includes('wall sit') || name.includes('l-sit') ||
+    name.includes('isometric');
+
+  const isCardioByName =
+    name.includes('row') || name.includes('assault bike') || name.includes('echo bike') ||
+    name.includes('bike erg') || name.includes('ski erg') || name.includes('run') ||
+    name.includes('sprint') || name.includes('jog');
+
+  const isWeightedVariant = name.includes('weighted');
+
+  // --- Sled / weighted carry: weight + distance ---
+  if (isSledPattern || (isCarryPattern && hasExternalLoad)) {
+    return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: true };
+  }
+
+  // --- Cardio machines: read prescribed metric ---
+  if (isCardioPattern || (isCardioByName && !hasExternalLoad)) {
+    if (prescribedCals) {
+      return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: true, isDistanceOnly: false, isWeightDistance: false };
+    }
+    return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: true, isWeightDistance: false };
+  }
+
+  // --- Timed holds / mobility ---
+  if (prescribedTime || isMobilityPattern || isHoldByName) {
+    return { isRepsOnly: false, isHoldForTime: true, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: false };
+  }
+
+  // --- Distance prescribed but not cardio (e.g. farmer carry without sled) ---
+  if (prescribedDistance) {
+    return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: true, isWeightDistance: false };
+  }
+
+  // --- Bodyweight / plyometric: reps only ---
+  const isBodyweight = (isBodyweightEquipment || isPlyoPattern) && !hasExternalLoad && !isWeightedVariant;
+  if (isBodyweight) {
+    return { isRepsOnly: true, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: false };
+  }
+
+  // --- Default: weight + reps ---
+  return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: false };
 }
 
 function parseNumberPrefix(raw: string): number | null {
   const m = raw.trim().match(/^(\d+(?:\.\d+)?)/);
   if (!m) return null;
   return Math.round(Number(m[1]));
+}
+
+const TopBarElapsedTimer = React.memo(function TopBarElapsedTimer({ elapsed, isPaused }: { elapsed: number; isPaused: boolean }) {
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  const label = isPaused ? 'PAUSED' : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return (
+    <Text style={{ fontSize: isPaused ? 13 : 22, fontFamily: isPaused ? 'Outfit_600SemiBold' : 'Outfit_800ExtraBold', letterSpacing: isPaused ? 2 : -1.2, color: isPaused ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.72)' }}>
+      {label}
+    </Text>
+  );
+});
+
+type SetCheckmarkCircleProps = {
+  done: boolean;
+  accent: string;
+  borderColor: string;
+  onPress: () => void;
+};
+function SetCheckmarkCircle({ done, accent, borderColor, onPress }: SetCheckmarkCircleProps) {
+  const scale = useSharedValue(done ? 1 : 0);
+  useEffect(() => {
+    if (done) {
+      cancelAnimation(scale);
+      scale.value = 0.5;
+      scale.value = withSpring(1, SWIFT_REANIMATED_SPRING);
+    } else {
+      cancelAnimation(scale);
+      scale.value = 0;
+    }
+  }, [done]);
+  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      activeOpacity={0.8}
+      style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <View style={{
+        width: 32, height: 32, borderRadius: 16,
+        borderWidth: done ? 0 : 2,
+        borderColor,
+        backgroundColor: done ? accent : 'transparent',
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Animated.View style={iconStyle}>
+          <Check size={18} color="#fff" strokeWidth={3} />
+        </Animated.View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+type SetRowPressableProps = {
+  done: boolean;
+  flashColor: string;
+  onPress: () => void;
+  style?: any;
+  children: React.ReactNode;
+};
+function SetRowPressable({ done, flashColor, onPress, style, children }: SetRowPressableProps) {
+  const flashOpacity = useSharedValue(0);
+  const prevDoneRef = useRef(false);
+  useEffect(() => {
+    if (done && !prevDoneRef.current) {
+      cancelAnimation(flashOpacity);
+      flashOpacity.value = 0.12;
+      flashOpacity.value = withTiming(0, { duration: 300 });
+    }
+    prevDoneRef.current = done;
+  }, [done]);
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
+  return (
+    <Pressable onPress={onPress} style={style}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: flashColor }, flashStyle]} pointerEvents="none" />
+      {children}
+    </Pressable>
+  );
+}
+
+function SetDot({ done, isCurrent, accent, borderColor }: { done: boolean; isCurrent: boolean; accent: string; borderColor: string }) {
+  const scale = useSharedValue(done ? 1 : 1);
+  const pulseOpacity = useSharedValue(isCurrent ? 0.4 : done ? 1 : 1);
+  const prevDoneRef = useRef(done);
+
+  useEffect(() => {
+    if (done && !prevDoneRef.current) {
+      scale.value = 0;
+      scale.value = withSpring(1, SWIFT_REANIMATED_SPRING);
+    }
+    prevDoneRef.current = done;
+  }, [done]);
+
+  useEffect(() => {
+    if (isCurrent) {
+      pulseOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.7, { duration: 750 }),
+          withTiming(0.4, { duration: 750 }),
+        ),
+        -1,
+        false
+      );
+    } else {
+      cancelAnimation(pulseOpacity);
+      pulseOpacity.value = withTiming(done ? 1 : 0.25, { duration: 200 });
+    }
+  }, [isCurrent, done]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: isCurrent ? pulseOpacity.value : done ? 1 : 0.25,
+  }));
+
+  const bg = done || isCurrent ? accent : borderColor;
+  return <Animated.View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: bg }, animStyle]} />;
+}
+
+function SetProgressDots({ setsData, accent, borderColor }: { setsData: Array<{ done: boolean }>; accent: string; borderColor: string }) {
+  const done = setsData.filter(s => s.done).length;
+  const total = setsData.length;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text style={{ fontSize: 12, fontFamily: 'Outfit_600SemiBold', color: 'rgba(128,128,128,0.8)', minWidth: 24 }}>
+        {done}/{total}
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        {setsData.map((set, i) => (
+          <SetDot key={i} done={set.done} isCurrent={i === done} accent={accent} borderColor={borderColor} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function getRowTranslateAnim(exId: string, map: Map<string, RNAnimated.Value>): RNAnimated.Value {
+  if (!map.has(exId)) map.set(exId, new RNAnimated.Value(0));
+  return map.get(exId)!;
+}
+
+function constrainInsertIdx(
+  rawIdx: number,
+  allEx: WorkoutExercise[],
+  movingIds: string[]
+): number {
+  const movingEx = allEx.find(e => movingIds.includes(e.id));
+  const movingGroupId = movingEx?.groupId ?? null;
+  const isGroupMove = movingIds.length > 1;
+
+  if (!isGroupMove && movingGroupId) {
+    // Single item within a group — clamp to group bounds
+    const groupIndices = allEx
+      .map((e, i) => (e.groupId === movingGroupId ? i : -1))
+      .filter(i => i >= 0);
+    if (groupIndices.length === 0) return rawIdx;
+    return Math.max(groupIndices[0], Math.min(groupIndices[groupIndices.length - 1] + 1, rawIdx));
+  }
+
+  // Standalone or full group move — skip positions inside other groups
+  if (rawIdx > 0 && rawIdx < allEx.length) {
+    const atEx = allEx[rawIdx];
+    const prevEx = allEx[rawIdx - 1];
+    if (
+      atEx.groupId &&
+      prevEx.groupId === atEx.groupId &&
+      !movingIds.includes(atEx.id) &&
+      !movingIds.includes(prevEx.id)
+    ) {
+      const gid = atEx.groupId;
+      const gIndices = allEx
+        .map((e, i) => (e.groupId === gid && !movingIds.includes(e.id) ? i : -1))
+        .filter(i => i >= 0);
+      const gFirst = gIndices[0];
+      const gLast = gIndices[gIndices.length - 1];
+      return (rawIdx - gFirst) <= (gLast + 1 - rawIdx) ? gFirst : gLast + 1;
+    }
+  }
+
+  return rawIdx;
 }
 
 function parseSecondsFromRepsLabel(reps: string): number {
@@ -631,8 +855,12 @@ export default function WorkoutScreen() {
   const dragMovingIds = useRef<string[]>([]);
   const dragGhostAnim = useRef(new RNAnimated.Value(0)).current;
   const sectionPageY = useRef(0);
+  const baseSectionPageY = useRef(0);
   const scrollOffsetRef = useRef(0);
   const rowLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
+  const rowTranslateAnims = useRef<Map<string, RNAnimated.Value>>(new Map());
+  const dragOriginIdxRef = useRef<number>(-1);
+  const prevInsertIdxRef = useRef<number | null>(null);
   const exercisesSectionRef = useRef<View | null>(null);
   const gripPanResponderMap = useRef<Map<string, ReturnType<typeof PanResponder.create>>>(new Map());
   const groupGripPanResponderMap = useRef<Map<string, ReturnType<typeof PanResponder.create>>>(new Map());
@@ -717,6 +945,7 @@ export default function WorkoutScreen() {
     gripPanResponderMap.current.clear();
     groupGripPanResponderMap.current.clear();
     rowLayoutsRef.current.clear();
+    rowTranslateAnims.current.clear();
   }, [workout]);
 
   useEffect(() => {
@@ -1551,10 +1780,8 @@ export default function WorkoutScreen() {
         const items = ids.map(id => allExNow.find(e => e.id === id)).filter(Boolean) as WorkoutExercise[];
         setDragGhostItems(items);
         dragStartPageY.current = evt.nativeEvent.pageY;
-        exercisesSectionRef.current?.measureInWindow((x, y) => {
-          sectionPageY.current = y ?? 0;
-          console.log('[Drag] Section measureInWindow pageY:', y, 'scrollOff:', scrollOffsetRef.current);
-        });
+        dragOriginIdxRef.current = allExNow.findIndex(e => e.id === exId);
+        prevInsertIdxRef.current = null;
         dragGhostAnim.setValue(evt.nativeEvent.pageY - 28);
         setActiveDragId(exId);
         activeDragIdRef.current = exId;
@@ -1568,7 +1795,7 @@ export default function WorkoutScreen() {
         dragGhostAnim.setValue(pageY - 28);
         const allExNow = workoutRef.current?.workout ?? [];
         const rowPageYPositions: { id: string; midPageY: number }[] = [];
-        const sectionPgY = sectionPageY.current;
+        const sectionPgY = baseSectionPageY.current - scrollOffsetRef.current;
         for (let i = 0; i < allExNow.length; i++) {
           if (dragMovingIds.current.includes(allExNow[i].id)) continue;
           const layout = rowLayoutsRef.current.get(allExNow[i].id);
@@ -1583,12 +1810,27 @@ export default function WorkoutScreen() {
             break;
           }
         }
+        insertIdx = constrainInsertIdx(insertIdx, allExNow, dragMovingIds.current);
         setDragInsertIdx(insertIdx);
+        if (insertIdx !== prevInsertIdxRef.current) {
+          prevInsertIdxRef.current = insertIdx;
+          const originIdx = dragOriginIdxRef.current;
+          const draggedHeight = rowLayoutsRef.current.get(exId)?.height ?? 60;
+          allExNow.forEach((ex, i) => {
+            if (dragMovingIds.current.includes(ex.id)) return;
+            let shift = 0;
+            if (originIdx < insertIdx && i > originIdx && i < insertIdx) shift = -draggedHeight;
+            else if (originIdx >= insertIdx && i >= insertIdx && i < originIdx) shift = draggedHeight;
+            RNAnimated.spring(getRowTranslateAnim(ex.id, rowTranslateAnims.current), {
+              toValue: shift, tension: 280, friction: 26, useNativeDriver: true,
+            }).start();
+          });
+        }
       },
       onPanResponderRelease: (evt) => {
         const pageY = evt.nativeEvent.pageY;
         const allExNow = workoutRef.current?.workout ?? [];
-        const sectionPgY = sectionPageY.current;
+        const sectionPgY = baseSectionPageY.current - scrollOffsetRef.current;
         const rowPageYPositions: { id: string; midPageY: number }[] = [];
         for (let i = 0; i < allExNow.length; i++) {
           if (dragMovingIds.current.includes(allExNow[i].id)) continue;
@@ -1604,6 +1846,9 @@ export default function WorkoutScreen() {
             break;
           }
         }
+        insertIdx = constrainInsertIdx(insertIdx, allExNow, dragMovingIds.current);
+        allExNow.forEach(ex => { rowTranslateAnims.current.get(ex.id)?.setValue(0); });
+        prevInsertIdxRef.current = null;
         if (dragMovingIds.current.length > 0) {
           handleDropToIndexRef.current(dragMovingIds.current, insertIdx);
         }
@@ -1615,6 +1860,8 @@ export default function WorkoutScreen() {
         setDragGhostItems([]);
       },
       onPanResponderTerminate: () => {
+        workoutRef.current?.workout?.forEach(ex => { rowTranslateAnims.current.get(ex.id)?.setValue(0); });
+        prevInsertIdxRef.current = null;
         dragMovingIds.current = [];
         setActiveDragId(null);
         activeDragIdRef.current = null;
@@ -1732,23 +1979,7 @@ export default function WorkoutScreen() {
       const targetReps = parseInt(ex.reps, 10) || 8;
       const isDumbbell = ex.equipment.toLowerCase().includes('dumbbell');
       const exName = (ex.name ?? '').toLowerCase();
-      const isRepsOnly = isRepsOnlyMovement(ex);
-      const isHoldForTime =
-        !isRepsOnly &&
-        (/s$|sec|min/i.test(ex.reps ?? '') ||
-          exName.includes('plank') ||
-          exName.includes('hold') ||
-          exName.includes('hollow'));
-      const isCaloriesMovement =
-        !isHoldForTime &&
-        (/\bcal\b/i.test(ex.reps ?? '') || exName.includes('assault bike') || exName.includes('echo bike'));
-      const isCarryLike = exName.includes('carry');
-      const isWeightDistance = isWeightDistanceMovement(ex) || isCarryLike;
-      const isDistanceOnly =
-        !isWeightDistance &&
-        !isCaloriesMovement &&
-        !isHoldForTime &&
-        /\bm$/.test((ex.reps ?? '').toLowerCase());
+      const { isRepsOnly, isHoldForTime, isCaloriesMovement, isDistanceOnly, isWeightDistance } = getExerciseTrackingType(ex);
 
       const metricDefault = isHoldForTime
         ? parseSecondsFromRepsLabel(ex.reps ?? '')
@@ -1795,39 +2026,21 @@ export default function WorkoutScreen() {
           >
             <View style={styles.trackPanelHeader}>
               <View style={styles.trackPanelTitleRow}>
-                {/* Left — Guide button */}
-                <TouchableOpacity
-                  onPress={() => handleExerciseTap(ex)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}
-                >
-                  <Clipboard size={13} color={colors.textSecondary} />
-                  <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const }}>Guide</Text>
-                </TouchableOpacity>
-                {isRepsOnly && (
-                  <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
-                    <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '500' as const }}>Bodyweight</Text>
-                  </View>
-                )}
-                <View style={{ flex: 1 }} />
-                {/* Right — progress bar + counter + Edit */}
-                {setsData.length > 0 && (() => {
-                  const done = setsData.filter(s => s.done).length;
-                  const total = setsData.length;
-                  const pct = total > 0 ? done / total : 0;
-                  return (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      {/* Muted progress bar */}
-                      <View style={{ width: 52, height: 4, borderRadius: 2, backgroundColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)', overflow: 'hidden' }}>
-                        <View style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 2, backgroundColor: `${currentAccent}55` }} />
-                      </View>
-                      <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '500' as const, minWidth: 24 }}>
-                        {done}/{total}
-                      </Text>
+                {/* Left — Target label */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Target size={12} color={colors.textSecondary} strokeWidth={2} />
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: 'Outfit_600SemiBold' }}>Target</Text>
+                  {isRepsOnly && (
+                    <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 4 }}>
+                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '500' as const }}>Bodyweight</Text>
                     </View>
-                  );
-                })()}
+                  )}
+                </View>
+                <View style={{ flex: 1 }} />
+                {/* Right — segmented dot progress + counter + Edit */}
+                {setsData.length > 0 && (
+                  <SetProgressDots setsData={setsData} accent={currentAccent} borderColor={colors.border} />
+                )}
                 <TouchableOpacity
                   onPress={() => { setLogEditMode(e => !e); setSwipeOpenSetKey(null); }}
                   activeOpacity={0.7}
@@ -1871,17 +2084,50 @@ export default function WorkoutScreen() {
               )}
             </View>
 
+            {(() => {
+              const doneSets = lastSets.filter(s => s.done);
+              if (doneSets.length === 0) return null;
+              const weights = doneSets.map(s => s.weight).filter(w => w > 0);
+              const minW = weights.length > 0 ? Math.min(...weights) : 0;
+              const maxW = weights.length > 0 ? Math.max(...weights) : 0;
+              const weightStr = weights.length === 0
+                ? ''
+                : minW === maxW
+                  ? `${minW} lb × `
+                  : `${minW}–${maxW} lb × `;
+              const repsStr = doneSets.map(s => s.reps).join(', ');
+              const currentWeight = suggestion.suggestedWeight;
+              const trendUp = weights.length > 0 && currentWeight > maxW;
+              const trendDown = weights.length > 0 && currentWeight < minW;
+              return (
+                <TouchableOpacity
+                  onPress={() => setDetailExercise(ex)}
+                  activeOpacity={0.7}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 }}
+                >
+                  {trendUp && <TrendingUp size={11} color="#22c55e" strokeWidth={2} />}
+                  {trendDown && <TrendingDown size={11} color={colors.textMuted} strokeWidth={2} />}
+                  <Text style={{ fontSize: 11, fontFamily: 'Outfit_400Regular', color: colors.textMuted }}>
+                    Last: {weightStr}{repsStr}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
+
             <View style={styles.trackTableHeader}>
-              <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>set</Text>
-              {!isRepsOnly && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && (
-                <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 2, textAlign: 'center' as const }]}>
-                  {`weight${isDumbbell ? ' ea.' : ''}`}
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[styles.trackTableCol, styles.trackSetNumCol, { color: colors.textSecondary }]}>Set</Text>
+                {!isRepsOnly && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && (
+                  <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 2, textAlign: 'center' as const }]}>
+                    {`Weight${isDumbbell ? ' ea.' : ''}`}
+                  </Text>
+                )}
+                <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
+                  {isHoldForTime ? 'Time (mm:ss)' : isCaloriesMovement ? 'Cals' : (isDistanceOnly || isWeightDistance) ? 'Dist (m)' : 'Reps'}
                 </Text>
-              )}
-              <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
-                {isHoldForTime ? 'time (mm:ss)' : isCaloriesMovement ? 'cals' : (isDistanceOnly || isWeightDistance) ? 'dist (m)' : 'reps'}
-              </Text>
-              <View style={{ flex: 1 }} />
+                <View style={{ flex: 1 }} />
+              </View>
+              <View style={{ width: 48 }} />
             </View>
 
             {setsData.map((set, setIdx) => {
@@ -1905,7 +2151,12 @@ export default function WorkoutScreen() {
                   onDelete={() => tracking.removeSet(ex.id, setIdx)}
                   waitForGesture={scrollGesture}
                 >
-                  <View style={styles.trackSetRow}>
+                  <SetRowPressable
+                    done={set.done}
+                    flashColor={currentAccent}
+                    onPress={() => handleToggleSet(ex.id, setIdx, ex)}
+                    style={styles.trackSetRow}
+                  >
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, opacity: set.done ? 0.4 : 1 }}>
                       <Text style={[styles.trackSetNumCol, { color: colors.textMuted, fontSize: 16, fontWeight: '700' as const, textAlign: 'center' as const }]}>
                         {set.setNumber}
@@ -2014,20 +2265,14 @@ export default function WorkoutScreen() {
                         <View style={styles.trackSetDoneBtn} />
                       )
                     ) : (
-                      <TouchableOpacity
+                      <SetCheckmarkCircle
+                        done={set.done}
+                        accent={currentAccent}
+                        borderColor={colors.border}
                         onPress={() => handleToggleSet(ex.id, setIdx, ex)}
-                        activeOpacity={0.7}
-                        style={[styles.trackSetDoneBtn, {
-                          borderColor: set.done ? `${currentAccent}70` : `${colors.textMuted}40`,
-                          backgroundColor: set.done
-                            ? `${currentAccent}22`
-                            : (isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
-                        }]}
-                      >
-                        <Check size={15} color={set.done ? `${currentAccent}CC` : colors.textMuted} />
-                      </TouchableOpacity>
+                      />
                     )}
-                  </View>
+                  </SetRowPressable>
                 </SwipeableSetRow>
               );
             })}
@@ -2185,24 +2430,26 @@ export default function WorkoutScreen() {
         {setsArr.map((setIdx) => {
           const isDone = done.has(setIdx);
           return (
-            <TouchableOpacity
+            <SetRowPressable
               key={setIdx}
-              style={styles.trackSetRow}
+              done={isDone}
+              flashColor={currentAccent}
               onPress={() => handleToggleSet(ex.id, setIdx, ex)}
-              activeOpacity={0.7}
+              style={styles.trackSetRow}
             >
-              {isDone ? (
-                <CheckCircle2 size={16} color={currentAccent} />
-              ) : (
-                <Circle size={16} color={colors.text} />
-              )}
+              <SetCheckmarkCircle
+                done={isDone}
+                accent={currentAccent}
+                borderColor={colors.border}
+                onPress={() => handleToggleSet(ex.id, setIdx, ex)}
+              />
               <Text style={[styles.trackSetLabel, { color: colors.text }]}>
                 Set {setIdx + 1}
               </Text>
               <Text style={[styles.trackSetValue, { color: colors.text }]}>
                 {ex.suggestedWeight} × {ex.reps}
               </Text>
-            </TouchableOpacity>
+            </SetRowPressable>
           );
         })}
         <TouchableOpacity
@@ -2277,7 +2524,9 @@ export default function WorkoutScreen() {
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
-          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
+            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
               {ex.sets}×{reps}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
@@ -2286,7 +2535,7 @@ export default function WorkoutScreen() {
         </View>
       </>
     );
-  }, [colors, tracking.exerciseLogs]);
+  }, [colors, tracking.exerciseLogs, handleExerciseTap]);
 
   const renderBodybuildingRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
@@ -2297,7 +2546,9 @@ export default function WorkoutScreen() {
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
-          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
+            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
               {ex.sets}×{repRange}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
@@ -2306,7 +2557,7 @@ export default function WorkoutScreen() {
         </View>
       </>
     );
-  }, [colors, tracking.exerciseLogs]);
+  }, [colors, tracking.exerciseLogs, handleExerciseTap]);
 
   const renderDefaultRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
@@ -2316,7 +2567,9 @@ export default function WorkoutScreen() {
       <>
         <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
-          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
+            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+          </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
               {ex.sets}×{reps}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
@@ -2325,7 +2578,7 @@ export default function WorkoutScreen() {
         </View>
       </>
     );
-  }, [colors, tracking.exerciseLogs]);
+  }, [colors, tracking.exerciseLogs, handleExerciseTap]);
 
   const renderExerciseRow = useCallback((ex: WorkoutExercise, idx: number, allExercises: WorkoutExercise[]) => {
     const prevEx = idx > 0 ? allExercises[idx - 1] : null;
@@ -2354,10 +2607,11 @@ export default function WorkoutScreen() {
     const isRowBeingDragged = activeDragId !== null && dragMovingIds.current.includes(ex.id);
     const isFirstExercise = idx === 0;
     return (
-      <View
+      <RNAnimated.View
         key={ex.id}
         ref={isFirstExercise ? firstExRowRef : undefined}
         collapsable={false}
+        style={{ transform: [{ translateY: getRowTranslateAnim(ex.id, rowTranslateAnims.current) }] }}
         onLayout={(e) => {
           rowLayoutsRef.current.set(ex.id, {
             y: e.nativeEvent.layout.y,
@@ -2401,7 +2655,7 @@ export default function WorkoutScreen() {
           </ExpandingPanel>
         </View>
         {isDropTargetAfterLast && <View style={[styles.dropIndicator, { backgroundColor: currentAccent }]} />}
-      </View>
+      </RNAnimated.View>
     );
   }, [currentStyle, colors, currentAccent, renderGroupSeparator, renderStrengthRow, renderBodybuildingRow, renderDefaultRow, renderTrackButton, renderTrackingPanel, renderGripDots, handleToggleTrackPanel, dragInsertIdx, activeDragId, swipeOpenId, handleDeleteExercise, handleSwapExercise, handleExerciseTap, handleExerciseLongPress, expandedTrack]);
 
@@ -2422,7 +2676,7 @@ export default function WorkoutScreen() {
             {cfData.strength.map((ex, exIdx) => {
               const isCFExpanded = expandedTrack === ex.id;
               return (
-                <View key={ex.id} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
+                <RNAnimated.View key={ex.id} style={{ transform: [{ translateY: getRowTranslateAnim(ex.id, rowTranslateAnims.current) }] }} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
                   <SwipeableExerciseRow
                     id={ex.id}
                     isOpen={swipeOpenId === ex.id}
@@ -2456,7 +2710,7 @@ export default function WorkoutScreen() {
                   <ExpandingPanel visible={isCFExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
-                </View>
+                </RNAnimated.View>
               );
             })}
           </>
@@ -2518,7 +2772,7 @@ export default function WorkoutScreen() {
                 repsMeta = `${repsStr} reps · ${ex.muscleGroup}`;
               }
               return (
-                <View key={ex.id} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
+                <RNAnimated.View key={ex.id} style={{ transform: [{ translateY: getRowTranslateAnim(ex.id, rowTranslateAnims.current) }] }} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
                   <SwipeableExerciseRow
                     id={ex.id}
                     isOpen={swipeOpenId === ex.id}
@@ -2550,7 +2804,7 @@ export default function WorkoutScreen() {
                   <ExpandingPanel visible={isCFMetconExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
-                </View>
+                </RNAnimated.View>
               );
             })}
           </>
@@ -2607,7 +2861,7 @@ export default function WorkoutScreen() {
             ? ex.reps
             : `${ex.reps} reps · ${ex.muscleGroup}`;
           return (
-            <View key={ex.id} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
+            <RNAnimated.View key={ex.id} style={{ transform: [{ translateY: getRowTranslateAnim(ex.id, rowTranslateAnims.current) }] }} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
               <SwipeableExerciseRow
                 id={ex.id}
                 isOpen={swipeOpenId === ex.id}
@@ -2639,7 +2893,7 @@ export default function WorkoutScreen() {
               <ExpandingPanel visible={isHyroxExpanded}>
                 {renderTrackingPanel(ex)}
               </ExpandingPanel>
-            </View>
+            </RNAnimated.View>
           );
         })}
       </>
@@ -2665,7 +2919,7 @@ export default function WorkoutScreen() {
           </Text>
         </TouchableOpacity>
         {workout.workout.map((ex) => (
-          <View key={ex.id} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
+          <RNAnimated.View key={ex.id} style={{ transform: [{ translateY: getRowTranslateAnim(ex.id, rowTranslateAnims.current) }] }} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
             <SwipeableExerciseRow
               id={ex.id}
               isOpen={swipeOpenId === ex.id}
@@ -2686,7 +2940,7 @@ export default function WorkoutScreen() {
                 {renderGripDots(ex)}
               </View>
             </SwipeableExerciseRow>
-          </View>
+          </RNAnimated.View>
         ))}
       </>
     );
@@ -2715,7 +2969,7 @@ export default function WorkoutScreen() {
             {exercises.map((ex, exIdx) => {
               const isCardioExpanded = expandedTrack === ex.id;
               return (
-                <View key={ex.id} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
+                <RNAnimated.View key={ex.id} style={{ transform: [{ translateY: getRowTranslateAnim(ex.id, rowTranslateAnims.current) }] }} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
                   <SwipeableExerciseRow
                     id={ex.id}
                     isOpen={swipeOpenId === ex.id}
@@ -2750,7 +3004,7 @@ export default function WorkoutScreen() {
                   <ExpandingPanel visible={isCardioExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
-                </View>
+                </RNAnimated.View>
               );
             })}
           </>
@@ -2909,7 +3163,7 @@ export default function WorkoutScreen() {
               const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
               const is75HardExpanded = expandedTrack === ex.id;
               return (
-                <View key={ex.id} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
+                <RNAnimated.View key={ex.id} style={{ transform: [{ translateY: getRowTranslateAnim(ex.id, rowTranslateAnims.current) }] }} onLayout={(e) => { rowLayoutsRef.current.set(ex.id, { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }); }}>
                   <SwipeableExerciseRow
                     id={ex.id}
                     isOpen={swipeOpenId === ex.id}
@@ -2947,7 +3201,7 @@ export default function WorkoutScreen() {
                   <ExpandingPanel visible={is75HardExpanded}>
                     {renderTrackingPanel(ex)}
                   </ExpandingPanel>
-                </View>
+                </RNAnimated.View>
               );
             })}
           </View>
@@ -3020,7 +3274,7 @@ export default function WorkoutScreen() {
       <AmbientGlow color={currentAccent} opacity={0.06} />
       {isZeal && <ZealBackground />}
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent', zIndex: 10 }}>
+      <SafeAreaView edges={['top']} style={{ zIndex: 100 }}>
         <View style={styles.topBar}>
           <TouchableOpacity
             style={[styles.avatarBtn, { borderColor: ctx.userPhotoUri ? 'transparent' : colors.border }]}
@@ -3038,15 +3292,47 @@ export default function WorkoutScreen() {
           <View style={styles.wordmarkRow}>
             <Text style={[styles.wordmark, { color: ZEAL_ORANGE }]}>zeal</Text>
           </View>
+          {/* Centered elapsed timer + reset — absolutely positioned so it doesn't shift logo/date */}
+          {tracking.isWorkoutActive && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 }}
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                if (!tracking.isPaused) {
+                  tracking.pauseWorkout();
+                }
+                Alert.alert(
+                  'Workout Paused',
+                  'Your workout timer is paused.',
+                  [
+                    {
+                      text: 'End',
+                      style: 'destructive',
+                      onPress: tracking.resetWorkout,
+                    },
+                    {
+                      text: 'Resume',
+                      onPress: tracking.pauseWorkout,
+                    },
+                  ]
+                );
+              }}
+            >
+              <TopBarElapsedTimer elapsed={tracking.workoutElapsed} isPaused={tracking.isPaused} />
+              <RotateCcw size={16} color="rgba(255,255,255,0.55)" strokeWidth={2} />
+            </TouchableOpacity>
+          )}
           <Text style={[styles.dateText, { color: colors.textSecondary }]}>{formatDate()}</Text>
         </View>
+        {tracking.isWorkoutActive && <WorkoutTimerCard accent={currentAccent} />}
       </SafeAreaView>
 
       <GestureDetector gesture={scrollGesture}>
       <ScrollView
         ref={scrollViewRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        style={{ flex: 1, zIndex: 0 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={true}
         testID="workout-scroll"
@@ -3088,9 +3374,7 @@ export default function WorkoutScreen() {
           </View>
         )}
 
-        {tracking.isWorkoutActive ? (
-          <WorkoutTimerCard />
-        ) : (
+        {!tracking.isWorkoutActive && (
           <>
             <HealthImportBanner />
 
@@ -3271,7 +3555,7 @@ export default function WorkoutScreen() {
           </View>
 
           <View
-            style={{ paddingTop: 4, gap: 12, paddingBottom: 12, opacity: (tracking.isRestActive && tracking.restTimeRemaining > 0 && !tracking.isTimerMinimized) ? 0.6 : 1 }}
+            style={{ paddingTop: 4, gap: 12, paddingBottom: 12 }}
           >
           {/* Pre-Workout Panel */}
           {activePanel === 0 && (
@@ -3368,6 +3652,11 @@ export default function WorkoutScreen() {
                 <View
                   ref={(ref) => { exercisesSectionRef.current = ref; }}
                   collapsable={false}
+                  onLayout={() => {
+                    exercisesSectionRef.current?.measureInWindow((x, y) => {
+                      baseSectionPageY.current = y + scrollOffsetRef.current;
+                    });
+                  }}
                 >
                   {renderWorkoutExercises()}
                 </View>

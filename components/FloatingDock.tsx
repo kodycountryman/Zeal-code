@@ -20,7 +20,6 @@ import { useZealTheme } from '@/context/AppContext';
 import { getContrastTextColor } from '@/constants/colors';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import RestTimerBar from '@/components/RestTimerBar';
 import { SWIFT_SPRING } from '@/constants/animation';
 
 
@@ -143,11 +142,8 @@ const blueGradient: [string, string, string] = isDark
         />
 
         <View style={styles.dockContainer} pointerEvents="box-none">
-          <View style={styles.restTimerSlot}>
-            <RestTimerBar />
-          </View>
           <BlurView
-            intensity={isDark ? 72 : 60}
+            intensity={isDark ? 52 : 45}
             tint={dockBlurTint}
             style={[
               styles.dock,
@@ -303,9 +299,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  restTimerSlot: {
-    width: '100%',
-  },
   dockContainer: {
     width: '100%',
     paddingHorizontal: 16,
@@ -335,7 +328,7 @@ const styles = StyleSheet.create({
   tabIndicator: {
     width: 44,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },

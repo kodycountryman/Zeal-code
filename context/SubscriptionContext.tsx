@@ -158,10 +158,10 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
 
     let shouldShow = false;
     if (state === 'never_seen') {
-      shouldShow = true;
+      shouldShow = newCount >= 3; // soft sell — let user explore first
     } else {
       const opensSinceLast = newCount - p.lastPaywallShownAtOpenCount;
-      shouldShow = opensSinceLast >= 5;
+      shouldShow = opensSinceLast >= 7;
     }
 
     if (shouldShow) {
