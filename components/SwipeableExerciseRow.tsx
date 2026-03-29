@@ -33,12 +33,10 @@ interface Props {
 // Individual action button — glass rounded square with color tint
 function ActionButton({
   progress,
-  accentColor,
   icon,
   onPress,
 }: {
   progress: SharedValue<number>;
-  accentColor: string;
   icon: React.ReactNode;
   onPress: () => void;
 }) {
@@ -51,7 +49,7 @@ function ActionButton({
     );
     const opacity = interpolate(
       progress.value,
-      [0, 0.4, 1],
+      [0, 0, 1],
       [0, 0.9, 1],
       Extrapolation.CLAMP,
     );
@@ -60,14 +58,7 @@ function ActionButton({
 
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.actionBtn,
-        {
-          backgroundColor: accentColor.replace(/[\d.]+\)$/, '0.18)'),
-          borderColor: accentColor.replace(/[\d.]+\)$/, '0.4)'),
-        },
-        pressed && { opacity: 0.7 },
-      ]}
+      style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.7 }]}
       onPress={onPress}
       hitSlop={0}
     >
@@ -136,20 +127,17 @@ function SwipeableExerciseRow({
       return (<View style={styles.actionsContainer}>
         <ActionButton
           progress={progress}
-          accentColor="rgba(10,132,255,0.82)"
-          icon={<Info size={19} color="rgba(10,132,255,0.9)" strokeWidth={2} />}
+          icon={<Info size={22} color="rgba(10,132,255,0.9)" strokeWidth={2} />}
           onPress={handleInfo}
         />
         <ActionButton
           progress={progress}
-          accentColor="rgba(255,159,10,0.82)"
-          icon={<ArrowLeftRight size={19} color="rgba(255,159,10,0.9)" strokeWidth={2} />}
+          icon={<ArrowLeftRight size={22} color="rgba(255,159,10,0.9)" strokeWidth={2} />}
           onPress={handleSwap}
         />
         <ActionButton
           progress={progress}
-          accentColor="rgba(255,69,58,0.82)"
-          icon={<Trash2 size={19} color="rgba(255,69,58,0.9)" strokeWidth={2} />}
+          icon={<Trash2 size={22} color="rgba(255,69,58,0.9)" strokeWidth={2} />}
           onPress={handleDelete}
         />
       </View>);
@@ -205,8 +193,6 @@ const styles = StyleSheet.create({
   actionBtn: {
     width: BTN_SIZE,
     height: BTN_SIZE,
-    borderRadius: 14,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -2625,7 +2625,7 @@ export default function WorkoutScreen() {
           onInfo={() => handleExerciseTap(ex)}
           onSwap={() => handleSwapExercise(ex)}
           onDelete={() => handleDeleteExercise(ex.id)}
-          rowBg={'transparent'}
+          rowBg={colors.card}
 
           enabled={activeDragId === null}
         >
@@ -2681,7 +2681,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={'transparent'}
+                    rowBg={colors.card}
           
                     enabled={activeDragId === null}
                   >
@@ -2776,7 +2776,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={'transparent'}
+                    rowBg={colors.card}
           
                     enabled={activeDragId === null}
                   >
@@ -2864,7 +2864,7 @@ export default function WorkoutScreen() {
                 onInfo={() => handleExerciseTap(ex)}
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
-                rowBg={'transparent'}
+                rowBg={colors.card}
       
                 enabled={activeDragId === null}
               >
@@ -2921,7 +2921,7 @@ export default function WorkoutScreen() {
               onInfo={() => handleExerciseTap(ex)}
               onSwap={() => handleSwapExercise(ex)}
               onDelete={() => handleDeleteExercise(ex.id)}
-              rowBg={'transparent'}
+              rowBg={colors.card}
     
               enabled={activeDragId === null}
             >
@@ -2971,7 +2971,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={'transparent'}
+                    rowBg={colors.card}
           
                     enabled={activeDragId === null}
                   >
@@ -3034,7 +3034,7 @@ export default function WorkoutScreen() {
                 onInfo={() => handleExerciseTap(ex)}
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
-                rowBg={'transparent'}
+                rowBg={colors.card}
       
                 enabled={activeDragId === null}
               >
@@ -3095,7 +3095,7 @@ export default function WorkoutScreen() {
                 onInfo={() => handleExerciseTap(ex)}
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
-                rowBg={'transparent'}
+                rowBg={colors.card}
       
                 enabled={activeDragId === null}
               >
@@ -3162,7 +3162,7 @@ export default function WorkoutScreen() {
                     onInfo={() => handleExerciseTap(ex)}
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
-                    rowBg={'transparent'}
+                    rowBg={colors.card}
           
                     enabled={activeDragId === null}
                   >
@@ -3696,7 +3696,7 @@ export default function WorkoutScreen() {
                           onInfo={() => handleExerciseTap(ex)}
                           onSwap={() => handleSwapExercise(ex)}
                           onDelete={() => handleDeleteExercise(ex.id)}
-                          rowBg={'transparent'}
+                          rowBg={colors.card}
                 
                           enabled={activeDragId === null}
                         >
