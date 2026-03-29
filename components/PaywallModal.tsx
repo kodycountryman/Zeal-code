@@ -11,9 +11,11 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Crown, Check, Minus, Zap, BarChart3, Dumbbell, CalendarRange, Target, Heart, Layers, Award, ThumbsUp, Bookmark } from 'lucide-react-native';
+import Reanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { X, Crown, Check, Minus, Zap, BarChart3, Dumbbell, CalendarRange, Target, Heart, Layers, Award, ThumbsUp, Bookmark, Play, Lock } from 'lucide-react-native';
 import { useSubscription, PaywallVersion } from '@/context/SubscriptionContext';
 import { PRO_GOLD } from '@/services/proGate';
+import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 const ORANGE = '#f87116';
 const BG = '#0c0c0f';
@@ -86,6 +88,8 @@ export default function PaywallModal({
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const crownRotate = useRef(new Animated.Value(0)).current;
   const glowPulse = useRef(new Animated.Value(0.7)).current;
+  const ctaScale = useSharedValue(1);
+  const ctaAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
 
   const isTrial = version === 'trial';
 
@@ -212,27 +216,31 @@ export default function PaywallModal({
               </View>
 
               <View style={styles.featureList}>
-                {PRO_FEATURES.map((feat) => (
-                  <View key={feat.label} style={styles.featureRow}>
-                    <View style={styles.featureIconWrap}>
-                      <feat.icon size={16} color={ORANGE} strokeWidth={2} />
-                    </View>
-                    <View style={styles.featureText}>
-                      <Text style={styles.featureLabel}>{feat.label}</Text>
-                      <Text style={styles.featureSub}>{feat.sub}</Text>
-                    </View>
-                    <View style={styles.checkWrap}>
-                      <Check size={14} color="#22c55e" strokeWidth={3} />
+                {PRO_FEATURES.map((feat, i) => (
+                  <View key={feat.label}>
+                    {i > 0 && <View style={styles.featureDivider} />}
+                    <View style={styles.featureRow}>
+                      <View style={styles.featureIconWrap}>
+                        <feat.icon size={17} color={ORANGE} strokeWidth={2} />
+                      </View>
+                      <View style={styles.featureText}>
+                        <Text style={styles.featureLabel}>{feat.label}</Text>
+                        <Text style={styles.featureSub}>{feat.sub}</Text>
+                      </View>
+                      <Check size={16} color="#22c55e" strokeWidth={2.5} />
                     </View>
                   </View>
                 ))}
               </View>
 
               <View style={styles.priceCard}>
+                {/* Inner glow overlay */}
+                <View style={styles.priceCardInnerGlow} pointerEvents="none" />
+
                 <View style={styles.priceRow}>
                   <View>
                     <Text style={styles.priceAmount}>$5.99</Text>
-                    <Text style={styles.pricePer}>per month</Text>
+                    <Text style={styles.pricePer}>PER MONTH</Text>
                   </View>
                   {isTrial && (
                     <View style={styles.trialPill}>
@@ -244,14 +252,14 @@ export default function PaywallModal({
                 <View style={styles.priceDetails}>
                   {isTrial ? (
                     <>
-                      <Text style={styles.priceDetailLine}>✓ No charge until Day 8</Text>
-                      <Text style={styles.priceDetailLine}>✓ Cancel within 7 days — pay nothing</Text>
-                      <Text style={styles.priceDetailLine}>✓ $5.99/mo after your free trial ends</Text>
+                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>No charge until Day 8</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Cancel within 7 days — pay nothing</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>$5.99/mo after your free trial ends</Text></View>
                     </>
                   ) : (
                     <>
-                      <Text style={styles.priceDetailLine}>✓ Billed monthly · Cancel anytime</Text>
-                      <Text style={styles.priceDetailLine}>✓ Instant access to all Pro features</Text>
+                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Billed monthly · Cancel anytime</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Instant access to all Pro features</Text></View>
                     </>
                   )}
                 </View>
@@ -261,69 +269,73 @@ export default function PaywallModal({
                 <Text style={styles.compareTitle}>CORE VS PRO</Text>
                 <View style={styles.compareRow}>
                   <View style={[styles.compareCol, styles.coreCol]}>
-                    <View style={styles.compareColHeader}>
+                    <View style={[styles.compareColHeader, styles.coreColHeader]}>
                       <Text style={styles.coreColTitle}>Zeal Core</Text>
                       <Text style={styles.coreColSubtitle}>Free forever</Text>
                     </View>
                     {CORE_ITEMS.map((item) => (
                       <View key={item.label} style={styles.compareItem}>
-                        <View style={[styles.compareCheckWrap, styles.coreCheckWrap]}>
-                          <Check size={10} color="#555" strokeWidth={3} />
-                        </View>
+                        <Check size={12} color="rgba(255,255,255,0.2)" strokeWidth={2.5} />
                         <Text style={styles.coreItemText}>{item.label}</Text>
                       </View>
                     ))}
                   </View>
 
                   <View style={[styles.compareCol, styles.proCol]}>
-                    <View style={styles.compareColHeader}>
+                    <View style={[styles.compareColHeader, styles.proColHeader]}>
                       <Text style={styles.proColTitle}>Zeal Pro ✦</Text>
                       <Text style={styles.proColSubtitle}>$5.99/mo</Text>
                     </View>
                     <View style={styles.compareItem}>
-                      <View style={[styles.compareCheckWrap, styles.proCheckWrap]}>
-                        <Check size={10} color="#22c55e" strokeWidth={3} />
-                      </View>
+                      <Check size={12} color="#22c55e" strokeWidth={2.5} />
                       <Text style={styles.proItemEverything}>Everything in Core</Text>
                     </View>
                     {PRO_ITEMS.map((item) => (
                       <View key={item.label} style={styles.compareItem}>
-                        <View style={[styles.compareCheckWrap, styles.proCheckWrap]}>
-                          <Check size={10} color="#22c55e" strokeWidth={3} />
-                        </View>
+                        <Check size={12} color="#22c55e" strokeWidth={2.5} />
                         <Text style={styles.proItemText}>{item.label}</Text>
                       </View>
                     ))}
                   </View>
                 </View>
-
               </View>
 
               <View style={{ height: 120 }} />
             </ScrollView>
 
             <View style={styles.footer}>
-              <TouchableOpacity
-                style={[styles.ctaBtn, isPurchasing && styles.ctaBtnLoading]}
-                onPress={onPurchase}
-                activeOpacity={0.88}
-                disabled={isPurchasing || isRestoring}
-                testID="paywall-cta"
-              >
-                {isPurchasing ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.ctaBtnText}>
-                    {isTrial ? 'Start Free Trial' : 'Unlock Zeal Pro'}
-                  </Text>
-                )}
-              </TouchableOpacity>
+              <Reanimated.View style={[{ width: '100%' }, ctaAnimStyle]}>
+                <TouchableOpacity
+                  style={[styles.ctaBtn, isPurchasing && styles.ctaBtnLoading]}
+                  onPress={onPurchase}
+                  onPressIn={() => { ctaScale.value = withSpring(0.97, SWIFT_REANIMATED_SPRING); }}
+                  onPressOut={() => { ctaScale.value = withSpring(1, SWIFT_REANIMATED_SPRING); }}
+                  activeOpacity={1}
+                  disabled={isPurchasing || isRestoring}
+                  testID="paywall-cta"
+                >
+                  {isPurchasing ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {isTrial
+                        ? <Play size={16} color="#fff" fill="#fff" strokeWidth={0} />
+                        : <Lock size={16} color="#fff" strokeWidth={2} />
+                      }
+                      <Text style={styles.ctaBtnText}>
+                        {isTrial ? 'Start Free Trial' : 'Unlock Zeal Pro'}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Reanimated.View>
 
               <TouchableOpacity
                 onPress={onRestore}
                 activeOpacity={0.7}
                 disabled={isPurchasing || isRestoring}
                 testID="paywall-restore"
+                style={{ marginTop: 4 }}
               >
                 {isRestoring ? (
                   <ActivityIndicator color={TEXT_SEC} size="small" />
@@ -407,29 +419,28 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   crownContainer: {
-    width: 88,
-    height: 88,
+    width: 104,
+    height: 104,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
   glowRing: {
     position: 'absolute',
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: GOLD,
     shadowColor: GOLD,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 20,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
   },
   crownIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#1a1508',
     borderWidth: 1.5,
     borderColor: '#3a2e0a',
@@ -437,27 +448,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wordmark: {
-    fontSize: 30,
+    fontSize: 36,
     fontFamily: 'Outfit_800ExtraBold',
     fontStyle: 'italic',
     color: TEXT,
-    letterSpacing: -0.8,
+    letterSpacing: -1.5,
+    marginTop: 20,
   },
   proLabel: {
     fontSize: 12,
     fontFamily: 'Outfit_700Bold',
     color: GOLD,
-    letterSpacing: 4,
-    marginTop: -6,
+    letterSpacing: 6,
+    marginTop: 2,
+    marginBottom: 6,
   },
   contractBadge: {
     backgroundColor: '#f5c84218',
     borderWidth: 1,
     borderColor: '#f5c84240',
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    marginTop: 16,
   },
   contractBadgeAlt: {
     backgroundColor: `${ORANGE}15`,
@@ -470,34 +483,33 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   heroDesc: {
-    fontSize: 14,
-    color: TEXT_SEC,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: 22,
     paddingHorizontal: 8,
     marginTop: 4,
   },
   featureList: {
-    gap: 2,
     marginBottom: 20,
+  },
+  featureDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    backgroundColor: CARD_BG,
-    borderRadius: 12,
+    paddingVertical: 13,
     gap: 12,
-    marginBottom: 2,
-    borderWidth: 1,
-    borderColor: BORDER,
   },
   featureIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: `${ORANGE}18`,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(248,113,22,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,22,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -506,30 +518,32 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   featureLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Outfit_600SemiBold',
     color: TEXT,
   },
   featureSub: {
-    fontSize: 11,
-    color: TEXT_SEC,
-  },
-  checkWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#22c55e18',
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
   },
   priceCard: {
     backgroundColor: CARD_BG,
-    borderRadius: 16,
+    borderRadius: 26,
     padding: 18,
     borderWidth: 1,
-    borderColor: `${ORANGE}30`,
+    borderColor: 'rgba(248,113,22,0.22)',
     marginBottom: 20,
     gap: 12,
+    overflow: 'hidden',
+  },
+  priceCardInnerGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 25,
+    borderWidth: 0,
   },
   priceRow: {
     flexDirection: 'row',
@@ -537,27 +551,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   priceAmount: {
-    fontSize: 36,
+    fontSize: 42,
     fontFamily: 'Outfit_800ExtraBold',
     color: TEXT,
     letterSpacing: -1,
   },
   pricePer: {
-    fontSize: 12,
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
     color: TEXT_SEC,
-    marginTop: -4,
+    letterSpacing: 1.5,
+    marginTop: 2,
   },
   trialPill: {
-    backgroundColor: '#22c55e1a',
+    backgroundColor: 'rgba(34,197,94,0.12)',
     borderWidth: 1,
-    borderColor: '#22c55e40',
+    borderColor: 'rgba(34,197,94,0.4)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   trialPillText: {
     fontSize: 12,
-    fontFamily: 'Outfit_600SemiBold',
+    fontFamily: 'Outfit_700Bold',
     color: '#22c55e',
   },
   priceDivider: {
@@ -565,12 +581,17 @@ const styles = StyleSheet.create({
     backgroundColor: BORDER,
   },
   priceDetails: {
-    gap: 6,
+    gap: 8,
+  },
+  priceDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   priceDetailLine: {
     fontSize: 13,
-    color: TEXT_SEC,
-    lineHeight: 19,
+    color: 'rgba(255,255,255,0.55)',
+    lineHeight: 20,
   },
   compareSection: {
     gap: 12,
@@ -578,92 +599,80 @@ const styles = StyleSheet.create({
   },
   compareTitle: {
     fontSize: 11,
-    fontFamily: 'Outfit_700Bold',
-    color: TEXT_SEC,
-    letterSpacing: 1.5,
+    fontFamily: 'Outfit_600SemiBold',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 2,
+    marginBottom: 12,
   },
   compareRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 8,
   },
   compareCol: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
   },
   coreCol: {
-    backgroundColor: '#0f0f12',
-    borderColor: BORDER,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   proCol: {
-    backgroundColor: `${ORANGE}0d`,
-    borderColor: `${ORANGE}30`,
+    backgroundColor: 'rgba(248,113,22,0.07)',
+    borderColor: 'rgba(248,113,22,0.25)',
   },
   compareColHeader: {
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
     gap: 2,
   },
+  coreColHeader: {
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  proColHeader: {
+    borderBottomColor: 'rgba(248,113,22,0.15)',
+  },
   coreColTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Outfit_700Bold',
-    color: TEXT_SEC,
+    color: 'rgba(255,255,255,0.5)',
   },
   coreColSubtitle: {
     fontSize: 11,
-    color: '#444',
+    color: 'rgba(255,255,255,0.3)',
   },
   proColTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Outfit_700Bold',
     color: ORANGE,
   },
   proColSubtitle: {
     fontSize: 11,
-    color: `${ORANGE}99`,
+    color: 'rgba(248,113,22,0.7)',
   },
   compareItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 5,
   },
-  compareCheckWrap: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  coreCheckWrap: {
-    backgroundColor: '#1e1e22',
-  },
-  proCheckWrap: {
-    backgroundColor: '#22c55e18',
-  },
   coreItemText: {
-    fontSize: 11,
-    color: '#666',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.35)',
     flex: 1,
-  },
-  coreItemLocked: {
-    fontSize: 11,
-    color: '#333',
-    flex: 1,
-    textDecorationLine: 'line-through',
   },
   proItemText: {
-    fontSize: 11,
-    color: TEXT,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
     flex: 1,
   },
   proItemEverything: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#22c55e',
     flex: 1,
     fontFamily: 'Outfit_600SemiBold',
@@ -676,8 +685,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 22,
-    paddingVertical: 14,
-    gap: 12,
+    paddingTop: 14,
+    paddingBottom: 14,
+    gap: 16,
     borderTopWidth: 1,
     borderTopColor: BORDER,
     backgroundColor: BG,
@@ -686,22 +696,23 @@ const styles = StyleSheet.create({
   ctaBtn: {
     width: '100%',
     backgroundColor: ORANGE,
-    borderRadius: 16,
+    borderRadius: 26,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 8,
     shadowColor: ORANGE,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 6,
   },
   ctaBtnLoading: {
-    opacity: 0.7,
+    opacity: 0.8,
   },
   ctaBtnText: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 18,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.3,
   },
