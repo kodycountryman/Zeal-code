@@ -196,117 +196,100 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
 
   return (
     <View>
-      {/* ── Preset buttons anchor — position:relative so expanded panel can use top:'100%' ── */}
-      <View style={{ position: 'relative' }}>
-        <View style={[styles.presetsRow, { marginHorizontal: 16, marginTop: 4, marginBottom: 10 }]}>
-          {PRESETS.map((preset) => {
-            const isPresetActive = isActive && tracking.restTimeTotal === preset.seconds;
-            return (
-              <TouchableOpacity
-                key={preset.label}
-                style={[
-                  styles.presetBtn,
-                  { backgroundColor: isPresetActive ? `${accent}18` : chipBg },
-                  isPresetActive && { borderColor: accent },
-                ]}
-                onPress={() => handlePreset(preset.seconds)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.presetBtnText, { color: isPresetActive ? accent : (isDark ? '#ccc' : '#555') }]}>
-                  {preset.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      {/* ── Preset buttons — always in normal flow ── */}
+      <View style={[styles.presetsRow, { marginHorizontal: 16, marginTop: 4, marginBottom: 10 }]}>
+        {PRESETS.map((preset) => {
+          const isPresetActive = isActive && tracking.restTimeTotal === preset.seconds;
+          return (
+            <TouchableOpacity
+              key={preset.label}
+              style={[
+                styles.presetBtn,
+                { backgroundColor: isPresetActive ? `${accent}18` : chipBg },
+                isPresetActive && { borderColor: accent },
+              ]}
+              onPress={() => handlePreset(preset.seconds)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.presetBtnText, { color: isPresetActive ? accent : (isDark ? '#ccc' : '#555') }]}>
+                {preset.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
 
-          <View style={[styles.vertDivider, { backgroundColor: dividerColor }]} />
+        <View style={[styles.vertDivider, { backgroundColor: dividerColor }]} />
 
-          <TouchableOpacity
-            style={[styles.presetBtn, { backgroundColor: chipBg, opacity: isActive ? 1 : 0.3 }]}
-            onPress={() => handleAdjust(-15)}
-            activeOpacity={0.7}
-            disabled={!isActive}
-          >
-            <Text style={[styles.presetBtnText, { color: '#ef4444' }]}>-15s</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.presetBtn, { backgroundColor: chipBg, opacity: isActive ? 1 : 0.3 }]}
+          onPress={() => handleAdjust(-15)}
+          activeOpacity={0.7}
+          disabled={!isActive}
+        >
+          <Text style={[styles.presetBtnText, { color: '#ef4444' }]}>-15s</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.presetBtn, { backgroundColor: chipBg, opacity: isActive ? 1 : 0.3 }]}
-            onPress={() => handleAdjust(15)}
-            activeOpacity={0.7}
-            disabled={!isActive}
-          >
-            <Text style={[styles.presetBtnText, { color: '#22c55e' }]}>+15s</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Expanded panel — overlays scroll content, never pushes layout ── */}
-        {isActive && !isMinimized && (
-          <TouchableOpacity
-            onPress={handleToggle}
-            activeOpacity={0.95}
-            style={[styles.expandedPanel, { backgroundColor: colors.background }]}
-          >
-            {/* REST label + countdown */}
-            <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
-              <Text style={[styles.restLabel, { color: colors.textMuted }]}>REST</Text>
-              <RNAnimated.Text
-                style={[
-                  styles.countdown,
-                  { color: countdownColor, opacity: isUrgent ? pulseAnim : flashAnim },
-                  { fontVariant: ['tabular-nums'] as any },
-                ]}
-              >
-                {formatTime(tracking.restTimeRemaining)}
-              </RNAnimated.Text>
-            </View>
-
-            {/* Chevron (centered) + Cancel (right-aligned) */}
-            <View style={styles.chevronCancelRow}>
-              <View style={{ flex: 1 }} />
-              <ChevronUp size={18} color={colors.textSecondary} strokeWidth={2.5} />
-              <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <TouchableOpacity
-                  onPress={handleCancel}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Progress bar flush at bottom of overlay */}
-            <View style={styles.progressTrack}>
-              <Animated.View style={[styles.progressFill, progressAnimStyle]} />
-            </View>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.presetBtn, { backgroundColor: chipBg, opacity: isActive ? 1 : 0.3 }]}
+          onPress={() => handleAdjust(15)}
+          activeOpacity={0.7}
+          disabled={!isActive}
+        >
+          <Text style={[styles.presetBtnText, { color: '#22c55e' }]}>+15s</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* ── Expanded panel — normal flow, pushes SafeAreaView height up ── */}
+      {isActive && !isMinimized && (
+        <TouchableOpacity
+          onPress={handleToggle}
+          activeOpacity={0.95}
+          style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 0 }}
+        >
+          {/* REST label + countdown */}
+          <Text style={[styles.restLabel, { color: colors.textMuted }]}>REST</Text>
+          <RNAnimated.Text
+            style={[
+              styles.countdown,
+              { color: countdownColor, opacity: isUrgent ? pulseAnim : flashAnim },
+              { fontVariant: ['tabular-nums'] as any },
+            ]}
+          >
+            {formatTime(tracking.restTimeRemaining)}
+          </RNAnimated.Text>
+
+          {/* Chevron (centered) + Cancel (right-aligned) */}
+          <View style={styles.chevronCancelRow}>
+            <View style={{ flex: 1 }} />
+            <ChevronUp size={18} color={colors.textSecondary} strokeWidth={2.5} />
+            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+              <TouchableOpacity
+                onPress={handleCancel}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* ── Minimized: centered time + chevron — normal flow ── */}
       {isActive && isMinimized && (
-        <View style={styles.minimizedRow}>
+        <TouchableOpacity onPress={handleToggle} activeOpacity={0.7} style={styles.minimizedRow}>
           <Text style={[styles.minimizedTime, { color: colors.textSecondary }]}>
             {formatTime(tracking.restTimeRemaining)}
           </Text>
-          <TouchableOpacity
-            onPress={handleToggle}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
+          <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.5} />
+        </TouchableOpacity>
       )}
 
-      {/* ── Progress bar when minimized — normal flow ─────── */}
-      {isActive && isMinimized && (
-        <TouchableOpacity onPress={handleToggle} activeOpacity={1}>
-          <View style={styles.progressTrack}>
-            <Animated.View style={[styles.progressFill, progressAnimStyle]} />
-          </View>
-        </TouchableOpacity>
+      {/* ── Progress bar — always shown when active ── */}
+      {isActive && (
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, progressAnimStyle]} />
+        </View>
       )}
     </View>
   );
@@ -345,13 +328,6 @@ const styles = StyleSheet.create({
   minimizedTime: {
     fontSize: 12,
     fontFamily: 'Outfit_600SemiBold',
-  },
-  expandedPanel: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    zIndex: 100,
   },
   chevronCancelRow: {
     flexDirection: 'row',

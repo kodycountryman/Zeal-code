@@ -2149,7 +2149,7 @@ export default function WorkoutScreen() {
                   isOpen={swipeOpenSetKey === setKey}
                   onOpen={setSwipeOpenSetKey}
                   onDelete={() => tracking.removeSet(ex.id, setIdx)}
-                  waitForGesture={scrollGesture}
+        
                 >
                   <SetRowPressable
                     done={set.done}
@@ -2522,7 +2522,6 @@ export default function WorkoutScreen() {
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
-        <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
           <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
             <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
@@ -2544,7 +2543,6 @@ export default function WorkoutScreen() {
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
-        <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
           <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
             <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
@@ -2565,7 +2563,6 @@ export default function WorkoutScreen() {
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
-        <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
         <View style={styles.exerciseInfo}>
           <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
             <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
@@ -2629,7 +2626,7 @@ export default function WorkoutScreen() {
           onSwap={() => handleSwapExercise(ex)}
           onDelete={() => handleDeleteExercise(ex.id)}
           rowBg={'transparent'}
-          waitForGesture={scrollGesture}
+
           enabled={activeDragId === null}
         >
           <Pressable
@@ -2685,7 +2682,7 @@ export default function WorkoutScreen() {
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
                     rowBg={'transparent'}
-                    waitForGesture={scrollGesture}
+          
                     enabled={activeDragId === null}
                   >
                     <TouchableOpacity
@@ -2695,7 +2692,6 @@ export default function WorkoutScreen() {
                       delayLongPress={350}
                       activeOpacity={1}
                     >
-                      <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
                         <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
@@ -2781,7 +2777,7 @@ export default function WorkoutScreen() {
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
                     rowBg={'transparent'}
-                    waitForGesture={scrollGesture}
+          
                     enabled={activeDragId === null}
                   >
                     <TouchableOpacity
@@ -2791,7 +2787,6 @@ export default function WorkoutScreen() {
                       delayLongPress={350}
                       activeOpacity={1}
                     >
-                      <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
                         <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFMetconExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>{repsMeta}</Text>
@@ -2870,7 +2865,7 @@ export default function WorkoutScreen() {
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
                 rowBg={'transparent'}
-                waitForGesture={scrollGesture}
+      
                 enabled={activeDragId === null}
               >
                 <TouchableOpacity
@@ -2880,7 +2875,6 @@ export default function WorkoutScreen() {
                   delayLongPress={350}
                   activeOpacity={1}
                 >
-                  <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{currentStationIdx + 1}</Text>
                   <View style={styles.exerciseInfo}>
                     <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isHyroxExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                     <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>{metaLine}</Text>
@@ -2928,7 +2922,7 @@ export default function WorkoutScreen() {
               onSwap={() => handleSwapExercise(ex)}
               onDelete={() => handleDeleteExercise(ex.id)}
               rowBg={'transparent'}
-              waitForGesture={scrollGesture}
+    
               enabled={activeDragId === null}
             >
               <View style={[styles.compactMovementRow, { borderBottomColor: `${colors.border}40` }]}>
@@ -2978,7 +2972,7 @@ export default function WorkoutScreen() {
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
                     rowBg={'transparent'}
-                    waitForGesture={scrollGesture}
+          
                     enabled={activeDragId === null}
                   >
                     <TouchableOpacity
@@ -2988,7 +2982,6 @@ export default function WorkoutScreen() {
                       delayLongPress={350}
                       activeOpacity={1}
                     >
-                      <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
                         <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCardioExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
@@ -3042,11 +3035,10 @@ export default function WorkoutScreen() {
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
                 rowBg={'transparent'}
-                waitForGesture={scrollGesture}
+      
                 enabled={activeDragId === null}
               >
                 <View style={styles.exerciseRow}>
-                  <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                   <View style={styles.exerciseInfo}>
                     <Text style={[styles.exerciseName, { color: isDone ? colors.textMuted : colors.text, fontFamily: 'Outfit_500Medium' }]}>
                       {ex.name}
@@ -3104,7 +3096,7 @@ export default function WorkoutScreen() {
                 onSwap={() => handleSwapExercise(ex)}
                 onDelete={() => handleDeleteExercise(ex.id)}
                 rowBg={'transparent'}
-                waitForGesture={scrollGesture}
+      
                 enabled={activeDragId === null}
               >
                 <TouchableOpacity
@@ -3114,7 +3106,6 @@ export default function WorkoutScreen() {
                   delayLongPress={350}
                   activeOpacity={1}
                 >
-                  <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                   <View style={styles.exerciseInfo}>
                     <Text style={[styles.exerciseName, { color: colors.text, fontFamily: expandedTrack === ex.id ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                     <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
@@ -3172,7 +3163,7 @@ export default function WorkoutScreen() {
                     onSwap={() => handleSwapExercise(ex)}
                     onDelete={() => handleDeleteExercise(ex.id)}
                     rowBg={'transparent'}
-                    waitForGesture={scrollGesture}
+          
                     enabled={activeDragId === null}
                   >
                     <TouchableOpacity
@@ -3182,7 +3173,6 @@ export default function WorkoutScreen() {
                       delayLongPress={350}
                       activeOpacity={1}
                     >
-                      <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{exIdx + 1}</Text>
                       <View style={styles.exerciseInfo}>
                         <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: is75HardExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>
                           {ex.name}
@@ -3274,7 +3264,7 @@ export default function WorkoutScreen() {
       <AmbientGlow color={currentAccent} opacity={0.06} />
       {isZeal && <ZealBackground />}
 
-      <SafeAreaView edges={['top']} style={{ zIndex: 100 }}>
+      <SafeAreaView edges={['top']}>
         <View style={styles.topBar}>
           <TouchableOpacity
             style={[styles.avatarBtn, { borderColor: ctx.userPhotoUri ? 'transparent' : colors.border }]}
@@ -3331,7 +3321,7 @@ export default function WorkoutScreen() {
       <GestureDetector gesture={scrollGesture}>
       <ScrollView
         ref={scrollViewRef}
-        style={{ flex: 1, zIndex: 0 }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={true}
@@ -3707,7 +3697,7 @@ export default function WorkoutScreen() {
                           onSwap={() => handleSwapExercise(ex)}
                           onDelete={() => handleDeleteExercise(ex.id)}
                           rowBg={'transparent'}
-                          waitForGesture={scrollGesture}
+                
                           enabled={activeDragId === null}
                         >
                           <TouchableOpacity
@@ -3717,7 +3707,6 @@ export default function WorkoutScreen() {
                             delayLongPress={350}
                             activeOpacity={1}
                           >
-                            <Text style={[styles.exerciseNum, { color: colors.textMuted }]}>{idx + 1}</Text>
                             <View style={styles.exerciseInfo}>
                               <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>
                                 {ex.name}
@@ -5053,21 +5042,16 @@ const styles = StyleSheet.create({
   },
   exerciseRowSeparator: {
     height: 1,
-    marginLeft: 38,
+    marginLeft: 16,
   },
   exerciseInfo: {
     flex: 1,
     gap: 3,
+    paddingLeft: 8,
   },
   exerciseName: {
     fontSize: 15,
     fontFamily: 'Outfit_500Medium',
-  },
-  exerciseNum: {
-    fontSize: 12,
-    fontFamily: 'Outfit_500Medium',
-    minWidth: 16,
-    textAlign: 'right' as const,
   },
   exerciseMeta: {
     fontSize: 13,

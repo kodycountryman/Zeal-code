@@ -5,12 +5,10 @@ import { Info, ArrowLeftRight, Trash2 } from 'lucide-react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { type RelationPropType } from 'react-native-gesture-handler/lib/typescript/components/utils';
 import Animated, {
   interpolate,
   Extrapolation,
   useAnimatedStyle,
-  useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
 
@@ -27,10 +25,6 @@ interface Props {
   onSwap: () => void;
   onDelete: () => void;
   rowBg: string;
-  /**
-   * External gesture that should take priority (e.g. the list/ScrollView gesture).
-   */
-  waitForGesture?: RelationPropType;
   /** When false, horizontal swipe is disabled (e.g. while reordering via grip drag). */
   enabled?: boolean;
   children: React.ReactNode;
@@ -90,20 +84,10 @@ function SwipeableExerciseRow({
   onSwap,
   onDelete,
   rowBg,
-  waitForGesture,
   enabled = true,
   children,
 }: Props) {
   const swipeableRef = useRef<SwipeableMethods>(null);
-  const progressRef = useRef<SharedValue<number> | null>(null);
-
-  const rowAnimStyle = useAnimatedStyle(() => {
-    const p = progressRef.current;
-    if (!p) return { opacity: 1 };
-    return {
-      opacity: interpolate(p.value, [0, 0.35, 1], [1, 0.6, 0], Extrapolation.CLAMP),
-    };
-  });
 
   useEffect(() => {
     if (!enabled) {
@@ -149,7 +133,6 @@ function SwipeableExerciseRow({
 
   const renderRightActions = useCallback(
     (progress: SharedValue<number>) => {
-      progressRef.current = progress;
       return (<View style={styles.actionsContainer}>
         <ActionButton
           progress={progress}
@@ -184,12 +167,9 @@ function SwipeableExerciseRow({
       friction={1}
       onSwipeableOpen={handleSwipeOpen}
       onSwipeableClose={handleSwipeClose}
-      // Run simultaneously with the scroll gesture instead of waiting for it to
-      // fail — the pan wins on horizontal movement, scroll wins on vertical.
-      simultaneousWithExternalGesture={waitForGesture}
       enabled={enabled}
-      // Lower threshold so RNGH activates (and cancels the Pressable's JS
-      // responder) after just 5 px of horizontal travel instead of the default 10.
+      activeOffsetX={[-8, 8]}
+      failOffsetY={[-5, 5]}
       dragOffsetFromRightEdge={5}
       dragOffsetFromLeftEdge={5}
       animationOptions={{
@@ -200,7 +180,7 @@ function SwipeableExerciseRow({
       }}
       containerStyle={styles.container}
     >
-      <Animated.View style={[styles.rowFront, { backgroundColor: rowBg }, rowAnimStyle]}>{children}</Animated.View>
+      <View style={[styles.rowFront, { backgroundColor: rowBg }]}>{children}</View>
     </ReanimatedSwipeable>
   );
 }
