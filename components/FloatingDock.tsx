@@ -58,7 +58,7 @@ const blueGradient: [string, string, string] = isDark
 
   const gradientHeight = 200;
 
-  const dockBg = isDark ? 'rgba(22,22,22,0.98)' : 'rgba(255,255,255,0.98)';
+  const dockBlurTint = isDark ? 'dark' : 'light';
 
   const openMenu = () => {
     setMenuOpen(true);
@@ -146,12 +146,13 @@ const blueGradient: [string, string, string] = isDark
           <View style={styles.restTimerSlot}>
             <RestTimerBar />
           </View>
-          <View
+          <BlurView
+            intensity={isDark ? 72 : 60}
+            tint={dockBlurTint}
             style={[
               styles.dock,
               {
-                backgroundColor: dockBg,
-                borderColor: colors.dockBorder,
+                borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
               },
             ]}
           >
@@ -161,11 +162,13 @@ const blueGradient: [string, string, string] = isDark
               testID="dock-home"
               activeOpacity={0.7}
             >
-              <Home
-                size={24}
-                color={isHome ? accent : colors.textSecondary}
-                strokeWidth={isHome ? 2.2 : 1.8}
-              />
+              <View style={[styles.tabIndicator, isHome && { backgroundColor: `${accent}22` }]}>
+                <Home
+                  size={22}
+                  color={isHome ? accent : colors.textSecondary}
+                  strokeWidth={isHome ? 2.2 : 1.8}
+                />
+              </View>
               <Text style={[styles.tabLabel, { color: isHome ? accent : colors.textSecondary }]}>
                 Home
               </Text>
@@ -179,16 +182,18 @@ const blueGradient: [string, string, string] = isDark
               testID="dock-workout"
               activeOpacity={0.7}
             >
-              <Dumbbell
-                size={24}
-                color={isWorkout ? accent : colors.textSecondary}
-                strokeWidth={isWorkout ? 2.2 : 1.8}
-              />
+              <View style={[styles.tabIndicator, isWorkout && { backgroundColor: `${accent}22` }]}>
+                <Dumbbell
+                  size={22}
+                  color={isWorkout ? accent : colors.textSecondary}
+                  strokeWidth={isWorkout ? 2.2 : 1.8}
+                />
+              </View>
               <Text style={[styles.tabLabel, { color: isWorkout ? accent : colors.textSecondary }]}>
                 Workout
               </Text>
             </TouchableOpacity>
-          </View>
+          </BlurView>
 
           <View style={styles.plusAbsoluteWrapper} pointerEvents="box-none">
             <TouchableOpacity
@@ -311,26 +316,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    overflow: 'visible',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 10,
   } as any,
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 4,
     paddingVertical: 2,
+  },
+  tabIndicator: {
+    width: 44,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
   centerSpacer: {
     width: 64,
