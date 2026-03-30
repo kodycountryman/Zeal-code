@@ -42,7 +42,10 @@ import AppWalkthrough from '@/components/AppWalkthrough';
 import { healthService } from '@/services/healthService';
 import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
 import type { Sex, FitnessLevel } from '@/context/AppContext';
+import { COMMERCIAL_EQUIPMENT_PRESET, HOME_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
+import { type TrainingGoal as Goal } from '@/constants/fitnessGoals';
 import { requestNotificationPermissions } from '@/services/notificationService';
+import { WORKOUT_STYLE_LIST as WORKOUT_STYLES_LIST } from '@/constants/workoutStyles';
 
 const { width: SW } = Dimensions.get('window');
 const ACCENT = '#f87116';
@@ -55,7 +58,7 @@ const TOTAL_STEPS = 12;
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-type Goal = 'Build Muscle' | 'Get Stronger' | 'Lose Weight' | 'Better Conditioning' | 'Flexibility' | 'Sport Performance';
+
 type EquipmentPreset = 'commercial' | 'home' | 'bodyweight' | 'custom';
 
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -68,48 +71,15 @@ const HEIGHTS_IN = Array.from({ length: 12 }, (_, i) => i);
 const WEIGHTS_LBS = Array.from({ length: 321 }, (_, i) => i + 80);
 const WEIGHTS_KG = Array.from({ length: 181 }, (_, i) => Math.round((i + 36) * 0.453592 * 10) / 10).filter((v, i, a) => a.indexOf(v) === i);
 
-const WORKOUT_STYLES_LIST = [
-  { key: 'Strength', desc: 'Heavy compound lifts, progressive overload' },
-  { key: 'Bodybuilding', desc: 'Volume, isolation, muscle growth' },
-  { key: 'Low-Impact', desc: 'Joint-friendly, higher reps, sustainable' },
-  { key: 'CrossFit', desc: 'Varied functional movements at intensity' },
-  { key: 'Hyrox', desc: 'Race-specific functional fitness' },
-  { key: 'Pilates', desc: 'Core control, mobility, mind-body' },
-  { key: 'Cardio', desc: 'Endurance, zone training, conditioning' },
-  { key: 'HIIT', desc: 'High-intensity intervals, max effort' },
-  { key: 'Mobility', desc: 'Joint health, flexibility, recovery' },
-];
-
 const GOALS: { key: Goal; Icon: LucideIcon }[] = [
   { key: 'Build Muscle', Icon: Dumbbell },
   { key: 'Get Stronger', Icon: TrendingUp },
   { key: 'Lose Weight', Icon: Flame },
   { key: 'Better Conditioning', Icon: Activity },
-  { key: 'Flexibility', Icon: Leaf },
+  { key: 'Improve Flexibility', Icon: Leaf },
   { key: 'Sport Performance', Icon: Trophy },
 ];
 
-const COMMERCIAL_EQUIP: Record<string, number> = {
-  olympic_bar_45: 1, ez_bar: 1, trap_bar: 1,
-  plate_45: 4, plate_35: 2, plate_25: 4, plate_10: 4, plate_5: 4, plate_2_5: 4,
-  db_fixed_set: 1, kb_16kg: 1, kb_24kg: 1,
-  cable_crossover: 1, lat_pulldown: 1, seated_row: 1,
-  leg_press: 1, leg_extension: 1, lying_leg_curl: 1, seated_leg_curl: 1,
-  pec_deck: 1, chest_press_machine: 1, shoulder_press_machine: 1,
-  smith_machine: 1, hack_squat: 1,
-  flat_bench: 2, adjustable_bench: 2, squat_rack: 1, power_rack: 1,
-  pullup_bar: 1, dip_bar: 1,
-  rowing_machine: 1, assault_bike: 1, treadmill: 2, stationary_bike: 1,
-  plyo_box: 1, foam_roller: 1, resistance_bands: 1, yoga_mat: 1,
-};
-
-const HOME_EQUIP: Record<string, number> = {
-  olympic_bar_45: 1, ez_bar: 1,
-  plate_45: 2, plate_25: 2, plate_10: 2, plate_5: 2, plate_2_5: 2,
-  db_fixed_set: 1, kb_16kg: 1, kb_24kg: 1,
-  flat_bench: 1, adjustable_bench: 1, squat_rack: 1, pullup_bar: 1,
-  resistance_bands: 1, foam_roller: 1, yoga_mat: 1,
-};
 
 function kgToLbs(kg: number): number {
   return Math.round(kg / 0.453592);
@@ -179,13 +149,11 @@ export default function OnboardingScreen() {
       case 9: return equipPreset !== null;
       case 10: return true;
       case 11: return true;
-      case 12: return false;
       default: return false;
     }
   }, [step, name, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone]);
 
   const goNext = useCallback(() => {
-    if (step === 12) return;
     if (step === 11) {
       setWalkthroughVisible(true);
       return;
@@ -208,47 +176,57 @@ export default function OnboardingScreen() {
     setWalkthroughVisible(false);
     setGenerating(true);
 
-    const finalWeight = weightUnit === 'kg' ? kgToLbs(weightLbs) : weightLbs;
-    const finalEquip =
-      equipPreset === 'commercial' ? COMMERCIAL_EQUIP
-        : equipPreset === 'home' ? HOME_EQUIP
-        : equipPreset === 'bodyweight' ? {}
-        : ctx.selectedEquipment;
+    try {
+      const finalWeight = weightUnit === 'kg' ? kgToLbs(weightLbs) : weightLbs;
+      const finalEquip =
+        equipPreset === 'commercial' ? COMMERCIAL_EQUIPMENT_PRESET
+          : equipPreset === 'home' ? HOME_EQUIPMENT_PRESET
+          : equipPreset === 'bodyweight' ? {}
+          : ctx.selectedEquipment;
 
-    const dob = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
+      const dob = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
 
-    const googlePhotoUri = ctx.googlePrefill?.photoUri ?? null;
+      const googlePhotoUri = ctx.googlePrefill?.photoUri ?? null;
 
-    // Reset ALL previous user data before applying the new user's profile
-    await ctx.resetForNewUser();
+      // Reset ALL previous user data before applying the new user's profile
+      await ctx.resetForNewUser();
 
-    // Use saveOnboardingProfile to atomically set all values and persist to storage
-    // (avoids stale-closure issues with calling saveState() after individual setters)
-    ctx.saveOnboardingProfile({
-      userName: name.trim(),
-      userPhotoUri: googlePhotoUri,
-      dateOfBirth: dob,
-      heightFt,
-      heightIn,
-      weight: finalWeight,
-      sex: sex ?? 'male',
-      fitnessLevel: fitnessLevel ?? 'beginner',
-      trainingGoals: [goal ?? 'Build Muscle'],
-      workoutStyle: workoutStyle ?? 'Strength',
-      selectedEquipment: finalEquip,
-      warmUp: warmUpEnabled,
-      coolDown: coolDownEnabled,
-      recovery: recoveryEnabled,
-      addCardio: addCardioEnabled,
-      coreFinisher: coreFinisherEnabled,
-    });
+      // Use saveOnboardingProfile to atomically set all values and persist to storage
+      // (avoids stale-closure issues with calling saveState() after individual setters)
+      ctx.saveOnboardingProfile({
+        userName: name.trim(),
+        userPhotoUri: googlePhotoUri,
+        dateOfBirth: dob,
+        heightFt,
+        heightIn,
+        weight: finalWeight,
+        sex: sex ?? 'male',
+        fitnessLevel: fitnessLevel ?? 'beginner',
+        trainingGoals: [goal ?? 'Build Muscle'],
+        workoutStyle: workoutStyle ?? 'Strength',
+        selectedEquipment: finalEquip,
+        warmUp: warmUpEnabled,
+        coolDown: coolDownEnabled,
+        recovery: recoveryEnabled,
+        addCardio: addCardioEnabled,
+        coreFinisher: coreFinisherEnabled,
+      });
 
-    await new Promise((r) => setTimeout(r, 1800));
+      await new Promise((r) => setTimeout(r, 1800));
 
-    ctx.completeOnboarding();
-    ctx.setShowPlusSpotlight(true);
-    setGenerating(false);
-    router.replace('/(tabs)');
+      ctx.completeOnboarding();
+      ctx.setShowPlusSpotlight(true);
+      router.replace('/(tabs)');
+    } catch (e) {
+      console.error('[Onboarding] Failed to save profile:', e);
+      Alert.alert(
+        'Something went wrong',
+        'We couldn\'t save your profile. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setGenerating(false);
+    }
   }, [name, birthDay, birthMonth, birthYear, heightFt, heightIn, weightLbs, weightUnit, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone, warmUpEnabled, coolDownEnabled, recoveryEnabled, addCardioEnabled, coreFinisherEnabled, ctx]);
 
   const handleRequestNotifications = useCallback(async () => {

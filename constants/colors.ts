@@ -96,6 +96,12 @@ export const WORKOUT_STYLE_DESCRIPTIONS: Record<string, string> = {
     'Gentle, joint-friendly training. Higher reps, lower loads, and controlled movements for sustainable fitness.',
 };
 
+export const MUSCLE_STATUS_COLORS: Record<string, string> = {
+  recovering: '#ef4444',
+  building: '#eab308',
+  ready: '#22c55e',
+};
+
 export const TRAINING_SPLITS: Record<string, string[]> = {
   Strength:     ['Push Day', 'Pull Day', 'Leg Day', 'Upper', 'Lower', 'Full Body', 'Core + Cardio'],
   Bodybuilding: ['Push Day', 'Pull Day', 'Leg Day', 'Upper', 'Lower', 'Full Body', 'Bro Split', 'Arnold Split'],

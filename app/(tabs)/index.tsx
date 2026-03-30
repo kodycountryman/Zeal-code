@@ -43,6 +43,8 @@ import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
 import { mockBibleVerse } from '@/mocks/homeData';
 import { WORKOUT_STYLE_COLORS, TRAINING_SPLITS } from '@/constants/colors';
 import { PRO_STYLES_SET } from '@/services/proGate';
+import { WORKOUT_STYLE_KEYS as STYLE_OPTIONS } from '@/constants/workoutStyles';
+import { SESSION_DURATION_OPTIONS as DURATION_CHIPS } from '@/services/planConstants';
 
 
 function getSmartCoachMessage({
@@ -128,8 +130,6 @@ function getMuscleGroupsFromSplit(split: string, style: string): string {
   return 'Full Body';
 }
 
-const DURATION_CHIPS = [30, 45, 60, 75, 90] as const;
-const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact'] as const;
 
 function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
   const readinessMap: Record<string, number> = {};
@@ -237,16 +237,18 @@ export default function HomeScreen() {
   const [healthHeartRate, setHealthHeartRate] = useState<number | null>(null);
 
   useEffect(() => {
-    if (ctx.healthConnected && ctx.healthSyncEnabled && Platform.OS !== 'web') {
-      healthService.getAllHealthData().then((data) => {
-        setHealthCalories(data.activeCalories);
-        setHealthSteps(data.steps);
-        setHealthHeartRate(data.restingHeartRate);
-        console.log('[Home] Health metrics loaded:', data);
-      }).catch((e) => {
-        console.log('[Home] Health metrics error:', e);
-      });
-    }
+    if (!ctx.healthConnected || !ctx.healthSyncEnabled || Platform.OS === 'web') return;
+    let cancelled = false;
+    healthService.getAllHealthData().then((data) => {
+      if (cancelled) return;
+      setHealthCalories(data.activeCalories);
+      setHealthSteps(data.steps);
+      setHealthHeartRate(data.restingHeartRate);
+      console.log('[Home] Health metrics loaded:', data);
+    }).catch((e) => {
+      if (!cancelled) console.log('[Home] Health metrics error:', e);
+    });
+    return () => { cancelled = true; };
   }, [ctx.healthConnected, ctx.healthSyncEnabled]);
 
   const [streakSheetVisible, setStreakSheetVisible] = useState(false);

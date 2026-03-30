@@ -1,4 +1,5 @@
 import type { EligibleStyle } from '@/mocks/exerciseDatabase';
+import { FITNESS_LEVELS } from '@/constants/fitnessLevel';
 
 export type RestTier = 'heavy_compound' | 'moderate_compound' | 'isolation' | 'core' | 'quick_bodyweight';
 
@@ -464,7 +465,7 @@ export function mapEngineStyleToDisplay(engineStyle: string): string {
 
 export function getDifficultyKey(sex: string, fitnessLevel: string): string {
   const s = sex === 'female' ? 'female' : 'male';
-  const l = (['beginner', 'intermediate', 'advanced'].includes(fitnessLevel))
+  const l = (FITNESS_LEVELS as readonly string[]).includes(fitnessLevel)
     ? fitnessLevel : 'intermediate';
   return `${s}_${l}`;
 }

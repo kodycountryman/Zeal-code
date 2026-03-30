@@ -24,7 +24,7 @@ import PanDownHandle from '@/components/PanDownHandle';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import type { HealthImportItem, DuplicateCandidate } from '@/context/WorkoutTrackingContext';
 
-const WORKOUT_STYLES = ['Strength', 'Bodybuilding', 'CrossFit', 'Hyrox', 'Cardio', 'HIIT', 'Mobility', 'Pilates'];
+import { WORKOUT_STYLE_KEYS as WORKOUT_STYLES } from '@/constants/workoutStyles';
 const MUSCLE_GROUPS = [
   'Chest', 'Lats', 'Back', 'Traps', 'Shoulders', 'Rear Delts',
   'Biceps', 'Triceps', 'Forearms', 'Core', 'Quads', 'Hamstrings', 'Glutes', 'Calves',
@@ -100,7 +100,7 @@ function ImportReviewCard({ item, index, total, colors, accent, isDark, onAccept
           </View>
           <View style={styles.healthInfoText}>
             <Text style={[styles.healthTitle, { color: colors.text }]}>
-              {item.activityType.replace(/([A-Z])/g, ' $1').trim() || 'Workout'}
+              {item.activityType.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').replace(/([a-z])([A-Z])/g, '$1 $2').trim() || 'Workout'}
             </Text>
             <Text style={[styles.healthSource, { color: colors.textSecondary }]}>
               {item.sourceName ?? 'Apple Health'} · {formatDate(item.dateStr)}

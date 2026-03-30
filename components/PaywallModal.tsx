@@ -72,6 +72,7 @@ interface Props {
   isPurchasing: boolean;
   isRestoring: boolean;
   purchaseError: string | null;
+  restoreError: string | null;
 }
 
 export default function PaywallModal({
@@ -83,11 +84,14 @@ export default function PaywallModal({
   isPurchasing,
   isRestoring,
   purchaseError,
+  restoreError,
 }: Props) {
   const scaleAnim = useRef(new Animated.Value(0.94)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const crownRotate = useRef(new Animated.Value(0)).current;
   const glowPulse = useRef(new Animated.Value(0.7)).current;
+  const glowLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const crownLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const ctaScale = useSharedValue(1);
   const ctaAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
 
@@ -109,25 +113,31 @@ export default function PaywallModal({
         }),
       ]).start();
 
-      Animated.loop(
+      glowLoopRef.current?.stop();
+      glowLoopRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(glowPulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
           Animated.timing(glowPulse, { toValue: 0.7, duration: 1000, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      glowLoopRef.current.start();
 
-      Animated.loop(
+      crownLoopRef.current?.stop();
+      crownLoopRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(crownRotate, { toValue: 1, duration: 1200, useNativeDriver: true }),
           Animated.timing(crownRotate, { toValue: -1, duration: 1200, useNativeDriver: true }),
           Animated.timing(crownRotate, { toValue: 0, duration: 800, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      crownLoopRef.current.start();
     } else {
       scaleAnim.setValue(0.94);
       opacityAnim.setValue(0);
-      glowPulse.stopAnimation();
-      crownRotate.stopAnimation();
+      glowLoopRef.current?.stop();
+      glowLoopRef.current = null;
+      crownLoopRef.current?.stop();
+      crownLoopRef.current = null;
     }
   }, [visible]);
 
@@ -141,6 +151,12 @@ export default function PaywallModal({
       Alert.alert('Purchase Failed', purchaseError);
     }
   }, [purchaseError]);
+
+  useEffect(() => {
+    if (restoreError) {
+      Alert.alert('Restore Failed', restoreError);
+    }
+  }, [restoreError]);
 
   return (
     <Modal
@@ -361,6 +377,7 @@ export function ConnectedPaywallModal() {
     isPurchasing,
     isRestoring,
     purchaseError,
+    restoreError,
   } = useSubscription();
 
   return (
@@ -373,6 +390,7 @@ export function ConnectedPaywallModal() {
       isPurchasing={isPurchasing}
       isRestoring={isRestoring}
       purchaseError={purchaseError}
+      restoreError={restoreError}
     />
   );
 }

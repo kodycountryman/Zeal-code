@@ -7,11 +7,12 @@ import type { WorkoutExercise } from '@/services/workoutEngine';
 import { Colors, WORKOUT_STYLE_COLORS, ZEAL_ACCENT_COLORS } from '@/constants/colors';
 import type { GeneratedPlanSchedule, DayPrescription } from '@/services/planEngine';
 import type { PlanGoal, PlanLength, ExperienceLevel as PlanExperienceLevel } from '@/services/planConstants';
-import { ALL_EQUIPMENT_IDS } from '@/mocks/equipmentData';
+import { ALL_EQUIPMENT_IDS, HOME_EQUIPMENT_PRESET, CROSSFIT_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
+import { type FitnessLevel } from '@/constants/fitnessLevel';
 
 export type AppTheme = 'system' | 'dark' | 'light' | 'zeal' | 'neon';
 export type Sex = 'male' | 'female' | 'prefer_not';
-export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
+export type { FitnessLevel };
 export type SpecialLifeCase =
   | 'none'
   | 'pregnant'
@@ -194,41 +195,9 @@ const DEFAULT_MUSCLE_READINESS: MuscleReadinessItem[] = [
   { name: 'Calves', status: 'ready', value: 88, lastWorked: '3d ago' },
 ];
 
-const HOME_GYM_EQUIPMENT: Record<string, number> = {
-  olympic_bar_45: 1, ez_bar: 1,
-  plate_45: 1, plate_25: 1, plate_10: 1, plate_5: 1, plate_2_5: 1,
-  db_hex_set: 1, db_5: 1, db_10: 1, db_15: 1, db_20: 1, db_25: 1, db_30: 1,
-  kb_16kg: 1, kb_24kg: 1,
-  flat_bench: 1, adjustable_bench: 1,
-  squat_rack: 1,
-  pullup_bar: 1, dip_bar: 1,
-  resistance_bands: 1, mobility_bands: 1,
-  yoga_mat: 1, foam_roller: 1,
-};
-
-const CROSSFIT_GYM_EQUIPMENT: Record<string, number> = {
-  olympic_bar_45: 1, kilo_bar: 1,
-  bumper_45: 1, bumper_35: 1, bumper_25: 1, bumper_10: 1,
-  db_fixed_set: 1,
-  kb_8kg: 1, kb_12kg: 1, kb_16kg: 1, kb_20kg: 1, kb_24kg: 1, kb_28kg: 1, kb_32kg: 1,
-  rowing_machine: 1, assault_bike: 1, ski_erg: 1,
-  flat_bench: 1, adjustable_bench: 1,
-  squat_rack: 1, power_rack: 1,
-  pullup_bar: 1, dip_bar: 1, gym_rings: 1, monkey_bars: 1, parallel_bars: 1,
-  trx: 1,
-  sled_push: 1, sled_pull: 1,
-  plyo_box: 1, jump_rope: 1, battle_ropes: 1,
-  med_ball_6: 1, med_ball_10: 1, med_ball_14: 1, med_ball_20: 1,
-  slam_ball_20: 1, slam_ball_30: 1, slam_ball_40: 1,
-  wall_ball_14: 1, wall_ball_20: 1,
-  resistance_bands: 1, mobility_bands: 1,
-  back_extension: 1,
-  foam_roller: 1, yoga_mat: 1,
-};
-
 const DEFAULT_SAVED_GYMS: SavedGym[] = [
-  { id: 'default_home', name: 'Home Gym', equipment: HOME_GYM_EQUIPMENT },
-  { id: 'default_crossfit', name: 'CrossFit Gym', equipment: CROSSFIT_GYM_EQUIPMENT },
+  { id: 'default_home', name: 'Home Gym', equipment: HOME_EQUIPMENT_PRESET },
+  { id: 'default_crossfit', name: 'CrossFit Gym', equipment: CROSSFIT_EQUIPMENT_PRESET },
 ];
 
 function getTodayZealAccent(): string {
@@ -239,16 +208,16 @@ function getTodayZealAccent(): string {
 export const [AppProvider, useAppContext] = createContextHook(() => {
   const systemScheme = useColorScheme();
 
-  const [userName, setUserName] = useState<string>('Kody');
+  const [userName, setUserName] = useState<string>('');
   const [userPhotoUri, setUserPhotoUri] = useState<string | null>(null);
   const [dateOfBirth, setDateOfBirth] = useState<string>('');
 
-  const [heightFt, setHeightFt] = useState<number>(6);
-  const [heightIn, setHeightIn] = useState<number>(0);
-  const [weight, setWeight] = useState<number>(164);
+  const [heightFt, setHeightFt] = useState<number>(5);
+  const [heightIn, setHeightIn] = useState<number>(10);
+  const [weight, setWeight] = useState<number>(160);
   const [sex, setSex] = useState<Sex>('male');
-  const [bodyFat, setBodyFat] = useState<number>(15);
-  const [fitnessLevel, setFitnessLevel] = useState<FitnessLevel>('intermediate');
+  const [bodyFat, setBodyFat] = useState<number>(20);
+  const [fitnessLevel, setFitnessLevel] = useState<FitnessLevel>('beginner');
   const [trainingGoals, setTrainingGoals] = useState<string[]>(['Build Muscle']);
   const [specialLifeCase, setSpecialLifeCase] = useState<SpecialLifeCase>('none');
   const [specialLifeCaseDetail, setSpecialLifeCaseDetail] = useState<string>('');
@@ -439,7 +408,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
         } else {
           const defaults = buildDefaultExercisePreferences();
           setExercisePreferences(defaults);
-          AsyncStorage.setItem(EXERCISE_PREFS_KEY, JSON.stringify(defaults)).catch(() => {});
+          AsyncStorage.setItem(EXERCISE_PREFS_KEY, JSON.stringify(defaults)).catch((e) => console.warn('[AppContext] Failed to save default exercise prefs:', e));
           console.log('[AppContext] Applied smart default exercise preferences');
         }
         if (planRaw) {
@@ -825,7 +794,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       if (!prev) return prev;
       const missed = [...(prev.missedDays ?? []), dateStr];
       const updated = { ...prev, missedDays: missed };
-      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch(() => {});
+      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) => console.warn('[AppContext] Failed to save missed day to plan:', e));
       return updated;
     });
   }, []);

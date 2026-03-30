@@ -10,7 +10,9 @@ export type PaywallVersion = 'trial' | 'no_trial';
 
 const STORAGE_KEY = '@zeal_subscription_v2';
 
-const DEV_FORCE_PRO: boolean | null = true;
+// Forces Pro on during local development only. Automatically null on any compiled build
+// (TestFlight, App Store, Play Store) — no manual step needed before submission.
+const DEV_FORCE_PRO: boolean | null = __DEV__ ? true : null;
 
 interface PersistedState {
   hasEverStarted: boolean;
@@ -61,6 +63,7 @@ try {
 export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   const queryClient = useQueryClient();
   const hasTriggeredThisSession = useRef(false);
+  const paywallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [persisted, setPersisted] = useState<PersistedState>(DEFAULT_PERSISTED);
@@ -110,6 +113,12 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
 
   const hasPro_ref = useRef(hasPro);
   hasPro_ref.current = hasPro;
+
+  useEffect(() => {
+    return () => {
+      if (paywallTimerRef.current) clearTimeout(paywallTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (customerInfoQuery.isSuccess && hasPro && persistedLoaded) {
@@ -166,7 +175,8 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
 
     if (shouldShow) {
       await savePersisted({ ...next, lastPaywallShownAtOpenCount: newCount });
-      setTimeout(() => setPaywallOpen(true), 7000);
+      if (paywallTimerRef.current) clearTimeout(paywallTimerRef.current);
+      paywallTimerRef.current = setTimeout(() => setPaywallOpen(true), 7000);
     } else {
       await savePersisted(next);
     }
@@ -248,6 +258,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     purchaseError: purchaseMutation.error ? String(purchaseMutation.error) : null,
     restorePurchases: () => restoreMutation.mutate(),
     isRestoring: restoreMutation.isPending,
+    restoreError: restoreMutation.error ? String(restoreMutation.error) : null,
     loaded: persistedLoaded,
     offerings: offeringsQuery.data ?? null,
   };

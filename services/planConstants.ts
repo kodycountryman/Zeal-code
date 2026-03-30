@@ -18,7 +18,8 @@ export type PlanPhase =
   | 'taper'
   | 'test';
 
-export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+import { type FitnessLevel } from '@/constants/fitnessLevel';
+export type ExperienceLevel = FitnessLevel;
 
 export interface PlanGoalOption {
   id: PlanGoal;

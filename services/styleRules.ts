@@ -1,9 +1,10 @@
 import type { WorkoutFormatId } from '@/services/styleFormats';
 import type { RestTier } from '@/services/engineConstants';
+import { type FitnessLevel, FITNESS_LEVELS } from '@/constants/fitnessLevel';
 
 console.log('[StyleRules] Style-specific generation rules loaded');
 
-export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
+export type { FitnessLevel };
 
 export interface FormatSelectionRule {
   format: WorkoutFormatId;
@@ -888,7 +889,7 @@ export function selectFormatForStyle(
 ): WorkoutFormatId {
   const rules = getStyleRules(style);
 
-  const levelOrder: FitnessLevel[] = ['beginner', 'intermediate', 'advanced'];
+  const levelOrder = FITNESS_LEVELS;
   const levelIdx = levelOrder.indexOf(fitnessLevel);
 
   let candidates = rules.format_selection.filter(fs => {

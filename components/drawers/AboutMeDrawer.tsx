@@ -12,7 +12,10 @@ import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@g
 import { RefreshCw, Stethoscope } from 'lucide-react-native';
 import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme, useAppContext, MuscleStatus, SpecialLifeCase, FitnessLevel, Sex } from '@/context/AppContext';
+import { MUSCLE_STATUS_COLORS } from '@/constants/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TRAINING_GOAL_KEYS } from '@/constants/fitnessGoals';
+import { FITNESS_LEVELS } from '@/constants/fitnessLevel';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DOB_DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -30,11 +33,6 @@ const HEIGHT_IN_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const WEIGHT_VALUES = Array.from({ length: 361 }, (_, i) => 40 + i);
 const BODY_FAT_VALUES = Array.from({ length: 95 }, (_, i) => Math.round((3 + i * 0.5) * 10) / 10);
 
-const MUSCLE_STATUS_COLORS: Record<MuscleStatus, string> = {
-  recovering: '#ef4444',
-  building: '#eab308',
-  ready: '#22c55e',
-};
 
 const SPECIAL_LIFE_CASES: { id: SpecialLifeCase; label: string }[] = [
   { id: 'none', label: 'None' },
@@ -45,14 +43,7 @@ const SPECIAL_LIFE_CASES: { id: SpecialLifeCase; label: string }[] = [
   { id: 'chronic_pain', label: 'Chronic Pain' },
 ];
 
-const TRAINING_GOALS = [
-  'Build Muscle',
-  'Get Stronger',
-  'Lose Weight',
-  'Better Conditioning',
-  'Improve Flexibility',
-  'Sport Performance',
-];
+const TRAINING_GOALS = TRAINING_GOAL_KEYS;
 
 function calcBMI(weightLbs: number, heightFt: number, heightIn: number): number {
   const totalInches = heightFt * 12 + heightIn;
@@ -508,7 +499,7 @@ export default function AboutMeDrawer({ visible, onClose, onBack }: Props) {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>FITNESS LEVEL</Text>
           <View style={styles.chipRow}>
-            {(['beginner', 'intermediate', 'advanced'] as FitnessLevel[]).map((l) => (
+            {FITNESS_LEVELS.map((l) => (
               <TouchableOpacity
                 key={l}
                 style={[

@@ -26,17 +26,11 @@ import { SPLIT_TO_MUSCLES } from '@/services/engineConstants';
 import CustomSlider from '@/components/CustomSlider';
 import { ALL_EQUIPMENT_IDS } from '@/mocks/equipmentData';
 
+import { WORKOUT_STYLE_LIST } from '@/constants/workoutStyles';
+
 const WORKOUT_STYLES_LIST = [
   { key: 'Auto', desc: 'Engine picks the best style for today' },
-  { key: 'Strength', desc: 'Heavy compound lifts, progressive overload' },
-  { key: 'Bodybuilding', desc: 'Volume, isolation, muscle growth' },
-  { key: 'Low-Impact', desc: 'Joint-friendly, higher reps, sustainable' },
-  { key: 'CrossFit', desc: 'Varied functional movements at intensity' },
-  { key: 'Hyrox', desc: 'Race-specific functional fitness' },
-  { key: 'Pilates', desc: 'Core control, mobility, mind-body' },
-  { key: 'Cardio', desc: 'Endurance, zone training, conditioning' },
-  { key: 'HIIT', desc: 'High-intensity intervals, max effort' },
-  { key: 'Mobility', desc: 'Joint health, flexibility, recovery' },
+  ...WORKOUT_STYLE_LIST,
 ];
 
 const AUTO_COLOR = '#888888';
@@ -370,10 +364,31 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
           contentContainerStyle={styles.content}
           onContentSizeChange={(_w: number, h: number) => setContentH(h)}
         >
+          {/* Workout Style */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)' }]}>Workout Style</Text>
+            <TouchableOpacity
+              style={[styles.stylePickerRow, { backgroundColor: subtleSurface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' }]}
+              onPress={() => styleSheetRef.current?.present()}
+              activeOpacity={0.75}
+            >
+              <View style={{ width: 3, height: 28, borderRadius: 2, backgroundColor: styleAccent, flexShrink: 0 }} />
+              <View style={styles.stylePickerTextCol}>
+                <Text style={[styles.stylePickerLabel, { color: colors.text }]}>{localStyle}</Text>
+                <Text style={[styles.stylePickerDesc, { color: colors.textSecondary }]}>
+                  {WORKOUT_STYLES_LIST.find(s => s.key === localStyle)?.desc ?? 'Select a training style'}
+                </Text>
+              </View>
+              <Text style={[styles.stylePickerChange, { color: styleAccent }]}>Change</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginHorizontal: -20 }} />
+
           {/* Target Duration */}
           <View style={styles.section}>
             <View style={styles.sectionLabelRow}>
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>Target Duration</Text>
+              <Text style={[styles.sectionLabel, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)' }]}>Target Duration</Text>
               <Text style={[styles.sectionValueBadge, { color: styleAccent }]}>{localDuration}m</Text>
             </View>
             <CustomSlider
@@ -394,163 +409,153 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
             </View>
           </View>
 
-          {/* Workout Style */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.text }]}>Workout Style</Text>
-            <TouchableOpacity
-              style={[styles.stylePickerRow, { backgroundColor: subtleSurface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' }]}
-              onPress={() => styleSheetRef.current?.present()}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.styleDot, { backgroundColor: styleAccent }]} />
-              <View style={styles.stylePickerTextCol}>
-                <Text style={[styles.stylePickerLabel, { color: colors.text }]}>{localStyle}</Text>
-                <Text style={[styles.stylePickerDesc, { color: colors.textSecondary }]}>
-                  {WORKOUT_STYLES_LIST.find(s => s.key === localStyle)?.desc ?? 'Select a training style'}
-                </Text>
-              </View>
-              <Text style={[styles.stylePickerChange, { color: styleAccent }]}>Change</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Split / Format */}
           {localStyle !== 'Auto' && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>{config.slot_label}</Text>
-              <View style={styles.chipGrid}>
-                {/* Auto chip — always first */}
-                {(() => {
-                  const isAutoSelected = localSplit === 'Auto' && !musclesOverrideSplit;
-                  return (
-                    <TouchableOpacity
-                      style={[
-                        styles.chip,
-                        { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' },
-                        isAutoSelected && { backgroundColor: AUTO_COLOR },
-                      ]}
-                      onPress={() => handleSlotSelect('Auto')}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        { color: isAutoSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
-                      ]}>
-                        Auto
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })()}
-                {/* Style-specific options (skip if already listed as 'Auto') */}
-                {config.slot_options.filter(sp => sp !== 'Auto').map((sp) => {
-                  const isSelected = localSplit === sp && !musclesOverrideSplit;
-                  return (
-                    <TouchableOpacity
-                      key={sp}
-                      style={[
-                        styles.chip,
-                        { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' },
-                        isSelected && { backgroundColor: styleAccent },
-                      ]}
-                      onPress={() => handleSlotSelect(sp)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
-                      ]}>
-                        {sp}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+            <>
+              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginHorizontal: -20 }} />
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)' }]}>{config.slot_label}</Text>
+                <View style={styles.chipGrid}>
+                  {/* Auto chip — always first */}
+                  {(() => {
+                    const isAutoSelected = localSplit === 'Auto' && !musclesOverrideSplit;
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.chip,
+                          { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' },
+                          isAutoSelected && { backgroundColor: AUTO_COLOR, borderColor: AUTO_COLOR },
+                        ]}
+                        onPress={() => handleSlotSelect('Auto')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.chipText,
+                          { color: isAutoSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
+                        ]}>
+                          Auto
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })()}
+                  {/* Style-specific options (skip if already listed as 'Auto') */}
+                  {config.slot_options.filter(sp => sp !== 'Auto').map((sp) => {
+                    const isSelected = localSplit === sp && !musclesOverrideSplit;
+                    return (
+                      <TouchableOpacity
+                        key={sp}
+                        style={[
+                          styles.chip,
+                          { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' },
+                          isSelected && { backgroundColor: styleAccent, borderColor: styleAccent },
+                        ]}
+                        onPress={() => handleSlotSelect(sp)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.chipText,
+                          { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
+                        ]}>
+                          {sp}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            </>
           )}
 
           {/* Muscles / Target */}
           {config.show_specific_muscles && localStyle !== 'Auto' && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>{config.muscles_label}</Text>
-              <View style={styles.chipGrid}>
-                {/* Auto chip — always first, clears muscle selection */}
-                {(() => {
-                  const isAutoMuscles = selectedMuscles.length === 0 && !cfHyroxTarget;
-                  return (
-                    <TouchableOpacity
-                      style={[
-                        styles.chip,
-                        { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' },
-                        isAutoMuscles && { backgroundColor: AUTO_COLOR },
-                      ]}
-                      onPress={() => {
-                        setSelectedMuscles([]);
-                        setCfHyroxTarget(null);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        { color: isAutoMuscles ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
-                      ]}>
-                        Auto
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })()}
-                {isCFOrHyrox ? (
-                  TARGET_PRESETS.map((p) => {
-                    const isSelected = cfHyroxTarget === p.label;
+            <>
+              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginHorizontal: -20 }} />
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)' }]}>{config.muscles_label}</Text>
+                <View style={styles.chipGrid}>
+                  {/* Auto chip — always first, clears muscle selection */}
+                  {(() => {
+                    const isAutoMuscles = selectedMuscles.length === 0 && !cfHyroxTarget;
                     return (
                       <TouchableOpacity
-                        key={p.label}
                         style={[
                           styles.chip,
-                          { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' },
-                          isSelected && { backgroundColor: styleAccent },
+                          { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' },
+                          isAutoMuscles && { backgroundColor: AUTO_COLOR, borderColor: AUTO_COLOR },
                         ]}
-                        onPress={() => handleTargetPresetSelect(p.label)}
+                        onPress={() => {
+                          setSelectedMuscles([]);
+                          setCfHyroxTarget(null);
+                        }}
                         activeOpacity={0.7}
                       >
                         <Text style={[
                           styles.chipText,
-                          { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
+                          { color: isAutoMuscles ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
                         ]}>
-                          {p.label}
+                          Auto
                         </Text>
                       </TouchableOpacity>
                     );
-                  })
-                ) : (
-                  MUSCLE_CHIPS.map(({ display }) => {
-                    const isSelected = selectedMuscles.includes(display);
-                    return (
-                      <TouchableOpacity
-                        key={display}
-                        style={[
-                          styles.chip,
-                          { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' },
-                          isSelected && { backgroundColor: styleAccent },
-                        ]}
-                        onPress={() => handleMuscleToggle(display)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[
-                          styles.chipText,
-                          { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
-                        ]}>
-                          {display}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
+                  })()}
+                  {isCFOrHyrox ? (
+                    TARGET_PRESETS.map((p) => {
+                      const isSelected = cfHyroxTarget === p.label;
+                      return (
+                        <TouchableOpacity
+                          key={p.label}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' },
+                            isSelected && { backgroundColor: styleAccent, borderColor: styleAccent },
+                          ]}
+                          onPress={() => handleTargetPresetSelect(p.label)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[
+                            styles.chipText,
+                            { color: isSelected ? '#fff' : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
+                          ]}>
+                            {p.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    MUSCLE_CHIPS.map(({ display }) => {
+                      const isSelected = selectedMuscles.includes(display);
+                      return (
+                        <TouchableOpacity
+                          key={display}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' },
+                            isSelected && { backgroundColor: `${styleAccent}18`, borderWidth: 1.5, borderColor: styleAccent },
+                          ]}
+                          onPress={() => handleMuscleToggle(display)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[
+                            styles.chipText,
+                            { color: isSelected ? styleAccent : isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' },
+                          ]}>
+                            {display}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </View>
               </View>
-            </View>
+            </>
           )}
 
           {/* Equipment */}
+          {config.show_specific_muscles && localStyle !== 'Auto' && (
+            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginHorizontal: -20 }} />
+          )}
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.text }]}>Gym Equipment</Text>
+            <Text style={[styles.sectionLabel, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)' }]}>Gym Equipment</Text>
             <View style={styles.gymPresetsTopRow}>
               <TouchableOpacity
                 style={[
@@ -679,9 +684,11 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
 
           {/* Rest Between Sets */}
           {restVisible && (
+            <>
+            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginHorizontal: -20 }} />
             <View style={styles.section}>
               <View style={styles.sectionLabelRow}>
-                <Text style={[styles.sectionLabel, { color: colors.text }]}>Rest Between Sets</Text>
+                <Text style={[styles.sectionLabel, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)' }]}>Rest Between Sets</Text>
                 <Text style={[styles.sectionValueBadge, { color: styleAccent }]}>{restLabel}</Text>
               </View>
               <CustomSlider
@@ -700,6 +707,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                 <Text style={[styles.rangeLabel, { color: colors.textMuted }]}>More</Text>
               </View>
             </View>
+            </>
           )}
 
           <View style={{ height: 32 }} />
@@ -743,7 +751,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                 onPress={() => handleStyleSelect(s.key)}
                 activeOpacity={0.75}
               >
-                <View style={[styles.styleListDot, { backgroundColor: color }]} />
+                <View style={{ width: 3, height: 28, borderRadius: 2, backgroundColor: color, flexShrink: 0 }} />
                 <View style={styles.styleListTextCol}>
                   <Text style={[styles.styleListLabel, { color: isSelected ? color : colors.text }]}>{s.key}</Text>
                   <Text style={[styles.styleListDesc, { color: colors.textSecondary }]}>{s.desc}</Text>
@@ -774,13 +782,13 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: 'Outfit_800ExtraBold',
     letterSpacing: -0.5,
     flex: 1,
   },
   applyBtn: {
-    borderRadius: 14,
+    borderRadius: 26,
     paddingHorizontal: 22,
     height: 42,
     alignItems: 'center',
@@ -807,9 +815,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLabel: {
-    fontSize: 16,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.3,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 1,
+    textTransform: 'uppercase' as const,
   },
   sectionValueBadge: {
     fontSize: 13,
@@ -832,16 +841,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
-  },
-  styleDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    flexShrink: 0,
   },
   stylePickerTextCol: {
     flex: 1,
@@ -864,12 +867,14 @@ const styles = StyleSheet.create({
   chipGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   chip: {
     height: 38,
     paddingHorizontal: 16,
-    borderRadius: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -886,7 +891,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 26,
+    borderRadius: 16,
     paddingHorizontal: 12,
     height: 48,
   },
@@ -894,7 +899,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 26,
+    borderRadius: 16,
     paddingHorizontal: 12,
     height: 48,
   },
@@ -912,7 +917,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   savedGymsList: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
     marginTop: 4,
@@ -978,12 +983,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 12,
-  },
-  styleListDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    flexShrink: 0,
   },
   styleListTextCol: {
     flex: 1,

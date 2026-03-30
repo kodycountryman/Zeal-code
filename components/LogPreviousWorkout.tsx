@@ -9,13 +9,14 @@ import {
   TextInput,
   Dimensions,
   InteractionManager,
+  Alert,
 } from 'react-native';
 import { Calendar, X } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import WheelPicker from '@/components/WheelPicker';
 
-const WORKOUT_STYLES = ['Strength', 'Bodybuilding', 'CrossFit', 'Hyrox', 'Cardio', 'HIIT', 'Mobility', 'Pilates'];
+import { WORKOUT_STYLE_KEYS as WORKOUT_STYLES } from '@/constants/workoutStyles';
 const MUSCLE_GROUPS = ['Chest', 'Lats', 'Back', 'Traps', 'Shoulders', 'Rear Delts', 'Biceps', 'Triceps', 'Forearms', 'Core', 'Quads', 'Hamstrings', 'Glutes', 'Calves'];
 
 const DURATION_VALUES = Array.from({ length: 60 }, (_, i) => (i + 1) * 5);
@@ -123,21 +124,24 @@ export default function LogPreviousWorkout() {
   }, [tracking.logPreviousVisible]);
 
   const handleSave = useCallback(() => {
-    requestAnimationFrame(() => {
-      tracking.logPreviousWorkout({
-        date,
-        style,
-        duration,
-        calories: calories > 0 ? calories : undefined,
-        muscleGroups: selectedMuscles,
-      });
-      tracking.setLogPreviousVisible(false);
-      setDate(getTodayStr());
-      setStyle('Strength');
-      setDuration(45);
-      setCalories(0);
-      setSelectedMuscles([]);
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date) || isNaN(new Date(date).getTime())) {
+      Alert.alert('Invalid Date', 'Please enter a valid date in YYYY-MM-DD format (e.g. 2024-03-15).');
+      return;
+    }
+    tracking.logPreviousWorkout({
+      date,
+      style,
+      duration,
+      calories: calories > 0 ? calories : undefined,
+      muscleGroups: selectedMuscles.length > 0 ? selectedMuscles : undefined,
     });
+    tracking.setLogPreviousVisible(false);
+    setDate(getTodayStr());
+    setStyle('Strength');
+    setDuration(45);
+    setCalories(0);
+    setSelectedMuscles([]);
   }, [tracking, date, style, duration, calories, selectedMuscles]);
 
   const toggleMuscle = useCallback((m: string) => {

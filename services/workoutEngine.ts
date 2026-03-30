@@ -18,7 +18,7 @@ export interface WorkoutExercise {
   suggestedWeight: string;
   lastSessionWeight: string;
   lastSessionReps: string;
-  exerciseRef: any;
+  exerciseRef: { movement_pattern?: string; equipment_required?: string[] } | null;
 }
 
 export interface CardioItem {

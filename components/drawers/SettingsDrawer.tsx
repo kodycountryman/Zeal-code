@@ -44,10 +44,7 @@ import {
   type NotifPermissionStatus,
 } from '@/services/notificationService';
 
-const WORKOUT_STYLES = [
-  'Strength', 'Bodybuilding', 'CrossFit', 'Hyrox',
-  'Cardio', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact',
-];
+import { WORKOUT_STYLE_KEYS as WORKOUT_STYLES } from '@/constants/workoutStyles';
 
 
 

@@ -182,3 +182,53 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
 export const ALL_EQUIPMENT_IDS: string[] = EQUIPMENT_CATEGORIES.flatMap((cat) =>
   cat.items.map((item) => item.id)
 );
+
+/**
+ * Equipment presets — single source of truth.
+ * Used by onboarding (initial setup) and as default saved gyms in AppContext.
+ */
+export const COMMERCIAL_EQUIPMENT_PRESET: Record<string, number> = {
+  olympic_bar_45: 1, ez_bar: 1, trap_bar: 1,
+  plate_45: 4, plate_35: 2, plate_25: 4, plate_10: 4, plate_5: 4, plate_2_5: 4,
+  db_fixed_set: 1, kb_16kg: 1, kb_24kg: 1,
+  cable_crossover: 1, lat_pulldown: 1, seated_row: 1,
+  leg_press: 1, leg_extension: 1, lying_leg_curl: 1, seated_leg_curl: 1,
+  pec_deck: 1, chest_press_machine: 1, shoulder_press_machine: 1,
+  smith_machine: 1, hack_squat: 1,
+  flat_bench: 2, adjustable_bench: 2, squat_rack: 1, power_rack: 1,
+  pullup_bar: 1, dip_bar: 1,
+  rowing_machine: 1, assault_bike: 1, treadmill: 2, stationary_bike: 1,
+  plyo_box: 1, foam_roller: 1, resistance_bands: 1, yoga_mat: 1,
+};
+
+export const HOME_EQUIPMENT_PRESET: Record<string, number> = {
+  olympic_bar_45: 1, ez_bar: 1,
+  plate_45: 1, plate_25: 1, plate_10: 1, plate_5: 1, plate_2_5: 1,
+  db_hex_set: 1, db_5: 1, db_10: 1, db_15: 1, db_20: 1, db_25: 1, db_30: 1,
+  kb_16kg: 1, kb_24kg: 1,
+  flat_bench: 1, adjustable_bench: 1,
+  squat_rack: 1,
+  pullup_bar: 1, dip_bar: 1,
+  resistance_bands: 1, mobility_bands: 1,
+  yoga_mat: 1, foam_roller: 1,
+};
+
+export const CROSSFIT_EQUIPMENT_PRESET: Record<string, number> = {
+  olympic_bar_45: 1, kilo_bar: 1,
+  bumper_45: 1, bumper_35: 1, bumper_25: 1, bumper_10: 1,
+  db_fixed_set: 1,
+  kb_8kg: 1, kb_12kg: 1, kb_16kg: 1, kb_20kg: 1, kb_24kg: 1, kb_28kg: 1, kb_32kg: 1,
+  rowing_machine: 1, assault_bike: 1, ski_erg: 1,
+  flat_bench: 1, adjustable_bench: 1,
+  squat_rack: 1, power_rack: 1,
+  pullup_bar: 1, dip_bar: 1, gym_rings: 1, monkey_bars: 1, parallel_bars: 1,
+  trx: 1,
+  sled_push: 1, sled_pull: 1,
+  plyo_box: 1, jump_rope: 1, battle_ropes: 1,
+  med_ball_6: 1, med_ball_10: 1, med_ball_14: 1, med_ball_20: 1,
+  slam_ball_20: 1, slam_ball_30: 1, slam_ball_40: 1,
+  wall_ball_14: 1, wall_ball_20: 1,
+  resistance_bands: 1, mobility_bands: 1,
+  back_extension: 1,
+  foam_roller: 1, yoga_mat: 1,
+};

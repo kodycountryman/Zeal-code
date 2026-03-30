@@ -52,7 +52,6 @@ import {
   CheckCircle2,
   Target,
   Footprints,
-  Clipboard,
   Info,
   Minus,
   SlidersHorizontal,
@@ -185,7 +184,7 @@ function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
   const name = (ex.name ?? '').toLowerCase();
   const equipment = (ex.equipment ?? '').toLowerCase();
   const repsStr = (ex.reps ?? '').trim();
-  const ref = ex.exerciseRef as { movement_pattern?: string; equipment_required?: string[] } | null;
+  const ref = ex.exerciseRef;
   const pattern = (ref?.movement_pattern ?? '').toLowerCase();
   const req = (ref?.equipment_required ?? []).map(r => r.toLowerCase());
 
@@ -3746,7 +3745,7 @@ export default function WorkoutScreen() {
                       suggestedWeight: 'BW',
                       lastSessionWeight: '',
                       lastSessionReps: '',
-                      exerciseRef: null as any,
+                      exerciseRef: null,
                     };
                     const isExpanded = expandedTrack === cardioEx.id;
                     const isCompleted = tracking.exerciseLogs[cardioEx.id]?.completed === true;
@@ -5009,7 +5008,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   workoutSection: {
-    borderRadius: 26,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
     overflow: 'hidden',
     marginHorizontal: -12,
   },
@@ -5305,6 +5308,7 @@ const styles = StyleSheet.create({
   },
   addBtnWrap: {
     position: 'relative',
+    paddingBottom: 16,
   },
   addBtnSquare: {
     width: 50,
@@ -5341,7 +5345,11 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 14,
   },
   cardioStandaloneCard: {
-    borderRadius: 26,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
     overflow: 'hidden',
     borderWidth: 1,
   },
@@ -5475,7 +5483,7 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     paddingHorizontal: 12,
-    paddingBottom: 12,
+    paddingBottom: 0,
     paddingTop: 2,
     gap: 8,
   },
@@ -6139,9 +6147,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   coreFinisherCard: {
-    borderRadius: 26,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
     borderWidth: 1,
-    marginBottom: 10,
     marginHorizontal: -12,
     overflow: 'hidden' as const,
   },

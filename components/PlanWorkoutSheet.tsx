@@ -19,13 +19,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZealTheme, useAppContext, type PlannedWorkout, type MuscleReadinessItem } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { WORKOUT_STYLE_COLORS, TRAINING_SPLITS } from '@/constants/colors';
-import { type WorkoutExercise } from '@/services/workoutEngine';
+import { type WorkoutExercise, generateWorkout } from '@/services/workoutEngine';
 import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
+import { WORKOUT_STYLE_KEYS as STYLE_OPTIONS } from '@/constants/workoutStyles';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact'] as const;
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
@@ -220,7 +220,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     setEditTargetId(null);
     setShowAddPanel(false);
     setReorderActiveId(null);
-    generateWorkoutAsync({
+    const params = {
       style: selectedStyle,
       split: selectedSplit || recommendedSplit,
       targetDuration: ctx.targetDuration,
@@ -236,16 +236,24 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       addCardio: false,
       specificMuscles: topMuscles,
       seedOffset: seedOff,
-    }, undefined, hasPro).then((result) => {
+    };
+    generateWorkoutAsync(params, undefined, hasPro).then((result) => {
       setGenExercises(result.workout);
       console.log('[PlanWorkoutSheet] Generated', result.workout.length, 'exercises');
     }).catch((e) => {
-      console.log('[PlanWorkoutSheet] Generation error:', e);
-      setGenExercises([]);
+      console.log('[PlanWorkoutSheet] AI generation failed, falling back to engine:', e);
+      try {
+        const fallback = generateWorkout(params);
+        setGenExercises(fallback.workout);
+        console.log('[PlanWorkoutSheet] Engine fallback succeeded:', fallback.workout.length, 'exercises');
+      } catch (fallbackErr) {
+        console.warn('[PlanWorkoutSheet] Engine fallback also failed:', fallbackErr);
+        setGenExercises([]);
+      }
     }).finally(() => {
       setIsGenerating(false);
     });
-  }, [selectedStyle, selectedSplit, recommendedSplit, ctx, topMuscles]);
+  }, [selectedStyle, selectedSplit, recommendedSplit, ctx, topMuscles, hasPro]);
 
   useEffect(() => {
     if (step === 'workout' && genExercises.length === 0 && !isGenerating) {

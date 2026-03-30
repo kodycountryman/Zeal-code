@@ -157,9 +157,8 @@ function getTodayStr(): string {
 
 function getWeekStart(): string {
   const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day;
-  const weekStart = new Date(d.setDate(diff));
+  const weekStart = new Date(d);
+  weekStart.setDate(d.getDate() - d.getDay());
   return `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
 }
 
@@ -342,7 +341,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (!proWaitTimerRef.current) {
         proWaitTimerRef.current = setTimeout(() => {
           proWaitTimerRef.current = null;
-          ensureTodayWorkoutGenerated();
+          ensureTodayWorkoutGeneratedRef.current();
         }, 250);
       }
       return;
@@ -412,7 +411,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       addCardio: ctx.addCardio,
       specificMuscles: effectiveMuscles,
       seedOffset: 0,
-    } as const;
+    };
 
     const reqId = ++generationReqIdRef.current;
     generationInFlightRef.current = true;
@@ -420,7 +419,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
     const aiPromise = (async (): Promise<GeneratedWorkout> => {
       try {
-        let w = await generateWorkoutAsync(params as any, prescription, hasPro);
+        let w = await generateWorkoutAsync(params, prescription, hasPro);
         if (ctx.coreFinisher) {
           try {
             const coreExercises = await Promise.race([
@@ -441,13 +440,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         return w;
       } catch (err) {
         console.log('[WorkoutTracking] Generation failed, falling back:', err);
-        return generateWorkout(params as any, prescription);
+        return generateWorkout(params, prescription);
       }
     })();
 
     const timeoutPromise = new Promise<GeneratedWorkout>((resolve) => {
       setTimeout(() => {
-        resolve(generateWorkout(params as any, prescription));
+        resolve(generateWorkout(params, prescription));
       }, 20000);
     });
 
