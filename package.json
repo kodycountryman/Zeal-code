@@ -6,7 +6,9 @@
     "start": "bunx rork start -p 7s0at91o0glp1nhgft32r --tunnel",
     "start-web": "bunx rork start -p 7s0at91o0glp1nhgft32r --web --tunnel",
     "start-web-dev": "DEBUG=expo* bunx rork start -p 7s0at91o0glp1nhgft32r --web --tunnel",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.4.3",

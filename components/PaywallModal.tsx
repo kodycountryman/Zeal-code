@@ -204,7 +204,7 @@ export default function PaywallModal({
                   </View>
                 ) : (
                   <View style={[styles.contractBadge, styles.contractBadgeAlt]}>
-                    <Text style={[styles.contractBadgeText, { color: ORANGE }]}>UPGRADE YOUR TRAINING</Text>
+                    <Text style={[styles.contractBadgeText, { color: 'rgba(255,255,255,0.9)' }]}>UPGRADE YOUR TRAINING</Text>
                   </View>
                 )}
 
@@ -221,13 +221,13 @@ export default function PaywallModal({
                     {i > 0 && <View style={styles.featureDivider} />}
                     <View style={styles.featureRow}>
                       <View style={styles.featureIconWrap}>
-                        <feat.icon size={17} color={ORANGE} strokeWidth={2} />
+                        <feat.icon size={17} color="rgba(255,255,255,0.85)" strokeWidth={2} />
                       </View>
                       <View style={styles.featureText}>
                         <Text style={styles.featureLabel}>{feat.label}</Text>
                         <Text style={styles.featureSub}>{feat.sub}</Text>
                       </View>
-                      <Check size={16} color="#22c55e" strokeWidth={2.5} />
+                      <Check size={16} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
                     </View>
                   </View>
                 ))}
@@ -252,14 +252,14 @@ export default function PaywallModal({
                 <View style={styles.priceDetails}>
                   {isTrial ? (
                     <>
-                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>No charge until Day 8</Text></View>
-                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Cancel within 7 days — pay nothing</Text></View>
-                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>$5.99/mo after your free trial ends</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>No charge until Day 8</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Cancel within 7 days — pay nothing</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>$5.99/mo after your free trial ends</Text></View>
                     </>
                   ) : (
                     <>
-                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Billed monthly · Cancel anytime</Text></View>
-                      <View style={styles.priceDetailRow}><Check size={13} color="#22c55e" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Instant access to all Pro features</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Billed monthly · Cancel anytime</Text></View>
+                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Instant access to all Pro features</Text></View>
                     </>
                   )}
                 </View>
@@ -287,12 +287,12 @@ export default function PaywallModal({
                       <Text style={styles.proColSubtitle}>$5.99/mo</Text>
                     </View>
                     <View style={styles.compareItem}>
-                      <Check size={12} color="#22c55e" strokeWidth={2.5} />
+                      <Check size={12} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
                       <Text style={styles.proItemEverything}>Everything in Core</Text>
                     </View>
                     {PRO_ITEMS.map((item) => (
                       <View key={item.label} style={styles.compareItem}>
-                        <Check size={12} color="#22c55e" strokeWidth={2.5} />
+                        <Check size={12} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
                         <Text style={styles.proItemText}>{item.label}</Text>
                       </View>
                     ))}
@@ -464,22 +464,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   contractBadge: {
-    backgroundColor: '#f5c84218',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: '#f5c84240',
+    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 20,
     paddingHorizontal: 18,
     paddingVertical: 8,
     marginTop: 16,
   },
   contractBadgeAlt: {
-    backgroundColor: `${ORANGE}15`,
-    borderColor: `${ORANGE}35`,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   contractBadgeText: {
     fontSize: 11,
     fontFamily: 'Outfit_700Bold',
-    color: GOLD,
+    color: 'rgba(255,255,255,0.75)',
     letterSpacing: 1.5,
   },
   heroDesc: {
@@ -507,9 +507,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(248,113,22,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(248,113,22,0.25)',
+    borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(248,113,22,0.22)',
+    borderColor: 'rgba(255,255,255,0.08)',
     marginBottom: 20,
     gap: 12,
     overflow: 'hidden',
@@ -564,9 +564,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   trialPill: {
-    backgroundColor: 'rgba(34,197,94,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.4)',
+    borderColor: 'rgba(255,255,255,0.18)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   trialPillText: {
     fontSize: 12,
     fontFamily: 'Outfit_700Bold',
-    color: '#22c55e',
+    color: 'rgba(255,255,255,0.85)',
   },
   priceDivider: {
     height: 1,
@@ -620,8 +620,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   proCol: {
-    backgroundColor: 'rgba(248,113,22,0.07)',
-    borderColor: 'rgba(248,113,22,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   compareColHeader: {
     paddingHorizontal: 12,
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   proColHeader: {
-    borderBottomColor: 'rgba(248,113,22,0.15)',
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   coreColTitle: {
     fontSize: 14,
@@ -648,11 +648,11 @@ const styles = StyleSheet.create({
   proColTitle: {
     fontSize: 14,
     fontFamily: 'Outfit_700Bold',
-    color: ORANGE,
+    color: '#ffffff',
   },
   proColSubtitle: {
     fontSize: 11,
-    color: 'rgba(248,113,22,0.7)',
+    color: 'rgba(255,255,255,0.4)',
   },
   compareItem: {
     flexDirection: 'row',
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   },
   proItemEverything: {
     fontSize: 12,
-    color: '#22c55e',
+    color: 'rgba(255,255,255,0.9)',
     flex: 1,
     fontFamily: 'Outfit_600SemiBold',
   },

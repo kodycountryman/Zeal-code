@@ -10,7 +10,7 @@ export type PaywallVersion = 'trial' | 'no_trial';
 
 const STORAGE_KEY = '@zeal_subscription_v2';
 
-const DEV_FORCE_PRO: boolean | null = null;
+const DEV_FORCE_PRO: boolean | null = true;
 
 interface PersistedState {
   hasEverStarted: boolean;
@@ -166,7 +166,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
 
     if (shouldShow) {
       await savePersisted({ ...next, lastPaywallShownAtOpenCount: newCount });
-      setPaywallOpen(true);
+      setTimeout(() => setPaywallOpen(true), 7000);
     } else {
       await savePersisted(next);
     }

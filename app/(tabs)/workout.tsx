@@ -2483,7 +2483,7 @@ export default function WorkoutScreen() {
         label = 'Rounds';
       }
       return (
-        <View style={styles.groupHeader}>
+        <View style={[styles.groupHeader, { backgroundColor: colors.card }]}>
           {renderGroupGripDots(ex)}
           {icon}
           <TouchableOpacity onPress={() => setInfoLabel(label)} activeOpacity={0.7}>
@@ -2501,6 +2501,7 @@ export default function WorkoutScreen() {
         <View
           style={[
             styles.groupLinkRow,
+            { backgroundColor: colors.card },
             isSuperset && { borderLeftWidth: 2, borderLeftColor: `${currentAccent}66` },
           ]}
         >
@@ -2514,7 +2515,7 @@ export default function WorkoutScreen() {
     }
 
     return null;
-  }, [currentAccent, renderGroupGripDots]);
+  }, [currentAccent, colors, renderGroupGripDots]);
 
   const renderStrengthRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
