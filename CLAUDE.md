@@ -20,7 +20,7 @@ Full read/write access to all files in this project is authorized. Make edits di
 | Path | What it is |
 |------|-----------|
 | `app/(tabs)/index.tsx` | Home/Dashboard tab |
-| `app/(tabs)/workout.tsx` | Workout execution tab — 5800+ lines, core experience |
+| `app/(tabs)/workout.tsx` | Workout execution tab — 6000+ lines, core experience |
 | `app/(tabs)/_layout.tsx` | Tab layout with FloatingDock |
 | `app/_layout.tsx` | Root layout with all providers |
 | `app/onboarding.tsx` | Multi-step onboarding flow |
@@ -49,6 +49,7 @@ Full read/write access to all files in this project is authorized. Make edits di
 - **Theme system**: system / dark / light / zeal / neon (set in AppContext)
 - **Accent colors**: mapped per training style
 - App should feel native, clean, and intentional — consistent with iOS design language
+- **→ Read `STYLE.md` before making any visual or structural change.** It contains border radius rules, color hierarchy, typography scale, component constraints, interaction patterns, and a pre-edit checklist.
 
 ## Training Styles
 - **Free tier**: CrossFit, Mobility, HIIT, Pilates, Low-Impact
@@ -57,7 +58,7 @@ Full read/write access to all files in this project is authorized. Make edits di
 ## Git Workflow
 - Main branch: `main`
 - Always `git push` before switching Macs; `git pull` on the other Mac before coding
-- Repo: https://github.com/kodycountryman/condescending-haibt (push target)
+- Repo: https://github.com/kodycountryman/Zeal-code (push target)
 
 ## Dev Server
 ```bash

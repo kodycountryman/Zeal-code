@@ -208,8 +208,8 @@ export default function ColorThemeDrawer({ visible, onClose, onBack }: Props) {
 
 const styles = StyleSheet.create({
   sheetBg: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
   },
   container: {
     paddingBottom: 40,

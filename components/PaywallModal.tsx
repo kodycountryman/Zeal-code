@@ -386,8 +386,8 @@ const styles = StyleSheet.create({
   container: {
     height: '97%',
     backgroundColor: BG,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
     overflow: 'hidden',
   },
   safeArea: {

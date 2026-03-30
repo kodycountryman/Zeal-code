@@ -1051,8 +1051,8 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
 
 const styles = StyleSheet.create({
   sheetBg: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
   },
   header: {
     flexDirection: 'row',

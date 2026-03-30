@@ -375,8 +375,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
     padding: 20,
     paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     maxHeight: '92%',

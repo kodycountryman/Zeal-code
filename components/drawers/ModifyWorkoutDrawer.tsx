@@ -762,8 +762,8 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
 
 const styles = StyleSheet.create({
   sheetBg: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
   },
   header: {
     flexDirection: 'row',
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 14,
+    borderRadius: 26,
     paddingHorizontal: 12,
     height: 48,
   },
@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 14,
+    borderRadius: 26,
     paddingHorizontal: 12,
     height: 48,
   },

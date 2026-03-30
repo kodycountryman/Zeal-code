@@ -387,8 +387,8 @@ export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
 
 const styles = StyleSheet.create({
   sheetBg: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
   },
   header: {
     flexDirection: 'row',

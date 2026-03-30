@@ -443,7 +443,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 28, borderTopRightRadius: 28 },
+  sheetBg: { borderTopLeftRadius: 26, borderTopRightRadius: 26 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8,

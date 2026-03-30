@@ -517,7 +517,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 28, borderTopRightRadius: 28 },
+  sheetBg: { borderTopLeftRadius: 26, borderTopRightRadius: 26 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
