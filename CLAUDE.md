@@ -75,5 +75,5 @@ Scan QR code with Expo Go app on iPhone.
 
 ## Active Notes
 - `workout.tsx` is intentionally massive — avoid splitting unless necessary
-- Revert snapshots for recent HIG polish pass are saved in Claude memory
+- `DEV_FORCE_PRO = true` is currently set in `context/SubscriptionContext.tsx` — toggle to `false` before App Store submission
 - 1 moderate npm vulnerability present (non-blocking, from `npm audit`)
