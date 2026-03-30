@@ -3452,103 +3452,87 @@ export default function WorkoutScreen() {
           alignSelf: 'flex-start' as const,
           width: screenWidth - 32,
         }]}>
-          {/* Tab Bar — Apple-inspired dynamic pill */}
+          {/* Tab Bar — three equal segments, glass active pill */}
           <View
             style={styles.tabBarOuter}
             onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
           >
+            {/* Glass pill — slides between equal thirds */}
             {tabBarWidth > 0 && (() => {
-              const innerWidth = tabBarWidth - 8; // account for padding: 4 each side
-              const pillLeftInterp = pillAnim.interpolate({
+              const innerWidth = tabBarWidth - 12; // 6px padding each side
+              const thirdWidth = innerWidth / 3;
+              const pillLeft = pillAnim.interpolate({
                 inputRange: [0, 1, 2],
-                outputRange: [0, innerWidth * 0.20, innerWidth * 0.60],
+                outputRange: [0, thirdWidth, thirdWidth * 2],
               });
-              const pillWidthInterp = pillAnim.interpolate({
-                inputRange: [0, 1, 2],
-                outputRange: [innerWidth * 0.40, innerWidth * 0.60, innerWidth * 0.40],
-              });
-              // Convert currentAccent hex → rgba for glass morphism
-              const hexToRgba = (hex: string, a: number) => {
-                const r = parseInt(hex.slice(1, 3), 16) || 0;
-                const g = parseInt(hex.slice(3, 5), 16) || 0;
-                const b = parseInt(hex.slice(5, 7), 16) || 0;
-                return `rgba(${r},${g},${b},${a})`;
-              };
               return (
                 <RNAnimated.View
                   pointerEvents="none"
                   style={[styles.tabIndicator, {
-                    backgroundColor: pillAnim.interpolate({
-                      inputRange: [0, 1, 2],
-                      outputRange: [
-                        'rgba(248,113,22,0.22)',
-                        hexToRgba(currentAccent, 0.22),
-                        'rgba(239,68,68,0.22)',
-                      ],
-                    }),
-                    borderColor: pillAnim.interpolate({
-                      inputRange: [0, 1, 2],
-                      outputRange: [
-                        'rgba(248,113,22,0.65)',
-                        hexToRgba(currentAccent, 0.65),
-                        'rgba(239,68,68,0.65)',
-                      ],
-                    }),
-                    width: pillWidthInterp,
-                    transform: [{ translateX: pillLeftInterp }],
+                    width: thirdWidth,
+                    transform: [{ translateX: pillLeft }],
                   }]}
                 />
               );
             })()}
-            <View ref={preTabRef} collapsable={false} style={{ flex: TAB_FLEX[activePanel][0] }}>
+
+            {/* Pre-Workout */}
+            <View ref={preTabRef} collapsable={false} style={{ flex: 1 }}>
               <TouchableOpacity
-                style={[styles.tabBtn, { justifyContent: activePanel === 0 ? 'center' : 'flex-start', paddingLeft: activePanel === 0 ? 0 : 12 }]}
+                style={styles.tabBtn}
                 onPress={() => switchPanelTab(0)}
                 activeOpacity={0.7}
                 testID="tab-pre-workout"
               >
-                <Flame size={14} color={activePanel === 0 ? '#f87116' : 'rgba(255,255,255,0.4)'} />
-                {activePanel === 0 && (
-                  <RNAnimated.Text style={[styles.tabLabel, { color: '#fff', opacity: tab0Anim }]}>
-                    Pre-Workout
-                  </RNAnimated.Text>
-                )}
+                <Flame size={15} color={activePanel === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
+                <Text style={[styles.tabLabel, {
+                  color: activePanel === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
+                  fontFamily: activePanel === 0 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
+                }]}>
+                  Pre
+                </Text>
               </TouchableOpacity>
             </View>
-            <View ref={workoutTabRef} collapsable={false} style={{ flex: TAB_FLEX[activePanel][1] }}>
+
+            {/* Workout */}
+            <View ref={workoutTabRef} collapsable={false} style={{ flex: 1 }}>
               <TouchableOpacity
-                style={[styles.tabBtn, { justifyContent: 'center' }]}
+                style={styles.tabBtn}
                 onPress={() => switchPanelTab(1)}
                 activeOpacity={0.7}
                 testID="tab-workout"
               >
-                <Dumbbell size={14} color={activePanel === 1 ? currentAccent : 'rgba(255,255,255,0.4)'} />
-                {activePanel === 1 && (
-                  <RNAnimated.Text style={[styles.tabLabel, { color: '#fff', opacity: tab1Anim }]}>
-                    Workout
-                  </RNAnimated.Text>
-                )}
+                <Dumbbell size={15} color={activePanel === 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
+                <Text style={[styles.tabLabel, {
+                  color: activePanel === 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
+                  fontFamily: activePanel === 1 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
+                }]}>
+                  Workout
+                </Text>
               </TouchableOpacity>
             </View>
-            <View ref={postTabRef} collapsable={false} style={{ flex: TAB_FLEX[activePanel][2] }}>
+
+            {/* Post-Workout */}
+            <View ref={postTabRef} collapsable={false} style={{ flex: 1 }}>
               <TouchableOpacity
-                style={[styles.tabBtn, { justifyContent: activePanel === 2 ? 'center' : 'flex-end', paddingRight: activePanel === 2 ? 0 : 12 }]}
+                style={styles.tabBtn}
                 onPress={() => switchPanelTab(2)}
                 activeOpacity={0.7}
                 testID="tab-post-workout"
               >
-                <Heart size={14} color={activePanel === 2 ? '#ef4444' : 'rgba(255,255,255,0.4)'} />
-                {activePanel === 2 && (
-                  <RNAnimated.Text style={[styles.tabLabel, { color: '#fff', opacity: tab2Anim }]}>
-                    Post-Workout
-                  </RNAnimated.Text>
-                )}
+                <Heart size={15} color={activePanel === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
+                <Text style={[styles.tabLabel, {
+                  color: activePanel === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
+                  fontFamily: activePanel === 2 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
+                }]}>
+                  Post
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <View
-            style={{ paddingTop: 4, gap: 12, paddingBottom: 12 }}
+            style={{ paddingTop: 4, gap: 12, paddingBottom: 0 }}
           >
           {/* Pre-Workout Panel */}
           {activePanel === 0 && (
@@ -3998,6 +3982,9 @@ export default function WorkoutScreen() {
           </TabContentSpring>
         )}
 
+          </View>
+        </View>
+
         {/* Add / Finish button — outside the card, workout tab only */}
         {activePanel === 1 && (
           <View style={{ marginHorizontal: 16, marginTop: 8 }}>
@@ -4095,8 +4082,6 @@ export default function WorkoutScreen() {
           </View>
         )}
 
-          </View>
-        </View>
       </ScrollView>
       </GestureDetector>
 
@@ -5442,7 +5427,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   tabPanel: {
-    borderRadius: 22,
+    borderRadius: 36,
     overflow: 'hidden',
   },
   tabHeaderCard: {
@@ -5454,9 +5439,10 @@ const styles = StyleSheet.create({
   },
   tabBarOuter: {
     flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    alignItems: 'stretch' as const,
     height: 50,
-    padding: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     marginHorizontal: 10,
     marginTop: 10,
     marginBottom: 6,
@@ -5471,25 +5457,28 @@ const styles = StyleSheet.create({
     position: 'absolute' as const,
     top: 6,
     bottom: 6,
-    left: 4,
-    borderRadius: 18,
+    left: 6,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 3,
   },
   tabBtn: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: 5,
-    height: 48,
+    gap: 6,
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     zIndex: 1,
   },
   tabLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit_700Bold',
+    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
     letterSpacing: 0.1,
     includeFontPadding: false,
   },

@@ -158,14 +158,14 @@ const blueGradient: [string, string, string] = isDark
               testID="dock-home"
               activeOpacity={0.7}
             >
-              <View style={[styles.tabIndicator, isHome && { backgroundColor: `${accent}22` }]}>
+              <View style={styles.tabIndicator}>
                 <Home
                   size={22}
-                  color={isHome ? accent : colors.textSecondary}
-                  strokeWidth={isHome ? 2.2 : 1.8}
+                  color={isHome ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)'}
+                  strokeWidth={isHome ? 2 : 1.6}
                 />
               </View>
-              <Text style={[styles.tabLabel, { color: isHome ? accent : colors.textSecondary }]}>
+              <Text style={[styles.tabLabel, { color: isHome ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)' }]}>
                 Home
               </Text>
             </TouchableOpacity>
@@ -178,14 +178,14 @@ const blueGradient: [string, string, string] = isDark
               testID="dock-workout"
               activeOpacity={0.7}
             >
-              <View style={[styles.tabIndicator, isWorkout && { backgroundColor: `${accent}22` }]}>
+              <View style={styles.tabIndicator}>
                 <Dumbbell
                   size={22}
-                  color={isWorkout ? accent : colors.textSecondary}
-                  strokeWidth={isWorkout ? 2.2 : 1.8}
+                  color={isWorkout ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)'}
+                  strokeWidth={isWorkout ? 2 : 1.6}
                 />
               </View>
-              <Text style={[styles.tabLabel, { color: isWorkout ? accent : colors.textSecondary }]}>
+              <Text style={[styles.tabLabel, { color: isWorkout ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)' }]}>
                 Workout
               </Text>
             </TouchableOpacity>
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 6,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -326,9 +326,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   tabIndicator: {
-    width: 44,
-    height: 32,
-    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -355,8 +352,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
     elevation: 12,
   },
   modalOverlay: {
