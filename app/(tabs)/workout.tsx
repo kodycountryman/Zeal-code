@@ -3449,6 +3449,8 @@ export default function WorkoutScreen() {
           backgroundColor: colors.card,
           borderWidth: 1,
           borderColor: cardBorder,
+          alignSelf: 'flex-start' as const,
+          width: screenWidth - 32,
         }]}>
           {/* Tab Bar — Apple-inspired dynamic pill */}
           <View
@@ -5583,7 +5585,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
   },
   checklistCard: {
-    borderRadius: 14,
+    borderRadius: 26,
     overflow: 'hidden' as const,
     borderWidth: 1,
     // Tab content uses inner horizontal padding; this cancels it so cards
