@@ -3657,8 +3657,8 @@ export default function WorkoutScreen() {
                 <View style={[
                   styles.coreFinisherCard,
                   {
-                    backgroundColor: isDark ? 'rgba(34,197,94,0.05)' : 'rgba(34,197,94,0.04)',
-                    borderColor: isDark ? 'rgba(34,197,94,0.20)' : 'rgba(34,197,94,0.18)',
+                    backgroundColor: 'rgba(34,197,94,0.06)',
+                    borderColor: 'rgba(34,197,94,0.2)',
                   },
                 ]}>
                   <TouchableOpacity
@@ -3666,17 +3666,12 @@ export default function WorkoutScreen() {
                     onPress={() => setInfoLabel('CORE FINISHER')}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.coreFinisherIconBadge, { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
-                      <Target size={13} color="#22c55e" />
+                    <View style={[styles.coreFinisherIconBadge, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
+                      <Target size={13} color="rgba(34,197,94,0.7)" />
                     </View>
-                    <Text style={[styles.coreFinisherLabel, { color: colors.text }]}>Core Finisher</Text>
-                    <View style={{ flex: 1 }} />
-                    <View style={styles.coreFinisherAIBadge}>
-                      <Zap size={10} color="#22c55e" />
-                      <Text style={styles.coreFinisherAIBadgeText}>AI</Text>
-                    </View>
+                    <Text style={[styles.coreFinisherLabel, { color: 'rgba(255,255,255,0.9)' }]}>Core Finisher</Text>
                   </TouchableOpacity>
-                  {workout.coreFinisher.map((ex, idx) => {
+                  {workout.coreFinisher.slice(0, 1).map((ex, idx) => {
                     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
                     const isExpanded = expandedTrack === ex.id;
                     const isLast = idx === workout.coreFinisher!.length - 1;
@@ -3709,9 +3704,11 @@ export default function WorkoutScreen() {
                             activeOpacity={1}
                           >
                             <View style={styles.exerciseInfo}>
-                              <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>
-                                {ex.name}
-                              </Text>
+                              <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
+                                <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>
+                                  {ex.name}
+                                </Text>
+                              </TouchableOpacity>
                               {!isCompleted && (
                                 <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
                                   {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
@@ -3719,7 +3716,6 @@ export default function WorkoutScreen() {
                               )}
                             </View>
                             {renderTrackButton(ex)}
-                            {renderGripDots(ex)}
                           </TouchableOpacity>
                         </SwipeableExerciseRow>
                         {!isLast && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
@@ -3736,7 +3732,7 @@ export default function WorkoutScreen() {
                 <View style={[
                   styles.cardioStandaloneCard,
                   {
-                    backgroundColor: isDark ? 'rgba(14,14,14,0.99)' : 'rgba(232,232,232,0.99)',
+                    backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
                     borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                     marginHorizontal: -12,
                   },
@@ -3754,34 +3750,69 @@ export default function WorkoutScreen() {
                         {workout!.cardio[0].format}
                       </Text>
                     ) : null}
-                    <TouchableOpacity onPress={() => setInfoLabel('Cardio')} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Info size={14} color={colors.textMuted} />
-                    </TouchableOpacity>
                   </View>
                   {workout!.cardio.map((c, idx) => {
                     const isLast = idx === workout!.cardio.length - 1;
+                    const cardioEx: WorkoutExercise = {
+                      id: `cardio-${idx}`,
+                      name: c.name,
+                      sets: 1,
+                      reps: c.duration,
+                      rest: c.rpe ? `RPE ${c.rpe}` : 'None',
+                      muscleGroup: 'Cardio',
+                      equipment: 'None',
+                      notes: c.notes ?? '',
+                      type: 'cardio',
+                      movementType: 'cardio',
+                      groupType: null,
+                      groupId: null,
+                      suggestedWeight: 'BW',
+                      lastSessionWeight: '',
+                      lastSessionReps: '',
+                      exerciseRef: null as any,
+                    };
+                    const isExpanded = expandedTrack === cardioEx.id;
+                    const isCompleted = tracking.exerciseLogs[cardioEx.id]?.completed === true;
                     return (
-                      <View key={idx} style={[
-                        styles.cardioItem,
-                        { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', borderBottomWidth: isLast ? 0 : 1 },
-                      ]}>
-                        <View style={styles.cardioInfo}>
-                          <TouchableOpacity onPress={() => setItemDetail({ name: c.name, description: c.duration + ' · RPE ' + c.rpe, color: '#8b5cf6' })} activeOpacity={0.7}>
-                            <Text style={[styles.cardioName, { color: colors.text }]}>{c.name}</Text>
-                          </TouchableOpacity>
-                          <Text style={[styles.cardioMeta, { color: colors.textSecondary }]}>
-                            {c.duration} · RPE {c.rpe}
-                          </Text>
-                          {c.notes ? (
-                            <Text style={[styles.cardioNotes, { color: colors.textMuted }]}>&quot;{c.notes}&quot;</Text>
-                          ) : null}
-                        </View>
-                        <TouchableOpacity activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Clipboard size={17} color={colors.textMuted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <ArrowLeftRight size={15} color={colors.textMuted} />
-                        </TouchableOpacity>
+                      <View key={idx}>
+                        <SwipeableExerciseRow
+                          id={cardioEx.id}
+                          isOpen={swipeOpenId === cardioEx.id}
+                          onOpen={setSwipeOpenId}
+                          onInfo={() => handleExerciseTap(cardioEx)}
+                          onSwap={() => {}}
+                          onDelete={() => {
+                            if (!workout) return;
+                            setWorkout({ ...workout, cardio: workout.cardio.filter((_, i) => i !== idx) });
+                          }}
+                          rowBg={colors.card}
+                          enabled={activeDragId === null}
+                        >
+                          <Pressable
+                            style={[styles.exerciseRow, isLast && !isExpanded && { borderBottomColor: 'transparent' }]}
+                            onPress={() => handleToggleTrackPanel(cardioEx.id, cardioEx)}
+                            activeOpacity={1}
+                          >
+                            <View style={styles.exerciseInfo}>
+                              <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(cardioEx)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
+                                <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{c.name}</Text>
+                              </TouchableOpacity>
+                              {!isCompleted && (
+                                <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
+                                  {c.duration}{c.rpe ? ` · RPE ${c.rpe}` : ''}
+                                </Text>
+                              )}
+                              {c.notes ? (
+                                <Text style={[styles.cardioNotes, { color: colors.textMuted }]} numberOfLines={1}>&quot;{c.notes}&quot;</Text>
+                              ) : null}
+                            </View>
+                            {renderTrackButton(cardioEx)}
+                          </Pressable>
+                        </SwipeableExerciseRow>
+                        {!isLast && !isExpanded && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
+                        <ExpandingPanel visible={isExpanded}>
+                          {renderTrackingPanel(cardioEx)}
+                        </ExpandingPanel>
                       </View>
                     );
                   })}
@@ -6126,9 +6157,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   coreFinisherCard: {
-    borderRadius: 14,
+    borderRadius: 26,
     borderWidth: 1,
     marginBottom: 10,
+    marginHorizontal: -12,
     overflow: 'hidden' as const,
   },
   coreFinisherHeader: {
@@ -6138,7 +6170,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(34,197,94,0.12)',
+    borderBottomColor: 'rgba(34,197,94,0.1)',
   },
   coreFinisherIconBadge: {
     width: 26,
@@ -6161,15 +6193,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 8,
-    backgroundColor: 'rgba(34,197,94,0.12)',
+    backgroundColor: 'rgba(34,197,94,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.28)',
+    borderColor: 'rgba(34,197,94,0.3)',
   },
   coreFinisherAIBadgeText: {
     fontSize: 11,
     fontWeight: '700' as const,
     letterSpacing: 0.6,
-    color: '#22c55e',
+    color: 'rgba(34,197,94,0.9)',
     fontFamily: 'Outfit_700Bold',
   },
   coreStyleBanner: {
