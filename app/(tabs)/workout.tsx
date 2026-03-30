@@ -802,12 +802,6 @@ export default function WorkoutScreen() {
       useNativeDriver: true,
     }).start();
 
-    // Springy flex expansion — icons push with a natural bounce
-    LayoutAnimation.configureNext({
-      duration: 340,
-      create: { type: 'easeInEaseOut', property: 'scaleXY' },
-      update: { type: 'spring', springDamping: 0.62 },
-    });
     setActivePanel(tab);
 
     // Pill slides smoothly — gentle tension so it never catches or overshoots hard
@@ -835,6 +829,8 @@ export default function WorkoutScreen() {
   }, [pillAnim, tab0Anim, tab1Anim, tab2Anim]);
 
   const [tabBarWidth, setTabBarWidth] = useState(0); // kept for walkthrough refs
+  const [tabXOffsets, setTabXOffsets] = useState<[number, number, number]>([0, 0, 0]);
+  const [tabItemWidth, setTabItemWidth] = useState(0);
   const activeDragIdRef = useRef<string | null>(null);
   const [dragInsertIdx, setDragInsertIdx] = useState<number | null>(null);
   const [dragGhostItems, setDragGhostItems] = useState<WorkoutExercise[]>([]);
@@ -3453,24 +3449,18 @@ export default function WorkoutScreen() {
           width: screenWidth - 32,
         }]}>
           {/* Tab Bar — three equal segments, glass active pill */}
-          <View
-            style={styles.tabBarOuter}
-            onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
-          >
-            {/* Glass pill — slides between equal thirds */}
-            {tabBarWidth > 0 && (() => {
-              const padding = 6;
-              const innerWidth = tabBarWidth - padding * 2;
-              const thirdWidth = innerWidth / 3;
+          <View style={styles.tabBarOuter}>
+            {/* Glass pill — position measured directly from each tab's onLayout */}
+            {tabItemWidth > 0 && (() => {
               const pillLeft = pillAnim.interpolate({
                 inputRange: [0, 1, 2],
-                outputRange: [padding, padding + thirdWidth, padding + thirdWidth * 2],
+                outputRange: tabXOffsets,
               });
               return (
                 <RNAnimated.View
                   pointerEvents="none"
                   style={[styles.tabIndicator, {
-                    width: thirdWidth,
+                    width: tabItemWidth,
                     transform: [{ translateX: pillLeft }],
                   }]}
                 />
@@ -3478,7 +3468,7 @@ export default function WorkoutScreen() {
             })()}
 
             {/* Pre-Workout */}
-            <View ref={preTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <View ref={preTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onLayout={(e) => { const { x, width } = e.nativeEvent.layout; setTabXOffsets(prev => [x, prev[1], prev[2]]); setTabItemWidth(width); }}>
               <TouchableOpacity
                 style={styles.tabBtn}
                 onPress={() => switchPanelTab(0)}
@@ -3496,7 +3486,7 @@ export default function WorkoutScreen() {
             </View>
 
             {/* Workout */}
-            <View ref={workoutTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <View ref={workoutTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onLayout={(e) => { const { x } = e.nativeEvent.layout; setTabXOffsets(prev => [prev[0], x, prev[2]]); }}>
               <TouchableOpacity
                 style={styles.tabBtn}
                 onPress={() => switchPanelTab(1)}
@@ -3514,7 +3504,7 @@ export default function WorkoutScreen() {
             </View>
 
             {/* Post-Workout */}
-            <View ref={postTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <View ref={postTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onLayout={(e) => { const { x } = e.nativeEvent.layout; setTabXOffsets(prev => [prev[0], prev[1], x]); }}>
               <TouchableOpacity
                 style={styles.tabBtn}
                 onPress={() => switchPanelTab(2)}
