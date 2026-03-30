@@ -3459,11 +3459,12 @@ export default function WorkoutScreen() {
           >
             {/* Glass pill — slides between equal thirds */}
             {tabBarWidth > 0 && (() => {
-              const innerWidth = tabBarWidth - 12; // 6px padding each side
+              const padding = 6;
+              const innerWidth = tabBarWidth - padding * 2;
               const thirdWidth = innerWidth / 3;
               const pillLeft = pillAnim.interpolate({
                 inputRange: [0, 1, 2],
-                outputRange: [0, thirdWidth, thirdWidth * 2],
+                outputRange: [padding, padding + thirdWidth, padding + thirdWidth * 2],
               });
               return (
                 <RNAnimated.View
@@ -3477,7 +3478,7 @@ export default function WorkoutScreen() {
             })()}
 
             {/* Pre-Workout */}
-            <View ref={preTabRef} collapsable={false} style={{ flex: 1 }}>
+            <View ref={preTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <TouchableOpacity
                 style={styles.tabBtn}
                 onPress={() => switchPanelTab(0)}
@@ -3495,7 +3496,7 @@ export default function WorkoutScreen() {
             </View>
 
             {/* Workout */}
-            <View ref={workoutTabRef} collapsable={false} style={{ flex: 1 }}>
+            <View ref={workoutTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <TouchableOpacity
                 style={styles.tabBtn}
                 onPress={() => switchPanelTab(1)}
@@ -3513,7 +3514,7 @@ export default function WorkoutScreen() {
             </View>
 
             {/* Post-Workout */}
-            <View ref={postTabRef} collapsable={false} style={{ flex: 1 }}>
+            <View ref={postTabRef} collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <TouchableOpacity
                 style={styles.tabBtn}
                 onPress={() => switchPanelTab(2)}
@@ -5457,7 +5458,7 @@ const styles = StyleSheet.create({
     position: 'absolute' as const,
     top: 6,
     bottom: 6,
-    left: 6,
+    left: 0,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
