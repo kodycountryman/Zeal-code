@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import Svg, { Polygon, Line, Circle as SvgCircle } from 'react-native-svg';
 import {
+  X,
   ChevronDown,
   ChevronUp,
   Check,
@@ -25,8 +26,6 @@ import {
   HeartPulse,
   Activity,
 } from 'lucide-react-native';
-import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
@@ -38,7 +37,6 @@ import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onBack?: () => void;
 }
 
 type TabKey = 'workouts' | 'time' | 'streak' | 'prs';
@@ -365,13 +363,11 @@ function RadarChart({ values, colors: themeColors, accent }: { values: Record<st
   );
 }
 
-export default function InsightsDrawer({ visible, onClose, onBack }: Props) {
+export default function InsightsDrawer({ visible, onClose }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
   const { hasPro, openPaywall } = useSubscription();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
 
   const [activeTab, setActiveTab] = useState<TabKey>('workouts');
   const [prSectionOpen, setPrSectionOpen] = useState<boolean>(false);
@@ -385,7 +381,6 @@ export default function InsightsDrawer({ visible, onClose, onBack }: Props) {
 
   useEffect(() => {
     if (visible) {
-      bottomSheetRef.current?.present();
       if (ctx.healthConnected && ctx.healthSyncEnabled && Platform.OS !== 'web') {
         setHealthLoading(true);
         healthService.getAllHealthData().then((data) => {
@@ -399,8 +394,6 @@ export default function InsightsDrawer({ visible, onClose, onBack }: Props) {
           setHealthLoading(false);
         });
       }
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible, ctx.healthConnected, ctx.healthSyncEnabled]);
 
@@ -411,23 +404,6 @@ export default function InsightsDrawer({ visible, onClose, onBack }: Props) {
       useNativeDriver: true,
     }).start();
   }, [tipAxis, tipAnim]);
-
-  const handleDismiss = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
 
   const displayHistory = useMemo(() => {
     if (hasPro) return tracking.workoutHistory;
@@ -532,33 +508,21 @@ export default function InsightsDrawer({ visible, onClose, onBack }: Props) {
     { key: 'prs', label: 'PRs', value: weeklyPRCount > 0 ? `+${weeklyPRCount}` : '-' },
   ], [weekLogs.length, weeklyTime, currentStreak, weeklyPRCount]);
 
-  return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.background }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-    >
-      <DrawerHeader
-        title="Insights"
-        onBack={onBack}
-        onClose={onBack ? undefined : onClose}
-      />
+  const headerContent = (
+    <View style={styles.header}>
+      <View>
+        <Text style={[styles.headerLabel, { color: colors.textSecondary }]}>YOUR PROGRESS</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Insights</Text>
+      </View>
+      <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn} testID="insights-close">
+        <X size={22} color={colors.textSecondary} />
+      </TouchableOpacity>
+    </View>
+  );
 
-      <BottomSheetScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        scrollEnabled={scrollEnabled}
-        contentContainerStyle={styles.scrollContent}
-        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
-      >
+  return (
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
+      <View style={styles.scrollContent}>
         {!hasPro && (
           <TouchableOpacity
             style={[styles.historyBanner, { backgroundColor: `${PRO_GOLD}10`, borderColor: `${PRO_GOLD}25` }]}
@@ -881,16 +845,12 @@ export default function InsightsDrawer({ visible, onClose, onBack }: Props) {
         )}
 
         <View style={{ height: 60 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',

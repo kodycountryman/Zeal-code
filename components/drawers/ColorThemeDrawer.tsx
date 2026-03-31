@@ -1,23 +1,19 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Switch,
-  useWindowDimensions,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
-import { Zap, Palette } from 'lucide-react-native';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
+import { X, Zap, Palette } from 'lucide-react-native';
 import { useZealTheme, useAppContext, AppTheme } from '@/context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onBack?: () => void;
 }
 
 const THEMES: { id: AppTheme; label: string }[] = [
@@ -28,24 +24,9 @@ const THEMES: { id: AppTheme; label: string }[] = [
   { id: 'neon', label: 'Neon' },
 ];
 
-export default function ColorThemeDrawer({ visible, onClose, onBack }: Props) {
+export default function ColorThemeDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const { appTheme, setAppTheme, reflectWorkoutColor, setReflectWorkoutColor, saveState } = useAppContext();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
-  const { height: windowH } = useWindowDimensions();
-  const maxDynamicContentSize = useMemo(() => {
-    return Math.max(360, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.75)));
-  }, [windowH, topOffset]);
-  const [contentH, setContentH] = useState(0);
-  // Compute a tight snap height so the sheet never opens past content.
-  const snapPoints = useMemo(() => {
-    const HANDLE_EST = 24;
-    const desired = contentH > 0 ? contentH + HANDLE_EST : maxDynamicContentSize;
-    const clamped = Math.min(maxDynamicContentSize, Math.max(320, Math.round(desired)));
-    return [clamped];
-  }, [contentH, maxDynamicContentSize]);
 
   const [localTheme, setLocalTheme] = useState<AppTheme>(appTheme);
   const [localReflect, setLocalReflect] = useState(reflectWorkoutColor);
@@ -54,28 +35,8 @@ export default function ColorThemeDrawer({ visible, onClose, onBack }: Props) {
     if (visible) {
       setLocalTheme(appTheme);
       setLocalReflect(reflectWorkoutColor);
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible, appTheme, reflectWorkoutColor]);
-
-  const handleDismiss = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
 
   const handleThemeSelect = (t: AppTheme) => {
     setLocalTheme(t);
@@ -96,36 +57,40 @@ export default function ColorThemeDrawer({ visible, onClose, onBack }: Props) {
 
   const showReflect = localTheme === 'system' || localTheme === 'dark' || localTheme === 'light';
 
+  const headerContent = (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.headerCircleBtn}
+        onPress={onClose}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <X size={16} color="#888" strokeWidth={2.5} />
+      </TouchableOpacity>
+      <View style={styles.headerLeft}>
+        <View style={[styles.headerIcon, { backgroundColor: `${accent}22` }]}>
+          <Palette size={16} color={accent} />
+        </View>
+        <Text style={[styles.title, { color: colors.text }]}>Color Theme</Text>
+      </View>
+      <TouchableOpacity
+        style={[styles.headerApplyBtn, { backgroundColor: accent }]}
+        onPress={handleApply}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.headerApplyText}>Apply</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
+    <BaseDrawer
+      visible={visible}
+      onClose={onClose}
+      header={headerContent}
       stackBehavior="push"
     >
-      <BottomSheetView style={styles.container} onLayout={(e) => setContentH(e.nativeEvent.layout.height)}>
-        <DrawerHeader
-          title="Color Theme"
-          onBack={onBack}
-          onClose={onBack ? undefined : onClose}
-          rightContent={
-            <TouchableOpacity
-              style={[styles.headerApplyBtn, { backgroundColor: accent }]}
-              onPress={handleApply}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.headerApplyText}>Apply</Text>
-            </TouchableOpacity>
-          }
-        />
-
+      <View style={styles.container}>
         <View style={styles.content}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>APP THEME</Text>
 
@@ -201,16 +166,12 @@ export default function ColorThemeDrawer({ visible, onClose, onBack }: Props) {
 
 
         </View>
-      </BottomSheetView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
   container: {
     paddingBottom: 40,
   },

@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,8 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import {
   X,
   Search,
@@ -56,9 +55,6 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
   const { hasPro, openPaywall } = useSubscription();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
-
   const [tab, setTab] = useState<TabKey>('build');
   const [workoutName, setWorkoutName] = useState('Custom Workout');
   const [exercises, setExercises] = useState<BuildExercise[]>([]);
@@ -81,17 +77,8 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
       setSavedSearch('');
       setSavedFilter('recent');
       setEditingId(null);
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible]);
-
-  const handleDismiss = useCallback(() => { onClose(); }, [onClose]);
-
-  const renderBackdrop = useCallback((props: any) => (
-    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} pressBehavior="close" />
-  ), []);
 
   const searchResults = useMemo(() => {
     if (!exerciseSearch.trim()) return [];
@@ -216,27 +203,15 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
   }, [ctx.savedWorkouts, savedSearch, savedFilter]);
 
   const hasSaved = ctx.savedWorkouts.length > 0;
-  return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-      keyboardBehavior="extend"
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-    >
-      <DrawerHeader
-        title="Workouts"
-        onClose={onClose}
-      />
+
+  const headerContent = (
+    <>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>Workouts</Text>
+        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+          <X size={16} color="#888" strokeWidth={2.5} />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.tabRow}>
         <TouchableOpacity
@@ -255,8 +230,12 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
           {hasSaved && <View style={[styles.savedDot, { backgroundColor: accent }]} />}
         </TouchableOpacity>
       </View>
+    </>
+  );
 
-      <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} scrollEnabled={scrollEnabled} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} onContentSizeChange={(_w: number, h: number) => setContentH(h)}>
+  return (
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} hasTextInput>
+      <View style={styles.content}>
         {tab === 'build' && (
           <View style={styles.buildContent}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>WORKOUT NAME</Text>
@@ -499,13 +478,12 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
         )}
 
         <View style={{ height: 40 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 26, borderTopRightRadius: 26 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8,

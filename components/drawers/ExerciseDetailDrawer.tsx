@@ -1,13 +1,11 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { Target, Lightbulb, Settings2, ThumbsUp, ThumbsDown, TrendingUp, Zap } from 'lucide-react-native';
 import ExerciseAnimationView from '@/components/ExerciseAnimationView';
 import Svg, { Polyline, Circle as SvgCircle } from 'react-native-svg';
@@ -17,7 +15,6 @@ import { showProGate } from '@/services/proGate';
 import { useWorkoutTracking, type WorkoutLog } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import type { WorkoutExercise } from '@/services/workoutEngine';
-import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -34,7 +31,6 @@ function fmt(s: string): string { return s.replace(/_/g, ' '); }
 
 function generateSetup(ref: any): string {
   if (!ref) return 'Set up according to the exercise prescription.';
-  if (typeof ref.setup === 'string' && ref.setup.trim().length > 0) return ref.setup.trim();
   const rawEquip: string[] = ref.equipment_required ?? ref.equipment ?? [];
   const equipment = rawEquip.filter((e: string) => e !== 'bodyweight');
   const equipStr = equipment.length > 0
@@ -65,14 +61,6 @@ function generateSteps(ref: any, exerciseName?: string): string[] {
       'Complete all reps maintaining consistent form.',
     ];
     return ['Set up with appropriate equipment.', 'Perform the movement with control.', 'Complete all prescribed reps.'];
-  }
-
-  // If the database provides explicit steps, prefer them.
-  if (Array.isArray(ref.steps) && ref.steps.length > 0) {
-    return ref.steps
-      .map((s: string) => String(s).trim())
-      .filter(Boolean)
-      .slice(0, 6);
   }
 
   if (ref.description && !ref.movement_pattern && !ref.movementPattern) {
@@ -360,79 +348,14 @@ interface Props {
   exercise: WorkoutExercise | null;
   workoutStyle: string;
   onClose: () => void;
-  onBack?: () => void;
 }
 
-export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, onClose, onBack }: Props) {
+export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
   const { hasPro, openPaywall } = useSubscription();
   const { workoutHistory } = useWorkoutTracking();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
   const styleAccent = WORKOUT_STYLE_COLORS[workoutStyle] ?? accent;
-
-  useEffect(() => {
-    if (visible && exercise) {
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
-    }
-  }, [visible, exercise]);
-
-  const handleDismiss = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
-
-  const canonical = useMemo<ZealExercise | null>(() => {
-    if (!exercise) return null;
-    try {
-      const db = getZealExerciseDatabase();
-      const id = (exercise.exerciseRef?.id ?? '').trim();
-      const name = (exercise.name ?? '').trim().toLowerCase();
-      if (id) {
-        const byId = db.find((e) => e.id === id) ?? null;
-        if (byId) return byId;
-      }
-      // Exact name or alias match
-      const byName =
-        db.find((e) => e.name.trim().toLowerCase() === name) ??
-        db.find((e) => (e.aliases ?? []).some((a) => a.trim().toLowerCase() === name)) ??
-        null;
-      if (byName) return byName;
-      // Fallback: strip parentheticals and equipment qualifiers then retry
-      // e.g. "Standing Overhead Press (Barbell)" → "standing overhead press"
-      const nameNoParens = name.replace(/\s*\([^)]*\)/g, '').trim();
-      if (nameNoParens && nameNoParens !== name) {
-        const byStripped =
-          db.find((e) => e.name.trim().toLowerCase() === nameNoParens) ??
-          db.find((e) => (e.aliases ?? []).some((a) => a.trim().toLowerCase() === nameNoParens)) ??
-          null;
-        if (byStripped) return byStripped;
-      }
-      // Final fallback: substring contains match (e.g. "Cable Tricep Rope Pushdown" ⊃ "Cable Tricep Pushdown")
-      const byContains =
-        db.find((e) => name.includes(e.name.trim().toLowerCase())) ??
-        db.find((e) => (e.aliases ?? []).some((a) => name.includes(a.trim().toLowerCase()))) ??
-        null;
-      return byContains;
-    } catch {
-      return null;
-    }
-  }, [exercise?.exerciseRef?.id, exercise?.name]);
 
   if (!exercise) return null;
 
@@ -471,36 +394,11 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
   const currentOrmStr = estimate1RM(exercise.suggestedWeight, exercise.reps);
 
   return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-    >
-      <DrawerHeader
-        title={exercise?.name ?? ''}
-        onBack={onBack}
-        onClose={onBack ? undefined : onClose}
-      />
-      <BottomSheetScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        scrollEnabled={scrollEnabled}
-        contentContainerStyle={styles.content}
-        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
-      >
+    <BaseDrawer visible={visible} onClose={onClose} stackBehavior="push">
+      <View style={styles.content}>
         {/* ── Animation ── */}
         <ExerciseAnimationView
-          exerciseName={canonical?.name ?? exercise.name}
-          exerciseId={canonical?.id ?? exercise.exerciseRef?.id}
-          aliases={canonical?.aliases}
+          exerciseName={exercise.name}
           cardBg={colors.card}
         />
 
@@ -570,7 +468,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
               </Text>
               {currentOrmStr ? (
                 <Text style={[styles.noHistorySub, { color: styleAccent }]}>
-                  Today&apos;s estimate: {currentOrmStr}
+                  Today's estimate: {currentOrmStr}
                 </Text>
               ) : null}
             </View>
@@ -614,23 +512,24 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
           </>
         )}
 
+        {/* ── Setup ── */}
+        <View style={styles.sectionRow}>
+          <Settings2 size={13} color={styleAccent} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>SETUP</Text>
+        </View>
+        <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
+          <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>
+            {equipDisplay}
+          </Text>
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>{setupText}</Text>
+        </View>
+
         {/* ── How to Perform ── */}
         <View style={styles.sectionRow}>
           <Lightbulb size={13} color={styleAccent} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>HOW TO PERFORM</Text>
         </View>
         <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
-          <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>
-            {equipDisplay}
-          </Text>
-          <View style={styles.stepRow}>
-            <View style={[styles.stepNum, { backgroundColor: styleAccent }]}>
-              <Text style={styles.stepNumText}>S</Text>
-            </View>
-            <Text style={[styles.stepText, { color: colors.text }]}>
-              {setupText}
-            </Text>
-          </View>
           {steps.map((step: string, idx: number) => (
             <View key={idx} style={styles.stepRow}>
               <View style={[styles.stepNum, { backgroundColor: styleAccent }]}>
@@ -648,16 +547,12 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
         </View>
 
         <View style={{ height: 36 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
   content: {
     paddingHorizontal: 20,
     gap: 10,

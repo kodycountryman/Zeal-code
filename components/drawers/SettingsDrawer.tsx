@@ -10,14 +10,11 @@ import {
   Animated,
   ActivityIndicator,
   Linking,
-  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomSlider from '@/components/CustomSlider';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, PlayCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download } from 'lucide-react-native';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
+import { X, ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, PlayCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download } from 'lucide-react-native';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY, PRO_STYLES, PRO_STYLES_SET } from '@/services/proGate';
 import AppWalkthrough from '@/components/AppWalkthrough';
 import { useZealTheme, useAppContext, type NotifPrefs } from '@/context/AppContext';
@@ -44,7 +41,10 @@ import {
   type NotifPermissionStatus,
 } from '@/services/notificationService';
 
-import { WORKOUT_STYLE_KEYS as WORKOUT_STYLES } from '@/constants/workoutStyles';
+const WORKOUT_STYLES = [
+  'Strength', 'Bodybuilding', 'CrossFit', 'Hyrox',
+  'Cardio', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact',
+];
 
 
 
@@ -71,7 +71,6 @@ function buildDisplaySplitOptions(raw: string[]): string[] {
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onBack?: () => void;
   onOpenColorTheme: () => void;
   onOpenEquipment: () => void;
   onOpenExerciseCatalog?: () => void;
@@ -80,15 +79,12 @@ interface Props {
 
 const DANGER_ZONE_HEIGHT = 100;
 
-export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq }: Props) {
+export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const router = useRouter();
   const { hasPro, openPaywall } = useSubscription();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
   const scrollRef = useRef<any>(null);
-  const { height: windowH } = useWindowDimensions();
-  const [contentH, setContentH] = useState(0);
 
   const [localStyle, setLocalStyle] = useState(ctx.workoutStyle);
   const [localSplit, setLocalSplit] = useState(ctx.trainingSplit);
@@ -118,8 +114,8 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
     Animated.spring(dangerAnim, {
       toValue,
       useNativeDriver: false,
-      speed: 20,
-      bounciness: 4,
+      tension: 60,
+      friction: 10,
     }).start();
   }, [dangerOpen, dangerAnim]);
 
@@ -144,7 +140,7 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
     onClose();
     setTimeout(() => {
       router.replace('/login');
-    }, 150);
+    }, 350);
   }, [onClose, router, ctx]);
 
   const handleDeleteAccount = useCallback(() => {
@@ -164,7 +160,7 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
               onClose();
               setTimeout(() => {
                 router.replace('/login');
-              }, 150);
+              }, 350);
             } catch (e) {
               console.error('[Settings] Error deleting account:', e);
               Alert.alert('Error', 'Could not delete account data. Please try again.');
@@ -189,19 +185,7 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
   }, [ctx.healthConnected, healthPulse]);
 
   const handleHealthToggle = useCallback(async () => {
-    console.log('[Settings] Health row pressed', {
-      hasPro,
-      platform: Platform.OS,
-      currentlyConnected: ctxRef.current.healthConnected,
-      nativeAvailable: healthService.isAvailable(),
-    });
-    if (!hasPro) {
-      Alert.alert('Zeal Pro Required', 'Health sync is a Pro feature. Upgrade to connect Health.', [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'View Pro', onPress: () => showProGate('healthSync', openPaywall) },
-      ]);
-      return;
-    }
+    if (!hasPro) { showProGate('healthSync', openPaywall); return; }
     const c = ctxRef.current;
     if (c.healthConnected) {
       c.setHealthSyncEnabled(false);
@@ -210,7 +194,6 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
       return;
     }
     if (!healthService.isAvailable()) {
-      console.log('[Settings] Health native module not available — cannot connect in this build');
       Alert.alert(
         'Native Build Required',
         Platform.OS === 'ios'
@@ -222,9 +205,7 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
     }
     setHealthConnecting(true);
     try {
-      console.log('[Settings] Requesting health permissions...');
       const result = await healthService.requestPermissions();
-      console.log('[Settings] Health permissions result:', result);
       if (result.granted) {
         c.setHealthSyncEnabled(true);
         c.setHealthConnected(true);
@@ -344,31 +325,11 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
       setLocalCardio(c.addCardio);
       setLocalCoreFinisher(c.coreFinisher);
       setDescExpanded(false);
-      bottomSheetRef.current?.present();
       setTimeout(() => {
         scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
       }, 80);
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible]);
-
-  const handleDismiss = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
 
   const handleSave = useCallback(() => {
     const c = ctxRef.current;
@@ -421,59 +382,34 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
   const selectedEquipCount = Object.values(ctx.selectedEquipment).filter((v) => v > 0).length;
   const appThemeLabel = ctx.appTheme.charAt(0).toUpperCase() + ctx.appTheme.slice(1);
 
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
-  const maxDynamicContentSize = useMemo(() => {
-    return Math.max(560, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.92)));
-  }, [windowH, topOffset]);
-  // Compute a tight snap height so the sheet never opens past content.
-  const snapPoints = useMemo(() => {
-    const HEADER_AND_HANDLE_EST = 86;
-    const FOOTER_EST = 16;
-    const desired = contentH > 0 ? contentH + HEADER_AND_HANDLE_EST + FOOTER_EST : maxDynamicContentSize;
-    const clamped = Math.min(maxDynamicContentSize, Math.max(420, Math.round(desired)));
-    return [clamped];
-  }, [contentH, maxDynamicContentSize]);
+  const headerContent = (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.headerCircleBtn}
+        onPress={onClose}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <X size={16} color="#888" strokeWidth={2.5} />
+      </TouchableOpacity>
+      <View style={styles.headerTitleWrap}>
+        <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.headerSaveBtn}
+        onPress={handleSave}
+        activeOpacity={0.85}
+        testID="settings-save"
+      >
+        <Text style={styles.headerSaveText}>Save</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <>
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      stackBehavior="push"
-      topInset={topOffset}
-    >
-      <DrawerHeader
-        title="Settings"
-        onBack={onBack}
-        onClose={onBack ? undefined : onClose}
-        rightContent={
-          <TouchableOpacity
-            style={styles.headerSaveBtn}
-            onPress={handleSave}
-            activeOpacity={0.85}
-            testID="settings-save"
-          >
-            <Text style={styles.headerSaveText}>Save</Text>
-          </TouchableOpacity>
-        }
-      />
-
-      <BottomSheetScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        contentContainerStyle={styles.content}
-        scrollEnabled={contentH > maxDynamicContentSize - 120}
-        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
-      >
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} stackBehavior="push">
+      <View style={styles.content}>
         <Text style={[styles.sectionHeader, { color: styleAccent }]}>TRAINING</Text>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
@@ -591,12 +527,12 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
             ))}
           </View>
 
-          {restVisible && (
+          {false && restVisible && (
             <>
               <View style={styles.restSliderHeaderRow}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>REST BETWEEN SETS</Text>
                 <Text style={[styles.sliderValue, { color: styleAccent }]}>
-                  {localRest < 0.33 ? 'Less rest' : localRest < 0.67 ? 'Standard' : 'More rest'}
+                  {localRest < 0.33 ? 'Less' : localRest < 0.67 ? 'Standard' : 'Longer rest'}
                 </Text>
               </View>
               <CustomSlider
@@ -1034,8 +970,8 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
         </View>
 
         <View style={{ height: 24 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
 
     <AppWalkthrough
       visible={walkthroughVisible}
@@ -1047,10 +983,6 @@ export default function SettingsDrawer({ visible, onClose, onBack, onOpenColorTh
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

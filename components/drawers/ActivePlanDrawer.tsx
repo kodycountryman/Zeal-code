@@ -1,17 +1,14 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
-  Dimensions,
   ScrollView,
   Alert,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import {
   X,
   Sparkles,
@@ -38,7 +35,6 @@ import type { DayPrescription, WeekSchedule } from '@/services/planEngine';
 import { getEventMilestones, handleMissedDays } from '@/services/planEngine';
 import type { PlanPhase } from '@/services/planConstants';
 
-const SCREEN_H = Dimensions.get('window').height;
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
 interface Props {
@@ -83,9 +79,6 @@ function getTodayStr(): string {
 export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const insets = useSafeAreaInsets();
-  const maxSheetHeight = SCREEN_H * 0.92;
 
   const plan = ctx.activePlan;
   const schedule = ctx.planSchedule;
@@ -94,22 +87,13 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
 
   useEffect(() => {
     if (visible) {
-      bottomSheetRef.current?.present();
       if (plan && schedule) {
         const cw = getCurrentWeek(plan.startDate);
         const idx = Math.max(0, Math.min(cw - 1, schedule.weeks.length - 1));
         setSelectedWeekIdx(idx);
       }
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible, plan, schedule]);
-
-  const handleDismiss = useCallback(() => { onClose(); }, [onClose]);
-
-  const renderBackdrop = useCallback((props: any) => (
-    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} pressBehavior="close" />
-  ), []);
 
   const handleCancelPlan = useCallback(() => {
     Alert.alert(
@@ -124,7 +108,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
             onClose();
             setTimeout(() => {
               ctx.saveActivePlan(null, null);
-            }, 200);
+            }, 400);
           },
         },
       ]
@@ -133,7 +117,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
 
   const handleStartNew = useCallback(() => {
     onClose();
-    setTimeout(() => onStartNewPlan(), 150);
+    setTimeout(() => onStartNewPlan(), 350);
   }, [onClose, onStartNewPlan]);
 
   const handlePrevWeek = useCallback(() => {
@@ -166,29 +150,23 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
   const currentWeek = getCurrentWeek(plan.startDate);
   const weeksLeft = getWeeksLeft(plan.endDate);
   const progressPct = Math.min(100, Math.round((currentWeek / plan.planLength) * 100));
-  const topOffset = Math.max(insets.top, 0) + 16;
   const today = getTodayStr();
 
-  return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      enableDynamicSizing
-      maxDynamicContentSize={maxSheetHeight}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-    >
-      <DrawerHeader
-        title="Active Plan"
-        onClose={onClose}
-      />
+  const headerContent = (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <Sparkles size={16} color={accent} />
+        <Text style={[styles.headerLabel, { color: accent }]}>ACTIVE PLAN</Text>
+      </View>
+      <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+        <X size={16} color="#888" strokeWidth={2.5} />
+      </TouchableOpacity>
+    </View>
+  );
 
-      <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={styles.content}>
+  return (
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
+      <View style={styles.content}>
         <Text style={[styles.planName, { color: colors.text }]}>{plan.name}</Text>
 
         <View style={styles.tagRow}>
@@ -437,13 +415,13 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 26, borderTopRightRadius: 26 },
+  sheetBg: { borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8,

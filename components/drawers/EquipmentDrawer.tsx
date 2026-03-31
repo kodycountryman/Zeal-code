@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,42 +6,21 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  useWindowDimensions,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { ChevronDown, ChevronUp, Bookmark, Building2, Check, User, X } from 'lucide-react-native';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
+import { X, ChevronDown, ChevronUp, Bookmark, Building2, Check, User } from 'lucide-react-native';
 import { useZealTheme, useAppContext, SavedGym } from '@/context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EQUIPMENT_CATEGORIES, ALL_EQUIPMENT_IDS } from '@/mocks/equipmentData';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onBack?: () => void;
 }
 
-export default function EquipmentDrawer({ visible, onClose, onBack }: Props) {
+export default function EquipmentDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const { selectedEquipment, setSelectedEquipment, savedGyms, setSavedGyms, saveState, bumpSettingsSaveVersion } =
     useAppContext();
-
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
-  const { height: windowH } = useWindowDimensions();
-  const maxDynamicContentSize = useMemo(() => {
-    return Math.max(560, Math.min(windowH - topOffset - 24, Math.round(windowH * 0.92)));
-  }, [windowH, topOffset]);
-  const [contentH, setContentH] = useState(0);
-  // Compute a tight snap height so the sheet never opens past content.
-  const snapPoints = useMemo(() => {
-    const HEADER_AND_HANDLE_EST = 86;
-    const FOOTER_EST = 16;
-    const desired = contentH > 0 ? contentH + HEADER_AND_HANDLE_EST + FOOTER_EST : maxDynamicContentSize;
-    const clamped = Math.min(maxDynamicContentSize, Math.max(420, Math.round(desired)));
-    return [clamped];
-  }, [contentH, maxDynamicContentSize]);
 
   const [localEquip, setLocalEquip] = useState<Record<string, number>>({});
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
@@ -59,28 +38,8 @@ export default function EquipmentDrawer({ visible, onClose, onBack }: Props) {
       setNewGymName('');
       setActiveGymId(null);
       setIsNewGymMode(false);
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible, selectedEquipment]);
-
-  const handleDismiss = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
 
   const handleDone = () => {
     const count = Object.values(localEquip).filter(v => v > 0).length;
@@ -254,46 +213,46 @@ export default function EquipmentDrawer({ visible, onClose, onBack }: Props) {
     ]);
   };
 
-  return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-    >
-      <DrawerHeader
-        title={`Equipment · ${totalSelected}/${totalItems}`}
-        onBack={onBack}
-        onClose={onBack ? undefined : onClose}
-        rightContent={
-          <TouchableOpacity
-            style={[styles.headerDoneBtn, { backgroundColor: accent }]}
-            onPress={handleDone}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.headerDoneText}>Done</Text>
-          </TouchableOpacity>
-        }
-      />
-
-      <BottomSheetScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-        scrollEnabled={contentH > maxDynamicContentSize - 120}
-        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
+  const headerContent = (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.headerCircleBtn}
+        onPress={onClose}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
+        <X size={16} color="#888" strokeWidth={2.5} />
+      </TouchableOpacity>
+      <View style={styles.headerLeft}>
+        <View style={[styles.headerIcon, { backgroundColor: `${accent}22` }]}>
+          <Building2 size={18} color={accent} />
+        </View>
+        <Text style={[styles.title, { color: colors.text }]}>Equipment</Text>
+        <Text style={[styles.selectedCount, { color: colors.textSecondary }]}>
+          {totalSelected}/{totalItems}
+        </Text>
+        {activeGymId && (
+          <View style={[styles.activeGymPill, { backgroundColor: `${accent}20` }]}>
+            <Bookmark size={10} color={accent} />
+            <Text style={[styles.activeGymPillText, { color: accent }]}>
+              {savedGyms.find(g => g.id === activeGymId)?.name ?? 'Gym'}
+            </Text>
+          </View>
+        )}
+      </View>
+      <TouchableOpacity
+        style={[styles.headerDoneBtn, { backgroundColor: accent }]}
+        onPress={handleDone}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.headerDoneText}>Done</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} hasTextInput stackBehavior="push">
+      <View style={styles.content}>
         <Text style={[styles.presetsLabel, { color: colors.textSecondary }]}>QUICK PRESETS</Text>
 
         <View style={styles.presetsRow}>
@@ -581,16 +540,12 @@ export default function EquipmentDrawer({ visible, onClose, onBack }: Props) {
         })}
 
         <View style={{ height: 24 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

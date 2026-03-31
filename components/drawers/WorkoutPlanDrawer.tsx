@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,10 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
-  Dimensions,
 } from 'react-native';
 
-const SCREEN_H = Dimensions.get('window').height;
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import {
   X,
   ChevronLeft,
@@ -44,7 +41,6 @@ import { PLAN_GOALS, type PlanGoal, type PlanLength, type ExperienceLevel as Pla
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onBack?: () => void;
 }
 
 interface GoalOption {
@@ -128,12 +124,10 @@ function getTodayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function WorkoutPlanDrawer({ visible, onClose, onBack }: Props) {
+export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
   const insets = useSafeAreaInsets();
-  const maxSheetHeight = SCREEN_H * 0.88;
 
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState('');
@@ -158,17 +152,8 @@ export default function WorkoutPlanDrawer({ visible, onClose, onBack }: Props) {
       setExperience('');
       setPlanLength(8);
       setStartDate(getTodayStr());
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible]);
-
-  const handleDismiss = useCallback(() => { onClose(); }, [onClose]);
-
-  const renderBackdrop = useCallback((props: any) => (
-    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} pressBehavior="close" />
-  ), []);
 
   const splitOptions = useMemo(() => {
     const cfg = getStyleConfig(style);
@@ -260,42 +245,60 @@ export default function WorkoutPlanDrawer({ visible, onClose, onBack }: Props) {
 
   const goalLabel = GOALS.find(g => g.id === goal)?.label ?? '';
   const expLabel = experience === 'beginner' ? 'Beginner' : experience === 'intermediate' ? 'Intermediate' : experience === 'advanced' ? 'Advanced' : '';
-  const topOffset = Math.max(insets.top, 0) + 16;
 
   const progressWidth = `${(step / 7) * 100}%` as const;
 
-  return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      enableDynamicSizing
-      maxDynamicContentSize={maxSheetHeight}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-    >
-      <DrawerHeader
-        title="Workout Plan"
-        onBack={onBack}
-        onClose={onBack ? undefined : onClose}
-      />
-
+  const headerContent = (
+    <>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Sparkles size={16} color={accent} />
+          <Text style={[styles.headerLabel, { color: accent }]}>WORKOUT PLAN</Text>
+        </View>
+        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+          <X size={16} color="#888" strokeWidth={2.5} />
+        </TouchableOpacity>
+      </View>
       <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
         <View style={[styles.progressFill, { width: progressWidth, backgroundColor: accent }]} />
       </View>
+    </>
+  );
 
-      <BottomSheetScrollView showsVerticalScrollIndicator={false} bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+  const footerContent = (
+    <View style={[styles.navRow, { borderTopColor: colors.border, backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      {step > 1 ? (
+        <TouchableOpacity style={styles.navBtn} onPress={handleBack} activeOpacity={0.7}>
+          <ChevronLeft size={16} color={colors.textSecondary} />
+          <Text style={[styles.navBtnText, { color: colors.textSecondary }]}>Back</Text>
+        </TouchableOpacity>
+      ) : <View style={styles.navBtn} />}
+
+      {step < 7 ? (
+        <TouchableOpacity
+          style={[styles.nextBtn, { backgroundColor: canGoNext ? accent : colors.border }]}
+          onPress={handleNext}
+          disabled={!canGoNext}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.nextBtnText, { color: canGoNext ? '#fff' : colors.textMuted }]}>
+            {step === 6 ? 'Review' : 'Next'}
+          </Text>
+          <ChevronRight size={16} color={canGoNext ? '#fff' : colors.textMuted} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.navBtn} />
+      )}
+    </View>
+  );
+
+  return (
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} footer={footerContent} hasTextInput>
+      <View style={styles.content}>
         {step === 1 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>What&apos;s your main goal?</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Choose what you&apos;re training toward</Text>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>What's your main goal?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Choose what you're training toward</Text>
             <View style={styles.goalGrid}>
               {GOALS.map(g => {
                 const isSelected = goal === g.id;
@@ -569,38 +572,12 @@ export default function WorkoutPlanDrawer({ visible, onClose, onBack }: Props) {
           </View>
         )}
 
-      </BottomSheetScrollView>
-
-      <View style={[styles.navRow, { borderTopColor: colors.border, backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 16) }]}>
-        {step > 1 ? (
-          <TouchableOpacity style={styles.navBtn} onPress={handleBack} activeOpacity={0.7}>
-            <ChevronLeft size={16} color={colors.textSecondary} />
-            <Text style={[styles.navBtnText, { color: colors.textSecondary }]}>Back</Text>
-          </TouchableOpacity>
-        ) : <View style={styles.navBtn} />}
-
-        {step < 7 ? (
-          <TouchableOpacity
-            style={[styles.nextBtn, { backgroundColor: canGoNext ? accent : colors.border }]}
-            onPress={handleNext}
-            disabled={!canGoNext}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.nextBtnText, { color: canGoNext ? '#fff' : colors.textMuted }]}>
-              {step === 6 ? 'Review' : 'Next'}
-            </Text>
-            <ChevronRight size={16} color={canGoNext ? '#fff' : colors.textMuted} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.navBtn} />
-        )}
       </View>
-    </BottomSheetModal>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 26, borderTopRightRadius: 26 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8,

@@ -8,24 +8,22 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
 import {
   X, CalendarPlus, Trash2, CheckCircle, ChevronRight, AlertCircle, Clock,
   Dumbbell, RefreshCw, Plus, ArrowUp, ArrowDown, ArrowUpDown, Search,
   Repeat2,
 } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { useZealTheme, useAppContext, type PlannedWorkout, type MuscleReadinessItem } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { WORKOUT_STYLE_COLORS, TRAINING_SPLITS } from '@/constants/colors';
-import { type WorkoutExercise, generateWorkout } from '@/services/workoutEngine';
+import { type WorkoutExercise } from '@/services/workoutEngine';
 import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
-import { WORKOUT_STYLE_KEYS as STYLE_OPTIONS } from '@/constants/workoutStyles';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact'] as const;
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
@@ -94,9 +92,6 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const { hasPro } = useSubscription();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
-  const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<Step>('style');
   const [selectedStyle, setSelectedStyle] = useState<string>('');
@@ -168,9 +163,6 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       setAddQuery('');
       setReorderActiveId(null);
       setStep(existingPlan ? 'existing' : 'style');
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible, targetDate, ctx.workoutStyle, existingPlan]);
 
@@ -187,8 +179,6 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     ]).start();
   }, [genExercises.length, durationAnim]);
 
-  const handleDismiss = useCallback(() => { onClose(); }, [onClose]);
-
   const transitionStep = useCallback((nextStep: Step, nextSplit?: string) => {
     Animated.timing(fadeAnim, {
       toValue: 0, duration: 100, useNativeDriver: true,
@@ -201,11 +191,6 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       setShowAddPanel(false);
       setReorderActiveId(null);
       setStep(nextStep);
-      if (nextStep === 'workout') {
-        setTimeout(() => bottomSheetRef.current?.snapToIndex(1), 80);
-      } else {
-        setTimeout(() => bottomSheetRef.current?.snapToIndex(0), 80);
-      }
       Animated.timing(fadeAnim, {
         toValue: 1, duration: 160, useNativeDriver: true,
       }).start();
@@ -220,7 +205,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     setEditTargetId(null);
     setShowAddPanel(false);
     setReorderActiveId(null);
-    const params = {
+    generateWorkoutAsync({
       style: selectedStyle,
       split: selectedSplit || recommendedSplit,
       targetDuration: ctx.targetDuration,
@@ -236,24 +221,16 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       addCardio: false,
       specificMuscles: topMuscles,
       seedOffset: seedOff,
-    };
-    generateWorkoutAsync(params, undefined, hasPro).then((result) => {
+    }, undefined, hasPro).then((result) => {
       setGenExercises(result.workout);
       console.log('[PlanWorkoutSheet] Generated', result.workout.length, 'exercises');
     }).catch((e) => {
-      console.log('[PlanWorkoutSheet] AI generation failed, falling back to engine:', e);
-      try {
-        const fallback = generateWorkout(params);
-        setGenExercises(fallback.workout);
-        console.log('[PlanWorkoutSheet] Engine fallback succeeded:', fallback.workout.length, 'exercises');
-      } catch (fallbackErr) {
-        console.warn('[PlanWorkoutSheet] Engine fallback also failed:', fallbackErr);
-        setGenExercises([]);
-      }
+      console.log('[PlanWorkoutSheet] Generation error:', e);
+      setGenExercises([]);
     }).finally(() => {
       setIsGenerating(false);
     });
-  }, [selectedStyle, selectedSplit, recommendedSplit, ctx, topMuscles, hasPro]);
+  }, [selectedStyle, selectedSplit, recommendedSplit, ctx, topMuscles]);
 
   useEffect(() => {
     if (step === 'workout' && genExercises.length === 0 && !isGenerating) {
@@ -393,19 +370,6 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     setShowAddPanel(false);
     setAddQuery('');
   }, []);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.65}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
 
   const dateLabel = targetDate ? formatDateLabel(targetDate) : '';
 
@@ -573,47 +537,31 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     );
   };
 
-  return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={[styles.handle, { backgroundColor: colors.border }]}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-    >
-      <BottomSheetScrollView
-        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={scrollEnabled}
-        keyboardShouldPersistTaps="handled"
-        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
-      >
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIcon, { backgroundColor: `${accent}18` }]}>
-              <CalendarPlus size={20} color={accent} strokeWidth={1.8} />
-            </View>
-            <View>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>
-                {existingPlan && step === 'existing' ? 'Planned Workout' : 'Plan Workout'}
-              </Text>
-              <Text style={[styles.headerDate, { color: colors.textSecondary }]}>{dateLabel}</Text>
-            </View>
+  const headerContent = (
+    <>
+      <View style={[styles.header, { paddingHorizontal: 20 }]}>
+        <View style={styles.headerLeft}>
+          <View style={[styles.headerIcon, { backgroundColor: `${accent}18` }]}>
+            <CalendarPlus size={20} color={accent} strokeWidth={1.8} />
           </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-            <X size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+          <View>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              {existingPlan && step === 'existing' ? 'Planned Workout' : 'Plan Workout'}
+            </Text>
+            <Text style={[styles.headerDate, { color: colors.textSecondary }]}>{dateLabel}</Text>
+          </View>
         </View>
+        <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+          <X size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+      <View style={[styles.divider, { backgroundColor: colors.border, marginHorizontal: 20 }]} />
+    </>
+  );
 
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+  return (
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} hasTextInput>
+      <View style={styles.container}>
 
         <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
 
@@ -856,7 +804,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
 
               <View style={[styles.nextWorkoutHint, { backgroundColor: `${styleColor}0c`, borderColor: `${styleColor}25` }]}>
                 <Text style={[styles.nextWorkoutHintText, { color: colors.textSecondary }]}>
-                  Next you&apos;ll preview and customize the generated exercise list
+                  Next you'll preview and customize the generated exercise list
                 </Text>
               </View>
 
@@ -1013,21 +961,13 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
           )}
 
         </Animated.View>
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+        <View style={{ height: 24 }} />
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  handle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-  },
   container: {
     paddingHorizontal: 20,
   },

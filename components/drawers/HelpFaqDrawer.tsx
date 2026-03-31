@@ -1,22 +1,20 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Animated,
   Linking,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { ChevronDown, Star, MessageCircle } from 'lucide-react-native';
-import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
+import { X, ChevronDown, Star, MessageCircle } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onBack?: () => void;
 }
 
 type TabKey = 'faq' | 'reviews' | 'science';
@@ -161,44 +159,31 @@ const SCIENCE_DATA: ScienceCard[] = [
   },
 ];
 
-export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
+export default function HelpFaqDrawer({ visible, onClose }: Props) {
   const { colors, accent, isDark } = useZealTheme();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
 
   const [activeTab, setActiveTab] = useState<TabKey>('faq');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (visible) {
-      setActiveTab('faq');
-      setExpandedFaq(null);
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
-    }
-  }, [visible]);
-
-  const handleDismiss = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
+  const faqAnims = useRef<Animated.Value[]>(FAQ_DATA.map(() => new Animated.Value(0))).current;
 
   const handleFaqToggle = useCallback((index: number) => {
-    setExpandedFaq(prev => (prev === index ? null : index));
-  }, []);
+    setExpandedFaq(prev => {
+      const next = prev === index ? null : index;
+      Animated.timing(faqAnims[index], {
+        toValue: next === index ? 1 : 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+      if (prev !== null && prev !== index) {
+        Animated.timing(faqAnims[prev], {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      }
+      return next;
+    });
+  }, [faqAnims]);
 
   const handleTabPress = useCallback((tab: TabKey) => {
     setActiveTab(tab);
@@ -222,25 +207,14 @@ export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
     );
   }, []);
 
-  return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.background }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-    >
-      <DrawerHeader
-        title="Help & Info"
-        onBack={onBack}
-        onClose={onBack ? undefined : onClose}
-      />
+  const header = (
+    <>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Help & Info</Text>
+        <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn} testID="help-faq-close">
+          <X size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.tabBar}>
         {(['faq', 'reviews', 'science'] as TabKey[]).map((tab) => {
@@ -267,14 +241,12 @@ export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
           );
         })}
       </View>
+    </>
+  );
 
-      <BottomSheetScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        scrollEnabled={scrollEnabled}
-        contentContainerStyle={styles.scrollContent}
-        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
-      >
+  return (
+    <BaseDrawer visible={visible} onClose={onClose} header={header}>
+      <View style={styles.scrollContent}>
         {activeTab === 'faq' && (
           <View style={styles.faqContainer}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>FREQUENTLY ASKED QUESTIONS</Text>
@@ -317,7 +289,7 @@ export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
             >
               <MessageCircle size={18} color={accent} />
               <Text style={[styles.feedbackText, { color: colors.textSecondary }]}>
-                Have feedback? We&apos;d love to hear it.
+                Have feedback? We'd love to hear it.
               </Text>
             </TouchableOpacity>
           </View>
@@ -338,7 +310,7 @@ export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
               <View key={index} style={[styles.reviewCard, { backgroundColor: colors.card, borderColor: cardBorder }]}>
                 {renderStars(review.stars, 14)}
                 <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-                  &quot;{review.text}&quot;
+                  "{review.text}"
                 </Text>
                 <View style={styles.reviewerRow}>
                   <View style={[styles.reviewerAvatar, { backgroundColor: `${accent}22` }]}>
@@ -357,7 +329,7 @@ export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
           <View style={styles.scienceContainer}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>WHERE WE GET OUR WORKOUTS</Text>
             <Text style={[styles.scienceIntro, { color: colors.textSecondary }]}>
-              Every workout style in zeal is built on the methods of world-leading coaches, researchers, and competitive athletes. We don&apos;t make up generic routines — we program like the best do.
+              Every workout style in zeal is built on the methods of world-leading coaches, researchers, and competitive athletes. We don't make up generic routines — we program like the best do.
             </Text>
 
             {SCIENCE_DATA.map((card, index) => (
@@ -380,16 +352,12 @@ export default function HelpFaqDrawer({ visible, onClose, onBack }: Props) {
         )}
 
         <View style={{ height: 60 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

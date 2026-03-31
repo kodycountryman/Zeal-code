@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,12 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { Settings, X, ChevronRight, Camera, PersonStanding, BarChart3, Crown, Sparkles } from 'lucide-react-native';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import * as ImagePicker from 'expo-image-picker';
-import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
+
 import { useZealTheme, useAppContext } from '@/context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AchievementModal, { ACHIEVEMENTS, Achievement, getAchievementIcon } from '@/components/drawers/AchievementModal';
 import { useSubscription } from '@/context/SubscriptionContext';
 
@@ -38,15 +37,6 @@ export default function AthleteProfileDrawer({
   const { colors, accent, isDark } = useZealTheme();
   const { userName, setUserName, userPhotoUri, setUserPhotoUri, saveState } = useAppContext();
   const { hasPro, subscriptionState, openPaywall } = useSubscription();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
-  const {
-    snapPoints,
-    maxDynamicContentSize,
-    scrollEnabled,
-    setContentH,
-  } = useDrawerSizing({ minHeight: 320, headerEst: 74, footerEst: 16 });
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userName);
@@ -56,28 +46,8 @@ export default function AthleteProfileDrawer({
   useEffect(() => {
     if (visible) {
       setNameInput(userName);
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible, userName]);
-
-  const handleDismiss = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.6}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
 
   const handleSaveName = () => {
     if (nameInput.trim()) {
@@ -114,38 +84,23 @@ export default function AthleteProfileDrawer({
     setAchievementModalVisible(true);
   };
 
+  const headerContent = (
+    <View style={styles.header}>
+      <Text style={[styles.title, { color: colors.text }]}>Athlete Profile</Text>
+      <TouchableOpacity
+        onPress={onClose}
+        activeOpacity={0.7}
+        style={styles.closeIconBtn}
+      >
+        <X size={20} color={colors.textSecondary} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <>
-      <BottomSheetModal
-        ref={bottomSheetRef}
-        snapPoints={snapPoints}
-        maxDynamicContentSize={maxDynamicContentSize}
-        onDismiss={handleDismiss}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-        handleIndicatorStyle={{ backgroundColor: colors.border }}
-        enablePanDownToClose
-        enableOverDrag={false}
-        topInset={topOffset}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Athlete Profile</Text>
-          <TouchableOpacity
-            onPress={onClose}
-            activeOpacity={0.7}
-            style={styles.closeIconBtn}
-          >
-            <X size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        <BottomSheetScrollView
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          scrollEnabled={scrollEnabled}
-          contentContainerStyle={styles.content}
-          onContentSizeChange={(_w: number, h: number) => setContentH(h)}
-        >
+      <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
+        <View style={styles.content}>
           <View style={styles.profileRow}>
             <TouchableOpacity
               style={[styles.avatarWrap, { borderColor: colors.border }]}
@@ -340,8 +295,8 @@ export default function AthleteProfileDrawer({
           </View>
 
           <View style={{ height: 60 }} />
-        </BottomSheetScrollView>
-      </BottomSheetModal>
+        </View>
+      </BaseDrawer>
 
       <AchievementModal
         visible={achievementModalVisible}
@@ -353,10 +308,6 @@ export default function AthleteProfileDrawer({
 }
 
 const styles = StyleSheet.create({
-  sheetBg: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

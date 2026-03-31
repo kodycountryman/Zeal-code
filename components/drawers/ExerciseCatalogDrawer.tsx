@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useDrawerSizing } from '@/components/drawers/useDrawerSizing';
-import DrawerHeader from '@/components/drawers/DrawerHeader';
+import BaseDrawer from '@/components/drawers/BaseDrawer';
 import {
   X,
   Search,
@@ -37,7 +35,6 @@ import type { WorkoutExercise } from '@/services/workoutEngine';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onBack?: () => void;
 }
 
 interface MuscleGroupCategory {
@@ -159,13 +156,10 @@ function zealExToWorkoutEx(ex: ZealExercise): WorkoutExercise {
   };
 }
 
-export default function ExerciseCatalogDrawer({ visible, onClose, onBack }: Props) {
+export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
   const { hasPro, openPaywall } = useSubscription();
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const { snapPoints, maxDynamicContentSize, topOffset, scrollEnabled, setContentH } = useDrawerSizing({ minHeight: 480 });
-
   const [search, setSearch] = useState('');
   const [expandedMuscle, setExpandedMuscle] = useState<string | null>(null);
   const [expandedEquip, setExpandedEquip] = useState<string | null>(null);
@@ -177,17 +171,8 @@ export default function ExerciseCatalogDrawer({ visible, onClose, onBack }: Prop
       setSearch('');
       setExpandedMuscle(null);
       setExpandedEquip(null);
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
     }
   }, [visible]);
-
-  const handleDismiss = useCallback(() => { onClose(); }, [onClose]);
-
-  const renderBackdrop = useCallback((props: React.ComponentProps<typeof BottomSheetBackdrop>) => (
-    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} pressBehavior="close" />
-  ), []);
 
   const allExercises = useMemo(() => getZealExerciseDatabase(), []);
 
@@ -266,38 +251,28 @@ export default function ExerciseCatalogDrawer({ visible, onClose, onBack }: Prop
 
   const totalCount = allExercises.length;
 
+  const headerContent = (
+    <View style={styles.header}>
+      <View style={styles.headerTextBlock}>
+        <Text style={[styles.title, { color: colors.text }]}>Exercise Catalog</Text>
+        <View style={styles.subtitleRow}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{totalCount} exercises · tap </Text>
+          <ThumbsUp size={11} color='#22c55e' strokeWidth={2.5} />
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}> / </Text>
+          <ThumbsDown size={11} color='#ef4444' strokeWidth={2.5} />
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}> to tune workouts</Text>
+        </View>
+      </View>
+      <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+        <X size={16} color="#888" strokeWidth={2.5} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <>
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      maxDynamicContentSize={maxDynamicContentSize}
-      onDismiss={handleDismiss}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      topInset={topOffset}
-      stackBehavior="push"
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-    >
-      <DrawerHeader
-        title={`Exercise Catalog · ${totalCount}`}
-        onBack={onBack}
-        onClose={onBack ? undefined : onClose}
-      />
-
-      <BottomSheetScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        scrollEnabled={scrollEnabled}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-        onContentSizeChange={(_w: number, h: number) => setContentH(h)}
-      >
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} hasTextInput>
+      <View style={styles.content}>
         <View style={[styles.searchContainer, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
           <Search size={16} color={colors.textSecondary} />
           <TextInput
@@ -472,22 +447,20 @@ export default function ExerciseCatalogDrawer({ visible, onClose, onBack }: Prop
         })}
 
         <View style={{ height: 40 }} />
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </View>
+    </BaseDrawer>
 
     <ExerciseDetailDrawer
       visible={detailVisible}
       exercise={detailExercise}
       workoutStyle="strength"
       onClose={handleCloseDetail}
-      onBack={handleCloseDetail}
     />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 26, borderTopRightRadius: 26 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
