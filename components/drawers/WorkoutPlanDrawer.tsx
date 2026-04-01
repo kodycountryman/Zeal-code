@@ -4,106 +4,95 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
-  Platform,
+  ScrollView,
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import {
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Dumbbell,
-  TrendingUp,
-  Scale,
-  Heart,
-  Wind,
-  Trophy,
-  Zap,
-  Flame,
-  Activity,
-  Target,
-  Sparkles,
-  Calendar,
-  Clock,
-  Star,
-  BarChart3,
-  Info,
-} from 'lucide-react-native';
-
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext, type WorkoutPlan } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
-import { getStyleConfig } from '@/services/workoutConfig';
 import { generatePlanSchedule, type PlanGenerationInput } from '@/services/planEngine';
-import { PLAN_GOALS, type PlanGoal, type PlanLength, type ExperienceLevel as PlanExpLevel } from '@/services/planConstants';
+import {
+  PLAN_GOALS,
+  PLAN_EVENTS,
+  DAYS_PER_WEEK_OPTIONS,
+  SESSION_DURATION_OPTIONS,
+  PLAN_LENGTHS,
+  EXPERIENCE_MODIFIERS,
+  PHASE_COLORS,
+  PHASE_DISPLAY_NAMES,
+  getPhaseStructure,
+  type PlanGoal,
+  type PlanLength,
+  type PlanPhase,
+  type ExperienceLevel,
+} from '@/services/planConstants';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
 
-interface GoalOption {
-  id: string;
-  label: string;
-  desc: string;
-  icon: string;
-}
+// ── Local helpers ─────────────────────────────────────────────────────────────
 
-interface StyleOption {
-  id: string;
-  label: string;
-  desc: string;
-  icon: string;
-  color: string;
-}
+const GOAL_COLORS: Record<string, string> = {
+  build_strength:    WORKOUT_STYLE_COLORS.Strength     ?? '#a78bfa',
+  build_muscle:      WORKOUT_STYLE_COLORS.Bodybuilding ?? '#f97316',
+  lose_fat:          WORKOUT_STYLE_COLORS.HIIT         ?? '#ef4444',
+  improve_endurance: WORKOUT_STYLE_COLORS.Cardio       ?? '#22c55e',
+  general_fitness:   WORKOUT_STYLE_COLORS.CrossFit     ?? '#f87116',
+  event_preparation: WORKOUT_STYLE_COLORS.Hyrox        ?? '#06b6d4',
+  improve_mobility:  WORKOUT_STYLE_COLORS.Mobility     ?? '#86efac',
+};
 
-const GOALS: GoalOption[] = [
-  { id: 'build_strength', label: 'Build Strength', desc: 'Increase maximal force', icon: 'trending' },
-  { id: 'build_muscle', label: 'Build Muscle', desc: 'Hypertrophy-focused', icon: 'dumbbell' },
-  { id: 'lose_fat', label: 'Lose Fat', desc: 'Body recomposition', icon: 'scale' },
-  { id: 'improve_endurance', label: 'Improve Endurance', desc: 'Cardiovascular capacity', icon: 'heart' },
-  { id: 'general_fitness', label: 'General Fitness', desc: 'Well-rounded conditioning', icon: 'activity' },
-  { id: 'event_preparation', label: 'Event Preparation', desc: 'Peak for competition', icon: 'trophy' },
-  { id: 'improve_mobility', label: 'Improve Mobility', desc: 'Flexibility & joint health', icon: 'wind' },
-];
-
-const STYLES: StyleOption[] = [
-  { id: 'Strength', label: 'Strength', desc: 'Compound lifts, progressive overload', icon: 'dumbbell', color: WORKOUT_STYLE_COLORS.Strength },
-  { id: 'Bodybuilding', label: 'Bodybuilding', desc: 'Volume-focused hypertrophy', icon: 'trending', color: WORKOUT_STYLE_COLORS.Bodybuilding },
-  { id: 'CrossFit', label: 'CrossFit', desc: 'Varied functional movements', icon: 'zap', color: WORKOUT_STYLE_COLORS.CrossFit },
-  { id: 'Hyrox', label: 'HYROX', desc: 'Run + functional stations', icon: 'activity', color: WORKOUT_STYLE_COLORS.Hyrox },
-  { id: 'Cardio', label: 'Cardio', desc: 'Heart rate and endurance', icon: 'heart', color: WORKOUT_STYLE_COLORS.Cardio },
-  { id: 'HIIT', label: 'HIIT', desc: 'High-intensity intervals', icon: 'flame', color: WORKOUT_STYLE_COLORS.HIIT },
-  { id: 'Mobility', label: 'Mobility', desc: 'Joint health and recovery', icon: 'wind', color: WORKOUT_STYLE_COLORS.Mobility },
-  { id: 'Low-Impact', label: 'Low-Impact', desc: 'Joint-friendly, higher reps', icon: 'heart', color: WORKOUT_STYLE_COLORS['Low-Impact'] ?? '#86efac' },
-];
-
-const EVENTS = [
-  'Hyrox Race', 'CrossFit Competition', 'Powerlifting Meet', 'Bodybuilding Show',
-  'Marathon', 'Half Marathon', '5K', '10K', 'Olympic Weightlifting',
-  'Obstacle Race', 'Triathlon', 'Military/Police Test', 'No specific event',
-];
-
-const DAYS_OPTIONS = [2, 3, 4, 5, 6, 7];
-const DURATION_OPTIONS = [30, 45, 60, 75, 90];
-const PLAN_LENGTHS = [4, 8, 12, 16];
-
-function getIconComponent(icon: string, color: string, size: number = 20) {
-  switch (icon) {
-    case 'dumbbell': return <Dumbbell size={size} color={color} />;
-    case 'trending': return <TrendingUp size={size} color={color} />;
-    case 'scale': return <Scale size={size} color={color} />;
-    case 'heart': return <Heart size={size} color={color} />;
-    case 'wind': return <Wind size={size} color={color} />;
-    case 'trophy': return <Trophy size={size} color={color} />;
-    case 'zap': return <Zap size={size} color={color} />;
-    case 'flame': return <Flame size={size} color={color} />;
-    case 'activity': return <Activity size={size} color={color} />;
-    case 'target': return <Target size={size} color={color} />;
-    default: return <Dumbbell size={size} color={color} />;
+function getStyleForGoal(goal: string): string {
+  switch (goal) {
+    case 'build_strength':    return 'Strength';
+    case 'build_muscle':      return 'Bodybuilding';
+    case 'lose_fat':          return 'HIIT';
+    case 'improve_endurance': return 'Cardio';
+    case 'general_fitness':   return 'CrossFit';
+    case 'event_preparation': return 'Hyrox';
+    case 'improve_mobility':  return 'Mobility';
+    default:                  return 'Strength';
   }
 }
+
+const SPLIT_BY_DAYS: Record<number, string[]> = {
+  2: ['Full Body', 'Upper / Lower'],
+  3: ['Full Body', 'Push / Pull / Legs', 'Upper / Lower / Full'],
+  4: ['Upper / Lower', 'Push / Pull / Legs', 'Full Body'],
+  5: ['Push / Pull / Legs', 'Upper / Lower / Full'],
+  6: ['Push / Pull / Legs', 'Upper / Lower', 'Body Part Split'],
+  7: ['Push / Pull / Legs', 'Body Part Split'],
+};
+
+const EXP_CONFIG: Record<ExperienceLevel, {
+  label: string;
+  description: string;
+  rpeCap: number;
+  note: string;
+}> = {
+  beginner: {
+    label: 'Beginner',
+    description: 'Less than 1 year of consistent training',
+    rpeCap: EXPERIENCE_MODIFIERS.beginner.intensity_cap_rpe,
+    note: 'Moderate volume · Focus on form',
+  },
+  intermediate: {
+    label: 'Intermediate',
+    description: '1–3 years of consistent training',
+    rpeCap: EXPERIENCE_MODIFIERS.intermediate.intensity_cap_rpe,
+    note: 'Progressive overload · Higher intensity',
+  },
+  advanced: {
+    label: 'Advanced',
+    description: '3+ years, comfortable with complex lifts',
+    rpeCap: EXPERIENCE_MODIFIERS.advanced.intensity_cap_rpe,
+    note: 'Max overreach · Full periodization',
+  },
+};
 
 function addWeeks(dateStr: string, weeks: number): string {
   const d = new Date(dateStr);
@@ -124,6 +113,78 @@ function getTodayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+interface PhaseSegment { phase: PlanPhase; weeks: number; startWeek: number; }
+
+function getPhaseSegments(goal: PlanGoal, length: PlanLength): PhaseSegment[] {
+  const weeks = getPhaseStructure(length, goal);
+  const segments: PhaseSegment[] = [];
+  for (const w of weeks) {
+    const last = segments[segments.length - 1];
+    if (last && last.phase === w.phase) {
+      last.weeks += 1;
+    } else {
+      segments.push({ phase: w.phase, weeks: 1, startWeek: w.week_number });
+    }
+  }
+  return segments;
+}
+
+// ── Phase Timeline ────────────────────────────────────────────────────────────
+
+interface TimelineProps { segments: PhaseSegment[]; accentColor: string; }
+
+function PhaseTimeline({ segments, accentColor }: TimelineProps) {
+  const total = segments.reduce((s, seg) => s + seg.weeks, 0);
+  return (
+    <View style={tlStyles.wrap}>
+      <View style={tlStyles.barRow}>
+        {segments.map((seg, i) => {
+          const color = PHASE_COLORS[seg.phase] ?? accentColor;
+          const pct = (seg.weeks / total) * 100;
+          return (
+            <View
+              key={i}
+              style={[
+                tlStyles.barSegment,
+                { width: `${pct}%` as any, backgroundColor: color },
+                i === 0 && { borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
+                i === segments.length - 1 && { borderTopRightRadius: 6, borderBottomRightRadius: 6 },
+              ]}
+            />
+          );
+        })}
+      </View>
+      <View style={tlStyles.labelRow}>
+        {segments.map((seg, i) => {
+          const color = PHASE_COLORS[seg.phase] ?? accentColor;
+          return (
+            <View key={i} style={tlStyles.labelItem}>
+              <View style={[tlStyles.dot, { backgroundColor: color }]} />
+              <Text style={[tlStyles.labelText, { color }]} numberOfLines={1}>
+                {PHASE_DISPLAY_NAMES[seg.phase]}
+              </Text>
+              <Text style={tlStyles.labelWeeks}>{seg.weeks}w</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const tlStyles = StyleSheet.create({
+  wrap: { gap: 10 },
+  barRow: { flexDirection: 'row' as const, height: 10, borderRadius: 6, overflow: 'hidden' as const, gap: 2 },
+  barSegment: { height: 10 },
+  labelRow: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 10 },
+  labelItem: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 5 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  labelText: { fontSize: 11, fontFamily: 'Outfit_600SemiBold' },
+  labelWeeks: { fontSize: 11, fontFamily: 'Outfit_400Regular', color: '#888' },
+});
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
 export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
@@ -131,104 +192,84 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
 
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState('');
-  const [style, setStyle] = useState('');
-  const [events, setEvents] = useState<string[]>([]);
+  const [event, setEvent] = useState('');
   const [daysPerWeek, setDaysPerWeek] = useState(4);
   const [sessionDuration, setSessionDuration] = useState(60);
-  const [trainingSplit, setTrainingSplit] = useState('');
-  const [experience, setExperience] = useState('');
-  const [planLength, setPlanLength] = useState(8);
-  const [startDate, setStartDate] = useState(getTodayStr());
+  const [experience, setExperience] = useState<ExperienceLevel | ''>('');
+  const [planLength, setPlanLength] = useState<PlanLength>(8);
+  const [startDate] = useState(getTodayStr());
+
+  const isEventGoal = goal === 'event_preparation';
+  const totalSteps = isEventGoal ? 7 : 6;
+  const goalAccent = goal ? (GOAL_COLORS[goal] ?? accent) : accent;
+  const autoStyle = goal ? getStyleForGoal(goal) : 'Strength';
+  const primarySplit = (SPLIT_BY_DAYS[daysPerWeek] ?? ['Full Body'])[0] ?? 'Full Body';
 
   useEffect(() => {
     if (visible) {
-      setStep(1);
-      setGoal('');
-      setStyle('');
-      setEvents([]);
-      setDaysPerWeek(4);
-      setSessionDuration(60);
-      setTrainingSplit('');
-      setExperience('');
-      setPlanLength(8);
-      setStartDate(getTodayStr());
+      setStep(1); setGoal(''); setEvent('');
+      setDaysPerWeek(4); setSessionDuration(60);
+      setExperience(''); setPlanLength(8);
     }
   }, [visible]);
 
-  const splitOptions = useMemo(() => {
-    const cfg = getStyleConfig(style);
-    return cfg.slot_options.length > 0 ? cfg.slot_options : ['Full Body'];
-  }, [style]);
-
-  const splitSlotLabel = useMemo(() => {
-    return getStyleConfig(style).slot_label;
-  }, [style]);
-
   const endDate = useMemo(() => addWeeks(startDate, planLength), [startDate, planLength]);
+
+  const phaseSegments = useMemo<PhaseSegment[]>(() => {
+    if (!goal || !experience) return [];
+    try { return getPhaseSegments(goal as PlanGoal, planLength); } catch { return []; }
+  }, [goal, planLength, experience]);
 
   const canGoNext = useMemo(() => {
     switch (step) {
-      case 1: return goal.length > 0;
-      case 2: return style.length > 0;
+      case 1: return !!goal;
+      case 2: return isEventGoal ? !!event : true;
       case 3: return true;
-      case 4: return true;
-      case 5: return experience.length > 0;
+      case 4: return isEventGoal ? true : !!experience;
+      case 5: return isEventGoal ? !!experience : true;
       case 6: return true;
-      case 7: return true;
       default: return false;
     }
-  }, [step, goal, style, experience]);
+  }, [step, goal, event, experience, isEventGoal]);
 
   const handleNext = useCallback(() => {
     if (!canGoNext) return;
-    if (step < 7) setStep(s => s + 1);
-  }, [canGoNext, step]);
+    if (step < totalSteps) setStep(s => s + 1);
+  }, [canGoNext, step, totalSteps]);
 
   const handleBack = useCallback(() => {
     if (step > 1) setStep(s => s - 1);
   }, [step]);
 
-  const handleToggleEvent = useCallback((event: string) => {
-    if (event === 'No specific event') {
-      setEvents(['No specific event']);
-      return;
-    }
-    setEvents(prev => {
-      const filtered = prev.filter(e => e !== 'No specific event');
-      if (filtered.includes(event)) return filtered.filter(e => e !== event);
-      return [...filtered, event];
-    });
-  }, []);
-
   const handleGenerate = useCallback(() => {
-    const goalLabel = GOALS.find(g => g.id === goal)?.label ?? goal;
-    const planName = `${planLength}-Week ${style} ${goalLabel} Plan`;
+    if (!goal || !experience) return;
+    const goalOption = PLAN_GOALS.find(g => g.id === goal);
+    const goalLabel = goalOption?.label ?? goal;
+    const planName = `${planLength}-Week ${goalLabel} Plan`;
 
     const genInput: PlanGenerationInput = {
       goal: goal as PlanGoal,
-      style,
-      event: events,
+      style: autoStyle,
+      event: isEventGoal && event ? [event] : [],
       daysPerWeek,
       sessionDuration,
-      experienceLevel: (experience || 'intermediate') as PlanExpLevel,
-      planLength: planLength as PlanLength,
+      experienceLevel: experience as ExperienceLevel,
+      planLength,
       startDate,
     };
 
-    console.log('[WorkoutPlanDrawer] Generating plan schedule...');
     const schedule = generatePlanSchedule(genInput);
-    console.log('[WorkoutPlanDrawer] Schedule generated:', schedule.weeks.length, 'weeks,', schedule.total_training_days, 'training days');
 
     const plan: WorkoutPlan = {
       id: `plan_${Date.now()}`,
       name: planName,
       goal: goalLabel,
       goalId: goal as PlanGoal,
-      style,
-      event: events,
+      style: autoStyle,
+      event: isEventGoal && event ? [event] : [],
       daysPerWeek,
       sessionDuration,
-      trainingSplit: trainingSplit || splitOptions[0] || 'Full Body',
+      trainingSplit: primarySplit,
       experienceLevel: experience,
       planLength,
       startDate,
@@ -239,83 +280,71 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       missedDays: [],
     };
     ctx.saveActivePlan(plan, schedule);
-    console.log('[WorkoutPlanDrawer] Generated plan:', plan.name);
     onClose();
-  }, [goal, style, events, daysPerWeek, sessionDuration, trainingSplit, splitOptions, experience, planLength, startDate, endDate, ctx, onClose]);
+  }, [goal, event, daysPerWeek, sessionDuration, experience, planLength, startDate, endDate, autoStyle, isEventGoal, primarySplit, ctx, onClose]);
 
-  const goalLabel = GOALS.find(g => g.id === goal)?.label ?? '';
-  const expLabel = experience === 'beginner' ? 'Beginner' : experience === 'intermediate' ? 'Intermediate' : experience === 'advanced' ? 'Advanced' : '';
+  const goalOption = PLAN_GOALS.find(g => g.id === goal);
+  const expConfig = experience ? EXP_CONFIG[experience] : null;
+  const isPreviewStep = step === totalSteps;
 
-  const progressWidth = `${(step / 7) * 100}%` as const;
+  // Map step to content: normalStep vs eventStep (event flow has one extra step)
+  const cs = (normalStep: number, eventStep: number) => isEventGoal ? eventStep : normalStep;
+
+  const progressWidth = `${(step / totalSteps) * 100}%` as const;
 
   const headerContent = (
-    <>
+    <View>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Sparkles size={16} color={accent} />
-          <Text style={[styles.headerLabel, { color: accent }]}>WORKOUT PLAN</Text>
+          <PlatformIcon name="sparkles" size={14} color={goalAccent} />
+          <Text style={[styles.headerLabel, { color: goalAccent }]}>WORKOUT PLAN</Text>
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={16} color="#888" strokeWidth={2.5} />
+          <PlatformIcon name="x" size={15} color={colors.textSecondary} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
       <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-        <View style={[styles.progressFill, { width: progressWidth, backgroundColor: accent }]} />
+        <View style={[styles.progressFill, { width: progressWidth, backgroundColor: goalAccent }]} />
       </View>
-    </>
-  );
-
-  const footerContent = (
-    <View style={[styles.navRow, { borderTopColor: colors.border, backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 16) }]}>
-      {step > 1 ? (
-        <TouchableOpacity style={styles.navBtn} onPress={handleBack} activeOpacity={0.7}>
-          <ChevronLeft size={16} color={colors.textSecondary} />
-          <Text style={[styles.navBtnText, { color: colors.textSecondary }]}>Back</Text>
-        </TouchableOpacity>
-      ) : <View style={styles.navBtn} />}
-
-      {step < 7 ? (
-        <TouchableOpacity
-          style={[styles.nextBtn, { backgroundColor: canGoNext ? accent : colors.border }]}
-          onPress={handleNext}
-          disabled={!canGoNext}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.nextBtnText, { color: canGoNext ? '#fff' : colors.textMuted }]}>
-            {step === 6 ? 'Review' : 'Next'}
-          </Text>
-          <ChevronRight size={16} color={canGoNext ? '#fff' : colors.textMuted} />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.navBtn} />
-      )}
     </View>
   );
 
   return (
-    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} footer={footerContent} hasTextInput>
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
       <View style={styles.content}>
+
+        {/* ─── Step 1: Goal ───────────────────────────────────────────── */}
         {step === 1 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>What's your main goal?</Text>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>What's your goal?</Text>
             <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Choose what you're training toward</Text>
-            <View style={styles.goalGrid}>
-              {GOALS.map(g => {
+            <View style={styles.goalList}>
+              {PLAN_GOALS.map(g => {
                 const isSelected = goal === g.id;
+                const gColor = GOAL_COLORS[g.id] ?? accent;
                 return (
                   <TouchableOpacity
                     key={g.id}
                     style={[
-                      styles.goalCard,
-                      { backgroundColor: colors.cardSecondary, borderColor: isSelected ? accent : colors.border },
-                      isSelected && { backgroundColor: `${accent}12` },
+                      styles.goalRow,
+                      { backgroundColor: colors.cardSecondary, borderColor: isSelected ? gColor : colors.border },
+                      isSelected && { backgroundColor: `${gColor}10` },
                     ]}
-                    onPress={() => { setGoal(g.id); }}
+                    onPress={() => setGoal(g.id)}
                     activeOpacity={0.7}
                   >
-                    {getIconComponent(g.icon, isSelected ? accent : colors.textSecondary, 22)}
-                    <Text style={[styles.goalLabel, { color: isSelected ? accent : colors.text }]}>{g.label}</Text>
-                    <Text style={[styles.goalDesc, { color: colors.textSecondary }]}>{g.desc}</Text>
+                    <View style={[styles.goalIconWrap, { backgroundColor: isSelected ? `${gColor}20` : `${colors.border}60` }]}>
+                      <PlatformIcon name={g.icon as any} size={18} color={isSelected ? gColor : colors.textSecondary} />
+                    </View>
+                    <View style={styles.goalRowText}>
+                      <Text style={[styles.goalLabel, { color: isSelected ? gColor : colors.text }]}>{g.label}</Text>
+                      <Text style={[styles.goalDesc, { color: colors.textSecondary }]} numberOfLines={1}>{g.description}</Text>
+                    </View>
+                    {isSelected && (
+                      <View style={[styles.checkCircle, { backgroundColor: gColor }]}>
+                        <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -323,79 +352,50 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
           </View>
         )}
 
-        {step === 2 && (
+        {/* ─── Step 2 (event flow only): Event ────────────────────────── */}
+        {isEventGoal && step === 2 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>Training style</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>How do you like to train?</Text>
-            <View style={styles.goalGrid}>
-              {STYLES.map(s => {
-                const isSelected = style === s.id;
-                return (
-                  <TouchableOpacity
-                    key={s.id}
-                    style={[
-                      styles.goalCard,
-                      { backgroundColor: colors.cardSecondary, borderColor: isSelected ? s.color : colors.border },
-                      isSelected && { backgroundColor: `${s.color}12` },
-                    ]}
-                    onPress={() => { setStyle(s.id); setTrainingSplit(''); }}
-                    activeOpacity={0.7}
-                  >
-                    {getIconComponent(s.icon, isSelected ? s.color : colors.textSecondary, 22)}
-                    <Text style={[styles.goalLabel, { color: isSelected ? s.color : colors.text }]}>{s.label}</Text>
-                    <Text style={[styles.goalDesc, { color: colors.textSecondary }]}>{s.desc}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {step === 3 && (
-          <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>Specific event or goal?</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Optional — helps tailor your plan</Text>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>Which event?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Your plan will peak at the right time</Text>
             <View style={styles.chipWrap}>
-              {EVENTS.map(ev => {
-                const isSelected = events.includes(ev);
+              {PLAN_EVENTS.filter(e => e !== 'No specific event').map(ev => {
+                const isSelected = event === ev;
                 return (
                   <TouchableOpacity
                     key={ev}
                     style={[
                       styles.eventChip,
-                      { borderColor: isSelected ? accent : colors.border },
-                      isSelected && { backgroundColor: `${accent}18` },
+                      { borderColor: isSelected ? goalAccent : colors.border },
+                      isSelected && { backgroundColor: `${goalAccent}18` },
                     ]}
-                    onPress={() => handleToggleEvent(ev)}
+                    onPress={() => setEvent(ev)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.eventChipText, { color: isSelected ? accent : colors.text }]}>{ev}</Text>
+                    <Text style={[styles.eventChipText, { color: isSelected ? goalAccent : colors.text }]}>{ev}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-            <Text style={[styles.skipHint, { color: colors.textMuted }]}>Skip — no specific event</Text>
           </View>
         )}
 
-        {step === 4 && (
+        {/* ─── Days Per Week ──────────────────────────────────────────── */}
+        {step === cs(2, 3) && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>Schedule</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Set your weekly cadence and session length</Text>
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>DAYS PER WEEK</Text>
-            <View style={styles.pillRow}>
-              {DAYS_OPTIONS.map(d => {
+            <Text style={[styles.stepTitle, { color: colors.text }]}>Days per week?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>We'll build your weekly schedule around this</Text>
+            <View style={styles.daysRow}>
+              {DAYS_PER_WEEK_OPTIONS.map(d => {
                 const isSelected = daysPerWeek === d;
                 return (
                   <TouchableOpacity
                     key={d}
                     style={[
                       styles.dayPill,
-                      { borderColor: isSelected ? accent : colors.border },
-                      isSelected && { backgroundColor: accent },
+                      { borderColor: isSelected ? goalAccent : colors.border },
+                      isSelected && { backgroundColor: goalAccent },
                     ]}
-                    onPress={() => { setDaysPerWeek(d); }}
+                    onPress={() => setDaysPerWeek(d)}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.dayPillText, { color: isSelected ? '#fff' : colors.text }]}>{d}</Text>
@@ -403,44 +403,52 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
                 );
               })}
             </View>
+            <View style={[styles.splitPreview, { backgroundColor: `${goalAccent}08`, borderColor: `${goalAccent}25` }]}>
+              <View style={styles.splitPreviewHeader}>
+                <PlatformIcon name="calendar" size={13} color={goalAccent} />
+                <Text style={[styles.splitPreviewLabel, { color: goalAccent }]}>Suggested split</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.splitChipRow}>
+                  {(SPLIT_BY_DAYS[daysPerWeek] ?? ['Full Body']).map((session, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.splitChipItem,
+                        { backgroundColor: `${goalAccent}15`, borderColor: `${goalAccent}30` },
+                        i === 0 && { backgroundColor: `${goalAccent}28`, borderColor: goalAccent },
+                      ]}
+                    >
+                      <Text style={[styles.splitChipItemText, { color: goalAccent }]}>{session}</Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        )}
 
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>SESSION DURATION (MINUTES)</Text>
-            <View style={styles.pillRow}>
-              {DURATION_OPTIONS.map(d => {
+        {/* ─── Session Duration ───────────────────────────────────────── */}
+        {step === cs(3, 4) && (
+          <View style={styles.stepContent}>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>Session length?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Includes warm-up and cool-down</Text>
+            <View style={styles.durationRow}>
+              {SESSION_DURATION_OPTIONS.map(d => {
                 const isSelected = sessionDuration === d;
                 return (
                   <TouchableOpacity
                     key={d}
                     style={[
-                      styles.durationPill,
-                      { borderColor: isSelected ? accent : colors.border },
-                      isSelected && { backgroundColor: `${accent}18` },
+                      styles.durationChip,
+                      { borderColor: isSelected ? goalAccent : colors.border },
+                      isSelected && { backgroundColor: `${goalAccent}18` },
                     ]}
-                    onPress={() => { setSessionDuration(d); }}
+                    onPress={() => setSessionDuration(d)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.durationPillText, { color: isSelected ? accent : colors.text }]}>{d}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>{splitSlotLabel}</Text>
-            <View style={styles.chipWrap}>
-              {splitOptions.map(sp => {
-                const isSelected = trainingSplit === sp || (!trainingSplit && sp === splitOptions[0]);
-                return (
-                  <TouchableOpacity
-                    key={sp}
-                    style={[
-                      styles.splitChip,
-                      { borderColor: isSelected ? accent : colors.border },
-                      isSelected && { backgroundColor: `${accent}18` },
-                    ]}
-                    onPress={() => { setTrainingSplit(sp); }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.splitChipText, { color: isSelected ? accent : colors.text }]}>{sp}</Text>
+                    <Text style={[styles.durationValue, { color: isSelected ? goalAccent : colors.text }]}>{d}</Text>
+                    <Text style={[styles.durationUnit, { color: isSelected ? goalAccent : colors.textSecondary }]}>min</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -448,35 +456,35 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
           </View>
         )}
 
-        {step === 5 && (
+        {/* ─── Experience Level ───────────────────────────────────────── */}
+        {step === cs(4, 5) && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>Your experience level</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>This shapes the intensity and complexity</Text>
-
-            {[
-              { id: 'beginner', label: 'Beginner', desc: 'Less than 1 year of consistent training' },
-              { id: 'intermediate', label: 'Intermediate', desc: '1–3 years of consistent training' },
-              { id: 'advanced', label: 'Advanced', desc: '3+ years, familiar with complex movements' },
-            ].map(lvl => {
-              const isSelected = experience === lvl.id;
+            <Text style={[styles.stepTitle, { color: colors.text }]}>Your experience?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Shapes volume, intensity, and block structure</Text>
+            {(Object.keys(EXP_CONFIG) as ExperienceLevel[]).map(lvl => {
+              const cfg = EXP_CONFIG[lvl];
+              const isSelected = experience === lvl;
               return (
                 <TouchableOpacity
-                  key={lvl.id}
+                  key={lvl}
                   style={[
                     styles.expCard,
-                    { borderColor: isSelected ? accent : colors.border, backgroundColor: colors.cardSecondary },
-                    isSelected && { backgroundColor: `${accent}10`, borderColor: accent },
+                    { borderColor: isSelected ? goalAccent : colors.border, backgroundColor: colors.cardSecondary },
+                    isSelected && { backgroundColor: `${goalAccent}10`, borderColor: goalAccent },
                   ]}
-                  onPress={() => { setExperience(lvl.id); }}
+                  onPress={() => setExperience(lvl)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.expCardContent}>
-                    <Text style={[styles.expLabel, { color: isSelected ? accent : colors.text }]}>{lvl.label}</Text>
-                    <Text style={[styles.expDesc, { color: colors.textSecondary }]}>{lvl.desc}</Text>
+                    <Text style={[styles.expLabel, { color: isSelected ? goalAccent : colors.text }]}>{cfg.label}</Text>
+                    <Text style={[styles.expDesc, { color: colors.textSecondary }]}>{cfg.description}</Text>
+                    <Text style={[styles.expMeta, { color: colors.textMuted }]}>
+                      RPE cap {cfg.rpeCap} · {cfg.note}
+                    </Text>
                   </View>
                   {isSelected && (
-                    <View style={[styles.checkCircle, { backgroundColor: accent }]}>
-                      <Text style={styles.checkMark}>✓</Text>
+                    <View style={[styles.checkCircle, { backgroundColor: goalAccent }]}>
+                      <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -485,71 +493,64 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
           </View>
         )}
 
-        {step === 6 && (
+        {/* ─── Plan Length ────────────────────────────────────────────── */}
+        {step === cs(5, 6) && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>Plan length & start date</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>How long do you want to commit?</Text>
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>PLAN LENGTH</Text>
-            <View style={styles.pillRow}>
-              {PLAN_LENGTHS.map(w => {
+            <Text style={[styles.stepTitle, { color: colors.text }]}>Plan length?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>More weeks = more mesocycles = better results</Text>
+            <View style={styles.lengthRow}>
+              {(PLAN_LENGTHS as readonly number[]).map(w => {
                 const isSelected = planLength === w;
+                const blocks = Math.floor(w / 4);
                 return (
                   <TouchableOpacity
                     key={w}
                     style={[
-                      styles.lengthPill,
-                      { borderColor: isSelected ? accent : colors.border },
-                      isSelected && { backgroundColor: `${accent}18` },
+                      styles.lengthCard,
+                      { borderColor: isSelected ? goalAccent : colors.border, backgroundColor: colors.cardSecondary },
+                      isSelected && { backgroundColor: `${goalAccent}12`, borderColor: goalAccent },
                     ]}
-                    onPress={() => { setPlanLength(w); }}
+                    onPress={() => setPlanLength(w as PlanLength)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.lengthPillText, { color: isSelected ? accent : colors.text }]}>{w}w</Text>
+                    <Text style={[styles.lengthValue, { color: isSelected ? goalAccent : colors.text }]}>{w}</Text>
+                    <Text style={[styles.lengthUnit, { color: isSelected ? goalAccent : colors.textSecondary }]}>wks</Text>
+                    <Text style={[styles.lengthBlocks, { color: colors.textMuted }]}>{blocks} cycles</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-
-            <View style={[styles.infoRow, { backgroundColor: `${accent}10`, borderColor: `${accent}30` }]}>
-              <Info size={14} color={accent} />
-              <Text style={[styles.infoText, { color: accent }]}>
-                {planLength <= 4 ? '1 mesocycle — foundation to deload' : planLength <= 8 ? '2 mesocycles with progressive overload' : planLength <= 12 ? '3 mesocycles — full periodization' : '4 mesocycles — comprehensive program'}
+            <View style={[styles.datePreview, { backgroundColor: `${goalAccent}08`, borderColor: `${goalAccent}25` }]}>
+              <PlatformIcon name="calendar" size={13} color={goalAccent} />
+              <Text style={[styles.datePreviewText, { color: colors.text }]}>
+                {formatDateRange(startDate, endDate)}
               </Text>
-            </View>
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>START DATE</Text>
-            <View style={[styles.dateInput, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-              <Calendar size={16} color={colors.textSecondary} />
-              <TextInput
-                style={[styles.dateInputText, { color: colors.text }]}
-                value={startDate}
-                onChangeText={setStartDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textMuted}
-              />
             </View>
           </View>
         )}
 
-        {step === 7 && (
+        {/* ─── Preview / Generate ─────────────────────────────────────── */}
+        {isPreviewStep && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>Ready to generate</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Your plan will be placed on the calendar</Text>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>Your plan</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Looks good? We'll put it on your calendar.</Text>
 
             <View style={[styles.summaryCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-              {[
-                { icon: <Target size={14} color={accent} />, label: 'Goal', value: goalLabel },
-                { icon: <Zap size={14} color={accent} />, label: 'Style', value: style + (events.length > 0 && events[0] !== 'No specific event' ? ` · ${events.join(', ')}` : '') },
-                { icon: <Calendar size={14} color={accent} />, label: 'Days/week', value: `${daysPerWeek} days` },
-                { icon: <Clock size={14} color={accent} />, label: 'Duration', value: `${sessionDuration} min/session` },
-                { icon: <Star size={14} color={accent} />, label: 'Level', value: expLabel },
-                { icon: <BarChart3 size={14} color={accent} />, label: 'Length', value: `${planLength} weeks` },
-                { icon: <Calendar size={14} color={accent} />, label: 'Dates', value: formatDateRange(startDate, endDate) },
-              ].map((row, i) => (
-                <View key={i} style={[styles.summaryRow, i > 0 && { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
+              {([
+                { icon: 'target', label: 'Goal', value: goalOption?.label ?? '' },
+                ...(isEventGoal && event ? [{ icon: 'trophy', label: 'Event', value: event }] : []),
+                { icon: 'zap', label: 'Style', value: autoStyle },
+                { icon: 'calendar', label: 'Schedule', value: `${daysPerWeek}d/wk · ${primarySplit}` },
+                { icon: 'clock', label: 'Session', value: `${sessionDuration} min` },
+                { icon: 'star', label: 'Level', value: expConfig?.label ?? '' },
+                { icon: 'calendar', label: 'Dates', value: formatDateRange(startDate, endDate) },
+              ] as { icon: any; label: string; value: string }[]).map((row, i) => (
+                <View
+                  key={i}
+                  style={[styles.summaryRow, i > 0 && { borderTopWidth: 0.5, borderTopColor: colors.border }]}
+                >
                   <View style={styles.summaryRowLeft}>
-                    {row.icon}
+                    <PlatformIcon name={row.icon} size={13} color={goalAccent} />
                     <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{row.label}</Text>
                   </View>
                   <Text style={[styles.summaryValue, { color: colors.text }]}>{row.value}</Text>
@@ -557,20 +558,47 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
               ))}
             </View>
 
+            {phaseSegments.length > 0 && (
+              <View style={styles.timelineSection}>
+                <Text style={[styles.timelineSectionLabel, { color: colors.textSecondary }]}>PERIODIZATION</Text>
+                <PhaseTimeline segments={phaseSegments} accentColor={goalAccent} />
+              </View>
+            )}
+
             <TouchableOpacity
-              style={[styles.generateBtn, { backgroundColor: accent }]}
+              style={[styles.generateBtn, { backgroundColor: goalAccent }]}
               onPress={handleGenerate}
               activeOpacity={0.85}
             >
-              <Sparkles size={16} color="#fff" />
-              <Text style={styles.generateBtnText}>Generate Plan</Text>
+              <PlatformIcon name="sparkles" size={16} color="#fff" />
+              <Text style={styles.generateBtnText}>Start Plan</Text>
             </TouchableOpacity>
-
-            <Text style={[styles.generateNote, { color: colors.textMuted }]}>
-              Usually takes 10–30 seconds
-            </Text>
           </View>
         )}
+
+        {/* ─── Navigation — inside scroll so it's always measured ───── */}
+        <View style={[styles.navRow, { borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+          {step > 1 ? (
+            <TouchableOpacity style={styles.navBtn} onPress={handleBack} activeOpacity={0.7}>
+              <PlatformIcon name="chevron-left" size={16} color={colors.textSecondary} />
+              <Text style={[styles.navBtnText, { color: colors.textSecondary }]}>Back</Text>
+            </TouchableOpacity>
+          ) : <View style={styles.navBtn} />}
+
+          {!isPreviewStep ? (
+            <TouchableOpacity
+              style={[styles.nextBtn, { backgroundColor: canGoNext ? goalAccent : colors.border }]}
+              onPress={handleNext}
+              disabled={!canGoNext}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.nextBtnText, { color: canGoNext ? '#fff' : colors.textMuted }]}>
+                {step === totalSteps - 1 ? 'Review' : 'Next'}
+              </Text>
+              <PlatformIcon name="chevron-right" size={16} color={canGoNext ? '#fff' : colors.textMuted} />
+            </TouchableOpacity>
+          ) : <View style={styles.navBtn} />}
+        </View>
 
       </View>
     </BaseDrawer>
@@ -579,89 +607,113 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row' as const, alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerLabel: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1 },
+  headerLeft: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
+  headerLabel: { fontSize: 11, fontFamily: 'Outfit_700Bold', letterSpacing: 1 },
   closeBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(128,128,128,0.15)',
+    alignItems: 'center' as const, justifyContent: 'center' as const,
   },
-  progressBar: { height: 3, marginHorizontal: 16, borderRadius: 2, marginBottom: 12 },
+  progressBar: { height: 3, marginHorizontal: 16, borderRadius: 2, marginBottom: 4 },
   progressFill: { height: 3, borderRadius: 2 },
-  content: { paddingHorizontal: 16, paddingBottom: 8 },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   stepContent: { gap: 14 },
-  stepTitle: { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.5 },
-  stepSub: { fontSize: 13, marginBottom: 4 },
-  goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  goalCard: {
-    width: '47%' as any, borderRadius: 14, borderWidth: 1.5, padding: 16, gap: 6,
+  stepTitle: { fontSize: 22, fontFamily: 'Outfit_800ExtraBold', letterSpacing: -0.5 },
+  stepSub: { fontSize: 13, fontFamily: 'Outfit_400Regular', marginBottom: 4 },
+  goalList: { gap: 8 },
+  goalRow: {
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14,
+    borderWidth: 1.5, borderRadius: 16, padding: 14,
   },
-  goalLabel: { fontSize: 14, fontWeight: '700' as const },
-  goalDesc: { fontSize: 11 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  goalIconWrap: {
+    width: 42, height: 42, borderRadius: 13,
+    alignItems: 'center' as const, justifyContent: 'center' as const,
+  },
+  goalRowText: { flex: 1, gap: 2 },
+  goalLabel: { fontSize: 15, fontFamily: 'Outfit_700Bold' },
+  goalDesc: { fontSize: 12, fontFamily: 'Outfit_400Regular' },
+  checkCircle: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: 'center' as const, justifyContent: 'center' as const,
+  },
+  chipWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
   eventChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  eventChipText: { fontSize: 13, fontWeight: '500' as const },
-  skipHint: { fontSize: 12, fontStyle: 'italic' as const },
-  fieldLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.8 },
-  pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  eventChipText: { fontSize: 13, fontFamily: 'Outfit_500Medium' },
+  daysRow: { flexDirection: 'row' as const, gap: 8 },
   dayPill: {
-    width: 44, height: 44, borderRadius: 22, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center',
+    width: 46, height: 46, borderRadius: 23, borderWidth: 1.5,
+    alignItems: 'center' as const, justifyContent: 'center' as const,
   },
-  dayPillText: { fontSize: 16, fontWeight: '700' as const },
-  durationPill: {
-    borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10,
+  dayPillText: { fontSize: 17, fontFamily: 'Outfit_700Bold' },
+  splitPreview: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  splitPreviewHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
+  splitPreviewLabel: { fontSize: 11, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.3 },
+  splitChipRow: { flexDirection: 'row' as const, gap: 6 },
+  splitChipItem: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
+  splitChipItemText: { fontSize: 12, fontFamily: 'Outfit_600SemiBold' },
+  durationRow: { flexDirection: 'row' as const, gap: 10, flexWrap: 'wrap' as const },
+  durationChip: {
+    flex: 1, minWidth: 60, alignItems: 'center' as const,
+    borderWidth: 1.5, borderRadius: 14, paddingVertical: 16, gap: 2,
   },
-  durationPillText: { fontSize: 14, fontWeight: '600' as const },
-  splitChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  splitChipText: { fontSize: 13, fontWeight: '500' as const },
+  durationValue: { fontSize: 22, fontFamily: 'Outfit_800ExtraBold', letterSpacing: -1 },
+  durationUnit: { fontSize: 11, fontFamily: 'Outfit_500Medium', letterSpacing: 0.3 },
   expCard: {
-    borderWidth: 1.5, borderRadius: 14, padding: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1.5, borderRadius: 16, padding: 16,
+    flexDirection: 'row' as const, alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
   },
-  expCardContent: { flex: 1, gap: 4 },
-  expLabel: { fontSize: 16, fontWeight: '700' as const },
-  expDesc: { fontSize: 12 },
-  checkCircle: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  checkMark: { color: '#fff', fontSize: 14, fontWeight: '700' as const },
-  lengthPill: { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 12 },
-  lengthPillText: { fontSize: 15, fontWeight: '600' as const },
-  infoRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, marginTop: 8,
+  expCardContent: { flex: 1, gap: 3 },
+  expLabel: { fontSize: 16, fontFamily: 'Outfit_700Bold' },
+  expDesc: { fontSize: 12, fontFamily: 'Outfit_400Regular' },
+  expMeta: { fontSize: 11, fontFamily: 'Outfit_400Regular', marginTop: 2 },
+  lengthRow: { flexDirection: 'row' as const, gap: 10 },
+  lengthCard: {
+    flex: 1, borderWidth: 1.5, borderRadius: 16,
+    paddingVertical: 18, alignItems: 'center' as const, gap: 2,
   },
-  infoText: { fontSize: 12, fontWeight: '500' as const },
-  dateInput: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+  lengthValue: { fontSize: 26, fontFamily: 'Outfit_800ExtraBold', letterSpacing: -1 },
+  lengthUnit: { fontSize: 12, fontFamily: 'Outfit_600SemiBold' },
+  lengthBlocks: { fontSize: 10, fontFamily: 'Outfit_400Regular' },
+  datePreview: {
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10,
   },
-  dateInputText: { flex: 1, fontSize: 15, fontWeight: '500' as const, padding: 0 },
-  summaryCard: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  datePreviewText: { fontSize: 13, fontFamily: 'Outfit_500Medium' },
+  summaryCard: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' as const },
   summaryRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
+    flexDirection: 'row' as const, alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: 16, paddingVertical: 13,
   },
-  summaryRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  summaryLabel: { fontSize: 12, fontWeight: '500' as const },
-  summaryValue: { fontSize: 14, fontWeight: '600' as const, textAlign: 'right' as const, flexShrink: 1, maxWidth: '55%' as any },
+  summaryRowLeft: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+  summaryLabel: { fontSize: 12, fontFamily: 'Outfit_500Medium' },
+  summaryValue: {
+    fontSize: 13, fontFamily: 'Outfit_600SemiBold',
+    textAlign: 'right' as const, flexShrink: 1, maxWidth: '55%' as any,
+  },
+  timelineSection: { gap: 8 },
+  timelineSectionLabel: { fontSize: 10, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.8, paddingLeft: 2 },
   generateBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 14, paddingVertical: 16, marginTop: 4,
+    flexDirection: 'row' as const, alignItems: 'center' as const,
+    justifyContent: 'center' as const, gap: 8,
+    borderRadius: 16, paddingVertical: 17, marginTop: 4,
   },
-  generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' as const },
-  generateNote: { fontSize: 11, textAlign: 'center' as const, marginTop: 4 },
+  generateBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Outfit_700Bold', letterSpacing: -0.2 },
   navRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderTopWidth: 0.5,
+    flexDirection: 'row' as const, alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingTop: 16, borderTopWidth: 0.5, marginTop: 8,
   },
-  navBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 60 },
-  navBtnText: { fontSize: 14, fontWeight: '600' as const },
+  navBtn: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, minWidth: 70 },
+  navBtnText: { fontSize: 14, fontFamily: 'Outfit_600SemiBold' },
   nextBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12,
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4,
+    borderRadius: 12, paddingHorizontal: 22, paddingVertical: 13,
   },
-  nextBtnText: { fontSize: 14, fontWeight: '700' as const },
+  nextBtnText: { fontSize: 14, fontFamily: 'Outfit_700Bold' },
 });

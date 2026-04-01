@@ -98,6 +98,8 @@ import FullCalendarModal from '@/components/FullCalendarModal';
 import WheelPicker from '@/components/WheelPicker';
 import WheelGuideModal from '@/components/WheelGuideModal';
 import WorkoutWalkthrough from '@/components/WorkoutWalkthrough';
+import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassCard from '@/components/GlassCard';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -760,6 +762,8 @@ export default function WorkoutScreen() {
   const [equipmentVisible, setEquipmentVisible] = useState(false);
   const [infoLabel, setInfoLabel] = useState<string | null>(null);
   const [regenCounter, setRegenCounter] = useState<number>(() => Math.floor(Math.random() * 9999) + 1);
+  const [startAnotherVisible, setStartAnotherVisible] = useState(false);
+  const [planChoiceVisible, setPlanChoiceVisible] = useState(false);
   const [coreStyleBannerDismissed, setCoreStyleBannerDismissed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
@@ -968,6 +972,9 @@ export default function WorkoutScreen() {
   const logWheelSingleColW = 80;
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+  const hasCompletedToday = !tracking.isWorkoutActive && tracking.todayLogs.length > 0;
+  const latestTodayLog = hasCompletedToday ? tracking.todayLogs[0] : null;
 
   const rotateLoopRef = useRef<RNAnimated.CompositeAnimation | null>(null);
   const pulseLoopRef = useRef<RNAnimated.CompositeAnimation | null>(null);
@@ -3335,7 +3342,112 @@ export default function WorkoutScreen() {
         }
       >
         <View style={{ paddingHorizontal: 16, paddingTop: 4 }}>
-        {!hasPro && !coreStyleBannerDismissed && PRO_STYLES_SET.has(ctx.workoutStyle) && !tracking.isWorkoutActive && (
+
+        {/* ── POST-WORKOUT COMPLETED STATE ── */}
+        {hasCompletedToday && !tracking.isWorkoutActive && (
+          <View style={styles.postWorkoutWrap}>
+            {/* Today's completed workout card */}
+            <TouchableOpacity
+              style={[styles.postWorkoutLogCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
+              onPress={() => {
+                if (latestTodayLog) {
+                  tracking.setSelectedLogId(latestTodayLog.id);
+                  tracking.setWorkoutLogDetailVisible(true);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.postWorkoutLogTop}>
+                <View style={[styles.postWorkoutCheckCircle, { backgroundColor: `${currentAccent}20` }]}>
+                  <PlatformIcon name="check" size={20} color={currentAccent} strokeWidth={2.5} />
+                </View>
+                <View style={styles.postWorkoutLogText}>
+                  <Text style={[styles.postWorkoutLogTitle, { color: colors.text }]}>Workout Complete</Text>
+                  <Text style={[styles.postWorkoutLogSub, { color: colors.textSecondary }]}>
+                    {latestTodayLog?.workoutStyle ?? currentStyle}
+                    {latestTodayLog?.duration ? ` · ${latestTodayLog.duration} min` : ''}
+                    {(latestTodayLog?.exercises?.length ?? 0) > 0 ? ` · ${latestTodayLog!.exercises.length} exercises` : ''}
+                  </Text>
+                  {tracking.todayLogs.length > 1 && (
+                    <Text style={[styles.postWorkoutLogExtra, { color: colors.textMuted }]}>
+                      +{tracking.todayLogs.length - 1} more today
+                    </Text>
+                  )}
+                </View>
+                <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Start another workout section */}
+            <View style={styles.postWorkoutSection}>
+              <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>START ANOTHER</Text>
+              <View style={styles.postWorkoutActionRow}>
+                <TouchableOpacity
+                  style={[styles.postWorkoutActionBtn, { backgroundColor: currentAccent }]}
+                  onPress={() => {
+                    const next = regenCounter + 1;
+                    setRegenCounter(next);
+                    doGenerate(undefined, undefined, undefined, undefined, undefined, next);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <PlatformIcon name="zap" size={16} color="#fff" fill="#fff" />
+                  <Text style={styles.postWorkoutActionBtnText}>Quick Workout</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.postWorkoutActionBtnOutline, { borderColor: `${currentAccent}50` }]}
+                  onPress={() => setStartAnotherVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <PlatformIcon name="sliders-horizontal" size={15} color={currentAccent} />
+                  <Text style={[styles.postWorkoutActionBtnOutlineText, { color: currentAccent }]}>Custom Workout</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Plan / schedule section */}
+            <View style={styles.postWorkoutSection}>
+              <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>PLANNING</Text>
+              {ctx.activePlan ? (
+                <TouchableOpacity
+                  style={[styles.postWorkoutPlanCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
+                  onPress={() => tracking.setActivePlanVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.postWorkoutPlanIcon, { backgroundColor: `${currentAccent}16` }]}>
+                    <PlatformIcon name="calendar" size={16} color={currentAccent} />
+                  </View>
+                  <View style={styles.postWorkoutPlanText}>
+                    <Text style={[styles.postWorkoutPlanTitle, { color: colors.text }]}>View Workout Plan</Text>
+                    <Text style={[styles.postWorkoutPlanSub, { color: colors.textSecondary }]}>
+                      {ctx.activePlan.name ?? 'Active plan'}
+                    </Text>
+                  </View>
+                  <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.postWorkoutPlanCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
+                  onPress={() => setPlanChoiceVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.postWorkoutPlanIcon, { backgroundColor: `${currentAccent}16` }]}>
+                    <PlatformIcon name="calendar-plus" size={16} color={currentAccent} />
+                  </View>
+                  <View style={styles.postWorkoutPlanText}>
+                    <Text style={[styles.postWorkoutPlanTitle, { color: colors.text }]}>Plan a Future Workout</Text>
+                    <Text style={[styles.postWorkoutPlanSub, { color: colors.textSecondary }]}>
+                      Build for a future day or start a training plan
+                    </Text>
+                  </View>
+                  <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
+        {!hasCompletedToday && !hasPro && !coreStyleBannerDismissed && PRO_STYLES_SET.has(ctx.workoutStyle) && !tracking.isWorkoutActive && (
           <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
             <View style={styles.coreStyleBannerContent}>
               <Info size={14} color={colors.textSecondary} />
@@ -3360,7 +3472,7 @@ export default function WorkoutScreen() {
           </View>
         )}
 
-        {!tracking.isWorkoutActive && (
+        {!tracking.isWorkoutActive && !hasCompletedToday && (
           <>
             <HealthImportBanner />
 
@@ -3438,7 +3550,7 @@ export default function WorkoutScreen() {
         </View>
 
         {/* Unified tab card — tab bar header + content */}
-        <View style={[styles.tabPanel, {
+        {!hasCompletedToday && <View style={[styles.tabPanel, {
           marginHorizontal: 16,
           marginTop: 14,
           backgroundColor: colors.card,
@@ -3973,10 +4085,10 @@ export default function WorkoutScreen() {
         )}
 
           </View>
-        </View>
+        </View>}
 
         {/* Add / Finish button — outside the card, workout tab only */}
-        {activePanel === 1 && (
+        {!hasCompletedToday && activePanel === 1 && (
           <View style={{ marginHorizontal: 16, marginTop: 8 }}>
             <View style={styles.tabCompleteWrap}>
               {tracking.isWorkoutActive ? (
@@ -4137,6 +4249,82 @@ export default function WorkoutScreen() {
         onClose={() => setEquipmentVisible(false)}
         onBack={() => setEquipmentVisible(false)}
       />
+
+      <StartAnotherWorkoutSheet
+        visible={startAnotherVisible}
+        onClose={() => setStartAnotherVisible(false)}
+      />
+
+      {/* Plan choice modal — "Build for a future day" vs "Start a workout plan" */}
+      <Modal
+        visible={planChoiceVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPlanChoiceVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.planChoiceOverlay}
+          activeOpacity={1}
+          onPress={() => setPlanChoiceVisible(false)}
+        >
+          <TouchableOpacity
+            style={[styles.planChoiceSheet, { backgroundColor: colors.card }]}
+            activeOpacity={1}
+            onPress={() => {}}
+          >
+            <View style={[styles.planChoiceHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.planChoiceTitle, { color: colors.text }]}>What do you want to do?</Text>
+
+            <TouchableOpacity
+              style={[styles.planChoiceOption, { borderColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.08)' }]}
+              onPress={() => {
+                setPlanChoiceVisible(false);
+                tracking.setBuildWorkoutVisible(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.planChoiceOptionIcon, { backgroundColor: `${currentAccent}18` }]}>
+                <PlatformIcon name="calendar" size={18} color={currentAccent} />
+              </View>
+              <View style={styles.planChoiceOptionText}>
+                <Text style={[styles.planChoiceOptionTitle, { color: colors.text }]}>Build for a Future Day</Text>
+                <Text style={[styles.planChoiceOptionSub, { color: colors.textSecondary }]}>
+                  Design a one-off workout and schedule it
+                </Text>
+              </View>
+              <PlatformIcon name="chevron-right" size={15} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.planChoiceOption, { borderColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.08)' }]}
+              onPress={() => {
+                setPlanChoiceVisible(false);
+                tracking.setWorkoutPlanVisible(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.planChoiceOptionIcon, { backgroundColor: `${currentAccent}18` }]}>
+                <PlatformIcon name="calendar-range" size={18} color={currentAccent} />
+              </View>
+              <View style={styles.planChoiceOptionText}>
+                <Text style={[styles.planChoiceOptionTitle, { color: colors.text }]}>Start a Training Plan</Text>
+                <Text style={[styles.planChoiceOptionSub, { color: colors.textSecondary }]}>
+                  Set up a multi-week program with a daily schedule
+                </Text>
+              </View>
+              <PlatformIcon name="chevron-right" size={15} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.planChoiceCancel}
+              onPress={() => setPlanChoiceVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.planChoiceCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       <PostWorkoutFlow />
       <LogPreviousWorkout />
@@ -6216,6 +6404,187 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
+  },
+
+  /* ── Post-Workout Completed Screen ── */
+  postWorkoutWrap: {
+    gap: 24,
+    paddingTop: 4,
+  },
+  postWorkoutLogCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 18,
+  },
+  postWorkoutLogTop: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 14,
+  },
+  postWorkoutCheckCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  postWorkoutLogText: {
+    flex: 1,
+    gap: 2,
+  },
+  postWorkoutLogTitle: {
+    fontSize: 17,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.3,
+  },
+  postWorkoutLogSub: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.1,
+  },
+  postWorkoutLogExtra: {
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+    marginTop: 2,
+  },
+  postWorkoutSection: {
+    gap: 10,
+  },
+  postWorkoutSectionLabel: {
+    fontSize: 10,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.9,
+    paddingLeft: 2,
+  },
+  postWorkoutActionRow: {
+    flexDirection: 'row' as const,
+    gap: 10,
+  },
+  postWorkoutActionBtn: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+    paddingVertical: 15,
+    borderRadius: 16,
+  },
+  postWorkoutActionBtnText: {
+    fontSize: 15,
+    fontFamily: 'Outfit_700Bold',
+    color: '#fff',
+    letterSpacing: -0.2,
+  },
+  postWorkoutActionBtnOutline: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+    paddingVertical: 15,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  postWorkoutActionBtnOutlineText: {
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: -0.2,
+  },
+  postWorkoutPlanCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  postWorkoutPlanIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  postWorkoutPlanText: {
+    flex: 1,
+    gap: 2,
+  },
+  postWorkoutPlanTitle: {
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: -0.1,
+  },
+  postWorkoutPlanSub: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.1,
+  },
+
+  /* ── Plan Choice Modal ── */
+  planChoiceOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end' as const,
+  },
+  planChoiceSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 36,
+    gap: 12,
+  },
+  planChoiceHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center' as const,
+    marginBottom: 8,
+  },
+  planChoiceTitle: {
+    fontSize: 20,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  planChoiceOption: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 14,
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+  },
+  planChoiceOptionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  planChoiceOptionText: {
+    flex: 1,
+    gap: 3,
+  },
+  planChoiceOptionTitle: {
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: -0.1,
+  },
+  planChoiceOptionSub: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.1,
+  },
+  planChoiceCancel: {
+    alignItems: 'center' as const,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  planChoiceCancelText: {
+    fontSize: 15,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
   },
 });
 

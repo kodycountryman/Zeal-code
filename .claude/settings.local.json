@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(wc -l \"/Users/kodycountryman/Desktop/zeal+ Code/app/\\(tabs\\)/workout.tsx\")",
+      "Bash(cursor --list-extensions)",
+      "Bash(~/.cursor/bin/cursor --list-extensions)",
+      "Bash(code --install-extension dbaeumer.vscode-eslint)",
+      "Bash(code --install-extension esbenp.prettier-vscode)",
+      "Bash(code --install-extension msjsdiag.vscode-react-native)",
+      "Bash(code --install-extension bradlc.vscode-tailwindcss)",
+      "Bash(code --install-extension dsznajder.es7-react-js-snippets)",
+      "Bash(code \"/Users/kodycountryman/Desktop/zeal+ Code\")",
+      "Bash(xcrun simctl:*)",
+      "Bash(npx expo:*)",
+      "Bash(gh repo:*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.prompt // \"\"' | grep -qi \"checkpoint\" && ( cd \"/Users/kodycountryman/Desktop/zeal+ Code\" && git add -A && git commit -m \"Checkpoint: $(git diff --cached --name-only | awk -F'/' '{print $NF}' | sort -u | head -5 | paste -sd ', ')\" && git push origin main ) || true",
+            "timeout": 30,
+            "statusMessage": "Pushing checkpoint..."
+          }
+        ]
+      }
+    ]
+  }
+}
