@@ -43,7 +43,7 @@ import {
 
 const WORKOUT_STYLES = [
   'Strength', 'Bodybuilding', 'CrossFit', 'Hyrox',
-  'Cardio', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact',
+  'HIIT', 'Mobility', 'Pilates', 'Low-Impact',
 ];
 
 

@@ -7,8 +7,11 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
+import type { DayPrescription } from '@/services/planEngine';
 
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -61,11 +64,14 @@ function getTodayStr(): string {
 export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
+  const router = useRouter();
 
   const plan = ctx.activePlan;
   const schedule = ctx.planSchedule;
 
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
+  const [previewDay, setPreviewDay] = useState<DayPrescription | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -296,6 +302,22 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
           </View>
         ) : null}
 
+        {/* ── Start today CTA (training day only) ──────── */}
+        {!isPlanComplete && todayPrescription && !todayPrescription.is_rest && (
+          <TouchableOpacity
+            style={[styles.startTodayBtn, { backgroundColor: styleColor }]}
+            onPress={() => {
+              onClose();
+              setTimeout(() => router.push('/(tabs)/workout' as any), 350);
+            }}
+            activeOpacity={0.85}
+          >
+            <PlatformIcon name="play" size={15} color="#fff" fill="#fff" />
+            <Text style={styles.startTodayBtnText}>Start Today's Workout</Text>
+            <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+        )}
+
         {/* ── Missed day recovery ───────────────────────── */}
         {!isPlanComplete && missedRecovery && (
           <View style={[styles.recoveryCard, { backgroundColor: '#f59e0b0d', borderColor: '#f59e0b30' }]}>
@@ -322,22 +344,26 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                 contentContainerStyle={styles.phaseTimelineScroll}
               >
                 {schedule.weeks.map((week, idx) => {
-                  const phaseColor = PHASE_COLORS[week.phase as PlanPhase] ?? accent;
                   const isCurrentWeek = week.week_number === currentWeek;
                   const isSelected = idx === selectedWeekIdx;
+                  const dotBg = isSelected ? accent : 'rgba(255,255,255,0.07)';
+                  const dotBorderColor = isSelected ? accent : isCurrentWeek ? accent : 'transparent';
+                  const dotTextColor = isSelected ? '#fff' : isCurrentWeek ? accent : colors.textSecondary;
                   return (
                     <TouchableOpacity
                       key={idx}
                       style={[
                         styles.phaseWeekDot,
-                        { backgroundColor: `${phaseColor}25`, borderColor: isSelected ? phaseColor : 'transparent' },
-                        isCurrentWeek && { borderColor: '#fff', borderWidth: 2 },
-                        isSelected && isCurrentWeek && { borderColor: phaseColor },
+                        {
+                          backgroundColor: dotBg,
+                          borderColor: dotBorderColor,
+                          borderWidth: isCurrentWeek && !isSelected ? 1.5 : isSelected ? 0 : 1,
+                        },
                       ]}
                       onPress={() => setSelectedWeekIdx(idx)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.phaseWeekNum, { color: phaseColor }]}>{week.week_number}</Text>
+                      <Text style={[styles.phaseWeekNum, { color: dotTextColor }]}>{week.week_number}</Text>
                       {week.is_deload && (
                         <View style={[styles.deloadDot, { backgroundColor: '#22c55e' }]} />
                       )}
@@ -365,14 +391,8 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                     Week {selectedWeek?.week_number ?? selectedWeekIdx + 1}
                   </Text>
                   {selectedWeek && (
-                    <View style={[
-                      styles.phaseBadge,
-                      { backgroundColor: `${PHASE_COLORS[selectedWeek.phase as PlanPhase] ?? accent}20` },
-                    ]}>
-                      <Text style={[
-                        styles.phaseBadgeText,
-                        { color: PHASE_COLORS[selectedWeek.phase as PlanPhase] ?? accent },
-                      ]}>
+                    <View style={[styles.phaseBadge, { backgroundColor: `${accent}15` }]}>
+                      <Text style={[styles.phaseBadgeText, { color: accent }]}>
                         {PHASE_DISPLAY_NAMES[selectedWeek.phase as PlanPhase] ?? selectedWeek.phase}
                         {selectedWeek.is_deload ? ' · Deload' : ''}
                       </Text>
@@ -395,9 +415,9 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
 
               {/* Week notes */}
               {selectedWeek?.notes ? (
-                <View style={[styles.infoRow, { backgroundColor: `${accent}08`, borderColor: `${accent}20` }]}>
-                  <PlatformIcon name="trending-up" size={12} color={accent} />
-                  <Text style={[styles.infoRowText, { color: accent }]}>{selectedWeek.notes}</Text>
+                <View style={[styles.infoRow, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                  <PlatformIcon name="trending-up" size={12} color={colors.textSecondary} />
+                  <Text style={[styles.infoRowText, { color: colors.textSecondary }]}>{selectedWeek.notes}</Text>
                 </View>
               ) : null}
 
@@ -416,14 +436,13 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                   const isPast = day.date < today;
                   const isMissed = plan.missedDays?.includes(day.date);
                   const isCompleted = !day.is_rest && plan.completedDays?.includes(day.date);
-                  const phaseColor = PHASE_COLORS[day.phase as PlanPhase] ?? accent;
 
                   // Resolved border/background based on state priority
                   const cardBg = isCompleted
                     ? '#22c55e0d'
                     : day.is_rest
                       ? colors.cardSecondary
-                      : `${phaseColor}08`;
+                      : `${accent}08`;
                   const cardBorder = isCompleted
                     ? '#22c55e40'
                     : isToday
@@ -432,8 +451,9 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                         ? '#ef444430'
                         : colors.border;
 
+                  const CardWrapper = day.is_rest ? View : TouchableOpacity;
                   return (
-                    <View
+                    <CardWrapper
                       key={dIdx}
                       style={[
                         styles.dayCard,
@@ -443,13 +463,20 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                           borderWidth: isToday || isCompleted ? 1.5 : 1,
                         },
                       ]}
+                      {...(!day.is_rest && {
+                        onPress: () => {
+                          setPreviewDay(day);
+                          setPreviewVisible(true);
+                        },
+                        activeOpacity: 0.75,
+                      })}
                     >
                       <View style={styles.dayCardHeader}>
                         <Text style={[
                           styles.dayLabel,
                           { color: isCompleted ? '#22c55e' : isToday ? styleColor : colors.textSecondary },
                         ]}>
-                          {DAY_LABELS[dIdx] ?? `D${dIdx + 1}`}
+                          {DAY_LABELS[new Date(day.date + 'T00:00:00').getDay()] ?? `D${dIdx + 1}`}
                         </Text>
                         <View style={styles.dayCardHeaderRight}>
                           {isCompleted && (
@@ -469,8 +496,8 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                       ) : (
                         <View style={styles.trainingContent}>
                           <View style={styles.dayStyleRow}>
-                            <PlatformIcon name="dumbbell" size={11} color={isCompleted ? '#22c55e' : phaseColor} />
-                            <Text style={[styles.dayStyleText, { color: isCompleted ? '#22c55e' : phaseColor }]} numberOfLines={1}>
+                            <PlatformIcon name="dumbbell" size={11} color={isCompleted ? '#22c55e' : isToday ? accent : colors.text} />
+                            <Text style={[styles.dayStyleText, { color: isCompleted ? '#22c55e' : isToday ? accent : colors.text }]} numberOfLines={1}>
                               {day.session_type || day.style}
                             </Text>
                           </View>
@@ -495,7 +522,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                           </View>
                         </View>
                       )}
-                    </View>
+                    </CardWrapper>
                   );
                 })}
               </View>
@@ -592,6 +619,13 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
 
         <View style={{ height: 24 }} />
       </View>
+
+      <PlanDayPreviewDrawer
+        visible={previewVisible}
+        onClose={() => setPreviewVisible(false)}
+        onClosePlan={onClose}
+        day={previewDay}
+      />
     </BaseDrawer>
   );
 }
@@ -612,7 +646,7 @@ const styles = StyleSheet.create({
   planName: { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.5 },
 
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5 },
+  tag: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
   tagText: { fontSize: 12, fontWeight: '600' as const },
 
   // Plan completion card
@@ -646,7 +680,7 @@ const styles = StyleSheet.create({
 
   // Today card
   todayCard: {
-    flexDirection: 'row', borderRadius: 14, borderWidth: 1, overflow: 'hidden',
+    flexDirection: 'row', borderRadius: 16, borderWidth: 1, overflow: 'hidden',
   },
   todayAccentBar: { width: 4, borderRadius: 0 },
   todayBody: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 6 },
@@ -658,6 +692,15 @@ const styles = StyleSheet.create({
   todayMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   todayMetaText: { fontSize: 12 },
   todayMetaDot: { fontSize: 12 },
+
+  // Start today CTA
+  startTodayBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 16, paddingVertical: 14,
+  },
+  startTodayBtnText: {
+    fontSize: 15, fontWeight: '700' as const, color: '#fff', letterSpacing: -0.2, flex: 1, textAlign: 'center' as const,
+  },
 
   // Recovery card
   recoveryCard: {
@@ -684,7 +727,7 @@ const styles = StyleSheet.create({
   weekNavBtn: { padding: 4 },
   weekNavCenter: { alignItems: 'center', gap: 4 },
   weekNavTitle: { fontSize: 18, fontWeight: '800' as const },
-  phaseBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+  phaseBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
   phaseBadgeText: { fontSize: 11, fontWeight: '600' as const },
   infoRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

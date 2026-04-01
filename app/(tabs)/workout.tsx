@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Pressable,
   Alert,
+  ActionSheetIOS,
   Image,
   LayoutAnimation,
   Platform,
@@ -3523,53 +3524,6 @@ export default function WorkoutScreen() {
           <>
             <HealthImportBanner />
 
-            {ctx.activePlan && (() => {
-              const ap = ctx.activePlan!;
-              const apStart = new Date(ap.startDate + 'T00:00:00');
-              const apDiff = new Date().getTime() - apStart.getTime();
-              const apWeek = Math.max(1, Math.ceil(apDiff / (7 * 24 * 60 * 60 * 1000)));
-              const todayRx = ctx.getTodayPrescription();
-              const apPhase = (todayRx?.phase ?? null) as PlanPhase | null;
-              const apPhaseColor = apPhase ? (PHASE_COLORS[apPhase] ?? currentAccent) : currentAccent;
-              const apPhaseLabel = apPhase ? (PHASE_DISPLAY_NAMES[apPhase] ?? apPhase) : null;
-
-              // Count training days completed this week vs scheduled this week
-              const weekSchedule = ctx.planSchedule?.weeks.find(w => w.week_number === apWeek);
-              const weekTrainingDays = weekSchedule?.days.filter(d => !d.is_rest) ?? [];
-              const weekCompletedCount = weekTrainingDays.filter(d => ap.completedDays?.includes(d.date)).length;
-              const weekTotalCount = weekTrainingDays.length;
-              const hasWeekProgress = weekTotalCount > 0;
-
-              return (
-                <TouchableOpacity
-                  style={[styles.planContextBanner, { backgroundColor: `${apPhaseColor}12`, borderColor: `${apPhaseColor}28` }]}
-                  onPress={() => tracking.setActivePlanVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.planContextLeft, { backgroundColor: `${apPhaseColor}18` }]}>
-                    <PlatformIcon name="calendar-range" size={13} color={apPhaseColor} />
-                  </View>
-                  <View style={styles.planContextText}>
-                    <Text style={[styles.planContextTitle, { color: apPhaseColor }]} numberOfLines={1}>
-                      {ap.name}
-                    </Text>
-                    <Text style={[styles.planContextSub, { color: colors.textSecondary }]}>
-                      {'Week '}{apWeek}{' of '}{ap.planLength}
-                      {apPhaseLabel ? `  ·  ${apPhaseLabel}` : ''}
-                    </Text>
-                  </View>
-                  {hasWeekProgress && (
-                    <View style={[styles.planContextPill, { backgroundColor: weekCompletedCount === weekTotalCount ? '#22c55e20' : `${apPhaseColor}18` }]}>
-                      <Text style={[styles.planContextPillText, { color: weekCompletedCount === weekTotalCount ? '#22c55e' : apPhaseColor }]}>
-                        {weekCompletedCount}/{weekTotalCount}
-                      </Text>
-                    </View>
-                  )}
-                  <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
-              );
-            })()}
-
             <GlassCard
               style={[styles.workoutInfoCard, { borderWidth: 1 }]}
               variant={isDark ? 'glass' : 'solid'}
@@ -3612,15 +3566,46 @@ export default function WorkoutScreen() {
 
               <View style={styles.workoutInfoActions}>
                 <View ref={modifyBtnRef} collapsable={false} style={{ flex: 1 }}>
-                  <TouchableOpacity
-                    style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
-                    onPress={() => setModifyVisible(true)}
-                    activeOpacity={0.7}
-                    testID="modify-workout-card"
-                  >
-                    <SlidersHorizontal size={14} color={colors.textMuted} />
-                    <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Modify</Text>
-                  </TouchableOpacity>
+                  {ctx.activePlan ? (
+                    <TouchableOpacity
+                      style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
+                      onPress={() => {
+                        if (Platform.OS === 'ios') {
+                          ActionSheetIOS.showActionSheetWithOptions(
+                            {
+                              options: ['Cancel', 'Modify Workout', 'View Workout Plan'],
+                              cancelButtonIndex: 0,
+                            },
+                            (buttonIndex) => {
+                              if (buttonIndex === 1) setModifyVisible(true);
+                              if (buttonIndex === 2) tracking.setActivePlanVisible(true);
+                            }
+                          );
+                        } else {
+                          Alert.alert('Workout Options', undefined, [
+                            { text: 'Modify Workout', onPress: () => setModifyVisible(true) },
+                            { text: 'View Workout Plan', onPress: () => tracking.setActivePlanVisible(true) },
+                            { text: 'Cancel', style: 'cancel' },
+                          ]);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                      testID="modify-workout-card"
+                    >
+                      <PlatformIcon name="sparkles" size={14} color={colors.textMuted} />
+                      <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Plan</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
+                      onPress={() => setModifyVisible(true)}
+                      activeOpacity={0.7}
+                      testID="modify-workout-card"
+                    >
+                      <SlidersHorizontal size={14} color={colors.textMuted} />
+                      <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Modify</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 <Animated.View style={[startWorkoutAnimStyle, { flex: 2 }]}>
@@ -5048,25 +5033,6 @@ const styles = StyleSheet.create({
   startSub: {
     fontSize: 13,
   },
-  // Plan context banner (shown above workout info card when a plan is active)
-  planContextBanner: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 14, borderWidth: 1,
-    paddingHorizontal: 12, paddingVertical: 10, gap: 10,
-    marginTop: 2,
-  },
-  planContextLeft: {
-    width: 30, height: 30, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  planContextText: { flex: 1, gap: 1 },
-  planContextTitle: { fontSize: 13, fontWeight: '700' as const, letterSpacing: -0.1 },
-  planContextSub: { fontSize: 11 },
-  planContextPill: {
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, minWidth: 36, alignItems: 'center',
-  },
-  planContextPillText: { fontSize: 12, fontWeight: '700' as const },
-
   workoutInfoCard: {
     borderRadius: 26,
     overflow: 'hidden',

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -131,43 +130,91 @@ function getPhaseSegments(goal: PlanGoal, length: PlanLength): PhaseSegment[] {
 
 // ── Phase Timeline ────────────────────────────────────────────────────────────
 
+const PHASE_DESCRIPTIONS: Record<string, string> = {
+  foundation:     'Build baseline strength and practice movement patterns at moderate intensity. Establishes the foundation for progressive overload.',
+  accumulation:   'Increase training volume week over week. Higher rep ranges drive hypertrophy and build work capacity.',
+  intensification:'Load increases while volume decreases. Heavier weights and lower reps develop max strength and neural efficiency.',
+  peak:           'Push toward peak output. Intensity is highest, volume is lowest. Designed to express your full strength.',
+  deload:         'Active recovery week. Reduced load lets your body adapt, reduces fatigue, and sets you up for the next block.',
+  maintenance:    'Hold your current level of fitness. Lower intensity keeps you moving without adding new stress.',
+};
+
 interface TimelineProps { segments: PhaseSegment[]; accentColor: string; }
 
 function PhaseTimeline({ segments, accentColor }: TimelineProps) {
+  const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
   const total = segments.reduce((s, seg) => s + seg.weeks, 0);
+
+  // Build opacity steps: distribute evenly from 0.35 → 1.0 across non-deload segments
+  const nonDeload = segments.filter(s => s.phase !== 'deload');
+  const getSegmentOpacity = (seg: PhaseSegment, idx: number) => {
+    if (seg.phase === 'deload') return 0.22; // deload always dim
+    const pos = nonDeload.findIndex(s => s.startWeek === seg.startWeek);
+    const step = nonDeload.length <= 1 ? 1 : pos / (nonDeload.length - 1);
+    return 0.35 + step * 0.65; // 0.35 → 1.0
+  };
+
   return (
     <View style={tlStyles.wrap}>
+      {/* Bar */}
       <View style={tlStyles.barRow}>
         {segments.map((seg, i) => {
-          const color = PHASE_COLORS[seg.phase] ?? accentColor;
+          const opacity = getSegmentOpacity(seg, i);
           const pct = (seg.weeks / total) * 100;
+          const isExpanded = expandedPhase === `${seg.phase}-${i}`;
           return (
-            <View
+            <TouchableOpacity
               key={i}
               style={[
                 tlStyles.barSegment,
-                { width: `${pct}%` as any, backgroundColor: color },
+                { width: `${pct}%` as any, backgroundColor: accentColor, opacity, borderRadius: 0 },
                 i === 0 && { borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
                 i === segments.length - 1 && { borderTopRightRadius: 6, borderBottomRightRadius: 6 },
+                isExpanded && { opacity: 1 },
               ]}
+              onPress={() => setExpandedPhase(isExpanded ? null : `${seg.phase}-${i}`)}
+              activeOpacity={0.75}
             />
           );
         })}
       </View>
+
+      {/* Labels */}
       <View style={tlStyles.labelRow}>
         {segments.map((seg, i) => {
-          const color = PHASE_COLORS[seg.phase] ?? accentColor;
+          const opacity = getSegmentOpacity(seg, i);
+          const isExpanded = expandedPhase === `${seg.phase}-${i}`;
           return (
-            <View key={i} style={tlStyles.labelItem}>
-              <View style={[tlStyles.dot, { backgroundColor: color }]} />
-              <Text style={[tlStyles.labelText, { color }]} numberOfLines={1}>
+            <TouchableOpacity
+              key={i}
+              style={tlStyles.labelItem}
+              onPress={() => setExpandedPhase(isExpanded ? null : `${seg.phase}-${i}`)}
+              activeOpacity={0.7}
+            >
+              <View style={[tlStyles.dot, { backgroundColor: accentColor, opacity }]} />
+              <Text style={[tlStyles.labelText, { color: accentColor, opacity }]} numberOfLines={1}>
                 {PHASE_DISPLAY_NAMES[seg.phase]}
               </Text>
               <Text style={tlStyles.labelWeeks}>{seg.weeks}w</Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
+
+      {/* Expanded phase info */}
+      {expandedPhase !== null && (() => {
+        const [phase] = expandedPhase.split('-');
+        const desc = PHASE_DESCRIPTIONS[phase];
+        if (!desc) return null;
+        return (
+          <View style={[tlStyles.phaseInfo, { backgroundColor: `${accentColor}10`, borderColor: `${accentColor}28` }]}>
+            <Text style={[tlStyles.phaseInfoName, { color: accentColor }]}>
+              {PHASE_DISPLAY_NAMES[phase as PlanPhase] ?? phase}
+            </Text>
+            <Text style={tlStyles.phaseInfoDesc}>{desc}</Text>
+          </View>
+        );
+      })()}
     </View>
   );
 }
@@ -181,6 +228,12 @@ const tlStyles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3 },
   labelText: { fontSize: 11, fontFamily: 'Outfit_600SemiBold' },
   labelWeeks: { fontSize: 11, fontFamily: 'Outfit_400Regular', color: '#888' },
+  phaseInfo: {
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 12, gap: 5,
+  },
+  phaseInfoName: { fontSize: 12, fontFamily: 'Outfit_700Bold', letterSpacing: 0.2 },
+  phaseInfoDesc: { fontSize: 12, fontFamily: 'Outfit_400Regular', color: 'rgba(255,255,255,0.55)', lineHeight: 17 },
 });
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -194,6 +247,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const [goal, setGoal] = useState('');
   const [event, setEvent] = useState('');
   const [daysPerWeek, setDaysPerWeek] = useState(4);
+  const [selectedSplit, setSelectedSplit] = useState<string>('');
   const [sessionDuration, setSessionDuration] = useState(60);
   const [experience, setExperience] = useState<ExperienceLevel | ''>('');
   const [planLength, setPlanLength] = useState<PlanLength>(8);
@@ -203,13 +257,18 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const totalSteps = isEventGoal ? 7 : 6;
   const goalAccent = goal ? (GOAL_COLORS[goal] ?? accent) : accent;
   const autoStyle = goal ? getStyleForGoal(goal) : 'Strength';
-  const primarySplit = (SPLIT_BY_DAYS[daysPerWeek] ?? ['Full Body'])[0] ?? 'Full Body';
+
+  // Clear split selection when days/week changes so user must re-pick
+  useEffect(() => {
+    setSelectedSplit('');
+  }, [daysPerWeek]);
 
   useEffect(() => {
     if (visible) {
       setStep(1); setGoal(''); setEvent('');
       setDaysPerWeek(4); setSessionDuration(60);
       setExperience(''); setPlanLength(8);
+      setSelectedSplit('');
     }
   }, [visible]);
 
@@ -223,14 +282,16 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const canGoNext = useMemo(() => {
     switch (step) {
       case 1: return !!goal;
-      case 2: return isEventGoal ? !!event : true;
-      case 3: return true;
+      // Non-event step 2 = days/split; event step 2 = event picker
+      case 2: return isEventGoal ? !!event : !!selectedSplit;
+      // Non-event step 3 = session duration (always valid); event step 3 = days/split
+      case 3: return isEventGoal ? !!selectedSplit : true;
       case 4: return isEventGoal ? true : !!experience;
       case 5: return isEventGoal ? !!experience : true;
       case 6: return true;
       default: return false;
     }
-  }, [step, goal, event, experience, isEventGoal]);
+  }, [step, goal, event, experience, isEventGoal, selectedSplit]);
 
   const handleNext = useCallback(() => {
     if (!canGoNext) return;
@@ -260,6 +321,22 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
 
     const schedule = generatePlanSchedule(genInput);
 
+    // Ensure the plan doesn't open on a rest day.
+    // Find how many days into week 1 the first training day falls, then
+    // shift ALL day dates backward by that offset so training day 1 = today.
+    if (schedule.weeks.length > 0) {
+      const firstTrainingIdx = schedule.weeks[0].days.findIndex(d => !d.is_rest);
+      if (firstTrainingIdx > 0) {
+        for (const week of schedule.weeks) {
+          for (const day of week.days) {
+            const d = new Date(day.date + 'T00:00:00');
+            d.setDate(d.getDate() - firstTrainingIdx);
+            day.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          }
+        }
+      }
+    }
+
     const plan: WorkoutPlan = {
       id: `plan_${Date.now()}`,
       name: planName,
@@ -269,7 +346,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       event: isEventGoal && event ? [event] : [],
       daysPerWeek,
       sessionDuration,
-      trainingSplit: primarySplit,
+      trainingSplit: selectedSplit,
       experienceLevel: experience,
       planLength,
       startDate,
@@ -281,7 +358,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
     };
     ctx.saveActivePlan(plan, schedule);
     onClose();
-  }, [goal, event, daysPerWeek, sessionDuration, experience, planLength, startDate, endDate, autoStyle, isEventGoal, primarySplit, ctx, onClose]);
+  }, [goal, event, daysPerWeek, sessionDuration, experience, planLength, startDate, endDate, autoStyle, isEventGoal, selectedSplit, ctx, onClose]);
 
   const goalOption = PLAN_GOALS.find(g => g.id === goal);
   const expConfig = experience ? EXP_CONFIG[experience] : null;
@@ -403,27 +480,39 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
                 );
               })}
             </View>
-            <View style={[styles.splitPreview, { backgroundColor: `${goalAccent}08`, borderColor: `${goalAccent}25` }]}>
+            <View style={[styles.splitPreview, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
               <View style={styles.splitPreviewHeader}>
-                <PlatformIcon name="calendar" size={13} color={goalAccent} />
-                <Text style={[styles.splitPreviewLabel, { color: goalAccent }]}>Suggested split</Text>
+                <PlatformIcon name="calendar" size={13} color={colors.textSecondary} />
+                <Text style={[styles.splitPreviewLabel, { color: colors.textSecondary }]}>Choose your split</Text>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.splitChipRow}>
-                  {(SPLIT_BY_DAYS[daysPerWeek] ?? ['Full Body']).map((session, i) => (
-                    <View
+              <View style={styles.splitChipRow}>
+                {(SPLIT_BY_DAYS[daysPerWeek] ?? ['Full Body']).map((session, i) => {
+                  const isSelected = selectedSplit === session;
+                  const isRecommended = i === 0;
+                  return (
+                    <TouchableOpacity
                       key={i}
                       style={[
                         styles.splitChipItem,
-                        { backgroundColor: `${goalAccent}15`, borderColor: `${goalAccent}30` },
-                        i === 0 && { backgroundColor: `${goalAccent}28`, borderColor: goalAccent },
+                        isSelected
+                          ? { backgroundColor: goalAccent, borderColor: goalAccent }
+                          : { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)' },
                       ]}
+                      onPress={() => setSelectedSplit(session)}
+                      activeOpacity={0.7}
                     >
-                      <Text style={[styles.splitChipItemText, { color: goalAccent }]}>{session}</Text>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
+                      <Text style={[styles.splitChipItemText, { color: isSelected ? '#fff' : 'rgba(255,255,255,0.8)' }]}>
+                        {session}
+                      </Text>
+                      {isRecommended && !isSelected && (
+                        <View style={[styles.recommendedBadge, { backgroundColor: `${goalAccent}22`, borderColor: `${goalAccent}50` }]}>
+                          <Text style={[styles.recommendedBadgeText, { color: goalAccent }]}>Recommended</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </View>
         )}
@@ -540,7 +629,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
                 { icon: 'target', label: 'Goal', value: goalOption?.label ?? '' },
                 ...(isEventGoal && event ? [{ icon: 'trophy', label: 'Event', value: event }] : []),
                 { icon: 'zap', label: 'Style', value: autoStyle },
-                { icon: 'calendar', label: 'Schedule', value: `${daysPerWeek}d/wk · ${primarySplit}` },
+                { icon: 'calendar', label: 'Schedule', value: `${daysPerWeek}d/wk · ${selectedSplit}` },
                 { icon: 'clock', label: 'Session', value: `${sessionDuration} min` },
                 { icon: 'star', label: 'Level', value: expConfig?.label ?? '' },
                 { icon: 'calendar', label: 'Dates', value: formatDateRange(startDate, endDate) },
@@ -652,9 +741,16 @@ const styles = StyleSheet.create({
   splitPreview: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
   splitPreviewHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
   splitPreviewLabel: { fontSize: 11, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.3 },
-  splitChipRow: { flexDirection: 'row' as const, gap: 6 },
-  splitChipItem: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
-  splitChipItemText: { fontSize: 12, fontFamily: 'Outfit_600SemiBold' },
+  splitChipRow: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
+  splitChipItem: {
+    borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 7,
+  },
+  splitChipItemText: { fontSize: 13, fontFamily: 'Outfit_600SemiBold' },
+  recommendedBadge: {
+    borderRadius: 8, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2,
+  },
+  recommendedBadgeText: { fontSize: 10, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.2 },
   durationRow: { flexDirection: 'row' as const, gap: 10, flexWrap: 'wrap' as const },
   durationChip: {
     flex: 1, minWidth: 60, alignItems: 'center' as const,

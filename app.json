@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "zeal+",
-    "slug": "zeal-plus",
+    "slug": "7s0at91o0glp1nhgft32r",
     "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -60,6 +60,7 @@
       "eas": {
         "projectId": "85cf0e7c-15c9-4b6d-8554-6f54d3cd9c38"
       }
-    }
+    },
+    "owner": "kodycountryman"
   }
 }
