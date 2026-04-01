@@ -10,9 +10,8 @@ export type PaywallVersion = 'trial' | 'no_trial';
 
 const STORAGE_KEY = '@zeal_subscription_v2';
 
-// Forces Pro on during local development only. Automatically null on any compiled build
-// (TestFlight, App Store, Play Store) — no manual step needed before submission.
-const DEV_FORCE_PRO: boolean | null = __DEV__ ? true : null;
+// Set to false before any TestFlight / App Store submission.
+const DEV_FORCE_PRO: boolean | null = false;
 
 interface PersistedState {
   hasEverStarted: boolean;

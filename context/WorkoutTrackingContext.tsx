@@ -1140,6 +1140,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     }
 
     ctx.saveState();
+
+    // Auto-mark plan day completed when a real (non-rest) plan day is finished
+    const planDay = ctx.getTodayPrescription();
+    if (ctx.activePlan && planDay && !planDay.is_rest) {
+      ctx.markDayCompleted(getTodayStr());
+    }
+
     console.log('[Tracking] Workout saved. Score:', score.finalScore, 'PRs:', confirmedPRs.length);
 
     if (ctx.healthSyncEnabled && ctx.healthConnected && Platform.OS !== 'web') {

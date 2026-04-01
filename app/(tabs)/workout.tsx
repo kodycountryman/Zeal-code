@@ -112,6 +112,8 @@ const PICKER_H = 132;
 const CHIP_SPRING = { damping: 22, stiffness: 280, mass: 0.8 } as const;
 
 import { PRO_STYLES_SET } from '@/services/proGate';
+import { PHASE_COLORS, PHASE_DISPLAY_NAMES } from '@/services/planConstants';
+import type { PlanPhase } from '@/services/planConstants';
 
 const WEIGHT_VALUES = Array.from({ length: 201 }, (_, i) => i * 5);
 const DUMBBELL_WEIGHT_VALUES = Array.from({ length: 401 }, (_, i) => i * 2.5);
@@ -975,6 +977,15 @@ export default function WorkoutScreen() {
 
   const hasCompletedToday = !tracking.isWorkoutActive && tracking.todayLogs.length > 0;
   const latestTodayLog = hasCompletedToday ? tracking.todayLogs[0] : null;
+
+  // Post-workout plan card precomputed vars (only meaningful when ctx.activePlan is set)
+  const pwPlan = ctx.activePlan;
+  const pwApWeek = pwPlan ? Math.max(1, Math.ceil((new Date().getTime() - new Date(pwPlan.startDate + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000))) : 0;
+  const pwWeekSched = pwPlan ? ctx.planSchedule?.weeks.find(w => w.week_number === pwApWeek) : undefined;
+  const pwWeekDays = pwWeekSched?.days ?? [];
+  const pwTodayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const pwWeekTraining = pwWeekDays.filter(d => !d.is_rest);
+  const pwWeekDone = pwPlan ? pwWeekTraining.filter(d => pwPlan.completedDays?.includes(d.date)).length : 0;
 
   const rotateLoopRef = useRef<RNAnimated.CompositeAnimation | null>(null);
   const pulseLoopRef = useRef<RNAnimated.CompositeAnimation | null>(null);
@@ -3408,24 +3419,60 @@ export default function WorkoutScreen() {
             {/* Plan / schedule section */}
             <View style={styles.postWorkoutSection}>
               <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>PLANNING</Text>
-              {ctx.activePlan ? (
+
+              {/* Active plan — rich card with week progress dots */}
+              {pwPlan && (
                 <TouchableOpacity
-                  style={[styles.postWorkoutPlanCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
+                  style={[styles.postWorkoutPlanRichCard, { backgroundColor: `${currentAccent}0a`, borderColor: `${currentAccent}28` }]}
                   onPress={() => tracking.setActivePlanVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.postWorkoutPlanIcon, { backgroundColor: `${currentAccent}16` }]}>
-                    <PlatformIcon name="calendar" size={16} color={currentAccent} />
+                  <View style={styles.postWorkoutPlanRichTop}>
+                    <View style={[styles.postWorkoutPlanIcon, { backgroundColor: `${currentAccent}16` }]}>
+                      <PlatformIcon name="calendar-range" size={16} color={currentAccent} />
+                    </View>
+                    <View style={styles.postWorkoutPlanText}>
+                      <Text style={[styles.postWorkoutPlanTitle, { color: colors.text }]} numberOfLines={1}>
+                        {pwPlan.name}
+                      </Text>
+                      <Text style={[styles.postWorkoutPlanSub, { color: colors.textSecondary }]}>
+                        {'Week '}{pwApWeek}{' of '}{pwPlan.planLength}
+                        {pwWeekTraining.length > 0 ? `  ·  ${pwWeekDone}/${pwWeekTraining.length} this week` : ''}
+                      </Text>
+                    </View>
+                    <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
                   </View>
-                  <View style={styles.postWorkoutPlanText}>
-                    <Text style={[styles.postWorkoutPlanTitle, { color: colors.text }]}>View Workout Plan</Text>
-                    <Text style={[styles.postWorkoutPlanSub, { color: colors.textSecondary }]}>
-                      {ctx.activePlan.name ?? 'Active plan'}
-                    </Text>
-                  </View>
-                  <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
+                  {pwWeekDays.length > 0 && (
+                    <View style={styles.postWorkoutDayDots}>
+                      {pwWeekDays.map((d, i) => {
+                        const isCompleted = !d.is_rest && pwPlan.completedDays?.includes(d.date);
+                        const isToday = d.date === pwTodayStr;
+                        const isMissed = pwPlan.missedDays?.includes(d.date);
+                        return (
+                          <View
+                            key={i}
+                            style={[
+                              styles.postWorkoutDayDot,
+                              d.is_rest
+                                ? { backgroundColor: colors.border }
+                                : isCompleted
+                                  ? { backgroundColor: '#22c55e' }
+                                  : isToday
+                                    ? { backgroundColor: currentAccent }
+                                    : isMissed
+                                      ? { backgroundColor: '#ef4444' }
+                                      : { backgroundColor: `${currentAccent}30` },
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
+                  )}
                 </TouchableOpacity>
-              ) : (
+              )}
+
+              {/* No active plan — prompt to plan */}
+              {!pwPlan && (
                 <TouchableOpacity
                   style={[styles.postWorkoutPlanCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
                   onPress={() => setPlanChoiceVisible(true)}
@@ -3475,6 +3522,53 @@ export default function WorkoutScreen() {
         {!tracking.isWorkoutActive && !hasCompletedToday && (
           <>
             <HealthImportBanner />
+
+            {ctx.activePlan && (() => {
+              const ap = ctx.activePlan!;
+              const apStart = new Date(ap.startDate + 'T00:00:00');
+              const apDiff = new Date().getTime() - apStart.getTime();
+              const apWeek = Math.max(1, Math.ceil(apDiff / (7 * 24 * 60 * 60 * 1000)));
+              const todayRx = ctx.getTodayPrescription();
+              const apPhase = (todayRx?.phase ?? null) as PlanPhase | null;
+              const apPhaseColor = apPhase ? (PHASE_COLORS[apPhase] ?? currentAccent) : currentAccent;
+              const apPhaseLabel = apPhase ? (PHASE_DISPLAY_NAMES[apPhase] ?? apPhase) : null;
+
+              // Count training days completed this week vs scheduled this week
+              const weekSchedule = ctx.planSchedule?.weeks.find(w => w.week_number === apWeek);
+              const weekTrainingDays = weekSchedule?.days.filter(d => !d.is_rest) ?? [];
+              const weekCompletedCount = weekTrainingDays.filter(d => ap.completedDays?.includes(d.date)).length;
+              const weekTotalCount = weekTrainingDays.length;
+              const hasWeekProgress = weekTotalCount > 0;
+
+              return (
+                <TouchableOpacity
+                  style={[styles.planContextBanner, { backgroundColor: `${apPhaseColor}12`, borderColor: `${apPhaseColor}28` }]}
+                  onPress={() => tracking.setActivePlanVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.planContextLeft, { backgroundColor: `${apPhaseColor}18` }]}>
+                    <PlatformIcon name="calendar-range" size={13} color={apPhaseColor} />
+                  </View>
+                  <View style={styles.planContextText}>
+                    <Text style={[styles.planContextTitle, { color: apPhaseColor }]} numberOfLines={1}>
+                      {ap.name}
+                    </Text>
+                    <Text style={[styles.planContextSub, { color: colors.textSecondary }]}>
+                      {'Week '}{apWeek}{' of '}{ap.planLength}
+                      {apPhaseLabel ? `  ·  ${apPhaseLabel}` : ''}
+                    </Text>
+                  </View>
+                  {hasWeekProgress && (
+                    <View style={[styles.planContextPill, { backgroundColor: weekCompletedCount === weekTotalCount ? '#22c55e20' : `${apPhaseColor}18` }]}>
+                      <Text style={[styles.planContextPillText, { color: weekCompletedCount === weekTotalCount ? '#22c55e' : apPhaseColor }]}>
+                        {weekCompletedCount}/{weekTotalCount}
+                      </Text>
+                    </View>
+                  )}
+                  <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+              );
+            })()}
 
             <GlassCard
               style={[styles.workoutInfoCard, { borderWidth: 1 }]}
@@ -4954,6 +5048,25 @@ const styles = StyleSheet.create({
   startSub: {
     fontSize: 13,
   },
+  // Plan context banner (shown above workout info card when a plan is active)
+  planContextBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 14, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 10, gap: 10,
+    marginTop: 2,
+  },
+  planContextLeft: {
+    width: 30, height: 30, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  planContextText: { flex: 1, gap: 1 },
+  planContextTitle: { fontSize: 13, fontWeight: '700' as const, letterSpacing: -0.1 },
+  planContextSub: { fontSize: 11 },
+  planContextPill: {
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, minWidth: 36, alignItems: 'center',
+  },
+  planContextPillText: { fontSize: 12, fontWeight: '700' as const },
+
   workoutInfoCard: {
     borderRadius: 26,
     overflow: 'hidden',
@@ -6497,6 +6610,19 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
+  },
+  // Richer plan card shown in post-workout when a plan is active
+  postWorkoutPlanRichCard: {
+    borderRadius: 16, borderWidth: 1, padding: 16, gap: 12,
+  },
+  postWorkoutPlanRichTop: {
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14,
+  },
+  postWorkoutDayDots: {
+    flexDirection: 'row' as const, gap: 5, paddingLeft: 2,
+  },
+  postWorkoutDayDot: {
+    width: 8, height: 8, borderRadius: 4,
   },
   postWorkoutPlanIcon: {
     width: 40,

@@ -82,6 +82,7 @@ export interface WorkoutPlan {
   active: boolean;
   schedule?: GeneratedPlanSchedule;
   missedDays?: string[];
+  completedDays?: string[];
 }
 
 export type ExercisePreference = 'liked' | 'disliked' | 'neutral';
@@ -799,6 +800,50 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     });
   }, []);
 
+  const markDayCompleted = useCallback((dateStr: string) => {
+    setActivePlan(prev => {
+      if (!prev) return prev;
+      // Avoid duplicates
+      if (prev.completedDays?.includes(dateStr)) return prev;
+      const completed = [...(prev.completedDays ?? []), dateStr];
+      const updated = { ...prev, completedDays: completed };
+      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) => console.warn('[AppContext] Failed to save completed day to plan:', e));
+      return updated;
+    });
+  }, []);
+
+  // Auto-detect missed training days: scan past plan days not in completedDays → add to missedDays.
+  // Deps on plan id + completedDays.length so it re-runs after each completion but stabilises quickly.
+  useEffect(() => {
+    if (!activePlan || !planSchedule) return;
+    const today = getTodayDateStr();
+    const newMissed: string[] = [];
+    for (const week of planSchedule.weeks) {
+      for (const day of week.days) {
+        if (
+          !day.is_rest &&
+          day.date < today &&
+          !(activePlan.completedDays ?? []).includes(day.date) &&
+          !(activePlan.missedDays ?? []).includes(day.date)
+        ) {
+          newMissed.push(day.date);
+        }
+      }
+    }
+    if (newMissed.length === 0) return;
+    setActivePlan(prev => {
+      if (!prev) return prev;
+      const combined = [...(prev.missedDays ?? []), ...newMissed];
+      const updated = { ...prev, missedDays: combined };
+      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) =>
+        console.warn('[AppContext] Failed to persist auto-detected missed days:', e)
+      );
+      console.log(`[AppContext] Auto-marked ${newMissed.length} missed training day(s):`, newMissed);
+      return updated;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlan?.id, activePlan?.completedDays?.length, planSchedule]);
+
   const getTodayPrescription = useCallback((): DayPrescription | null => {
     if (!planSchedule) return null;
     const today = getTodayDateStr();
@@ -1007,6 +1052,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       login,
       logout,
       markDayMissed,
+      markDayCompleted,
       getTodayPrescription,
       healthSyncEnabled,
       setHealthSyncEnabled,
@@ -1048,7 +1094,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       exercisePreferences, saveExercisePreferences,
       onboardingComplete, completeOnboarding,
       isLoggedIn, login, logout,
-      activePlan, planSchedule, saveActivePlan, markDayMissed, getTodayPrescription,
+      activePlan, planSchedule, saveActivePlan, markDayMissed, markDayCompleted, getTodayPrescription,
       healthSyncEnabled, setHealthSyncEnabled, healthConnected, setHealthConnected,
       notifPrefs, saveNotifPrefs,
       loadedWorkout, setLoadedWorkout,

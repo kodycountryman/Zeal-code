@@ -4,34 +4,16 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   ScrollView,
   Alert,
 } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import {
-  X,
-  Sparkles,
-  Calendar,
-  Clock,
-  Star,
-  BarChart3,
-  Dumbbell,
-  RefreshCw,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Moon,
-  Zap,
-  Target,
-  TrendingUp,
-  AlertTriangle,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PHASE_DISPLAY_NAMES, PHASE_COLORS } from '@/services/planConstants';
-import type { DayPrescription, WeekSchedule } from '@/services/planEngine';
+import type { WeekSchedule } from '@/services/planEngine';
 import { getEventMilestones, handleMissedDays } from '@/services/planEngine';
 import type { PlanPhase } from '@/services/planConstants';
 
@@ -144,22 +126,55 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
     return milestones.find(m => m.week === selectedWeek.week_number) ?? null;
   }, [selectedWeek, milestones]);
 
+  // Today's prescription from plan schedule
+  const todayPrescription = useMemo(() => {
+    return ctx.getTodayPrescription();
+  }, [ctx, visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Missed day recovery recommendation
+  const missedRecovery = useMemo(() => {
+    if (!plan?.missedDays?.length) return null;
+    const total = plan.missedDays.length;
+    // Count consecutive days missed backwards from yesterday
+    const today = getTodayStr();
+    let consecutive = 0;
+    for (let i = 1; i <= total; i++) {
+      const d = new Date(today + 'T00:00:00');
+      d.setDate(d.getDate() - i);
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (plan.missedDays.includes(ds)) {
+        consecutive++;
+      } else {
+        break;
+      }
+    }
+    return handleMissedDays(total, consecutive);
+  }, [plan?.missedDays]);
+
   if (!plan) return null;
 
+  const today = getTodayStr();
   const styleColor = WORKOUT_STYLE_COLORS[plan.style] ?? accent;
   const currentWeek = getCurrentWeek(plan.startDate);
   const weeksLeft = getWeeksLeft(plan.endDate);
   const progressPct = Math.min(100, Math.round((currentWeek / plan.planLength) * 100));
-  const today = getTodayStr();
+  const isPlanComplete = plan.endDate < today;
+
+  // Adherence stats for completion view
+  const totalTrainingDays = schedule
+    ? schedule.weeks.reduce((sum, w) => sum + w.days.filter(d => !d.is_rest).length, 0)
+    : plan.daysPerWeek * plan.planLength;
+  const completedCount = plan.completedDays?.length ?? 0;
+  const adherencePct = totalTrainingDays > 0 ? Math.round((completedCount / totalTrainingDays) * 100) : 0;
 
   const headerContent = (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        <Sparkles size={16} color={accent} />
+        <PlatformIcon name="sparkles" size={15} color={accent} />
         <Text style={[styles.headerLabel, { color: accent }]}>ACTIVE PLAN</Text>
       </View>
       <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-        <X size={16} color="#888" strokeWidth={2.5} />
+        <PlatformIcon name="x" size={14} color="#888" />
       </TouchableOpacity>
     </View>
   );
@@ -167,6 +182,8 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
   return (
     <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
       <View style={styles.content}>
+
+        {/* ── Plan identity ─────────────────────────────── */}
         <Text style={[styles.planName, { color: colors.text }]}>{plan.name}</Text>
 
         <View style={styles.tagRow}>
@@ -177,25 +194,133 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
             <Text style={[styles.tagText, { color: accent }]}>{plan.goal}</Text>
           </View>
           <View style={[styles.tag, { backgroundColor: `${accent}15` }]}>
-            <Text style={[styles.tagText, { color: accent }]}>{plan.experienceLevel.charAt(0).toUpperCase() + plan.experienceLevel.slice(1)}</Text>
+            <Text style={[styles.tagText, { color: accent }]}>
+              {plan.experienceLevel.charAt(0).toUpperCase() + plan.experienceLevel.slice(1)}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.progressSection}>
-          <View style={styles.progressHeader}>
-            <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>PROGRESS</Text>
-            <Text style={[styles.progressWeek, { color: colors.textSecondary }]}>Week {currentWeek} of {plan.planLength}</Text>
+        {isPlanComplete ? (
+          /* ── PLAN COMPLETE HERO ──────────────────────── */
+          <View style={[styles.completionCard, { backgroundColor: '#22c55e0d', borderColor: '#22c55e35' }]}>
+            <View style={styles.completionTop}>
+              <View style={[styles.completionIconWrap, { backgroundColor: '#22c55e20' }]}>
+                <PlatformIcon name="trophy" size={26} color="#22c55e" />
+              </View>
+              <View style={styles.completionTextBlock}>
+                <Text style={[styles.completionTitle, { color: colors.text }]}>Plan Complete</Text>
+                <Text style={[styles.completionSub, { color: colors.textSecondary }]}>
+                  {formatDateShort(plan.startDate)} → {formatDateShort(plan.endDate)}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.completionDivider, { backgroundColor: '#22c55e20' }]} />
+            <View style={styles.completionStats}>
+              <View style={styles.completionStat}>
+                <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{completedCount}</Text>
+                <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>days done</Text>
+              </View>
+              <View style={[styles.completionStatDivider, { backgroundColor: '#22c55e20' }]} />
+              <View style={styles.completionStat}>
+                <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{adherencePct}%</Text>
+                <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>adherence</Text>
+              </View>
+              <View style={[styles.completionStatDivider, { backgroundColor: '#22c55e20' }]} />
+              <View style={styles.completionStat}>
+                <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{plan.planLength}</Text>
+                <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>weeks</Text>
+              </View>
+            </View>
           </View>
-          <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-            <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: accent }]} />
+        ) : (
+          /* ── PROGRESS (active plan) ──────────────────── */
+          <View style={styles.progressSection}>
+            <View style={styles.progressHeader}>
+              <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>PROGRESS</Text>
+              <Text style={[styles.progressWeek, { color: colors.textSecondary }]}>
+                Week {currentWeek} of {plan.planLength}
+              </Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+              <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: styleColor }]} />
+            </View>
+            <View style={styles.progressFooter}>
+              <Text style={[styles.progressPct, { color: styleColor }]}>{progressPct}% complete</Text>
+              <Text style={[styles.progressLeft, { color: colors.textMuted }]}>{weeksLeft}w left</Text>
+            </View>
           </View>
-        </View>
+        )}
 
+        {/* ── Today's session (active plan only) ───────── */}
+        {!isPlanComplete && todayPrescription ? (
+          <View style={[
+            styles.todayCard,
+            { backgroundColor: `${styleColor}10`, borderColor: `${styleColor}25` },
+          ]}>
+            <View style={[styles.todayAccentBar, { backgroundColor: styleColor }]} />
+            <View style={styles.todayBody}>
+              <Text style={[styles.todayLabel, { color: styleColor }]}>TODAY</Text>
+              {todayPrescription.is_rest ? (
+                <View style={styles.todayMain}>
+                  <PlatformIcon name="moon" size={18} color={colors.textSecondary} />
+                  <View style={styles.todayTextBlock}>
+                    <Text style={[styles.todaySession, { color: colors.text }]}>Recovery Day</Text>
+                    {todayPrescription.rest_suggestion ? (
+                      <Text style={[styles.todaySub, { color: colors.textSecondary }]} numberOfLines={2}>
+                        {todayPrescription.rest_suggestion}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.todayMain}>
+                  <PlatformIcon name="dumbbell" size={18} color={styleColor} />
+                  <View style={styles.todayTextBlock}>
+                    <Text style={[styles.todaySession, { color: colors.text }]} numberOfLines={1}>
+                      {todayPrescription.session_type || todayPrescription.style}
+                    </Text>
+                    <View style={styles.todayMetaRow}>
+                      <PlatformIcon name="clock" size={11} color={colors.textMuted} />
+                      <Text style={[styles.todayMetaText, { color: colors.textMuted }]}>
+                        {todayPrescription.target_duration} min
+                      </Text>
+                      <Text style={[styles.todayMetaDot, { color: colors.textMuted }]}>·</Text>
+                      <Text style={[styles.todayMetaText, { color: colors.textMuted }]}>
+                        {PHASE_DISPLAY_NAMES[todayPrescription.phase as PlanPhase] ?? todayPrescription.phase}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        ) : null}
+
+        {/* ── Missed day recovery ───────────────────────── */}
+        {!isPlanComplete && missedRecovery && (
+          <View style={[styles.recoveryCard, { backgroundColor: '#f59e0b0d', borderColor: '#f59e0b30' }]}>
+            <View style={styles.recoveryHeader}>
+              <PlatformIcon name="alert-triangle" size={13} color="#f59e0b" />
+              <Text style={styles.recoveryTitle}>
+                {plan.missedDays!.length === 1 ? '1 missed day' : `${plan.missedDays!.length} missed days`}
+              </Text>
+            </View>
+            <Text style={[styles.recoveryMessage, { color: colors.textSecondary }]}>
+              {missedRecovery.message}
+            </Text>
+          </View>
+        )}
+
+        {/* ── Phase timeline ────────────────────────────── */}
         {schedule && schedule.weeks.length > 0 && (
           <>
             <View style={styles.phaseTimeline}>
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PHASE TIMELINE</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.phaseTimelineScroll}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.phaseTimelineScroll}
+              >
                 {schedule.weeks.map((week, idx) => {
                   const phaseColor = PHASE_COLORS[week.phase as PlanPhase] ?? accent;
                   const isCurrentWeek = week.week_number === currentWeek;
@@ -205,65 +330,107 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                       key={idx}
                       style={[
                         styles.phaseWeekDot,
-                        { backgroundColor: `${phaseColor}30`, borderColor: isSelected ? phaseColor : 'transparent' },
+                        { backgroundColor: `${phaseColor}25`, borderColor: isSelected ? phaseColor : 'transparent' },
                         isCurrentWeek && { borderColor: '#fff', borderWidth: 2 },
+                        isSelected && isCurrentWeek && { borderColor: phaseColor },
                       ]}
-                      onPress={() => {
-                        setSelectedWeekIdx(idx);
-                      }}
+                      onPress={() => setSelectedWeekIdx(idx)}
                       activeOpacity={0.7}
                     >
                       <Text style={[styles.phaseWeekNum, { color: phaseColor }]}>{week.week_number}</Text>
-                      {week.is_deload && <View style={[styles.deloadIndicator, { backgroundColor: '#22c55e' }]} />}
+                      {week.is_deload && (
+                        <View style={[styles.deloadDot, { backgroundColor: '#22c55e' }]} />
+                      )}
                     </TouchableOpacity>
                   );
                 })}
               </ScrollView>
             </View>
 
+            {/* ── Week detail ───────────────────────────── */}
             <View style={styles.weekDetailSection}>
+              {/* Nav row */}
               <View style={styles.weekNav}>
-                <TouchableOpacity onPress={handlePrevWeek} disabled={selectedWeekIdx === 0} activeOpacity={0.7}>
-                  <ChevronLeft size={20} color={selectedWeekIdx === 0 ? colors.textMuted : colors.text} />
+                <TouchableOpacity
+                  onPress={handlePrevWeek}
+                  disabled={selectedWeekIdx === 0}
+                  activeOpacity={0.7}
+                  style={[styles.weekNavBtn, { opacity: selectedWeekIdx === 0 ? 0.3 : 1 }]}
+                >
+                  <PlatformIcon name="chevron-left" size={18} color={colors.text} />
                 </TouchableOpacity>
+
                 <View style={styles.weekNavCenter}>
                   <Text style={[styles.weekNavTitle, { color: colors.text }]}>
                     Week {selectedWeek?.week_number ?? selectedWeekIdx + 1}
                   </Text>
                   {selectedWeek && (
-                    <View style={[styles.phaseBadge, { backgroundColor: `${PHASE_COLORS[selectedWeek.phase as PlanPhase] ?? accent}20` }]}>
-                      <Text style={[styles.phaseBadgeText, { color: PHASE_COLORS[selectedWeek.phase as PlanPhase] ?? accent }]}>
+                    <View style={[
+                      styles.phaseBadge,
+                      { backgroundColor: `${PHASE_COLORS[selectedWeek.phase as PlanPhase] ?? accent}20` },
+                    ]}>
+                      <Text style={[
+                        styles.phaseBadgeText,
+                        { color: PHASE_COLORS[selectedWeek.phase as PlanPhase] ?? accent },
+                      ]}>
                         {PHASE_DISPLAY_NAMES[selectedWeek.phase as PlanPhase] ?? selectedWeek.phase}
                         {selectedWeek.is_deload ? ' · Deload' : ''}
                       </Text>
                     </View>
                   )}
                 </View>
-                <TouchableOpacity onPress={handleNextWeek} disabled={!schedule || selectedWeekIdx >= schedule.weeks.length - 1} activeOpacity={0.7}>
-                  <ChevronRight size={20} color={!schedule || selectedWeekIdx >= schedule.weeks.length - 1 ? colors.textMuted : colors.text} />
+
+                <TouchableOpacity
+                  onPress={handleNextWeek}
+                  disabled={!schedule || selectedWeekIdx >= schedule.weeks.length - 1}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.weekNavBtn,
+                    { opacity: !schedule || selectedWeekIdx >= schedule.weeks.length - 1 ? 0.3 : 1 },
+                  ]}
+                >
+                  <PlatformIcon name="chevron-right" size={18} color={colors.text} />
                 </TouchableOpacity>
               </View>
 
+              {/* Week notes */}
               {selectedWeek?.notes ? (
-                <View style={[styles.weekNotesRow, { backgroundColor: `${accent}08`, borderColor: `${accent}20` }]}>
-                  <TrendingUp size={12} color={accent} />
-                  <Text style={[styles.weekNotesText, { color: accent }]}>{selectedWeek.notes}</Text>
+                <View style={[styles.infoRow, { backgroundColor: `${accent}08`, borderColor: `${accent}20` }]}>
+                  <PlatformIcon name="trending-up" size={12} color={accent} />
+                  <Text style={[styles.infoRowText, { color: accent }]}>{selectedWeek.notes}</Text>
                 </View>
               ) : null}
 
+              {/* Event milestone */}
               {currentWeekMilestone && (
-                <View style={[styles.milestoneRow, { backgroundColor: '#f59e0b15', borderColor: '#f59e0b30' }]}>
-                  <Target size={12} color="#f59e0b" />
-                  <Text style={[styles.milestoneText, { color: '#f59e0b' }]}>{currentWeekMilestone.label}</Text>
+                <View style={[styles.infoRow, { backgroundColor: '#f59e0b12', borderColor: '#f59e0b30' }]}>
+                  <PlatformIcon name="target" size={12} color="#f59e0b" />
+                  <Text style={[styles.infoRowText, { color: '#f59e0b' }]}>{currentWeekMilestone.label}</Text>
                 </View>
               )}
 
+              {/* Day grid */}
               <View style={styles.dayGrid}>
                 {selectedWeek?.days.map((day, dIdx) => {
                   const isToday = day.date === today;
                   const isPast = day.date < today;
                   const isMissed = plan.missedDays?.includes(day.date);
+                  const isCompleted = !day.is_rest && plan.completedDays?.includes(day.date);
                   const phaseColor = PHASE_COLORS[day.phase as PlanPhase] ?? accent;
+
+                  // Resolved border/background based on state priority
+                  const cardBg = isCompleted
+                    ? '#22c55e0d'
+                    : day.is_rest
+                      ? colors.cardSecondary
+                      : `${phaseColor}08`;
+                  const cardBorder = isCompleted
+                    ? '#22c55e40'
+                    : isToday
+                      ? styleColor
+                      : isMissed
+                        ? '#ef444430'
+                        : colors.border;
 
                   return (
                     <View
@@ -271,57 +438,61 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                       style={[
                         styles.dayCard,
                         {
-                          backgroundColor: day.is_rest ? `${colors.cardSecondary}` : `${phaseColor}08`,
-                          borderColor: isToday ? accent : colors.border,
-                          borderWidth: isToday ? 2 : 1,
+                          backgroundColor: cardBg,
+                          borderColor: cardBorder,
+                          borderWidth: isToday || isCompleted ? 1.5 : 1,
                         },
-                        isMissed && { opacity: 0.5 },
                       ]}
                     >
                       <View style={styles.dayCardHeader}>
-                        <Text style={[styles.dayLabel, { color: isToday ? accent : colors.textSecondary }]}>
+                        <Text style={[
+                          styles.dayLabel,
+                          { color: isCompleted ? '#22c55e' : isToday ? styleColor : colors.textSecondary },
+                        ]}>
                           {DAY_LABELS[dIdx] ?? `D${dIdx + 1}`}
                         </Text>
-                        <Text style={[styles.dayDate, { color: colors.textMuted }]}>
-                          {formatDateShort(day.date)}
-                        </Text>
+                        <View style={styles.dayCardHeaderRight}>
+                          {isCompleted && (
+                            <PlatformIcon name="check-circle" size={14} color="#22c55e" fill="#22c55e" />
+                          )}
+                          <Text style={[styles.dayDate, { color: colors.textMuted }]}>
+                            {formatDateShort(day.date)}
+                          </Text>
+                        </View>
                       </View>
 
                       {day.is_rest ? (
-                        <View style={styles.restDayContent}>
-                          <Moon size={16} color={colors.textMuted} />
+                        <View style={styles.restContent}>
+                          <PlatformIcon name="moon" size={14} color={colors.textMuted} />
                           <Text style={[styles.restLabel, { color: colors.textSecondary }]}>Rest</Text>
-                          {day.rest_suggestion ? (
-                            <Text style={[styles.restSuggestion, { color: colors.textMuted }]} numberOfLines={2}>
-                              {day.rest_suggestion}
-                            </Text>
-                          ) : null}
                         </View>
                       ) : (
-                        <View style={styles.trainingDayContent}>
+                        <View style={styles.trainingContent}>
                           <View style={styles.dayStyleRow}>
-                            <Dumbbell size={12} color={phaseColor} />
-                            <Text style={[styles.dayStyleText, { color: phaseColor }]} numberOfLines={1}>
+                            <PlatformIcon name="dumbbell" size={11} color={isCompleted ? '#22c55e' : phaseColor} />
+                            <Text style={[styles.dayStyleText, { color: isCompleted ? '#22c55e' : phaseColor }]} numberOfLines={1}>
                               {day.session_type || day.style}
                             </Text>
                           </View>
                           <View style={styles.dayMetaRow}>
-                            <Clock size={10} color={colors.textMuted} />
+                            <PlatformIcon name="clock" size={10} color={colors.textMuted} />
                             <Text style={[styles.dayMetaText, { color: colors.textMuted }]}>
                               {day.target_duration}min
                             </Text>
                           </View>
-                          {day.is_deload_week && (
-                            <View style={[styles.deloadTag, { backgroundColor: '#22c55e20' }]}>
-                              <Text style={styles.deloadTagText}>Deload</Text>
-                            </View>
-                          )}
-                          {isPast && !day.is_rest && isMissed && (
-                            <View style={[styles.missedTag, { backgroundColor: '#ef444420' }]}>
-                              <AlertTriangle size={10} color="#ef4444" />
-                              <Text style={styles.missedTagText}>Missed</Text>
-                            </View>
-                          )}
+                          <View style={styles.dayTagRow}>
+                            {day.is_deload_week && (
+                              <View style={styles.deloadTag}>
+                                <Text style={styles.deloadTagText}>Deload</Text>
+                              </View>
+                            )}
+                            {isPast && !day.is_rest && isMissed && !isCompleted && (
+                              <View style={styles.missedTag}>
+                                <PlatformIcon name="alert-triangle" size={9} color="#ef4444" />
+                                <Text style={styles.missedTagText}>Missed</Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
                       )}
                     </View>
@@ -332,76 +503,81 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
           </>
         )}
 
+        {/* ── Stats grid ────────────────────────────────── */}
         <View style={styles.statsGrid}>
           <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.statHeader}>
-              <Calendar size={12} color={accent} />
+              <PlatformIcon name="calendar" size={12} color={accent} />
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>START</Text>
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>{formatDateShort(plan.startDate)}</Text>
           </View>
           <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.statHeader}>
-              <Calendar size={12} color={accent} />
+              <PlatformIcon name="calendar" size={12} color={accent} />
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>END</Text>
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>{formatDateFull(plan.endDate)}</Text>
           </View>
           <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.statHeader}>
-              <Dumbbell size={12} color={accent} />
+              <PlatformIcon name="dumbbell" size={12} color={accent} />
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DAYS/WEEK</Text>
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>{plan.daysPerWeek} days</Text>
           </View>
           <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.statHeader}>
-              <Clock size={12} color={accent} />
+              <PlatformIcon name="clock" size={12} color={accent} />
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DURATION</Text>
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>{plan.sessionDuration} min</Text>
           </View>
           <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.statHeader}>
-              <Star size={12} color={accent} />
+              <PlatformIcon name="star" size={12} color={accent} />
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>LEVEL</Text>
             </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{plan.experienceLevel.charAt(0).toUpperCase() + plan.experienceLevel.slice(1)}</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>
+              {plan.experienceLevel.charAt(0).toUpperCase() + plan.experienceLevel.slice(1)}
+            </Text>
           </View>
           <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.statHeader}>
-              <BarChart3 size={12} color={accent} />
+              <PlatformIcon name="bar-chart-3" size={12} color={accent} />
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>WEEKS LEFT</Text>
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>{weeksLeft} weeks</Text>
           </View>
         </View>
 
+        {/* ── Schedule overview ─────────────────────────── */}
         {schedule && (
           <View style={[styles.scheduleStats, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.scheduleStatRow}>
-              <Text style={[styles.scheduleStatLabel, { color: colors.textSecondary }]}>Total training days</Text>
-              <Text style={[styles.scheduleStatValue, { color: colors.text }]}>{schedule.total_training_days}</Text>
+            <View style={styles.scheduleRow}>
+              <Text style={[styles.scheduleRowLabel, { color: colors.textSecondary }]}>Total training days</Text>
+              <Text style={[styles.scheduleRowValue, { color: colors.text }]}>{schedule.total_training_days}</Text>
             </View>
-            <View style={[styles.scheduleStatRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
-              <Text style={[styles.scheduleStatLabel, { color: colors.textSecondary }]}>Total rest days</Text>
-              <Text style={[styles.scheduleStatValue, { color: colors.text }]}>{schedule.total_rest_days}</Text>
+            <View style={[styles.scheduleRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
+              <Text style={[styles.scheduleRowLabel, { color: colors.textSecondary }]}>Total rest days</Text>
+              <Text style={[styles.scheduleRowValue, { color: colors.text }]}>{schedule.total_rest_days}</Text>
             </View>
-            <View style={[styles.scheduleStatRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
-              <Text style={[styles.scheduleStatLabel, { color: colors.textSecondary }]}>Phases</Text>
-              <Text style={[styles.scheduleStatValue, { color: colors.text }]}>
+            <View style={[styles.scheduleRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
+              <Text style={[styles.scheduleRowLabel, { color: colors.textSecondary }]}>Phases</Text>
+              <Text style={[styles.scheduleRowValue, { color: colors.text }]}>
                 {schedule.phases_used.map(p => PHASE_DISPLAY_NAMES[p as PlanPhase] ?? p).join(', ')}
               </Text>
             </View>
           </View>
         )}
 
+        {/* ── Actions ───────────────────────────────────── */}
         <TouchableOpacity
           style={[styles.ghostBtn, { borderColor: colors.border }]}
           onPress={handleStartNew}
           activeOpacity={0.7}
         >
-          <RefreshCw size={14} color={colors.textSecondary} />
+          <PlatformIcon name="refresh" size={14} color={colors.textSecondary} />
           <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>Start New Plan</Text>
         </TouchableOpacity>
 
@@ -410,7 +586,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
           onPress={handleCancelPlan}
           activeOpacity={0.7}
         >
-          <Trash2 size={14} color="#ef4444" />
+          <PlatformIcon name="trash" size={14} color="#ef4444" />
           <Text style={styles.cancelBtnText}>Cancel Plan</Text>
         </TouchableOpacity>
 
@@ -421,7 +597,6 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8,
@@ -432,68 +607,119 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center',
   },
+
   content: { paddingHorizontal: 16, gap: 16, paddingBottom: 8 },
   planName: { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.5 },
+
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5 },
   tagText: { fontSize: 12, fontWeight: '600' as const },
-  progressSection: { gap: 8 },
+
+  // Plan completion card
+  completionCard: {
+    borderRadius: 16, borderWidth: 1, padding: 16, gap: 12,
+  },
+  completionTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  completionIconWrap: {
+    width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+  },
+  completionTextBlock: { flex: 1, gap: 3 },
+  completionTitle: { fontSize: 20, fontWeight: '800' as const, letterSpacing: -0.3 },
+  completionSub: { fontSize: 12 },
+  completionDivider: { height: 1 },
+  completionStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  completionStat: { alignItems: 'center', gap: 3, flex: 1 },
+  completionStatNum: { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.5 },
+  completionStatLabel: { fontSize: 11 },
+  completionStatDivider: { width: 1, height: 32 },
+
+  // Progress
+  progressSection: { gap: 6 },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   progressLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.8 },
   progressWeek: { fontSize: 12, fontWeight: '500' as const },
-  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: 6, borderRadius: 3 },
+  progressTrack: { height: 5, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: 5, borderRadius: 3 },
+  progressFooter: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressPct: { fontSize: 11, fontWeight: '600' as const },
+  progressLeft: { fontSize: 11 },
+
+  // Today card
+  todayCard: {
+    flexDirection: 'row', borderRadius: 14, borderWidth: 1, overflow: 'hidden',
+  },
+  todayAccentBar: { width: 4, borderRadius: 0 },
+  todayBody: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 6 },
+  todayLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 1 },
+  todayMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  todayTextBlock: { flex: 1, gap: 3 },
+  todaySession: { fontSize: 17, fontWeight: '700' as const, letterSpacing: -0.2 },
+  todaySub: { fontSize: 12, fontWeight: '400' as const },
+  todayMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  todayMetaText: { fontSize: 12 },
+  todayMetaDot: { fontSize: 12 },
+
+  // Recovery card
+  recoveryCard: {
+    borderRadius: 12, borderWidth: 1, padding: 12, gap: 6,
+  },
+  recoveryHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  recoveryTitle: { fontSize: 12, fontWeight: '700' as const, color: '#f59e0b' },
+  recoveryMessage: { fontSize: 12, fontWeight: '400' as const, lineHeight: 17 },
+
+  // Phase timeline
   sectionLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.8, marginBottom: 8 },
   phaseTimeline: { gap: 0 },
   phaseTimelineScroll: { gap: 6, paddingRight: 16 },
   phaseWeekDot: {
     width: 36, height: 36, borderRadius: 18,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
   },
   phaseWeekNum: { fontSize: 12, fontWeight: '700' as const },
-  deloadIndicator: {
-    position: 'absolute', bottom: -2, width: 8, height: 3, borderRadius: 2,
-  },
-  weekDetailSection: { gap: 12 },
-  weekNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
+  deloadDot: { position: 'absolute', bottom: -1, width: 6, height: 6, borderRadius: 3 },
+
+  // Week detail
+  weekDetailSection: { gap: 10 },
+  weekNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  weekNavBtn: { padding: 4 },
   weekNavCenter: { alignItems: 'center', gap: 4 },
   weekNavTitle: { fontSize: 18, fontWeight: '800' as const },
   phaseBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
   phaseBadgeText: { fontSize: 11, fontWeight: '600' as const },
-  weekNotesRow: {
+  infoRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8,
   },
-  weekNotesText: { fontSize: 12, fontWeight: '500' as const, flex: 1 },
-  milestoneRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8,
-  },
-  milestoneText: { fontSize: 12, fontWeight: '600' as const, flex: 1 },
+  infoRowText: { fontSize: 12, fontWeight: '500' as const, flex: 1 },
+
+  // Day grid
   dayGrid: { gap: 6 },
-  dayCard: {
-    borderRadius: 12, padding: 12, gap: 6,
-  },
-  dayCardHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
+  dayCard: { borderRadius: 12, padding: 12, gap: 5 },
+  dayCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dayCardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dayLabel: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.5 },
   dayDate: { fontSize: 10 },
-  restDayContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  restLabel: { fontSize: 13, fontWeight: '600' as const },
-  restSuggestion: { fontSize: 11, flex: 1 },
-  trainingDayContent: { gap: 4 },
-  dayStyleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dayStyleText: { fontSize: 13, fontWeight: '600' as const },
+  restContent: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  restLabel: { fontSize: 13, fontWeight: '500' as const },
+  trainingContent: { gap: 3 },
+  dayStyleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dayStyleText: { fontSize: 13, fontWeight: '600' as const, flex: 1 },
   dayMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dayMetaText: { fontSize: 11 },
-  deloadTag: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  dayTagRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 2 },
+  deloadTag: {
+    alignSelf: 'flex-start', borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#22c55e20',
+  },
   deloadTagText: { fontSize: 10, fontWeight: '600' as const, color: '#22c55e' },
-  missedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  missedTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start', borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#ef444420',
+  },
   missedTagText: { fontSize: 10, fontWeight: '600' as const, color: '#ef4444' },
+
+  // Stats grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCell: {
     width: '47%' as any, borderRadius: 12, borderWidth: 1,
@@ -502,13 +728,17 @@ const styles = StyleSheet.create({
   statHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statLabel: { fontSize: 9, fontWeight: '700' as const, letterSpacing: 0.6 },
   statValue: { fontSize: 16, fontWeight: '700' as const },
+
+  // Schedule overview
   scheduleStats: { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
-  scheduleStatRow: {
+  scheduleRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 14, paddingVertical: 12,
   },
-  scheduleStatLabel: { fontSize: 12, fontWeight: '500' as const },
-  scheduleStatValue: { fontSize: 14, fontWeight: '600' as const, maxWidth: '60%' as any, textAlign: 'right' as const },
+  scheduleRowLabel: { fontSize: 12, fontWeight: '500' as const },
+  scheduleRowValue: { fontSize: 14, fontWeight: '600' as const, maxWidth: '60%' as any, textAlign: 'right' as const },
+
+  // Actions
   ghostBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderWidth: 1, borderRadius: 14, paddingVertical: 14,
