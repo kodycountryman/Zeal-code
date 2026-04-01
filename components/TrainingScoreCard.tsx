@@ -1,17 +1,30 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Animated,
-  Modal,
-  Pressable,
 } from 'react-native';
-import { ChevronRight, Zap, Target, Flame, Footprints, HeartPulse, Clock, X, Info } from 'lucide-react-native';
-import { useZealTheme } from '@/context/AppContext';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import { useZealTheme, useAppContext } from '@/context/AppContext';
+import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import GlassCard from '@/components/GlassCard';
+import MetricSlot from '@/components/MetricSlot';
+import MetricPickerSheet from '@/components/MetricPickerSheet';
+import MetricDetailSheet from '@/components/MetricDetailSheet';
 import { SWIFT_SPRING } from '@/constants/animation';
+import { useMetricSlots } from '@/hooks/useMetricSlots';
+import {
+  resolveMetricValue,
+  getMetricDef,
+  type MetricSlotKey,
+  type MetricSlotInput,
+} from '@/constants/metricSlots';
+
+interface LastWorkout {
+  split: string;
+  duration: number;
+}
 
 interface Props {
   score: number;
@@ -23,83 +36,11 @@ interface Props {
   steps?: number | null;
   heartRate?: number | null;
   weeklyHoursMin?: number;
+  lastWorkout?: LastWorkout | null;
   onPress: () => void;
   variant?: 'solid' | 'glass';
 }
 
-type MetricKey = 'calories' | 'steps' | 'heartRate' | 'weeklyHours';
-
-interface MetricDetail {
-  key: MetricKey;
-  label: string;
-  value: string;
-  unit: string;
-  description: string;
-  tracking: string;
-  tip: string;
-}
-
-function formatWeeklyHours(min: number): string {
-  if (min === 0) return '0h';
-  if (min >= 60) {
-    const h = Math.round(min / 60 * 10) / 10;
-    return `${h}h`;
-  }
-  return `${min}m`;
-}
-
-function formatSteps(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
-
-const METRIC_KEYS: MetricKey[] = ['calories', 'steps', 'heartRate', 'weeklyHours'];
-
-function MetricIcon({ metricKey, size, iconColor }: { metricKey: MetricKey; size: number; iconColor: string }) {
-  if (metricKey === 'calories') return <Flame size={size} color={iconColor} strokeWidth={2.5} />;
-  if (metricKey === 'steps') return <Footprints size={size} color={iconColor} strokeWidth={2.5} />;
-  if (metricKey === 'heartRate') return <HeartPulse size={size} color={iconColor} strokeWidth={2.5} />;
-  return <Clock size={size} color={iconColor} strokeWidth={2.5} />;
-}
-
-const TrainingScoreMetricsRow = React.memo(function TrainingScoreMetricsRow({
-  metricDetails,
-  verticalDivider,
-  iconColor,
-  colorsText,
-  onMetricPress,
-}: {
-  metricDetails: Record<MetricKey, MetricDetail>;
-  verticalDivider: string;
-  iconColor: string;
-  colorsText: string;
-  onMetricPress: (k: MetricKey) => void;
-}) {
-  return (
-    <View style={styles.metricsRow}>
-      {METRIC_KEYS.map((key, index) => {
-        const detail = metricDetails[key];
-        return (
-          <React.Fragment key={key}>
-            {index > 0 && <View style={[styles.verticalDivider, { backgroundColor: verticalDivider }]} />}
-            <TouchableOpacity
-              style={styles.metricCol}
-              onPress={(e) => {
-                e.stopPropagation();
-                onMetricPress(key);
-              }}
-              activeOpacity={0.7}
-              testID={`metric-${key}`}
-            >
-              <MetricIcon metricKey={key} size={15} iconColor={iconColor} />
-              <Text style={[styles.metricValue, { color: colorsText }]}>{detail.value}</Text>
-            </TouchableOpacity>
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
-});
 
 export default function TrainingScoreCard({
   score,
@@ -111,17 +52,23 @@ export default function TrainingScoreCard({
   steps = null,
   heartRate = null,
   weeklyHoursMin = 0,
+  lastWorkout = null,
   onPress,
   variant = 'solid',
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const progressPercent = Math.min((score / 100) * 100, 100);
 
+  const ctx = useAppContext();
+  const tracking = useWorkoutTracking();
+  const { slots, updateSlot } = useMetricSlots();
+  const [pickerSlotIndex, setPickerSlotIndex] = useState<number | null>(null);
+  const [detailSlotIndex, setDetailSlotIndex] = useState<number | null>(null);
+
   const [displayScore, setDisplayScore] = useState<number>(score);
   const prevScoreRef = useRef<number>(score);
   const animRef = useRef<number | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null);
 
   useEffect(() => {
     const prev = prevScoreRef.current;
@@ -166,75 +113,35 @@ export default function TrainingScoreCard({
   const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
   const dividerColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
   const verticalDivider = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.09)';
-  const iconColor = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)';
-
-  const caloriesDisplay = calories !== null && calories > 0 ? String(calories) : '—';
-  const stepsDisplay = steps !== null && steps > 0 ? formatSteps(steps) : '—';
-  const hrDisplay = heartRate !== null ? `${heartRate}` : '—';
-  const hoursDisplay = formatWeeklyHours(weeklyHoursMin);
+  const mutedColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
 
   const targetCapped = Math.min(targetDone, targetTotal);
 
-  const metricDetails: Record<MetricKey, MetricDetail> = useMemo(() => ({
-    calories: {
-      key: 'calories',
-      label: 'Calories Burned',
-      value: caloriesDisplay,
-      unit: caloriesDisplay !== '—' ? 'kcal today' : '',
-      description: 'Active calories burned throughout today, including all movement and exercise.',
-      tracking: calories !== null && calories > 0
-        ? 'Pulled from Apple Health or Google Fit — active energy data synced automatically.'
-        : 'No health data connected. Connect Apple Health or Google Fit in settings to enable.',
-      tip: 'Active calories exclude your basal metabolic rate. A typical workout burns 200–600 kcal depending on intensity.',
-    },
-    steps: {
-      key: 'steps',
-      label: 'Steps Today',
-      value: stepsDisplay,
-      unit: stepsDisplay !== '—' ? 'steps' : '',
-      description: 'Total steps taken today tracked by your device accelerometer.',
-      tracking: steps !== null && steps > 0
-        ? 'Synced from Apple Health or Google Fit step count data.'
-        : 'No health data connected. Connect Apple Health or Google Fit in settings to enable.',
-      tip: '10,000 steps a day is a widely cited target, but research shows 7,000–8,000 provides most of the health benefit.',
-    },
-    heartRate: {
-      key: 'heartRate',
-      label: 'Resting Heart Rate',
-      value: hrDisplay,
-      unit: hrDisplay !== '—' ? 'bpm' : '',
-      description: "Your resting heart rate — the number of times your heart beats per minute while at rest.",
-      tracking: heartRate !== null
-        ? 'Pulled from Apple Health or Google Fit — averaged from your most recent resting HR readings.'
-        : 'No heart rate data available. A compatible wearable or Apple Watch is needed.',
-      tip: 'A lower resting HR generally indicates better cardiovascular fitness. Elite athletes often sit between 40–60 bpm.',
-    },
-    weeklyHours: {
-      key: 'weeklyHours',
-      label: 'Hours Trained',
-      value: hoursDisplay,
-      unit: 'this week',
-      description: 'Total training time logged across all workouts this week (Monday–Sunday).',
-      tracking: 'Calculated from your workout logs in Zeal. Every logged session contributes to this total.',
-      tip: 'Most training goals align with 3–6 hours of structured training per week depending on intensity and recovery.',
-    },
-  }), [
-    caloriesDisplay,
-    stepsDisplay,
-    hrDisplay,
-    hoursDisplay,
-    calories,
-    steps,
-    heartRate,
-  ]);
+  // Build the data bag for the value resolver
+  const slotInput = useMemo<MetricSlotInput>(() => ({
+    workoutHistory: tracking.workoutHistory,
+    weeklyHoursMin,
+    streak: ctx.streak,
+    targetDone,
+    targetTotal,
+    calories: calories ?? null,
+    steps: steps ?? null,
+    heartRate: heartRate ?? null,
+    healthConnected: ctx.healthConnected,
+  }), [tracking.workoutHistory, weeklyHoursMin, ctx.streak, ctx.healthConnected,
+      targetDone, targetTotal, calories, steps, heartRate]);
 
-  const activeDetail = activeMetric ? metricDetails[activeMetric] : null;
+  const handleSlotPress = useCallback((index: number) => {
+    const key = slots[index];
+    if (key === null) {
+      setPickerSlotIndex(index);
+    } else {
+      setDetailSlotIndex(index);
+    }
+  }, [slots]);
 
-  const modalBg = isDark ? '#1c1c1c' : '#ffffff';
-  const modalBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-
-  const handleMetricPress = useCallback((key: MetricKey) => {
-    requestAnimationFrame(() => setActiveMetric(key));
+  const handleSlotLongPress = useCallback((index: number) => {
+    setPickerSlotIndex(index);
   }, []);
 
   const handleCardPress = useCallback(() => {
@@ -251,39 +158,45 @@ export default function TrainingScoreCard({
       >
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              TRAINING SCORE
+            <Text style={[styles.label, { color: colors.text }]}>
+              Training Score
             </Text>
-            <Text style={[styles.tier, { color: accent }]}>{tier}</Text>
+            <Text style={[styles.tier, { color: 'rgba(255,255,255,0.45)' }]}>{tier}</Text>
           </View>
-          <ChevronRight size={16} color={colors.textSecondary} />
+          <PlatformIcon name="chevron-right" size={16} color={colors.textSecondary} />
         </View>
 
-        <Animated.Text style={[styles.scoreNumber, { color: colors.score, transform: [{ scale: scaleAnim }] }]}>{displayScore}</Animated.Text>
+        {score === 0 ? (
+          <Text style={[styles.scoreNumber, { color: colors.textSecondary, letterSpacing: -1 }]}>—</Text>
+        ) : (
+          <Animated.Text style={[styles.scoreNumber, { color: colors.score, transform: [{ scale: scaleAnim }] }]}>{displayScore}</Animated.Text>
+        )}
 
         <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${progressPercent}%` as any, backgroundColor: colors.score },
-            ]}
-          />
+          {score > 0 && (
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${progressPercent}%` as any, backgroundColor: colors.score },
+              ]}
+            />
+          )}
         </View>
 
         <View style={styles.readinessRow}>
           <View style={styles.readinessLeft}>
-            <Zap size={11} color={colors.readiness} fill={colors.readiness} />
+            <PlatformIcon name="zap" size={11} color={colors.readiness} fill={colors.readiness} />
             <Text style={[styles.readinessLabel, { color: colors.textSecondary }]}>
-              READINESS{' '}
+              Readiness{' '}
             </Text>
             <Text style={[styles.readinessValue, { color: colors.readiness }]}>
               {readiness}%
             </Text>
           </View>
           <View style={styles.targetRight}>
-            <Target size={11} color={colors.textSecondary} />
+            <PlatformIcon name="target" size={11} color={colors.textSecondary} />
             <Text style={[styles.readinessLabel, { color: colors.textSecondary }]}>
-              {' '}TARGET{' '}
+              {' '}Target{' '}
             </Text>
             <Text style={[styles.targetValue, { color: colors.text }]}>
               {targetCapped}
@@ -292,83 +205,68 @@ export default function TrainingScoreCard({
           </View>
         </View>
 
+        {lastWorkout && (
+          <Text style={[styles.lastWorkoutLine, { color: colors.textSecondary }]}>
+            Last: {lastWorkout.split} · {lastWorkout.duration > 0 ? `${lastWorkout.duration}m` : '—'}
+          </Text>
+        )}
+
         <View style={[styles.metricsDivider, { backgroundColor: dividerColor }]} />
 
-        <TrainingScoreMetricsRow
-          metricDetails={metricDetails}
-          verticalDivider={verticalDivider}
-          iconColor={iconColor}
-          colorsText={colors.text}
-          onMetricPress={handleMetricPress}
-        />
+        {/* 4 customisable metric slots */}
+        <View style={styles.metricsRow}>
+          {slots.map((key, i) => {
+            const def = key ? (getMetricDef(key) ?? null) : null;
+            const resolved = key ? resolveMetricValue(key, slotInput) : null;
+            return (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <View style={[styles.verticalDivider, { backgroundColor: verticalDivider }]} />
+                )}
+                <MetricSlot
+                  slotIndex={i}
+                  def={def}
+                  resolved={resolved}
+                  onPress={handleSlotPress}
+                  onLongPress={handleSlotLongPress}
+                  isDark={isDark}
+                  textColor={colors.text}
+                  mutedColor={mutedColor}
+                  borderColor={isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)'}
+                  accent={accent}
+                />
+              </React.Fragment>
+            );
+          })}
+        </View>
       </GlassCard>
 
-      <Modal
-        visible={activeMetric !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActiveMetric(null)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setActiveMetric(null)}>
-          <Pressable
-            style={[styles.modalSheet, { backgroundColor: modalBg, borderColor: modalBorder }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {activeDetail && (
-              <>
-                <View style={styles.modalHeader}>
-                  <View style={styles.modalTitleRow}>
-                    <MetricIcon metricKey={activeDetail.key} size={18} iconColor={iconColor} />
-                    <Text style={[styles.modalTitle, { color: colors.text }]}>{activeDetail.label}</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => requestAnimationFrame(() => setActiveMetric(null))}
-                    hitSlop={12}
-                    activeOpacity={0.7}
-                  >
-                    <X size={18} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                </View>
+      <MetricPickerSheet
+        visible={pickerSlotIndex !== null}
+        slotIndex={pickerSlotIndex}
+        currentKey={pickerSlotIndex !== null ? (slots[pickerSlotIndex] ?? null) : null}
+        onSelect={updateSlot}
+        onClose={() => setPickerSlotIndex(null)}
+      />
 
-                <View style={[styles.modalValueRow, { borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}>
-                  <Text style={[styles.modalBigValue, { color: colors.text }]}>
-                    {activeDetail.value}
-                  </Text>
-                  {activeDetail.unit ? (
-                    <Text style={[styles.modalUnit, { color: colors.textSecondary }]}>{activeDetail.unit}</Text>
-                  ) : null}
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalSectionLabel, { color: colors.textSecondary }]}>WHAT IT MEASURES</Text>
-                  <Text style={[styles.modalBody, { color: colors.text }]}>{activeDetail.description}</Text>
-                </View>
-
-                <View style={[styles.modalDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]} />
-
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalSectionLabel, { color: colors.textSecondary }]}>HOW IT&apos;S TRACKED</Text>
-                  <Text style={[styles.modalBody, { color: colors.text }]}>{activeDetail.tracking}</Text>
-                </View>
-
-                <View style={[styles.modalDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]} />
-
-                <View style={[styles.modalTipRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                  <Info size={13} color={colors.textSecondary} strokeWidth={2} />
-                  <Text style={[styles.modalTip, { color: colors.textSecondary }]}>{activeDetail.tip}</Text>
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <MetricDetailSheet
+        visible={detailSlotIndex !== null}
+        slotIndex={detailSlotIndex}
+        metricKey={detailSlotIndex !== null ? (slots[detailSlotIndex] ?? null) : null}
+        slotInput={slotInput}
+        onClose={() => setDetailSlotIndex(null)}
+        onChangeMetric={(idx) => {
+          setDetailSlotIndex(null);
+          setPickerSlotIndex(idx);
+        }}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 22,
+    borderRadius: 26,
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 14,
@@ -386,14 +284,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    fontSize: 10,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.2,
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
   },
   tier: {
-    fontSize: 10,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.2,
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: -0.1,
+    marginTop: 1,
+  },
+  emptyScoreState: {
+    gap: 6,
+  },
+  emptyHint: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    lineHeight: 17,
+    letterSpacing: 0.1,
   },
   scoreNumber: {
     fontSize: 44,
@@ -447,6 +355,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     letterSpacing: 0.2,
   },
+  lastWorkoutLine: {
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.1,
+    marginTop: -4,
+  },
   metricsDivider: {
     height: 1,
     marginHorizontal: -20,
@@ -455,75 +369,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  metricCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 2,
-  },
   verticalDivider: {
     width: 1,
     height: 34,
   },
-  metricValue: {
-    fontSize: 12,
-    fontFamily: 'Outfit_500Medium',
-    letterSpacing: -0.3,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalSheet: {
-    width: '100%',
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  modalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  modalValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-  },
-  modalBigValue: {
-    fontSize: 36,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -1.5,
-  },
-  modalUnit: {
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: -0.2,
-  },
-  modalSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 5,
-  },
+  // reserved for Steps 3 & 4 modal styles
   modalSectionLabel: {
     fontSize: 10,
     fontWeight: '700',

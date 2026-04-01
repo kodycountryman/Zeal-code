@@ -9,11 +9,12 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, ClipboardList, Dumbbell, Trophy, ChevronRight, X, Brain } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from 'react-native';
 import { healthService } from '@/services/healthService';
 import { useRouter } from 'expo-router';
 import { useZealTheme, useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
+import { resolvePushPullLegs } from '@/utils/training';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import CalendarCard from '@/components/CalendarCard';
@@ -41,10 +42,9 @@ import HelpFaqDrawer from '@/components/drawers/HelpFaqDrawer';
 import WorkoutPreviewModal from '@/components/WorkoutPreviewModal';
 import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
 import { mockBibleVerse } from '@/mocks/homeData';
-import { WORKOUT_STYLE_COLORS, TRAINING_SPLITS } from '@/constants/colors';
+import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
+import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PRO_STYLES_SET } from '@/services/proGate';
-import { WORKOUT_STYLE_KEYS as STYLE_OPTIONS } from '@/constants/workoutStyles';
-import { SESSION_DURATION_OPTIONS as DURATION_CHIPS } from '@/services/planConstants';
 
 
 function getSmartCoachMessage({
@@ -131,22 +131,6 @@ function getMuscleGroupsFromSplit(split: string, style: string): string {
 }
 
 
-function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
-  const readinessMap: Record<string, number> = {};
-  for (const m of muscleReadiness) {
-    readinessMap[m.name] = m.value;
-  }
-  const avg = (muscles: string[]) => {
-    const vals = muscles.map(m => readinessMap[m] ?? 80);
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  };
-  const pushScore = avg(['Chest', 'Shoulders', 'Triceps']);
-  const pullScore = avg(['Back', 'Biceps']);
-  const legsScore = avg(['Quads', 'Hamstrings', 'Glutes', 'Calves']);
-  if (pushScore >= pullScore && pushScore >= legsScore) return 'Push';
-  if (pullScore > pushScore && pullScore >= legsScore) return 'Pull';
-  return 'Legs';
-}
 
 export default function HomeScreen() {
   const { colors, accent, isZeal, isDark } = useZealTheme();
@@ -270,10 +254,6 @@ export default function HomeScreen() {
   }, [tracking]);
 
   const [anotherWorkoutVisible, setAnotherWorkoutVisible] = useState(false);
-  const [anotherStep, setAnotherStep] = useState<number>(1);
-  const [anotherDuration, setAnotherDuration] = useState<number>(60);
-  const [anotherStyle, setAnotherStyle] = useState<string>('Strength');
-  const [anotherSplit, setAnotherSplit] = useState<string>('');
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const ZEAL_ORANGE = '#f87116';
@@ -311,9 +291,11 @@ export default function HomeScreen() {
     if (tracking.isWorkoutActive && tracking.readinessPercent > 0) {
       return tracking.readinessPercent;
     }
+    // No workout history = all muscles are fresh, always 100
+    if (tracking.workoutHistory.length === 0) return 100;
     const avg = ctx.muscleReadiness.reduce((sum, m) => sum + m.value, 0) / (ctx.muscleReadiness.length || 1);
     return Math.round(avg);
-  }, [tracking.isWorkoutActive, tracking.readinessPercent, ctx.muscleReadiness]);
+  }, [tracking.isWorkoutActive, tracking.readinessPercent, tracking.workoutHistory.length, ctx.muscleReadiness]);
 
   const weeklyHours = useMemo(() => {
     const min = tracking.weeklyHoursMin;
@@ -356,19 +338,10 @@ export default function HomeScreen() {
       tracking.setSelectedLogId(latestTodayLog.id);
       tracking.setWorkoutLogDetailVisible(true);
     }
-  }, [tracking, latestTodayLog]);
+    router.push('/workout');
+  }, [tracking, latestTodayLog, router]);
 
-  const handleStartAnother = useCallback(() => {
-    setAnotherStep(1);
-    setAnotherDuration(60);
-    setAnotherStyle('Strength');
-    setAnotherSplit('');
-    setAnotherWorkoutVisible(true);
-  }, []);
 
-  const splitOptions = useMemo(() => {
-    return TRAINING_SPLITS[anotherStyle] ?? ['Full Body'];
-  }, [anotherStyle]);
 
   const handleLoadSavedWorkout = useCallback((workout: { id: string; name: string; exercises: { exerciseId: string; name: string }[]; defaultFocus: string; createdAt: string; lastUsed: string }) => {
     console.log('[Home] Loading saved workout:', workout.name, 'with', workout.exercises.length, 'exercises');
@@ -378,19 +351,6 @@ export default function HomeScreen() {
     router.push('/workout');
   }, [ctx, router]);
 
-  const handleAnotherLetsGo = useCallback(() => {
-    const finalSplit = anotherSplit || splitOptions[0] || 'Full Body';
-    ctx.applyWorkoutOverride({
-      style: anotherStyle,
-      split: finalSplit,
-      duration: anotherDuration,
-      rest: ctx.restBetweenSets,
-      muscles: [],
-      setDate: new Date().toISOString().slice(0, 10),
-    });
-    setAnotherWorkoutVisible(false);
-    router.push('/workout');
-  }, [anotherStyle, anotherSplit, anotherDuration, splitOptions, ctx, router]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -412,7 +372,7 @@ export default function HomeScreen() {
               {ctx.userPhotoUri ? (
                 <Image source={{ uri: ctx.userPhotoUri }} style={styles.avatarImage} />
               ) : (
-                <User size={17} color={colors.textSecondary} strokeWidth={1.8} />
+                <PlatformIcon name="user" size={17} color={colors.textSecondary} />
               )}
             </TouchableOpacity>
 
@@ -446,37 +406,124 @@ export default function HomeScreen() {
         <Animated.View entering={enterCard(150)}>
           <WorkoutOverviewCard
             title={workoutTitle}
-            style={effectiveWorkout.style}
+            style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
             duration={workoutDuration}
             muscleGroups={muscleGroups}
             exerciseCount={exerciseCount}
-            onPress={handlePreviewPress}
+            onPress={hasTodayWorkout ? handleViewTodayLog : handlePreviewPress}
             activePlan={ctx.activePlan}
             onViewPlan={() => tracking.setActivePlanVisible(true)}
             variant={isDark ? 'glass' : 'solid'}
-          />
-        </Animated.View>
-
-        <Animated.View entering={enterCard(210)}>
-          <TrainingScoreCard
-            score={liveScore}
-            tier={tier}
-            readiness={readiness}
-            targetDone={liveDailyTarget}
-            targetTotal={12}
-            calories={healthCalories}
-            steps={healthSteps}
-            heartRate={healthHeartRate}
-            weeklyHoursMin={tracking.weeklyHoursMin}
-            onPress={() => setInsightsVisible(true)}
-            variant={isDark ? 'glass' : 'solid'}
+            completedLog={hasTodayWorkout ? latestTodayLog : null}
           />
         </Animated.View>
 
         {tracking.workoutHistory.length > 0 && (
+          <Animated.View entering={enterCard(210)}>
+            <TrainingScoreCard
+              score={liveScore}
+              tier={tier}
+              readiness={readiness}
+              targetDone={liveDailyTarget}
+              targetTotal={12}
+              calories={healthCalories}
+              steps={healthSteps}
+              heartRate={healthHeartRate}
+              weeklyHoursMin={tracking.weeklyHoursMin}
+              lastWorkout={{
+                split: tracking.workoutHistory[0].split,
+                duration: tracking.workoutHistory[0].duration,
+              }}
+              onPress={() => setInsightsVisible(true)}
+              variant={isDark ? 'glass' : 'solid'}
+            />
+          </Animated.View>
+        )}
+
+
+        {tracking.workoutHistory.length === 0 ? (
+          <>
+            {/* C — Coach welcome */}
+            <Animated.View entering={enterCard(270)}>
+              <GlassCard
+                style={[styles.coachCard, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
+                variant={isDark ? 'glass' : 'solid'}
+              >
+                <PlatformIcon name="brain" size={14} color={accent} />
+                <Text style={[styles.coachText, { color: colors.textSecondary }]}>
+                  {firstName ? `Hey ${firstName} — ` : ''}Your {effectiveWorkout.style} workout is loaded and ready. Complete it to start unlocking your training insights.
+                </Text>
+              </GlassCard>
+            </Animated.View>
+
+            {/* B — Day 1 streak challenge */}
+            <Animated.View entering={enterCard(330)}>
+              {(() => {
+                const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const todayDow = new Date().getDay();
+                return (
+                  <GlassCard
+                    style={[styles.day1Card, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
+                    onPress={() => router.push('/workout')}
+                    activeOpacity={0.8}
+                    variant={isDark ? 'glass' : 'solid'}
+                  >
+                    <View style={styles.day1Top}>
+                      <View>
+                        <Text style={[styles.day1Heading, { color: accent }]}>Day 1.</Text>
+                        <Text style={[styles.day1Sub, { color: colors.textSecondary }]}>Start your streak today</Text>
+                      </View>
+                      <PlatformIcon name="flame" size={22} color={accent} strokeWidth={1.8} />
+                    </View>
+
+                    <View style={styles.streakRow}>
+                      {DAY_LABELS.map((d, i) => {
+                        const isToday = i === todayDow;
+                        return (
+                          <View key={d} style={styles.streakDayCol}>
+                            <View style={[
+                              styles.streakCircle,
+                              isToday
+                                ? { backgroundColor: accent, borderColor: accent }
+                                : { backgroundColor: 'transparent', borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)' },
+                            ]}>
+                              {isToday && <PlatformIcon name="zap" size={10} color="#fff" fill="#fff" />}
+                            </View>
+                            <Text style={[styles.streakDayLabel, { color: isToday ? accent : colors.textSecondary }]}>{d}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={[styles.day1Cta, { color: accent }]}>Go to workout →</Text>
+                  </GlassCard>
+                );
+              })()}
+            </Animated.View>
+
+            {/* Locked Training Score — shown at bottom before first workout */}
+            <Animated.View entering={enterCard(390)}>
+              <GlassCard
+                style={[styles.lockedScoreCard, { borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}
+                variant={isDark ? 'glass' : 'solid'}
+                testID="locked-score-card"
+              >
+                <View style={styles.lockedScoreInner}>
+                  <PlatformIcon name="lock" size={18} color={isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)'} strokeWidth={1.8} />
+                  <Text style={[styles.lockedScoreLabel, { color: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.2)' }]}>
+                    Training Score
+                  </Text>
+                  <Text style={[styles.lockedScoreHint, { color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)' }]}>
+                    Log your first workout to unlock score insights
+                  </Text>
+                </View>
+              </GlassCard>
+            </Animated.View>
+          </>
+        ) : (
           <Animated.View entering={enterCard(270)}>
             <GlassCard style={styles.coachCard} variant={isDark ? 'glass' : 'solid'}>
-              <Brain size={14} color={accent} strokeWidth={1.8} />
+              <PlatformIcon name="brain" size={14} color={accent} />
               <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
                 {getSmartCoachMessage({
                   muscleReadiness: ctx.muscleReadiness,
@@ -492,68 +539,6 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {hasTodayWorkout && (
-          <View style={styles.todayCardsSection}>
-            <GlassCard
-              style={[styles.todayCard, miniCardShadow]}
-              onPress={handleViewTodayLog}
-              activeOpacity={0.8}
-              testID="view-today-log"
-              variant={isDark ? 'glass' : 'solid'}
-            >
-              <View style={styles.todayCardLeft}>
-                <View style={[styles.todayCardIcon, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-                  <ClipboardList size={18} color="#3b82f6" />
-                </View>
-                <View style={styles.todayCardText}>
-                  <Text style={[styles.todayCardTitle, { color: colors.text }]}>View Today&apos;s Workout</Text>
-                  <View style={styles.todayCardMeta}>
-                    {latestTodayLog && (
-                      <>
-                        <Text style={[styles.todayCardSub, { color: colors.textSecondary }]}>
-                          {latestTodayLog.duration}m
-                        </Text>
-                        <Text style={[styles.todayCardSub, { color: colors.textSecondary }]}>·</Text>
-                        <Text style={[styles.todayCardSub, { color: '#f87116' }]}>
-                          +{latestTodayLog.trainingScore} pts
-                        </Text>
-                        {latestTodayLog.prsHit > 0 && (
-                          <>
-                            <Text style={[styles.todayCardSub, { color: colors.textSecondary }]}>·</Text>
-                            <Trophy size={10} color="#f87116" />
-                            <Text style={[styles.todayCardSub, { color: '#f87116' }]}>{latestTodayLog.prsHit}</Text>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </View>
-                </View>
-              </View>
-              <ChevronRight size={16} color={colors.textSecondary} />
-            </GlassCard>
-
-            <GlassCard
-              style={[styles.todayCard, miniCardShadow]}
-              onPress={handleStartAnother}
-              activeOpacity={0.8}
-              testID="start-another-workout"
-              variant={isDark ? 'glass' : 'solid'}
-            >
-              <View style={styles.todayCardLeft}>
-                <View style={[styles.todayCardIcon, { backgroundColor: 'rgba(248,113,22,0.12)' }]}>
-                  <Dumbbell size={18} color="#f87116" />
-                </View>
-                <View style={styles.todayCardText}>
-                  <Text style={[styles.todayCardTitle, { color: colors.text }]}>Start Another Workout?</Text>
-                  <Text style={[styles.todayCardSub, { color: colors.textSecondary }]}>
-                    Customize and generate
-                  </Text>
-                </View>
-              </View>
-              <ChevronRight size={16} color={colors.textSecondary} />
-            </GlassCard>
-          </View>
-        )}
 
         <View style={styles.bibleContainer} testID="bible-verse">
           <Text style={[styles.bibleText, { color: colors.textSecondary }]}>
@@ -567,107 +552,11 @@ export default function HomeScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <Modal
+      <StartAnotherWorkoutSheet
         visible={anotherWorkoutVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAnotherWorkoutVisible(false)}
-        statusBarTranslucent
-      >
-        <View style={styles.drawerBackdrop}>
-          <View style={[styles.drawerSheet, { backgroundColor: colors.card }]}>
-            <View style={[styles.drawerHandle, { backgroundColor: colors.border }]} />
-            <TouchableOpacity style={styles.drawerClose} onPress={() => setAnotherWorkoutVisible(false)} activeOpacity={0.7}>
-              <X size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-
-            {anotherStep === 1 && (
-              <View style={styles.drawerContent}>
-                <Text style={[styles.drawerTitle, { color: colors.text }]}>How long?</Text>
-                <View style={styles.chipRow}>
-                  {DURATION_CHIPS.map(d => (
-                    <TouchableOpacity
-                      key={d}
-                      style={[
-                        styles.durationChip,
-                        { borderColor: anotherDuration === d ? '#f87116' : colors.border },
-                        anotherDuration === d && { backgroundColor: '#f8711615' },
-                      ]}
-                      onPress={() => setAnotherDuration(d)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.durationChipText, { color: anotherDuration === d ? '#f87116' : colors.text }]}>
-                        {d} min
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TouchableOpacity style={styles.drawerNextBtn} onPress={() => setAnotherStep(2)} activeOpacity={0.85}>
-                  <Text style={styles.drawerNextBtnText}>Next</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {anotherStep === 2 && (
-              <View style={styles.drawerContent}>
-                <Text style={[styles.drawerTitle, { color: colors.text }]}>What type?</Text>
-                <View style={styles.styleGrid}>
-                  {STYLE_OPTIONS.map(s => {
-                    const sColor = WORKOUT_STYLE_COLORS[s] ?? '#f87116';
-                    const isSelected = anotherStyle === s;
-                    return (
-                      <TouchableOpacity
-                        key={s}
-                        style={[
-                          styles.styleChip,
-                          { borderColor: isSelected ? sColor : colors.border },
-                          isSelected && { backgroundColor: `${sColor}18` },
-                        ]}
-                        onPress={() => { setAnotherStyle(s); setAnotherSplit(''); }}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.styleChipDot, { backgroundColor: sColor }]} />
-                        <Text style={[styles.styleChipText, { color: isSelected ? sColor : colors.text }]}>{s}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                <TouchableOpacity style={styles.drawerNextBtn} onPress={() => setAnotherStep(3)} activeOpacity={0.85}>
-                  <Text style={styles.drawerNextBtnText}>Next</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {anotherStep === 3 && (
-              <View style={styles.drawerContent}>
-                <Text style={[styles.drawerTitle, { color: colors.text }]}>Focus?</Text>
-                <View style={styles.styleGrid}>
-                  {splitOptions.map(sp => {
-                    const isSelected = anotherSplit === sp || (!anotherSplit && sp === splitOptions[0]);
-                    return (
-                      <TouchableOpacity
-                        key={sp}
-                        style={[
-                          styles.splitChip,
-                          { borderColor: isSelected ? '#f87116' : colors.border },
-                          isSelected && { backgroundColor: '#f8711615' },
-                        ]}
-                        onPress={() => setAnotherSplit(sp)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.splitChipText, { color: isSelected ? '#f87116' : colors.text }]}>{sp}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                <TouchableOpacity style={styles.letsGoBtn} onPress={handleAnotherLetsGo} activeOpacity={0.85}>
-                  <Text style={styles.letsGoBtnText}>Let&apos;s Go</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setAnotherWorkoutVisible(false)}
+        onComplete={() => router.push('/workout')}
+      />
 
       <StreakBottomSheet
         visible={streakSheetVisible}
@@ -805,14 +694,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   wordmark: {
-    fontSize: 22,
+    fontSize: 17,
     fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -1.2,
+    letterSpacing: -0.8,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 4,
     gap: 12,
+    flexGrow: 1,
   },
   coachCard: {
     flexDirection: 'row',
@@ -832,6 +722,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   bibleContainer: {
+    marginTop: 8,
     paddingVertical: 16,
     paddingHorizontal: 8,
     alignItems: 'center',
@@ -842,6 +733,84 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  day1Card: {
+    borderRadius: 26,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 18,
+    gap: 16,
+    overflow: 'hidden',
+  },
+  day1Top: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  day1Heading: {
+    fontSize: 28,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  day1Sub: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.1,
+    marginTop: 2,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  streakDayCol: {
+    alignItems: 'center',
+    gap: 5,
+  },
+  streakCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakDayLabel: {
+    fontSize: 10,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0.2,
+  },
+  day1Cta: {
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.2,
+    marginTop: -4,
+  },
+  lockedScoreCard: {
+    borderRadius: 26,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    overflow: 'hidden',
+  },
+  lockedScoreInner: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  lockedScoreLabel: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
+    marginTop: 2,
+  },
+  lockedScoreHint: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    textAlign: 'center',
+    lineHeight: 18,
+    letterSpacing: 0.1,
+    marginTop: 2,
   },
   bibleRef: {
     fontSize: 11,

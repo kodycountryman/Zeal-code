@@ -9,8 +9,10 @@ import {
   ScrollView,
   PanResponder,
   Dimensions,
+  Animated,
 } from 'react-native';
-import { Trophy, Clock, Dumbbell, Zap, Star, X, Award, Save } from 'lucide-react-native';
+import { useSheetAnimation } from '@/hooks/useSheetAnimation';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
@@ -41,7 +43,7 @@ function StarRating({ value, onChange, size = 36 }: { value: number; onChange: (
     <View style={starStyles.row}>
       {[1, 2, 3, 4, 5].map(i => (
         <TouchableOpacity key={i} onPress={() => handleStar(i)} activeOpacity={0.7} style={starStyles.touch}>
-          <Star
+          <PlatformIcon name="star"
             size={size}
             color={i <= value ? '#f87116' : '#444'}
             fill={i <= value ? '#f87116' : 'transparent'}
@@ -160,6 +162,8 @@ export default function PostWorkoutFlow() {
 
   const step = tracking.postWorkoutStep;
 
+  const { backdropStyle, sheetStyle, onClose: animClose, panHandlers } = useSheetAnimation(!!step, () => tracking.setPostWorkoutStep(null));
+
   const totalSets = useMemo(() => Object.values(tracking.exerciseLogs).reduce(
     (acc, log) => acc + log.sets.filter(s => s.done).length, 0
   ), [tracking.exerciseLogs]);
@@ -173,8 +177,8 @@ export default function PostWorkoutFlow() {
   }, []);
 
   const handleClose = useCallback(() => {
-    tracking.setPostWorkoutStep(null);
-  }, [tracking]);
+    animClose();
+  }, [animClose]);
 
   const handlePRsNext = useCallback(() => {
     tracking.setPostWorkoutStep('feedback');
@@ -200,23 +204,26 @@ export default function PostWorkoutFlow() {
     <Modal
       visible={!!step}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <View style={styles.backdrop}>
+      <Animated.View style={[styles.backdrop, backdropStyle]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={animClose} activeOpacity={1} />
+      </Animated.View>
+      <Animated.View style={[styles.sheetWrap, sheetStyle]}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          <View style={[styles.handle, { backgroundColor: colors.border }]} {...panHandlers} />
 
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
-            <X size={20} color={colors.textSecondary} />
+            <PlatformIcon name="x" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           {step === 'prs' && (
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.prSummaryHeader}>
                 <View style={styles.prIconCircle}>
-                  <Trophy size={32} color="#f87116" />
+                  <PlatformIcon name="trophy" size={32} color="#f87116" />
                 </View>
                 <Text style={[styles.stepTitle, { color: colors.text }]}>New Personal Records!</Text>
                 <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
@@ -227,7 +234,7 @@ export default function PostWorkoutFlow() {
               {tracking.confirmedPRs.map((pr, idx) => (
                 <View key={idx} style={[styles.prCard, { backgroundColor: isDark ? '#1a1a0a' : '#fffbeb' }]}>
                   <View style={styles.prCardLeft}>
-                    <Award size={20} color="#f87116" />
+                    <PlatformIcon name="award" size={20} color="#f87116" />
                   </View>
                   <View style={styles.prCardContent}>
                     <Text style={[styles.prExName, { color: colors.text }]}>{pr.exerciseName}</Text>
@@ -295,7 +302,7 @@ export default function PostWorkoutFlow() {
           {step === 'save' && (
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.saveHeader}>
-                <Save size={24} color="#f87116" />
+                <PlatformIcon name="save" size={24} color="#f87116" />
                 <Text style={[styles.stepTitle, { color: colors.text }]}>Save Workout</Text>
               </View>
 
@@ -305,26 +312,26 @@ export default function PostWorkoutFlow() {
 
               <View style={styles.saveStatsGrid}>
                 <View style={[styles.saveStat, { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }]}>
-                  <Clock size={14} color={colors.textSecondary} />
+                  <PlatformIcon name="clock" size={14} color={colors.textSecondary} />
                   <Text style={[styles.saveStatValue, { color: colors.text }]}>
                     {formatDuration(tracking.workoutElapsed)}
                   </Text>
                   <Text style={[styles.saveStatLabel, { color: colors.textSecondary }]}>Duration</Text>
                 </View>
                 <View style={[styles.saveStat, { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }]}>
-                  <Dumbbell size={14} color={colors.textSecondary} />
+                  <PlatformIcon name="dumbbell" size={14} color={colors.textSecondary} />
                   <Text style={[styles.saveStatValue, { color: colors.text }]}>{totalSets}</Text>
                   <Text style={[styles.saveStatLabel, { color: colors.textSecondary }]}>Sets</Text>
                 </View>
                 <View style={[styles.saveStat, { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }]}>
-                  <Zap size={14} color={colors.textSecondary} />
+                  <PlatformIcon name="zap" size={14} color={colors.textSecondary} />
                   <Text style={[styles.saveStatValue, { color: colors.text }]}>
                     {totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}
                   </Text>
                   <Text style={[styles.saveStatLabel, { color: colors.textSecondary }]}>Volume</Text>
                 </View>
                 <View style={[styles.saveStat, { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }]}>
-                  <Trophy size={14} color={colors.textSecondary} />
+                  <PlatformIcon name="trophy" size={14} color={colors.textSecondary} />
                   <Text style={[styles.saveStatValue, { color: colors.text }]}>{tracking.confirmedPRs.length}</Text>
                   <Text style={[styles.saveStatLabel, { color: colors.textSecondary }]}>PRs</Text>
                 </View>
@@ -361,7 +368,7 @@ export default function PostWorkoutFlow() {
                 <View style={styles.savePrList}>
                   {tracking.confirmedPRs.map((pr, idx) => (
                     <View key={idx} style={styles.savePrRow}>
-                      <Trophy size={12} color="#f87116" />
+                      <PlatformIcon name="trophy" size={12} color="#f87116" />
                       <Text style={[styles.savePrText, { color: colors.text }]}>
                         {pr.exerciseName}: {pr.type === 'weight' ? `${pr.value} lbs` : pr.type === 'reps' ? `${pr.value} reps` : `${pr.value} lbs vol`}
                       </Text>
@@ -380,15 +387,18 @@ export default function PostWorkoutFlow() {
             </ScrollView>
           )}
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  sheetWrap: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {

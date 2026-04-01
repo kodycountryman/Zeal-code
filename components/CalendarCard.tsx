@@ -7,14 +7,14 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import { Calendar, Flame, Check } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { getContrastTextColor, WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import type { PlannedWorkout } from '@/context/AppContext';
 import GlassCard from '@/components/GlassCard';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CELL_WIDTH = 56;
+const CELL_WIDTH = 50;
 const CELL_GAP = 6;
 const STREAK_WIDTH = 56;
 const CAL_BTN_WIDTH = 48;
@@ -33,14 +33,14 @@ interface CalendarDay {
 function buildDays(): CalendarDay[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const days: CalendarDay[] = [];
   for (let i = -7; i <= 6; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     days.push({
-      abbr: i === 0 ? 'TODAY' : dayNames[d.getDay()],
+      abbr: i === 0 ? 'Today' : dayNames[d.getDay()],
       num: d.getDate(),
       fullDate: dateStr,
       isToday: i === 0,
@@ -110,13 +110,15 @@ export default function CalendarCard({
   const CardContent = (
     <View style={styles.row}>
         <TouchableOpacity
-          style={[styles.calendarBtn, { borderColor: colors.border }]}
+          style={styles.calendarBtn}
           onPress={onCalendarPress}
           testID="calendar-all"
           activeOpacity={0.7}
         >
-          <Calendar size={20} color={colors.textSecondary} strokeWidth={1.8} />
+          <PlatformIcon name="calendar" size={26} color={colors.textSecondary} strokeWidth={1.8} />
         </TouchableOpacity>
+
+        <View style={[styles.edgeDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} pointerEvents="none" />
 
         <View style={styles.datesStripWrap}>
           <ScrollView
@@ -124,6 +126,7 @@ export default function CalendarCard({
             horizontal
             showsHorizontalScrollIndicator={false}
             decelerationRate="fast"
+            style={{ flex: 1 }}
             contentContainerStyle={styles.scrollContent}
           >
             {days.map((day, idx) => {
@@ -165,7 +168,7 @@ export default function CalendarCard({
                       ]}
                     >
                       {isCompleted && !day.isToday ? (
-                        <Check size={14} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="check" size={14} color={colors.textSecondary} strokeWidth={2.5} />
                       ) : (
                         <Text
                           style={[
@@ -206,17 +209,23 @@ export default function CalendarCard({
               );
             })}
           </ScrollView>
+
         </View>
 
         <TouchableOpacity
-          style={styles.streakCell}
+          style={[styles.streakCell, { alignSelf: 'stretch' }]}
           onPress={onStreakPress}
           testID="calendar-streak"
           activeOpacity={0.7}
         >
-          <View style={[styles.streakSquare, { borderColor: accent, backgroundColor: isDark ? '#1e1e1e' : '#e8e8e8' }]}>
-            <Flame size={13} color={accent} fill={accent} />
-            <Text style={[styles.streakCount, { color: accent }]}>{streak}</Text>
+          <View style={[styles.streakSquare, { flex: 1, backgroundColor: isDark ? 'rgba(0,0,0,0.30)' : 'rgba(0,0,0,0.10)' }]}>
+            <PlatformIcon name="flame" size={19} color={accent} fill={accent} />
+            <Text
+              style={[styles.streakCount, { color: accent }]}
+              adjustsFontSizeToFit
+              numberOfLines={1}
+              minimumFontScale={0.55}
+            >{streak}</Text>
           </View>
         </TouchableOpacity>
     </View>
@@ -231,10 +240,10 @@ export default function CalendarCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 22,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 18,
+    borderRadius: 26,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
@@ -244,23 +253,31 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 0,
+    paddingVertical: 10,
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: CELL_GAP,
   },
   calendarBtn: {
-    borderWidth: 1,
-    borderRadius: 11,
-    width: CAL_BTN_WIDTH,
-    height: 48,
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+    width: 64,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    paddingVertical: 12,
+  },
+  edgeDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    marginVertical: 10,
   },
   scrollContent: {
     paddingRight: 4,
+    flexGrow: 1,
+    height: '100%',
     alignItems: 'center',
   },
   dayWithDivider: {
@@ -279,20 +296,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   dayAbbr: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'Outfit_500Medium',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   dayNumContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayNum: {
-    fontSize: 17,
-    fontFamily: 'Outfit_500Medium',
+    fontSize: 19,
+    fontFamily: 'Outfit_600SemiBold',
     letterSpacing: -0.3,
   },
   dotRow: {
@@ -311,20 +328,17 @@ const styles = StyleSheet.create({
   },
   streakCell: {
     flexShrink: 0,
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   streakSquare: {
-    width: STREAK_WIDTH,
-    height: 48,
-    borderRadius: 11,
-    borderWidth: 1.5,
+    width: 64,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 2,
+    gap: 3,
   },
   streakCount: {
-    fontSize: 15,
+    fontSize: 18,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.3,
   },

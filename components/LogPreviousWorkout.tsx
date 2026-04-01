@@ -10,8 +10,10 @@ import {
   Dimensions,
   InteractionManager,
   Alert,
+  Animated,
 } from 'react-native';
-import { Calendar, X } from 'lucide-react-native';
+import { useSheetAnimation } from '@/hooks/useSheetAnimation';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import WheelPicker from '@/components/WheelPicker';
@@ -108,6 +110,11 @@ export default function LogPreviousWorkout() {
   const [calories, setCalories] = useState<number>(0);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
 
+  const { backdropStyle, sheetStyle, onClose: animClose, panHandlers } = useSheetAnimation(
+    tracking.logPreviousVisible,
+    () => tracking.setLogPreviousVisible(false)
+  );
+
   const wheelBg = isDark ? '#1e1e1e' : '#ebebeb';
   const wheelText = isDark ? '#ffffff' : '#111111';
   const wheelMuted = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
@@ -134,14 +141,18 @@ export default function LogPreviousWorkout() {
       style,
       duration,
       calories: calories > 0 ? calories : undefined,
-      muscleGroups: selectedMuscles.length > 0 ? selectedMuscles : undefined,
+      muscleGroups: selectedMuscles,
     });
-    tracking.setLogPreviousVisible(false);
-    setDate(getTodayStr());
-    setStyle('Strength');
-    setDuration(45);
-    setCalories(0);
-    setSelectedMuscles([]);
+    // Use rAF so the Modal can begin its slide-out animation before
+    // the early-return unmounts the WheelPicker (same pattern as closeModal).
+    requestAnimationFrame(() => {
+      tracking.setLogPreviousVisible(false);
+      setDate(getTodayStr());
+      setStyle('Strength');
+      setDuration(45);
+      setCalories(0);
+      setSelectedMuscles([]);
+    });
   }, [tracking, date, style, duration, calories, selectedMuscles]);
 
   const toggleMuscle = useCallback((m: string) => {
@@ -149,8 +160,8 @@ export default function LogPreviousWorkout() {
   }, []);
 
   const closeModal = useCallback(() => {
-    requestAnimationFrame(() => tracking.setLogPreviousVisible(false));
-  }, [tracking]);
+    requestAnimationFrame(() => animClose());
+  }, [animClose]);
 
   if (!tracking.logPreviousVisible) return null;
 
@@ -160,24 +171,27 @@ export default function LogPreviousWorkout() {
     <Modal
       visible={tracking.logPreviousVisible}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={closeModal}
       statusBarTranslucent
     >
-      <View style={styles.backdrop}>
+      <Animated.View style={[styles.backdrop, backdropStyle]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={animClose} activeOpacity={1} />
+      </Animated.View>
+      <Animated.View style={[styles.sheetWrap, sheetStyle]}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          <View style={[styles.handle, { backgroundColor: colors.border }]} {...panHandlers} />
 
           <View style={styles.headerRow}>
             <Text style={[styles.title, { color: colors.text }]}>Log Previous Workout</Text>
             <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
-              <X size={20} color={colors.textSecondary} />
+              <PlatformIcon name="x" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <TouchableOpacity style={[styles.dateField, { backgroundColor: inputBg }]} activeOpacity={0.7}>
-              <Calendar size={16} color={colors.textSecondary} />
+              <PlatformIcon name="calendar" size={16} color={colors.textSecondary} />
               <TextInput
                 style={[styles.dateInput, { color: colors.text }]}
                 value={date}
@@ -245,15 +259,18 @@ export default function LogPreviousWorkout() {
             <View style={{ height: 20 }} />
           </ScrollView>
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  sheetWrap: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {

@@ -1,26 +1,35 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Animated,
 } from 'react-native';
-import { Sparkles, Clock, Zap } from 'lucide-react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import type { WorkoutPlan } from '@/context/AppContext';
+import type { WorkoutLog } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import GlassCard from '@/components/GlassCard';
+import { ChevronRight } from 'lucide-react-native';
 
 const DYNAMIC_LABELS = [
-  "TODAY'S FOCUS",
-  "ON DECK",
-  "NEXT UP",
-  "TODAY'S SESSION",
-  "SCHEDULED FOR TODAY",
-  "RECOMMENDED SESSION",
-  "BUILT FOR TODAY",
-  "FOR TODAY",
+  "Today's Focus",
+  "On Deck",
+  "Next Up",
+  "Today's Session",
+  "Scheduled for Today",
+  "Recommended Session",
+  "Built for Today",
+  "For Today",
 ];
 
 function getDynamicLabel(): string {
@@ -41,6 +50,7 @@ interface Props {
   activePlan?: WorkoutPlan | null;
   onViewPlan?: () => void;
   variant?: 'solid' | 'glass';
+  completedLog?: WorkoutLog | null;
 }
 
 export default function WorkoutOverviewCard({
@@ -53,30 +63,37 @@ export default function WorkoutOverviewCard({
   activePlan,
   onViewPlan,
   variant = 'solid',
+  completedLog,
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const styleAccent = workoutStyle ? (WORKOUT_STYLE_COLORS[workoutStyle] ?? accent) : accent;
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(1);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ])
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.6, { duration: 600, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 600, easing: Easing.in(Easing.ease) }),
+      ),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
-  }, [pulseAnim]);
+    pulseOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.35, { duration: 600, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 600, easing: Easing.in(Easing.ease) }),
+      ),
+      -1,
+      false
+    );
+  }, [pulseScale, pulseOpacity]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: pulseOpacity.value,
+  }));
 
   const cardShadow = !isDark
     ? {
@@ -99,6 +116,61 @@ export default function WorkoutOverviewCard({
 
   const isRestDay = title === 'Rest Day';
 
+  // ── Completed state ─────────────────────────────────────────────
+  if (completedLog) {
+    const completedBorder = isDark ? 'rgba(34,197,94,0.22)' : 'rgba(34,197,94,0.18)';
+    const chipBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+    return (
+      <GlassCard
+        onPress={onPress}
+        activeOpacity={onPress ? 0.78 : 1}
+        variant={variant}
+        style={[styles.card, { borderColor: completedBorder }, cardShadow]}
+        testID="workout-overview-card"
+      >
+        <View style={styles.inner}>
+          <View style={styles.labelRow}>
+            <View style={styles.labelLeft}>
+              <View style={[styles.pulseDot, { backgroundColor: '#22c55e' }]} />
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Completed Today</Text>
+            </View>
+            <ChevronRight size={15} color="rgba(255,255,255,0.28)" strokeWidth={2} />
+          </View>
+
+          <Text style={[styles.workoutTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+            {completedLog.workoutName}
+          </Text>
+
+          <View style={styles.metaRow}>
+            <View style={[styles.metaChip, { backgroundColor: chipBg }]}>
+              <PlatformIcon name="clock" size={11} color={colors.textSecondary} />
+              <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{completedLog.duration}m</Text>
+            </View>
+            <View style={[styles.metaChip, { backgroundColor: chipBg }]}>
+              <PlatformIcon name="zap" size={11} color="#f87116" fill="#f87116" />
+              <Text style={[styles.metaChipText, { color: '#f87116' }]}>+{completedLog.trainingScore} pts</Text>
+            </View>
+            {completedLog.prsHit > 0 && (
+              <View style={[styles.metaChip, { backgroundColor: chipBg }]}>
+                <PlatformIcon name="trophy" size={11} color="#f87116" />
+                <Text style={[styles.metaChipText, { color: '#f87116' }]}>
+                  {completedLog.prsHit} PR{completedLog.prsHit > 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </GlassCard>
+    );
+  }
+  // ────────────────────────────────────────────────────────────────
+
+  // Strip parenthetical format from title (e.g. "Torque (Amrap)" → "Torque")
+  // and extract it as a separate format label for the chips row
+  const formatMatch = title.match(/\(([^)]+)\)/);
+  const formatLabel = formatMatch ? formatMatch[1] : null;
+  const displayTitle = title.replace(/\s*\([^)]+\)\s*/g, '').trim();
+
   const CardContent = (
     <View style={styles.inner}>
       {activePlan && onViewPlan && (
@@ -108,43 +180,48 @@ export default function WorkoutOverviewCard({
           activeOpacity={0.7}
           testID="workout-overview-plan-link"
         >
-          <Sparkles size={11} color={accent} />
+          <PlatformIcon name="sparkles" size={11} color={accent} />
           <Text style={[styles.planLinkText, { color: accent }]}>View Workout Plan</Text>
         </TouchableOpacity>
       )}
 
       <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
-        <Animated.View
-          style={[styles.pulseDot, { backgroundColor: styleAccent, opacity: pulseAnim }]}
-        />
+        <View style={styles.labelLeft}>
+          <Animated.View
+            style={[styles.pulseDot, { backgroundColor: styleAccent }, pulseStyle]}
+          />
+          <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+        </View>
+        {!isRestDay && onPress && (
+          <ChevronRight size={15} color="rgba(255,255,255,0.28)" strokeWidth={2} />
+        )}
       </View>
 
       <Text style={[styles.workoutTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-        {title}
+        {displayTitle}
       </Text>
 
-      {muscleGroups && !isRestDay && (
-        <Text style={[styles.muscleGroups, { color: colors.textSecondary }]} numberOfLines={1}>
-          {muscleGroups}
-        </Text>
-      )}
 
       {!isRestDay && (
         <View style={styles.metaRow}>
           <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-            <Clock size={11} color={colors.textSecondary} />
+            <PlatformIcon name="clock" size={11} color={colors.textSecondary} />
             <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{duration}</Text>
           </View>
           {workoutStyle ? (
             <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-              <Zap size={11} color={colors.textSecondary} />
+              <PlatformIcon name="zap" size={11} color={colors.textSecondary} />
               <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{workoutStyle}</Text>
             </View>
           ) : null}
           {exerciseCount ? (
             <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
               <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>~{exerciseCount} exercises</Text>
+            </View>
+          ) : null}
+          {formatLabel ? (
+            <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
+              <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{formatLabel}</Text>
             </View>
           ) : null}
         </View>
@@ -175,7 +252,7 @@ export default function WorkoutOverviewCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 22,
+    borderRadius: 26,
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 18,
@@ -201,15 +278,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  labelLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   label: {
-    fontSize: 10,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.2,
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
   },
   pulseDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   workoutTitle: {
     fontSize: 28,
@@ -247,5 +329,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_300Light',
     marginTop: -2,
   },
-
 });

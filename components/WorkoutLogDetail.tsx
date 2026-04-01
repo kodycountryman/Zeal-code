@@ -7,8 +7,10 @@ import {
   Modal,
   ScrollView,
   Alert,
+  Animated,
 } from 'react-native';
-import { X, Clock, CheckCircle2, Star, Trash2, Trophy } from 'lucide-react-native';
+import { useSheetAnimation } from '@/hooks/useSheetAnimation';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -17,7 +19,7 @@ function StarDisplay({ count, size = 14 }: { count: number; size?: number }) {
   return (
     <View style={sdStyles.row}>
       {[1, 2, 3, 4, 5].map(i => (
-        <Star
+        <PlatformIcon name="star"
           key={i}
           size={size}
           color={i <= count ? '#f87116' : '#444'}
@@ -40,6 +42,14 @@ export default function WorkoutLogDetail() {
 
   if (!tracking.workoutLogDetailVisible || !log) return null;
 
+  const { backdropStyle, sheetStyle, onClose: animClose, panHandlers } = useSheetAnimation(
+    tracking.workoutLogDetailVisible,
+    () => {
+      tracking.setWorkoutLogDetailVisible(false);
+      tracking.setSelectedLogId(null);
+    }
+  );
+
   const styleColor = WORKOUT_STYLE_COLORS[log.workoutStyle] ?? '#f87116';
   const starRating = log.starRating ?? 3;
 
@@ -59,24 +69,26 @@ export default function WorkoutLogDetail() {
   };
 
   const handleClose = () => {
-    tracking.setWorkoutLogDetailVisible(false);
-    tracking.setSelectedLogId(null);
+    animClose();
   };
 
   return (
     <Modal
       visible={tracking.workoutLogDetailVisible}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <View style={styles.backdrop}>
+      <Animated.View style={[styles.backdrop, backdropStyle]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={animClose} activeOpacity={1} />
+      </Animated.View>
+      <Animated.View style={[styles.sheetWrap, sheetStyle]}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          <View style={[styles.handle, { backgroundColor: colors.border }]} {...panHandlers} />
 
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
-            <X size={20} color={colors.textSecondary} />
+            <PlatformIcon name="x" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -92,11 +104,11 @@ export default function WorkoutLogDetail() {
 
             <View style={styles.statsRow}>
               <View style={[styles.statPill, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                <Clock size={13} color={colors.textSecondary} />
+                <PlatformIcon name="clock" size={13} color={colors.textSecondary} />
                 <Text style={[styles.statText, { color: colors.text }]}>{log.duration}m</Text>
               </View>
               <View style={[styles.statPill, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                <CheckCircle2 size={13} color={colors.textSecondary} />
+                <PlatformIcon name="check-circle" size={13} color={colors.textSecondary} />
                 <Text style={[styles.statText, { color: colors.text }]}>{log.totalSets} sets</Text>
               </View>
               <View style={[styles.statPill, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
@@ -146,7 +158,7 @@ export default function WorkoutLogDetail() {
 
                       {ex.prHit && (
                         <View style={styles.prBadge}>
-                          <Trophy size={11} color="#f87116" />
+                          <PlatformIcon name="trophy" size={11} color="#f87116" />
                           <Text style={styles.prBadgeText}>PR</Text>
                         </View>
                       )}
@@ -200,22 +212,25 @@ export default function WorkoutLogDetail() {
             )}
 
             <TouchableOpacity style={styles.removeBtn} onPress={handleRemove} activeOpacity={0.7}>
-              <Trash2 size={14} color="#ef4444" />
+              <PlatformIcon name="trash" size={14} color="#ef4444" />
               <Text style={styles.removeBtnText}>Remove This Log</Text>
             </TouchableOpacity>
 
             <View style={{ height: 20 }} />
           </ScrollView>
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  sheetWrap: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {

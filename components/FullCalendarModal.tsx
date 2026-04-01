@@ -6,12 +6,14 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
+  Animated,
 } from 'react-native';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
+import { useSheetAnimation } from '@/hooks/useSheetAnimation';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import PanDownHandle from '@/components/PanDownHandle';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
-import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
+import { WORKOUT_STYLE_COLORS, getContrastTextColor } from '@/constants/colors';
 
 const DAY_NAMES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
@@ -24,13 +26,21 @@ function getFirstDayOfMonth(year: number, month: number): number {
 }
 
 export default function FullCalendarModal() {
-  const { colors, isDark } = useZealTheme();
+  const { colors, isDark, accent } = useZealTheme();
   const tracking = useWorkoutTracking();
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const { backdropStyle, sheetStyle, onClose: animClose } = useSheetAnimation(
+    tracking.calendarModalVisible,
+    () => {
+      tracking.setCalendarModalVisible(false);
+      setSelectedDate(null);
+    }
+  );
 
   const logsByDate = useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -62,14 +72,18 @@ export default function FullCalendarModal() {
 
   let daysInMonth = 30;
   let firstDay = 0;
-  let monthLabel = '';
+  let monthName = '';
+  let yearLabel = '';
   try {
     daysInMonth = getDaysInMonth(viewYear, viewMonth);
     firstDay = getFirstDayOfMonth(viewYear, viewMonth);
-    monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const d = new Date(viewYear, viewMonth);
+    monthName = d.toLocaleDateString('en-US', { month: 'long' });
+    yearLabel = String(viewYear);
   } catch (e) {
     console.log('[Calendar] Error computing month data:', e);
-    monthLabel = `${viewYear}-${viewMonth + 1}`;
+    monthName = 'Month';
+    yearLabel = String(viewYear);
   }
 
   const prevMonth = () => {
@@ -93,7 +107,7 @@ export default function FullCalendarModal() {
 
   const handleDayPress = (day: number) => {
     const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    setSelectedDate(dateStr);
+    setSelectedDate(prev => prev === dateStr ? null : dateStr);
   };
 
   const handleViewFull = (logId: string) => {
@@ -102,41 +116,67 @@ export default function FullCalendarModal() {
   };
 
   const handleClose = () => {
-    tracking.setCalendarModalVisible(false);
-    setSelectedDate(null);
+    animClose();
   };
+
+  const contrastOnAccent = getContrastTextColor(accent);
+  const dividerColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
 
   return (
     <Modal
       visible={tracking.calendarModalVisible}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <View style={styles.backdrop}>
+      <Animated.View style={[styles.backdrop, backdropStyle]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={animClose} activeOpacity={1} />
+      </Animated.View>
+      <Animated.View style={[styles.sheetWrap, sheetStyle]}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
           <PanDownHandle onDismiss={handleClose} indicatorColor={colors.border} />
-          <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
-            <X size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
 
-          <View style={styles.monthNav}>
-            <TouchableOpacity onPress={prevMonth} activeOpacity={0.7}>
-              <ChevronLeft size={22} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.monthLabel, { color: colors.text }]}>{monthLabel}</Text>
-            <TouchableOpacity onPress={nextMonth} activeOpacity={0.7}>
-              <ChevronRight size={22} color={colors.text} />
-            </TouchableOpacity>
+          {/* ── Header ── */}
+          <View style={styles.header}>
+            <View>
+              <Text style={[styles.monthName, { color: colors.text }]}>{monthName}</Text>
+              <Text style={[styles.yearLabel, { color: colors.textMuted }]}>{yearLabel}</Text>
+            </View>
+            <View style={styles.navRow}>
+              <TouchableOpacity
+                style={[styles.navBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
+                onPress={prevMonth}
+                activeOpacity={0.7}
+              >
+                <PlatformIcon name="chevron-left" size={18} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.navBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
+                onPress={nextMonth}
+                activeOpacity={0.7}
+              >
+                <PlatformIcon name="chevron-right" size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
           </View>
 
+          {/* Close button */}
+          <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
+            <PlatformIcon name="x" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {/* ── Divider ── */}
+          <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+
+          {/* ── Day name headers ── */}
           <View style={styles.dayNamesRow}>
             {DAY_NAMES.map(d => (
               <Text key={d} style={[styles.dayNameCell, { color: colors.textMuted }]}>{d}</Text>
             ))}
           </View>
 
+          {/* ── Days grid ── */}
           <View style={styles.daysGrid}>
             {Array.from({ length: firstDay }).map((_, i) => (
               <View key={`empty-${i}`} style={styles.dayCell} />
@@ -155,92 +195,110 @@ export default function FullCalendarModal() {
                 console.log('[Calendar] Day cell error:', e);
               }
 
+              const hasWorkout = logsForDay.length > 0;
+              const dotColor = hasWorkout ? (WORKOUT_STYLE_COLORS[logsForDay[0]] ?? accent) : null;
+
               return (
                 <TouchableOpacity
                   key={day}
                   style={[
                     styles.dayCell,
-                    isToday && styles.todayCell,
-                    isSelected && { backgroundColor: `${colors.border}80` },
+                    isToday && [styles.todayCell, { backgroundColor: accent }],
+                    !isToday && isSelected && {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)',
+                      borderRadius: 14,
+                    },
                   ]}
                   onPress={() => handleDayPress(day)}
-                  activeOpacity={0.7}
+                  activeOpacity={0.65}
                 >
                   <Text style={[
                     styles.dayText,
-                    { color: isToday ? '#f87116' : colors.text },
-                    isToday && { fontWeight: '700' as const },
+                    { color: isToday ? contrastOnAccent : isSelected ? colors.text : colors.text },
+                    isToday && styles.dayTextToday,
+                    !isToday && !hasWorkout && { color: colors.textSecondary },
                   ]}>
                     {day}
                   </Text>
-                  {logsForDay.length > 0 && (
-                    <View style={styles.dotsRow}>
-                      {logsForDay.slice(0, 3).map((st, idx) => (
-                        <View
-                          key={idx}
-                          style={[styles.dot, { backgroundColor: WORKOUT_STYLE_COLORS[st] ?? '#f87116' }]}
-                        />
-                      ))}
-                    </View>
+                  {dotColor ? (
+                    <View style={[styles.dot, { backgroundColor: isToday ? contrastOnAccent + '99' : dotColor }]} />
+                  ) : (
+                    <View style={styles.dotPlaceholder} />
                   )}
                 </TouchableOpacity>
               );
             })}
           </View>
 
+          {/* ── Legend ── */}
           {usedStyles.length > 0 && (
-            <View style={styles.legendRow}>
-              {usedStyles.map(st => (
-                <View key={st} style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: WORKOUT_STYLE_COLORS[st] ?? '#f87116' }]} />
-                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>{st}</Text>
-                </View>
-              ))}
-            </View>
+            <>
+              <View style={[styles.divider, { backgroundColor: dividerColor, marginBottom: 12 }]} />
+              <View style={styles.legendRow}>
+                {usedStyles.map(st => (
+                  <View key={st} style={[styles.legendPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
+                    <View style={[styles.legendDot, { backgroundColor: WORKOUT_STYLE_COLORS[st] ?? accent }]} />
+                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>{st}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
           )}
 
+          {/* ── Selected day preview ── */}
           {selectedDate && selectedLogs.length > 0 && (
             <ScrollView style={styles.previewSection} showsVerticalScrollIndicator={false}>
               {selectedLogs.map(log => {
                 if (!log?.id) return null;
                 try {
-                  const styleColor = WORKOUT_STYLE_COLORS[log.workoutStyle ?? ''] ?? '#f87116';
+                  const styleColor = WORKOUT_STYLE_COLORS[log.workoutStyle ?? ''] ?? accent;
                   let dateLabel = '';
                   try {
-                    dateLabel = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    dateLabel = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
                   } catch { dateLabel = log.date ?? ''; }
                   const exercises = log.exercises ?? [];
                   return (
-                    <View key={log.id} style={[styles.previewCard, { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }]}>
-                      <Text style={[styles.previewLabel, { color: colors.textMuted }]}>WORKOUT</Text>
-                      <Text style={[styles.previewDate, { color: colors.text }]}>{dateLabel}</Text>
-                      <View style={[styles.previewBadge, { backgroundColor: styleColor }]}>
-                        <Text style={styles.previewBadgeText}>{log.workoutStyle ?? 'Workout'}</Text>
+                    <View
+                      key={log.id}
+                      style={[styles.previewCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: dividerColor }]}
+                    >
+                      <View style={styles.previewCardHeader}>
+                        <View>
+                          <Text style={[styles.previewDate, { color: colors.text }]}>{dateLabel}</Text>
+                          <Text style={[styles.previewName, { color: colors.textSecondary }]}>{log.workoutName ?? 'Workout'}</Text>
+                        </View>
+                        <View style={[styles.previewBadge, { backgroundColor: styleColor + '22', borderColor: styleColor + '55' }]}>
+                          <Text style={[styles.previewBadgeText, { color: styleColor }]}>{log.workoutStyle ?? 'Workout'}</Text>
+                        </View>
                       </View>
-                      <Text style={[styles.previewDuration, { color: colors.textSecondary }]}>{log.duration ?? 0} min</Text>
-                      <Text style={[styles.previewName, { color: colors.text }]}>{log.workoutName ?? 'Workout'}</Text>
+
+                      <View style={styles.previewMeta}>
+                        <PlatformIcon name="clock" size={13} color={colors.textMuted} />
+                        <Text style={[styles.previewMetaText, { color: colors.textMuted }]}>{log.duration ?? 0} min</Text>
+                      </View>
 
                       {exercises.length > 0 && (
-                        <View style={styles.previewExList}>
-                          {exercises.slice(0, 5).map((ex, i) => (
+                        <View style={[styles.previewExList, { borderTopColor: dividerColor }]}>
+                          {exercises.slice(0, 4).map((ex, i) => (
                             <Text key={i} style={[styles.previewExItem, { color: colors.textSecondary }]}>
-                              • {ex?.exerciseName ?? 'Exercise'} · {ex?.sets?.length ?? 0}×{ex?.sets?.[0]?.reps ?? ''}
+                              {ex?.exerciseName ?? 'Exercise'}
+                              <Text style={{ color: colors.textMuted }}>  {ex?.sets?.length ?? 0} sets</Text>
                             </Text>
                           ))}
-                          {exercises.length > 5 && (
+                          {exercises.length > 4 && (
                             <Text style={[styles.previewExItem, { color: colors.textMuted }]}>
-                              + {exercises.length - 5} more
+                              +{exercises.length - 4} more exercises
                             </Text>
                           )}
                         </View>
                       )}
 
                       <TouchableOpacity
-                        style={styles.viewFullBtn}
+                        style={[styles.viewFullBtn, { backgroundColor: accent }]}
                         onPress={() => handleViewFull(log.id)}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.viewFullText}>View Full Workout</Text>
+                        <Text style={[styles.viewFullText, { color: contrastOnAccent }]}>View Full Workout</Text>
                       </TouchableOpacity>
                     </View>
                   );
@@ -254,170 +312,211 @@ export default function FullCalendarModal() {
 
           {selectedDate && selectedLogs.length === 0 && (
             <View style={styles.noWorkoutMsg}>
+              <PlatformIcon name="calendar" size={22} color={colors.textMuted} strokeWidth={1.5} />
               <Text style={[styles.noWorkoutText, { color: colors.textMuted }]}>No workouts logged this day</Text>
             </View>
           )}
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  sheetWrap: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    padding: 22,
-    paddingBottom: 34,
-    maxHeight: '90%',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 22,
+    paddingBottom: 40,
+    maxHeight: '92%',
   },
   closeBtn: {
     position: 'absolute',
-    top: 18,
+    top: 22,
     right: 22,
     zIndex: 10,
-  },
-  monthNav: {
-    flexDirection: 'row',
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
-    marginBottom: 16,
-    marginTop: 4,
   },
-  monthLabel: {
-    fontSize: 17,
-    fontFamily: 'Outfit_600SemiBold',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  monthName: {
+    fontSize: 26,
+    fontFamily: 'PlayfairDisplay_700Bold',
+    lineHeight: 30,
+  },
+  yearLabel: {
+    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
+    marginTop: 1,
+  },
+  navRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  navBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: 16,
   },
   dayNamesRow: {
     flexDirection: 'row',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   dayNameCell: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 10,
-    fontWeight: '600' as const,
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.8,
   },
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginBottom: 16,
   },
   dayCell: {
     width: '14.28%' as any,
     alignItems: 'center',
-    paddingVertical: 8,
-    gap: 3,
-    borderRadius: 8,
+    paddingVertical: 7,
+    gap: 4,
+    borderRadius: 14,
   },
   todayCell: {
-    backgroundColor: 'rgba(248,113,22,0.1)',
-    borderRadius: 8,
+    borderRadius: 14,
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: '500' as const,
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: -0.2,
   },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 3,
+  dayTextToday: {
+    fontFamily: 'Outfit_700Bold',
   },
   dot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
   },
+  dotPlaceholder: {
+    width: 5,
+    height: 5,
+  },
   legendRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 12,
-    paddingBottom: 8,
+    gap: 8,
+    marginBottom: 16,
   },
-  legendItem: {
+  legendPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   legendText: {
-    fontSize: 11,
-    fontWeight: '500' as const,
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
   },
   previewSection: {
-    maxHeight: 250,
-    marginTop: 12,
+    maxHeight: 280,
   },
   previewCard: {
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 10,
-    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 10,
   },
-  previewLabel: {
-    fontSize: 10,
-    fontWeight: '600' as const,
-    letterSpacing: 0.5,
+  previewCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
   },
   previewDate: {
-    fontSize: 15,
-    fontFamily: 'Outfit_600SemiBold',
-    marginBottom: 6,
-  },
-  previewBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 4,
-  },
-  previewBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700' as const,
-  },
-  previewDuration: {
-    fontSize: 12,
+    fontSize: 16,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.3,
   },
   previewName: {
-    fontSize: 16,
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    marginTop: 2,
+  },
+  previewBadge: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  previewBadgeText: {
+    fontSize: 11,
     fontFamily: 'Outfit_600SemiBold',
-    marginBottom: 6,
+  },
+  previewMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  previewMetaText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
   },
   previewExList: {
-    gap: 2,
-    marginBottom: 10,
+    gap: 5,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   previewExItem: {
-    fontSize: 12,
+    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
   },
   viewFullBtn: {
-    backgroundColor: '#f87116',
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 13,
     alignItems: 'center',
+    marginTop: 2,
   },
   viewFullText: {
-    color: '#fff',
     fontSize: 14,
     fontFamily: 'Outfit_600SemiBold',
   },
   noWorkoutMsg: {
-    paddingVertical: 20,
+    paddingVertical: 28,
     alignItems: 'center',
+    gap: 8,
   },
   noWorkoutText: {
     fontSize: 13,
-    fontStyle: 'italic',
+    fontFamily: 'Outfit_500Medium',
   },
 });
