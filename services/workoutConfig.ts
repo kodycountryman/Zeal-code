@@ -64,16 +64,6 @@ export const WORKOUT_SESSION_CONFIG: Record<string, StyleControlConfig> = {
     duration_max: 45,
     show_session_toggle: false,
   },
-  Cardio: {
-    slot_label: 'CARDIO TYPE',
-    slot_options: ['Auto', 'Steady-State (Zone 2)', 'Tempo', 'Intervals', 'Fartlek', 'Machine Rotation', 'Bodyweight Circuit'],
-    show_specific_muscles: false,
-    muscles_label: 'SPECIFIC MUSCLES',
-    show_rest_slider: false,
-    duration_min: 20,
-    duration_max: 90,
-    show_session_toggle: false,
-  },
   Mobility: {
     slot_label: 'SESSION TYPE',
     slot_options: ['Auto', 'Full-Body Flow', 'Targeted', 'Foam Rolling + Stretch', 'Recovery Day'],
@@ -127,8 +117,6 @@ export function getDurationSteps(style: string): number[] {
       return [15, 20, 30, 45];
     case 'Pilates':
       return [20, 30, 45, 60];
-    case 'Cardio':
-      return [20, 30, 45, 60, 75, 90];
     default:
       return [30, 45, 60, 75, 90];
   }

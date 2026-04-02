@@ -23,7 +23,7 @@ import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseData
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact', 'Hybrid'] as const;
+const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact', 'Hybrid'] as const;
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');

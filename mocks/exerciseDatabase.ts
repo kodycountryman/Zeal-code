@@ -224,7 +224,6 @@ const STYLE_DISPLAY_MAP: Record<string, string> = {
   crossfit: 'CrossFit',
   hyrox: 'Hyrox',
   hiit: 'HIIT',
-  cardio: 'Cardio',
   mobility: 'Mobility',
   pilates: 'Pilates',
   low_impact: 'Low-Impact',

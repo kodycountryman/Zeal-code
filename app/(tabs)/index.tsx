@@ -123,7 +123,6 @@ function getMuscleGroupsFromSplit(split: string, style: string): string {
   if (s.includes('shoulder')) return 'Shoulders • Traps • Delts';
   if (s.includes('arm')) return 'Biceps • Triceps • Forearms';
   const st = style.toLowerCase();
-  if (st === 'cardio') return 'Cardio • Endurance';
   if (st === 'hiit') return 'Full Body • Conditioning';
   if (st === 'mobility' || st === 'pilates') return 'Flexibility • Mobility';
   if (st === 'hyrox') return 'Functional • Conditioning';

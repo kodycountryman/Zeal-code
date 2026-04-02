@@ -11,8 +11,7 @@ export const WORKOUT_STYLE_LIST: { key: string; desc: string }[] = [
   { key: 'CrossFit',    desc: 'Varied functional movements at intensity' },
   { key: 'Hyrox',       desc: 'Race-specific functional fitness' },
   { key: 'Pilates',     desc: 'Core control, mobility, mind-body' },
-  { key: 'Cardio',      desc: 'Endurance, zone training, conditioning' },
-  { key: 'HIIT',        desc: 'High-intensity intervals, max effort' },
+{ key: 'HIIT',        desc: 'High-intensity intervals, max effort' },
   { key: 'Mobility',    desc: 'Joint health, flexibility, recovery' },
   { key: 'Hybrid',      desc: 'Strength blocks + conditioning finishers' },
 ];

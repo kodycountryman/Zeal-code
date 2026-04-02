@@ -59,7 +59,6 @@ export const WORKOUT_STYLE_COLORS: Record<string, string> = {
   Bodybuilding: '#ef4444',
   CrossFit: '#06b6d4',
   Hyrox: '#eab308',
-  Cardio: '#8b5cf6',
   HIIT: '#60a5fa',
   Mobility: '#22c55e',
   Pilates: '#ec4899',
@@ -86,8 +85,6 @@ export const WORKOUT_STYLE_DESCRIPTIONS: Record<string, string> = {
     'High-intensity functional fitness combining weightlifting, gymnastics, and metabolic conditioning. Workouts are varied and time-capped for maximum output.',
   Hyrox:
     'Competitive functional fitness race format. Combines 8km of running with 8 functional workout stations.',
-  Cardio:
-    'Improve cardiovascular endurance and burn calories. Steady-state and interval training for heart health.',
   HIIT: 'High-intensity interval training that alternates between intense bursts and recovery periods for maximum calorie burn.',
   Mobility:
     'Improve flexibility, joint health, and movement quality. Perfect for recovery or as a daily practice.',
@@ -111,7 +108,6 @@ export const TRAINING_SPLITS: Record<string, string[]> = {
   CrossFit:     ['Auto', 'AMRAP', 'EMOM', 'RFT', 'Chipper', 'Ladder'],
   Hyrox:        ['Auto', 'Station Practice', 'Compromised Run', 'Strength Circuit', 'Half Simulation', 'Full Simulation'],
   HIIT:         ['Full Body HIIT', 'Upper HIIT', 'Lower HIIT', 'Core Blast'],
-  Cardio:       ['Auto', 'Steady-State (Zone 2)', 'Tempo', 'Intervals', 'Fartlek', 'Machine Rotation', 'Bodyweight Circuit'],
   Mobility:     ['Auto', 'Full-Body Flow', 'Targeted', 'Foam Rolling + Stretch', 'Recovery Day'],
   Pilates:      ['Auto', 'Classical Mat Flow', 'Themed Flow', 'Pilates Circuit', 'Reformer Flow'],
   'Low-Impact': ['Full Body', 'Upper', 'Lower', 'Push Day', 'Pull Day', 'Seated Circuit'],

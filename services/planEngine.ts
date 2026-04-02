@@ -166,8 +166,6 @@ function getSplitRotation(style: string, daysPerWeek: number, goal: PlanGoal): s
       if (daysPerWeek === 3) return ['Full Body', 'Upper', 'Lower'];
       return ['Full Body', 'Upper', 'Lower', 'Core Blast', 'Full Body'].slice(0, daysPerWeek);
     }
-    case 'Cardio':
-      return ['Auto', 'Steady-State (Zone 2)', 'Tempo', 'Intervals', 'Fartlek', 'Machine Rotation', 'Bodyweight Circuit'].slice(0, daysPerWeek);
     case 'Mobility':
       return ['Full-Body Flow', 'Targeted', 'Foam Rolling + Stretch', 'Recovery Day', 'Auto', 'Full-Body Flow', 'Targeted'].slice(0, daysPerWeek);
     case 'Pilates':
