@@ -13,7 +13,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from 'react-native';
 import { healthService } from '@/services/healthService';
 import { useRouter } from 'expo-router';
-import { useZealTheme, useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
+import { useZealTheme, useAppContext, type MuscleReadinessItem, type WorkoutPlan } from '@/context/AppContext';
 import { resolvePushPullLegs } from '@/utils/training';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -41,6 +41,9 @@ import ActivePlanDrawer from '@/components/drawers/ActivePlanDrawer';
 import HelpFaqDrawer from '@/components/drawers/HelpFaqDrawer';
 import WorkoutPreviewModal from '@/components/WorkoutPreviewModal';
 import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
+import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
+import type { DayPrescription } from '@/services/planEngine';
+import * as Haptics from 'expo-haptics';
 import { mockBibleVerse } from '@/mocks/homeData';
 import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -65,7 +68,7 @@ function getSmartCoachMessage({
   hasTodayWorkout: boolean;
 }): string {
   if (hasTodayWorkout) {
-    return 'Great work today. Recovery starts now — stay hydrated and sleep well.';
+    return 'Great work today. Recovery starts now. Stay hydrated and sleep well.';
   }
   const isRestDay = workoutTitle === 'Rest Day';
   if (isRestDay) {
@@ -77,10 +80,10 @@ function getSmartCoachMessage({
     return 'Every elite athlete started with day one. Today is yours.';
   }
   if (streak === 1) {
-    return 'Day one is already done. Show up again today — that’s how momentum starts.';
+    return `Day one is already done. Show up again today. That’s how momentum starts.`;
   }
   if (streak >= 7) {
-    return `${streak}-day streak. You're building something real — don't break the chain.`;
+    return `${streak}-day streak. You're building something real. Don't break the chain.`;
   }
   if (readiness >= 88) {
     const t = workoutTitle.toLowerCase();
@@ -99,13 +102,13 @@ function getSmartCoachMessage({
   if (sorted.length >= 2) {
     const a = sorted[0].name;
     const b = sorted[1].name;
-    return `You're freshest in ${a} and ${b} today — right on time for ${workoutTitle}.`;
+    return `You're freshest in ${a} and ${b} today. Right on time for ${workoutTitle}.`;
   }
   if (numericDuration <= 30) {
     return 'Short and sharp. A focused 30-minute session beats skipping any day.';
   }
   if (numericDuration >= 75) {
-    return `A ${numericDuration}-minute ${workoutStyle} session — make every set count.`;
+    return `A ${numericDuration}-minute ${workoutStyle} session. Make every set count.`;
   }
   return `A ${numericDuration}-minute ${workoutStyle} session lines up perfectly with your goal today.`;
 }
@@ -234,9 +237,22 @@ export default function HomeScreen() {
     return () => { cancelled = true; };
   }, [ctx.healthConnected, ctx.healthSyncEnabled]);
 
+  // Auto-open plan drawer when background generation completes
+  useEffect(() => {
+    if (ctx.planGenProgress?.phase === 'done') {
+      ctx.clearPlanGenProgress();
+      setTimeout(() => {
+        tracking.setActivePlanVisible(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }, 400);
+    }
+  }, [ctx.planGenProgress?.phase]);
+
   const [streakSheetVisible, setStreakSheetVisible] = useState(false);
   const [planSheetVisible, setPlanSheetVisible] = useState(false);
   const [planSheetDate, setPlanSheetDate] = useState<string | null>(null);
+  const [planDayPreviewVisible, setPlanDayPreviewVisible] = useState(false);
+  const [planDayPreviewDay, setPlanDayPreviewDay] = useState<DayPrescription | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -253,6 +269,7 @@ export default function HomeScreen() {
   }, [tracking]);
 
   const [anotherWorkoutVisible, setAnotherWorkoutVisible] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<WorkoutPlan | undefined>(undefined);
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const ZEAL_ORANGE = '#f87116';
@@ -319,18 +336,57 @@ export default function HomeScreen() {
     return set;
   }, [tracking.workoutHistory]);
 
-  const handleDayPress = useCallback((dateStr: string, dayOffset: number) => {
-    if (dayOffset > 0 && dayOffset <= 5) {
-      setPlanSheetDate(dateStr);
-      setPlanSheetVisible(true);
-      return;
+  // Merge manually planned workouts + active plan schedule days for calendar dots
+  const allPlannedWorkouts = useMemo(() => {
+    const merged = [...(ctx.plannedWorkouts ?? [])];
+    const existingDates = new Set(merged.map(p => p.date));
+    if (ctx.planSchedule && ctx.activePlan) {
+      for (const week of (ctx.planSchedule as any).weeks ?? []) {
+        for (const day of week.days ?? []) {
+          if (!day.is_rest && !existingDates.has(day.date)) {
+            merged.push({
+              id: `plan_${day.date}`,
+              date: day.date,
+              style: day.style ?? ctx.activePlan.style,
+              split: day.session_type ?? '',
+              muscles: [],
+              duration: day.target_duration ?? 0,
+              createdAt: '',
+            });
+          }
+        }
+      }
     }
+    return merged;
+  }, [ctx.plannedWorkouts, ctx.planSchedule, ctx.activePlan]);
+
+  const handleDayPress = useCallback((dateStr: string, dayOffset: number) => {
+    // Check for completed workout logs first
     const logs = tracking.getLogsForDate(dateStr);
     if (logs.length > 0) {
       tracking.setSelectedLogId(logs[0].id);
       tracking.setWorkoutLogDetailVisible(true);
+      return;
     }
-  }, [tracking]);
+    // If active plan, find the prescription for this date and show preview
+    if (ctx.activePlan && ctx.planSchedule) {
+      for (const week of (ctx.planSchedule as any).weeks ?? []) {
+        for (const day of week.days ?? []) {
+          if (day.date === dateStr && !day.is_rest) {
+            setPlanDayPreviewDay(day);
+            setPlanDayPreviewVisible(true);
+            return;
+          }
+        }
+      }
+    }
+    // Future days without active plan → manual plan sheet
+    if (dayOffset > 0) {
+      setPlanSheetDate(dateStr);
+      setPlanSheetVisible(true);
+      return;
+    }
+  }, [tracking, ctx.activePlan, ctx.planSchedule]);
 
   const handleViewTodayLog = useCallback(() => {
     if (latestTodayLog) {
@@ -384,6 +440,28 @@ export default function HomeScreen() {
         </View>
       </SafeAreaView>
 
+      {/* Background plan generation progress */}
+      {ctx.planGenProgress && ctx.planGenProgress.phase === 'background' && (
+        <TouchableOpacity
+          style={[styles.genProgressBanner, { borderBottomColor: colors.border }]}
+          onPress={() => tracking.setActivePlanVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.genProgressRow}>
+            <PlatformIcon name="sparkles" size={12} color={accent} />
+            <Text style={[styles.genProgressText, { color: colors.textSecondary }]}>
+              Building plan... {ctx.planGenProgress.current}/{ctx.planGenProgress.total}
+            </Text>
+          </View>
+          <View style={[styles.genProgressTrack, { backgroundColor: colors.border }]}>
+            <View style={[styles.genProgressFill, {
+              width: `${Math.round((ctx.planGenProgress.current / ctx.planGenProgress.total) * 100)}%` as any,
+              backgroundColor: accent,
+            }]} />
+          </View>
+        </TouchableOpacity>
+      )}
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -396,13 +474,60 @@ export default function HomeScreen() {
             onCalendarPress={handleCalendarPress}
             onDayPress={handleDayPress}
             completedDates={completedDates}
-            plannedWorkouts={ctx.plannedWorkouts}
+            plannedWorkouts={allPlannedWorkouts}
             variant={isDark ? 'glass' : 'solid'}
           />
         </Animated.View>
 
-        {/* Push card animates slightly before Training Score */}
-        <Animated.View entering={enterCard(150)}>
+        {tracking.workoutHistory.length === 0 && (
+          <Animated.View entering={enterCard(150)}>
+            {(() => {
+              const ALL_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+              const todayDow = new Date().getDay();
+              // Build 7-day window starting from today
+              const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_LABELS[(todayDow + i) % 7]);
+              return (
+                <GlassCard
+                  style={[styles.day1Card, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
+                  onPress={() => router.push('/workout')}
+                  activeOpacity={0.8}
+                  variant={isDark ? 'glass' : 'solid'}
+                >
+                  <View style={styles.day1Top}>
+                    <View>
+                      <Text style={[styles.day1Heading, { color: accent }]}>Day 1.</Text>
+                      <Text style={[styles.day1Sub, { color: colors.textSecondary }]}>
+                        {firstName ? `${firstName}, your` : 'Your'} {effectiveWorkout.style} workout is ready. Let's go.
+                      </Text>
+                    </View>
+                    <PlatformIcon name="flame" size={22} color={accent} strokeWidth={1.8} />
+                  </View>
+                  <View style={styles.streakRow}>
+                    {DAY_LABELS.map((d, i) => {
+                      const isToday = i === 0;
+                      return (
+                        <View key={i} style={styles.streakDayCol}>
+                          <View style={[
+                            styles.streakCircle,
+                            isToday
+                              ? { backgroundColor: accent, borderColor: accent }
+                              : { backgroundColor: 'transparent', borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)' },
+                          ]}>
+                            {isToday && <PlatformIcon name="zap" size={10} color="#fff" fill="#fff" />}
+                          </View>
+                          <Text style={[styles.streakDayLabel, { color: isToday ? accent : colors.textSecondary }]}>{d}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <Text style={[styles.day1Cta, { color: accent }]}>Go to workout →</Text>
+                </GlassCard>
+              );
+            })()}
+          </Animated.View>
+        )}
+
+        <Animated.View entering={enterCard(210)}>
           <WorkoutOverviewCard
             title={workoutTitle}
             style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
@@ -417,7 +542,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {tracking.workoutHistory.length > 0 && (
-          <Animated.View entering={enterCard(210)}>
+          <Animated.View entering={enterCard(270)}>
             <TrainingScoreCard
               score={liveScore}
               tier={tier}
@@ -439,87 +564,8 @@ export default function HomeScreen() {
         )}
 
 
-        {tracking.workoutHistory.length === 0 ? (
-          <>
-            {/* C — Coach welcome */}
-            <Animated.View entering={enterCard(270)}>
-              <GlassCard
-                style={[styles.coachCard, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
-                variant={isDark ? 'glass' : 'solid'}
-              >
-                <PlatformIcon name="brain" size={14} color={accent} />
-                <Text style={[styles.coachText, { color: colors.textSecondary }]}>
-                  {firstName ? `Hey ${firstName} — ` : ''}Your {effectiveWorkout.style} workout is loaded and ready. Complete it to start unlocking your training insights.
-                </Text>
-              </GlassCard>
-            </Animated.View>
-
-            {/* B — Day 1 streak challenge */}
-            <Animated.View entering={enterCard(330)}>
-              {(() => {
-                const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                const todayDow = new Date().getDay();
-                return (
-                  <GlassCard
-                    style={[styles.day1Card, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
-                    onPress={() => router.push('/workout')}
-                    activeOpacity={0.8}
-                    variant={isDark ? 'glass' : 'solid'}
-                  >
-                    <View style={styles.day1Top}>
-                      <View>
-                        <Text style={[styles.day1Heading, { color: accent }]}>Day 1.</Text>
-                        <Text style={[styles.day1Sub, { color: colors.textSecondary }]}>Start your streak today</Text>
-                      </View>
-                      <PlatformIcon name="flame" size={22} color={accent} strokeWidth={1.8} />
-                    </View>
-
-                    <View style={styles.streakRow}>
-                      {DAY_LABELS.map((d, i) => {
-                        const isToday = i === todayDow;
-                        return (
-                          <View key={d} style={styles.streakDayCol}>
-                            <View style={[
-                              styles.streakCircle,
-                              isToday
-                                ? { backgroundColor: accent, borderColor: accent }
-                                : { backgroundColor: 'transparent', borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)' },
-                            ]}>
-                              {isToday && <PlatformIcon name="zap" size={10} color="#fff" fill="#fff" />}
-                            </View>
-                            <Text style={[styles.streakDayLabel, { color: isToday ? accent : colors.textSecondary }]}>{d}</Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-
-                    <Text style={[styles.day1Cta, { color: accent }]}>Go to workout →</Text>
-                  </GlassCard>
-                );
-              })()}
-            </Animated.View>
-
-            {/* Locked Training Score — shown at bottom before first workout */}
-            <Animated.View entering={enterCard(390)}>
-              <GlassCard
-                style={[styles.lockedScoreCard, { borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}
-                variant={isDark ? 'glass' : 'solid'}
-                testID="locked-score-card"
-              >
-                <View style={styles.lockedScoreInner}>
-                  <PlatformIcon name="lock" size={18} color={isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)'} strokeWidth={1.8} />
-                  <Text style={[styles.lockedScoreLabel, { color: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.2)' }]}>
-                    Training Score
-                  </Text>
-                  <Text style={[styles.lockedScoreHint, { color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)' }]}>
-                    Log your first workout to unlock score insights
-                  </Text>
-                </View>
-              </GlassCard>
-            </Animated.View>
-          </>
-        ) : (
-          <Animated.View entering={enterCard(270)}>
+        {tracking.workoutHistory.length > 0 && (
+          <Animated.View entering={enterCard(330)}>
             <GlassCard style={styles.coachCard} variant={isDark ? 'glass' : 'solid'}>
               <PlatformIcon name="brain" size={14} color={accent} />
               <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
@@ -616,8 +662,8 @@ export default function HomeScreen() {
 
       <WorkoutPlanDrawer
         visible={tracking.workoutPlanVisible}
-        onClose={() => tracking.setWorkoutPlanVisible(false)}
-        onBack={() => tracking.setWorkoutPlanVisible(false)}
+        onClose={() => { tracking.setWorkoutPlanVisible(false); setEditingPlan(undefined); }}
+        editPlan={editingPlan}
       />
 
       <ExerciseCatalogDrawer
@@ -630,6 +676,10 @@ export default function HomeScreen() {
         visible={tracking.activePlanVisible}
         onClose={() => tracking.setActivePlanVisible(false)}
         onStartNewPlan={() => tracking.setWorkoutPlanVisible(true)}
+        onEditPlan={() => {
+          setEditingPlan(ctx.activePlan ?? undefined);
+          tracking.setWorkoutPlanVisible(true);
+        }}
       />
 
       <HelpFaqDrawer
@@ -652,6 +702,19 @@ export default function HomeScreen() {
           setPlanSheetDate(null);
         }}
       />
+
+      <PlanDayPreviewDrawer
+        visible={planDayPreviewVisible}
+        onClose={() => {
+          setPlanDayPreviewVisible(false);
+          setPlanDayPreviewDay(null);
+        }}
+        onClosePlan={() => {
+          setPlanDayPreviewVisible(false);
+          setPlanDayPreviewDay(null);
+        }}
+        day={planDayPreviewDay}
+      />
     </View>
   );
 }
@@ -659,6 +722,30 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  genProgressBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+  },
+  genProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  genProgressText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+  },
+  genProgressTrack: {
+    height: 3,
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  genProgressFill: {
+    height: '100%',
+    borderRadius: 1.5,
   },
   topBar: {
     flexDirection: 'row',
@@ -784,31 +871,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     letterSpacing: 0.2,
     marginTop: -4,
-  },
-  lockedScoreCard: {
-    borderRadius: 26,
-    borderWidth: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 28,
-    overflow: 'hidden',
-  },
-  lockedScoreInner: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  lockedScoreLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit_500Medium',
-    letterSpacing: 0,
-    marginTop: 2,
-  },
-  lockedScoreHint: {
-    fontSize: 13,
-    fontFamily: 'Outfit_400Regular',
-    textAlign: 'center',
-    lineHeight: 18,
-    letterSpacing: 0.1,
-    marginTop: 2,
   },
   bibleRef: {
     fontSize: 11,

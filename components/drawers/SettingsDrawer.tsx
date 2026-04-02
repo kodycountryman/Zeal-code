@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import CustomSlider from '@/components/CustomSlider';
+import GlassCard from '@/components/GlassCard';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { X, ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, PlayCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download } from 'lucide-react-native';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY, PRO_STYLES, PRO_STYLES_SET } from '@/services/proGate';
@@ -410,9 +411,10 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
     <>
     <BaseDrawer visible={visible} onClose={onClose} header={headerContent} stackBehavior="push">
       <View style={styles.content}>
-        <Text style={[styles.sectionHeader, { color: styleAccent }]}>TRAINING</Text>
+        {/* ── Card 1: Training ── */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Training</Text>
 
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <GlassCard variant={isDark ? 'glass' : 'solid'} style={styles.section}>
           <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>WORKOUT STYLE</Text>
           <View style={styles.styleChips}>
             {WORKOUT_STYLES.map((s) => {
@@ -527,35 +529,10 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
             ))}
           </View>
 
-          {false && restVisible && (
-            <>
-              <View style={styles.restSliderHeaderRow}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>REST BETWEEN SETS</Text>
-                <Text style={[styles.sliderValue, { color: styleAccent }]}>
-                  {localRest < 0.33 ? 'Less' : localRest < 0.67 ? 'Standard' : 'Longer rest'}
-                </Text>
-              </View>
-              <CustomSlider
-                value={localRest}
-                minimumValue={0}
-                maximumValue={1}
-                step={0.01}
-                onValueChange={setLocalRest}
-                minimumTrackColor={styleAccent}
-                maximumTrackColor={colors.border}
-                thumbColor={styleAccent}
-                style={styles.sliderStyle}
-              />
-              <View style={styles.durationLabels}>
-                <Text style={[styles.durationLabel, { color: colors.textMuted }]}>Less</Text>
-                <Text style={[styles.durationLabel, { color: colors.textMuted }]}>More</Text>
-              </View>
-            </>
-          )}
-        </View>
+          {/* Divider between training config and component toggles */}
+          <View style={[styles.sectionDivider, { backgroundColor: colors.border }]} />
 
-        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>WORKOUT COMPONENTS</Text>
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>COMPONENTS</Text>
           {[
             { label: 'Warm-Up', tag: '+5m', val: localWarmUp, set: setLocalWarmUp },
             { label: 'Cool-Down', tag: '+5m', val: localCoolDown, set: setLocalCoolDown },
@@ -579,28 +556,29 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
               <Switch
                 value={item.val}
                 onValueChange={item.set}
-                trackColor={{ false: colors.border, true: `${styleAccent}88` }}
-                thumbColor={item.val ? styleAccent : colors.textSecondary}
+                trackColor={{ false: colors.border, true: `${colors.text}30` }}
+                thumbColor={item.val ? colors.text : colors.textSecondary}
               />
             </TouchableOpacity>
           ))}
-        </View>
+        </GlassCard>
 
-        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>APPEARANCE & ACCESS</Text>
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        {/* ── Card 2: General ── */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>General</Text>
+        <GlassCard variant={isDark ? 'glass' : 'solid'} style={[styles.section, { padding: 0, gap: 0 }]}>
           {[
             {
               iconComponent: hasPro
                 ? <Sparkles size={18} color="#f5c842" />
                 : <Crown size={18} color={PRO_GOLD} />,
               label: 'Subscription',
-              sub: hasPro ? 'Zeal Pro — Active' : 'Zeal Core — Upgrade to Pro',
+              sub: hasPro ? 'Zeal Pro' : 'Upgrade to Pro',
               onPress: () => showProGate('subscription', openPaywall),
               locked: !hasPro,
               testID: 'settings-subscription',
             },
             {
-              iconComponent: <Palette size={18} color={accent} />,
+              iconComponent: <Palette size={18} color={colors.textSecondary} />,
               label: 'Color Theme',
               sub: appThemeLabel,
               onPress: onOpenColorTheme,
@@ -608,7 +586,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
             },
             {
               iconComponent: hasPro
-                ? <Dumbbell size={18} color={accent} />
+                ? <Dumbbell size={18} color={colors.textSecondary} />
                 : <Dumbbell size={18} color={colors.textMuted} />,
               label: 'Available Equipment',
               sub: hasPro
@@ -619,41 +597,39 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
               testID: 'settings-equipment',
             },
             {
-              iconComponent: <BookOpen size={18} color={accent} />,
+              iconComponent: <BookOpen size={18} color={colors.textSecondary} />,
               label: 'Exercise Catalog',
-              sub: 'Browse exercises, track favourites & dislikes',
+              sub: 'Browse exercises & favourites',
               onPress: () => onOpenExerciseCatalog?.(),
               testID: 'settings-catalog',
             },
             {
-              iconComponent: <HelpCircle size={18} color={accent} />,
+              iconComponent: <HelpCircle size={18} color={colors.textSecondary} />,
               label: 'Help & FAQ',
               sub: 'FAQ, reviews, workout science',
               onPress: () => onOpenHelpFaq?.(),
               testID: 'settings-faq',
             },
             {
-              iconComponent: <PlayCircle size={18} color={accent} />,
+              iconComponent: <PlayCircle size={18} color={colors.textSecondary} />,
               label: 'App Walkthrough',
-              sub: 'Replay the guided tour of Zeal',
+              sub: 'Replay the guided tour',
               onPress: () => setWalkthroughVisible(true),
               testID: 'settings-walkthrough',
             },
-          ].map((item, i) => (
+          ].map((item, i, arr) => (
             <TouchableOpacity
               key={item.label}
               style={[
                 styles.menuRow,
-                { borderBottomWidth: 1, borderBottomColor: colors.border },
+                i < arr.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
                 (item as any).locked && { opacity: PRO_LOCKED_OPACITY },
               ]}
               onPress={item.onPress}
               activeOpacity={0.7}
               testID={item.testID}
             >
-              <View style={[styles.menuIcon, { backgroundColor: `${accent}22` }]}>
-                {item.iconComponent}
-              </View>
+              {item.iconComponent}
               <View style={styles.menuText}>
                 <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>{item.sub}</Text>
@@ -671,11 +647,9 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
               activeOpacity={0.7}
               testID="settings-health-sync"
             >
-              <View style={[styles.menuIcon, { backgroundColor: ctx.healthConnected ? '#ef444422' : `${accent}22` }]}>
-                {ctx.healthConnected
-                  ? <HeartPulse size={18} color="#ef4444" />
-                  : <HeartPulse size={18} color={hasPro ? accent : colors.textMuted} />}
-              </View>
+              {ctx.healthConnected
+                ? <HeartPulse size={18} color="#ef4444" />
+                : <HeartPulse size={18} color={hasPro ? colors.textSecondary : colors.textMuted} />}
               <View style={styles.menuText}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={[styles.menuLabel, { color: colors.text }]}>
@@ -699,48 +673,46 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                     : ctx.healthConnected
                       ? 'Syncing steps, calories & workouts'
                       : healthConnecting
-                        ? 'Requesting permissions…'
+                        ? 'Requesting permissions...'
                         : 'Tap to connect & enable sync'}
                 </Text>
               </View>
               {healthConnecting
-                ? <ActivityIndicator size="small" color={accent} />
+                ? <ActivityIndicator size="small" color={colors.textSecondary} />
                 : !hasPro
                   ? <Crown size={14} color={PRO_GOLD} strokeWidth={2} />
                   : <ChevronRight size={16} color={colors.textMuted} />}
             </TouchableOpacity>
           )}
-        </View>
+        </GlassCard>
 
+        {/* ── Card 3: Notifications ── */}
         {Platform.OS !== 'web' && (
           <>
             <View style={styles.notifSectionHeader}>
-              <View style={[styles.notifIconWrap, { backgroundColor: `${accent}18` }]}>
-                <Bell size={16} color={accent} />
-              </View>
-              <Text style={[styles.sectionHeader, { color: colors.textSecondary, flex: 1 }]}>NOTIFICATIONS</Text>
+              <Text style={[styles.sectionHeader, { color: colors.textSecondary, flex: 1 }]}>Notifications</Text>
               {notifPermStatus === 'denied' && (
                 <TouchableOpacity onPress={() => Platform.OS === 'ios' ? void Linking.openURL('app-settings:') : void Linking.openSettings()} activeOpacity={0.7}>
-                  <Text style={[styles.notifPermDenied, { color: accent }]}>Enable in Settings</Text>
+                  <Text style={[styles.notifPermDenied, { color: colors.textSecondary }]}>Enable in Settings</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <GlassCard variant={isDark ? 'glass' : 'solid'} style={styles.section}>
               <TouchableOpacity
                 style={[styles.toggleRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}
                 onPress={() => void handleNotifToggle('dailyEnabled', !localNotif.dailyEnabled)}
                 activeOpacity={0.7}
               >
                 <View style={styles.notifToggleLabelWrap}>
-                  <Clock size={14} color={localNotif.dailyEnabled ? accent : colors.textMuted} strokeWidth={2} />
+                  <Clock size={14} color={localNotif.dailyEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
                   <Text style={[styles.toggleLabel, { color: colors.text }]}>Daily Workout Reminder</Text>
                 </View>
                 <Switch
                   value={localNotif.dailyEnabled}
                   onValueChange={(v) => void handleNotifToggle('dailyEnabled', v)}
-                  trackColor={{ false: colors.border, true: `${accent}88` }}
-                  thumbColor={localNotif.dailyEnabled ? accent : colors.textSecondary}
+                  trackColor={{ false: colors.border, true: `${colors.text}30` }}
+                  thumbColor={localNotif.dailyEnabled ? colors.text : colors.textSecondary}
                 />
               </TouchableOpacity>
 
@@ -750,25 +722,25 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                   <View style={styles.timePickerControls}>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'hour', 1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.dailyHour % 12 || 12).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'hour', -1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <Text style={[styles.timeColon, { color: colors.textMuted }]}>:</Text>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'minute', 5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.dailyMinute).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'minute', -5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
@@ -781,10 +753,10 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                           return updated;
                         });
                       }}
-                      style={[styles.ampmBtn, { backgroundColor: `${accent}18`, borderColor: `${accent}30` }]}
+                      style={[styles.ampmBtn, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.ampmText, { color: accent }]}>
+                      <Text style={[styles.ampmText, { color: colors.text }]}>
                         {localNotif.dailyHour >= 12 ? 'PM' : 'AM'}
                       </Text>
                     </TouchableOpacity>
@@ -798,14 +770,14 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                 activeOpacity={0.7}
               >
                 <View style={styles.notifToggleLabelWrap}>
-                  <Bell size={14} color={localNotif.streakEnabled ? accent : colors.textMuted} strokeWidth={2} />
+                  <Bell size={14} color={localNotif.streakEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
                   <Text style={[styles.toggleLabel, { color: colors.text }]}>Streak Reminder</Text>
                 </View>
                 <Switch
                   value={localNotif.streakEnabled}
                   onValueChange={(v) => void handleNotifToggle('streakEnabled', v)}
-                  trackColor={{ false: colors.border, true: `${accent}88` }}
-                  thumbColor={localNotif.streakEnabled ? accent : colors.textSecondary}
+                  trackColor={{ false: colors.border, true: `${colors.text}30` }}
+                  thumbColor={localNotif.streakEnabled ? colors.text : colors.textSecondary}
                 />
               </TouchableOpacity>
 
@@ -815,25 +787,25 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                   <View style={styles.timePickerControls}>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'hour', 1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.streakHour % 12 || 12).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'hour', -1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <Text style={[styles.timeColon, { color: colors.textMuted }]}>:</Text>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'minute', 5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.streakMinute).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'minute', -5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={accent} strokeWidth={2.5} />
+                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
@@ -846,10 +818,10 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                           return updated;
                         });
                       }}
-                      style={[styles.ampmBtn, { backgroundColor: `${accent}18`, borderColor: `${accent}30` }]}
+                      style={[styles.ampmBtn, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.ampmText, { color: accent }]}>
+                      <Text style={[styles.ampmText, { color: colors.text }]}>
                         {localNotif.streakHour >= 12 ? 'PM' : 'AM'}
                       </Text>
                     </TouchableOpacity>
@@ -863,7 +835,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                 activeOpacity={0.7}
               >
                 <View style={styles.notifToggleLabelWrap}>
-                  <BellOff size={14} color={localNotif.weeklySummaryEnabled ? accent : colors.textMuted} strokeWidth={2} />
+                  <BellOff size={14} color={localNotif.weeklySummaryEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
                   <View>
                     <Text style={[styles.toggleLabel, { color: colors.text }]}>Weekly Summary</Text>
                     <Text style={[styles.toggleTag, { color: colors.textMuted }]}>Every Sunday evening</Text>
@@ -872,25 +844,24 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
                 <Switch
                   value={localNotif.weeklySummaryEnabled}
                   onValueChange={(v) => void handleNotifToggle('weeklySummaryEnabled', v)}
-                  trackColor={{ false: colors.border, true: `${accent}88` }}
-                  thumbColor={localNotif.weeklySummaryEnabled ? accent : colors.textSecondary}
+                  trackColor={{ false: colors.border, true: `${colors.text}30` }}
+                  thumbColor={localNotif.weeklySummaryEnabled ? colors.text : colors.textSecondary}
                 />
               </TouchableOpacity>
-            </View>
+            </GlassCard>
           </>
         )}
 
-        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>ACCOUNT</Text>
-        <View style={[styles.section, { backgroundColor: colors.card, padding: 0, gap: 0 }]}>
+        {/* ── Card 4: Account ── */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Account</Text>
+        <GlassCard variant={isDark ? 'glass' : 'solid'} style={[styles.section, { padding: 0, gap: 0 }]}>
           <TouchableOpacity
-            style={[styles.signOutRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+            style={[styles.signOutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
             onPress={handleSignOut}
             activeOpacity={0.7}
             testID="sign-out-btn"
           >
-            <View style={styles.signOutIconWrap}>
-              <LogOut size={18} color="#ef4444" strokeWidth={2} />
-            </View>
+            <LogOut size={18} color="#ef4444" strokeWidth={2} />
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
 
@@ -902,9 +873,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
               testID="danger-zone-toggle"
             >
               <View style={styles.dangerHeaderLeft}>
-                <View style={styles.dangerIconWrap}>
-                  <Skull size={18} color="#ef4444" strokeWidth={1.8} />
-                </View>
+                <Skull size={18} color="#ef4444" strokeWidth={1.8} />
                 <Text style={styles.dangerTitle}>Danger Zone</Text>
               </View>
               <Animated.View style={{ transform: [{ rotate: chevronRotateDanger }] }}>
@@ -925,34 +894,31 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
               </TouchableOpacity>
             </Animated.View>
           </View>
-        </View>
+        </GlassCard>
 
-        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>LEGAL</Text>
-        <View style={[styles.section, { backgroundColor: colors.card, padding: 0, gap: 0 }]}>
+        {/* ── Card 5: Legal ── */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Legal</Text>
+        <GlassCard variant={isDark ? 'glass' : 'solid'} style={[styles.section, { padding: 0, gap: 0 }]}>
           <TouchableOpacity
-            style={[styles.signOutRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+            style={[styles.signOutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
             onPress={() => void Linking.openURL('https://kodycountryman.notion.site/zeal-Privacy-Policy-327209e49d07805fb401cc05bdf9a1dd')}
             activeOpacity={0.7}
             testID="legal-privacy-policy"
           >
-            <View style={styles.signOutIconWrap}>
-              <Shield size={18} color={colors.textSecondary} strokeWidth={2} />
-            </View>
+            <Shield size={18} color={colors.textSecondary} strokeWidth={2} />
             <Text style={[styles.signOutText, { color: colors.text }]}>Privacy Policy</Text>
-            <ChevronRight size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
+            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.signOutRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+            style={[styles.signOutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
             onPress={() => void Linking.openURL('https://kodycountryman.notion.site/Zeal-Terms-of-Service-327209e49d0780d2a5fed1775bff3d57')}
             activeOpacity={0.7}
             testID="legal-terms-of-service"
           >
-            <View style={styles.signOutIconWrap}>
-              <FileText size={18} color={colors.textSecondary} strokeWidth={2} />
-            </View>
+            <FileText size={18} color={colors.textSecondary} strokeWidth={2} />
             <Text style={[styles.signOutText, { color: colors.text }]}>Terms of Service</Text>
-            <ChevronRight size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
+            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -961,13 +927,11 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
             activeOpacity={0.7}
             testID="legal-export-data"
           >
-            <View style={styles.signOutIconWrap}>
-              <Download size={18} color={colors.textSecondary} strokeWidth={2} />
-            </View>
+            <Download size={18} color={colors.textSecondary} strokeWidth={2} />
             <Text style={[styles.signOutText, { color: colors.text }]}>Export My Data</Text>
-            <ChevronRight size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
+            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
-        </View>
+        </GlassCard>
 
         <View style={{ height: 24 }} />
       </View>
@@ -1011,11 +975,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: SAVE_BTN_COLOR,
-    shadowColor: SAVE_BTN_COLOR,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
   },
   headerSaveText: {
     color: '#fff',
@@ -1025,8 +984,9 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: '800' as const, letterSpacing: -0.3 },
   content: { paddingHorizontal: 16, gap: 12, paddingBottom: 8 },
-  sectionHeader: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1.2 },
-  section: { borderRadius: 16, padding: 16, gap: 14 },
+  sectionHeader: { fontSize: 13, fontWeight: '600' as const, letterSpacing: 0.2, fontFamily: 'Outfit_600SemiBold', textTransform: 'none' as const, marginLeft: 4 },
+  section: { borderRadius: 20, padding: 16, gap: 14 },
+  sectionDivider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   fieldLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.8 },
   styleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   styleChip: {
@@ -1052,13 +1012,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  restSliderHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    marginBottom: 6,
-  },
   sliderValue: { fontSize: 13, fontWeight: '700' as const },
   sliderStyle: { width: '100%' },
   durationLabels: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -1066,8 +1019,7 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
   toggleLabel: { fontSize: 14, fontWeight: '500' as const },
   toggleTag: { fontSize: 12, fontWeight: '400' as const },
-  menuRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
-  menuIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  menuRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, gap: 12 },
   menuText: { flex: 1, gap: 2 },
   menuLabel: { fontSize: 15, fontWeight: '600' as const },
   menuSub: { fontSize: 12 },
@@ -1081,13 +1033,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 8,
-  },
-  notifIconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
   },
   notifPermDenied: {
     fontSize: 11,
@@ -1182,14 +1127,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
-  signOutIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(239,68,68,0.1)',
-  },
   signOutText: {
     fontSize: 15,
     fontWeight: '600' as const,
@@ -1209,14 +1146,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 12,
-  },
-  dangerIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(239,68,68,0.1)',
   },
   dangerTitle: {
     fontSize: 15,

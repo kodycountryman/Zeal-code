@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { generateObject } from '@rork-ai/toolkit-sdk';
+import { generateObject } from 'ai';
+import { google } from '@ai-sdk/google';
 import { z } from 'zod';
+
+const gemini = google('gemini-2.0-flash', {
+  apiKey: 'AIzaSyClKnZbNOYKLtIcFMkZINYfrj8P1vSPWew',
+});
 import type {
   GeneratedWorkout,
   WorkoutExercise,
@@ -8,8 +13,6 @@ import type {
 } from '@/services/workoutEngine';
 import { generateWorkout, buildWarmupCooldownRecovery } from '@/services/workoutEngine';
 import type { DayPrescription } from '@/services/planEngine';
-
-console.log('[AIWorkoutGenerator] AI workout generator loaded');
 
 export const AI_POWERED_STYLES = new Set(['CrossFit', 'Mobility', 'HIIT', 'Pilates', 'Low-Impact']);
 export const AI_PRO_STYLES = new Set(['Strength', 'Bodybuilding', 'Hybrid']);
@@ -94,7 +97,7 @@ IMPORTANT: Scale the total number of exercises strictly to the TARGET EXERCISE C
   Bodybuilding: `Create a hypertrophy-focused bodybuilding session targeting the specified muscle group(s) for maximum muscle growth stimulus.
 Use moderate-to-heavy weights, 3-5 sets, 8-15 reps, with controlled tempo and mind-muscle connection.
 Begin with compound movements as the primary exercises (movementType 'heavyCompound' or 'moderateCompound'). Follow with isolation exercises (movementType 'isolation') hitting the muscle from different angles.
-Pair isolation exercises into supersets where it makes sense — use groupType 'superset' and a shared groupId (e.g., 'ss_a').
+Pair isolation exercises into supersets where it makes sense (1–2 supersets maximum) — use groupType 'superset' and a shared groupId (e.g., 'ss_a').
 Rest: 90s-2:00 for compound, 45s-60s for isolation/supersets.
 SuggestedWeight should reflect typical hypertrophy loads ('Moderate', '30-50 lbs', 'light-to-moderate resistance band').
 Notes should cue the mind-muscle connection specifically (e.g., 'Squeeze at the top', 'Control the eccentric for 3 counts').
@@ -147,20 +150,53 @@ function getTargetExerciseCount(style: string, targetDuration: number): { count:
   return { count, min, max };
 }
 
-function buildPhaseInstructions(phase: string, volumeModifier: number): string {
+function buildPhaseInstructions(phase: string, volumeModifier: number, style?: string): string {
+  const isBodybuilding = style === 'Bodybuilding';
+  const isStrength = style === 'Strength';
+  const isHybrid = style === 'Hybrid';
+  const isCircuit = ['CrossFit', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact'].includes(style ?? '');
+
   const phaseMap: Record<string, string> = {
-    foundation: 'PHASE: Foundation — prioritize movement quality and form. Rep range 8-12. Rest 90s. Compound lifts only, avoid advanced techniques like drop sets or supersets.',
-    build: 'PHASE: Build — moderate volume and density. Rep range 6-10. Rest 60-90s. Include 1-2 isolation exercises alongside compounds.',
-    intensify: 'PHASE: Intensify — high intensity, advanced techniques encouraged (drop sets, supersets). Rep range 3-8 (heavy) or 10-15 (hypertrophy). Rest 30-60s.',
-    deload: 'PHASE: Deload — reduce exercise count by ~30%. Light weight, high reps (15-20). Focus on movement quality and recovery. Rest 45-60s. NO supersets or advanced techniques.',
-    peak: 'PHASE: Peak — heavy compound lifts, low reps (2-5). Maximum intensity. Rest 3-4 min between sets. Minimal accessory work.',
-    taper: 'PHASE: Taper — reduce total volume by 40%. Maintain intensity. Focus on movement preparation and priming.',
+    foundation: isBodybuilding
+      ? 'PHASE: Foundation — prioritize movement quality and form. Rep range 8-12. Rest 90s. Lead with compounds, follow with isolation. Keep structure simple — 1 superset maximum; do not add extra pairings.'
+      : isStrength
+      ? 'PHASE: Foundation — prioritize movement quality and form. Rep range 5-8. Rest 2-3 min. Heavy compound focus. All exercises standalone — no supersets.'
+      : isHybrid
+      ? 'PHASE: Foundation — build aerobic base and compound strength. Moderate intensity. No advanced techniques.'
+      : 'PHASE: Foundation — prioritize movement quality; learn the patterns. Moderate intensity, full range of motion.',
+
+    build: isBodybuilding
+      ? 'PHASE: Build — moderate volume. Rep range 8-12. Rest 60-90s. 1-2 supersets where natural — do not force additional pairings beyond the style guide.'
+      : isStrength
+      ? 'PHASE: Build — increase working sets and loads. Rep range 3-6. Rest 2-3 min. Compounds first, all standalone. 1 antagonist superset is acceptable for accessories only.'
+      : isHybrid
+      ? 'PHASE: Build — moderate volume, steady increase. Rep range 6-10. Rest 60-90s. Strength block standalone; conditioning block as circuit.'
+      : 'PHASE: Build — moderate volume, build work capacity progressively. Rep range 6-10. Rest 60-90s.',
+
+    intensify: isBodybuilding
+      ? 'PHASE: Intensify — high volume. Rep range 8-15. Rest 45-60s. Up to 2 supersets total; 1 drop set on the final set of one isolation exercise is acceptable.'
+      : isStrength
+      ? 'PHASE: Intensify — peak strength. Rep range 2-5 at high intensity. Rest 3-4 min. All exercises standalone. Cluster sets or wave loading on primary lift only.'
+      : isHybrid
+      ? 'PHASE: Intensify — push conditioning block intensity. Strength block standalone at high load. Conditioning block: increase rounds or reduce rest.'
+      : isCircuit
+      ? 'PHASE: Intensify — increase work-interval intensity and reduce rest. Same circuit structure, higher output.'
+      : 'PHASE: Intensify — high intensity. Increase load or density appropriate to the style.',
+
+    deload: 'PHASE: Deload — reduce exercise count by ~30%. Light weight, high reps (15-20). Focus on movement quality and recovery. Rest 45-60s. NO supersets, drop sets, or advanced techniques.',
+
+    peak: isStrength
+      ? 'PHASE: Peak — maximum strength expression. 1-3 reps at 90-95% 1RM. Rest 4-5 min. Primary lift only plus 1-2 accessories standalone.'
+      : 'PHASE: Peak — heavy compound lifts, low reps (2-5). Maximum intensity. Rest 3-4 min. Minimal accessory work.',
+
+    taper: 'PHASE: Taper — reduce total volume by 40%. Maintain intensity. Focus on movement preparation and priming. No supersets.',
   };
+
   const instruction = phaseMap[phase.toLowerCase()] ?? '';
   const volumeNote = volumeModifier <= 0.65
     ? 'This is a deload/recovery week — use the MINIMUM exercise count for the duration.'
-    : volumeModifier >= 1.1
-    ? 'This is a high-volume week — use the MAXIMUM exercise count within the duration budget.'
+    : volumeModifier >= 1.2
+    ? 'This is a high-volume week — lean toward the higher end of the exercise count range.'
     : '';
   return [instruction, volumeNote].filter(Boolean).join('\n');
 }
@@ -195,7 +231,7 @@ function buildPrompt(params: GenerateWorkoutParams): string {
   const styleGuide = STYLE_GUIDES[style] ?? `Generate an appropriate ${style} workout.`;
   const { count: targetExerciseCount, min: exMin, max: exMax } = getTargetExerciseCount(style, targetDuration);
   const phaseInstructions = params.planPhase
-    ? buildPhaseInstructions(params.planPhase, params.volumeModifier ?? 1.0)
+    ? buildPhaseInstructions(params.planPhase, params.volumeModifier ?? 1.0, params.style)
     : '';
 
   return `You are an expert personal trainer and ${style} coach. Generate a complete, ready-to-use ${style} session.
@@ -288,12 +324,59 @@ function normalizeCrossfitRepsForAI(exerciseName: string, repsRaw: string, split
   return reps;
 }
 
+type AIExercise = z.infer<typeof ExerciseSchema>;
+
+export function enforceStyleGrouping<T extends { groupType: string | null; groupId: string | null }>(exercises: T[], style: string): T[] {
+  switch (style) {
+    case 'Strength': {
+      return exercises.map(ex => ({ ...ex, groupType: null, groupId: null }));
+    }
+    case 'Bodybuilding': {
+      const allowedGroups = new Set<string>();
+      return exercises.map(ex => {
+        if (ex.groupType === 'superset' && ex.groupId) {
+          if (!allowedGroups.has(ex.groupId)) {
+            if (allowedGroups.size >= 2) {
+              return { ...ex, groupType: null, groupId: null };
+            }
+            allowedGroups.add(ex.groupId);
+          }
+        }
+        return ex;
+      });
+    }
+    case 'CrossFit': {
+      return exercises.map(ex =>
+        ex.groupType === 'rounds' ? ex : { ...ex, groupType: null, groupId: null },
+      );
+    }
+    case 'HIIT':
+    case 'Mobility':
+    case 'Pilates': {
+      return exercises.map(ex =>
+        ex.groupType === 'circuit' ? ex : { ...ex, groupType: null, groupId: null },
+      );
+    }
+    case 'Hybrid': {
+      return exercises.map(ex =>
+        ex.groupType === 'circuit' ? ex : { ...ex, groupType: null, groupId: null },
+      );
+    }
+    case 'Low-Impact': {
+      return exercises.map(ex => ({ ...ex, groupType: null, groupId: null }));
+    }
+    default:
+      return exercises;
+  }
+}
+
 export async function generateAIWorkout(params: GenerateWorkoutParams): Promise<GeneratedWorkout> {
   console.log('[AIWorkoutGenerator] Calling AI for style:', params.style, '| duration:', params.targetDuration, 'min | level:', params.fitnessLevel);
 
   const prompt = buildPrompt(params);
 
-  const result = await generateObject({
+  const { object: result } = await generateObject({
+    model: gemini,
     messages: [{ role: 'user', content: prompt }],
     schema: AIWorkoutSchema,
   });
@@ -333,7 +416,14 @@ export async function generateAIWorkout(params: GenerateWorkoutParams): Promise<
     console.log(`[AIWorkoutGenerator] Removed ${rescuedExercises.length - dedupedExercises.length} duplicate exercise(s)`);
   }
 
-  const workoutExercises: WorkoutExercise[] = dedupedExercises.map((ex, i) => ({
+  // Enforce style-specific grouping rules in code — AI prompt is a suggestion, this is the law
+  const enforcedExercises = enforceStyleGrouping(dedupedExercises, params.style);
+  const strippedCount = dedupedExercises.filter(ex => ex.groupType).length - enforcedExercises.filter(ex => ex.groupType).length;
+  if (strippedCount > 0) {
+    console.log(`[AIWorkoutGenerator] Enforced ${params.style} grouping rules: stripped grouping from ${strippedCount} exercise(s)`);
+  }
+
+  const workoutExercises: WorkoutExercise[] = enforcedExercises.map((ex, i) => ({
     id: `ai_${params.style.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${i}_${Date.now()}`,
     name: ex.name,
     sets: ex.sets,
@@ -420,7 +510,8 @@ REQUIREMENTS:
 
   console.log('[generateCoreFinisher] Generating AI core finisher for level:', params.fitnessLevel);
 
-  const result = await generateObject({
+  const { object: result } = await generateObject({
+    model: gemini,
     messages: [{ role: 'user', content: prompt }],
     schema: CoreFinisherSchema,
   });

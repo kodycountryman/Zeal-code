@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import AchievementModal, { ACHIEVEMENTS, Achievement, getAchievementIcon } from '@/components/drawers/AchievementModal';
 import { useSubscription } from '@/context/SubscriptionContext';
+import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
 interface Props {
   visible: boolean;
@@ -37,6 +38,7 @@ export default function AthleteProfileDrawer({
   const { colors, accent, isDark } = useZealTheme();
   const { userName, setUserName, userPhotoUri, setUserPhotoUri, saveState } = useAppContext();
   const { hasPro, subscriptionState, openPaywall } = useSubscription();
+  const { workoutHistory } = useWorkoutTracking();
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userName);
@@ -117,7 +119,7 @@ export default function AthleteProfileDrawer({
                   <Camera size={28} color={colors.textSecondary} />
                 </View>
               )}
-              <View style={[styles.cameraOverlay, { backgroundColor: accent }]}>
+              <View style={styles.cameraOverlay}>
                 <Camera size={12} color="#fff" />
               </View>
             </TouchableOpacity>
@@ -153,6 +155,11 @@ export default function AthleteProfileDrawer({
                   <Text style={[styles.nameText, { color: colors.text }]}>{userName}</Text>
                 </TouchableOpacity>
               )}
+              <Text style={[styles.statsSubtitle, { color: colors.textSecondary }]}>
+                {workoutHistory.length > 0
+                  ? `${workoutHistory.length} workout${workoutHistory.length === 1 ? '' : 's'} logged`
+                  : 'No workouts yet'}
+              </Text>
               <TouchableOpacity
                 style={[
                   styles.memberBadge,
@@ -183,7 +190,7 @@ export default function AthleteProfileDrawer({
           </View>
 
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            ACHIEVEMENTS
+            Achievements
           </Text>
 
           <View style={styles.achievementsWrapper}>
@@ -237,9 +244,7 @@ export default function AthleteProfileDrawer({
               activeOpacity={0.7}
               testID="profile-about-me"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: `${accent}22` }]}>
-                <PersonStanding size={20} color={hasPro ? accent : colors.textMuted} />
-              </View>
+              <PersonStanding size={20} color={hasPro ? colors.textSecondary : colors.textMuted} />
               <View style={styles.menuText}>
                 <Text style={[styles.menuTitle, { color: colors.text }]}>About Me</Text>
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
@@ -259,9 +264,7 @@ export default function AthleteProfileDrawer({
               activeOpacity={0.7}
               testID="profile-insights"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: `${accent}22` }]}>
-                <BarChart3 size={20} color={hasPro ? accent : colors.textMuted} />
-              </View>
+              <BarChart3 size={20} color={hasPro ? colors.textSecondary : colors.textMuted} />
               <View style={styles.menuText}>
                 <Text style={[styles.menuTitle, { color: colors.text }]}>My Fitness Insights</Text>
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
@@ -281,9 +284,7 @@ export default function AthleteProfileDrawer({
               activeOpacity={0.7}
               testID="profile-settings-btn"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: colors.cardSecondary ?? 'rgba(128,128,128,0.1)' }]}>
-                <Settings size={20} color={colors.textSecondary} />
-              </View>
+              <Settings size={20} color={colors.textSecondary} />
               <View style={styles.menuText}>
                 <Text style={[styles.menuTitle, { color: colors.text }]}>Settings</Text>
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
@@ -294,7 +295,7 @@ export default function AthleteProfileDrawer({
             </TouchableOpacity>
           </View>
 
-          <View style={{ height: 60 }} />
+          <View style={{ height: 24 }} />
         </View>
       </BaseDrawer>
 
@@ -341,8 +342,8 @@ const styles = StyleSheet.create({
   avatarWrap: {
     width: 80,
     height: 80,
-    borderRadius: 16,
-    borderWidth: 2,
+    borderRadius: 40,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   avatarImage: {
@@ -357,13 +358,14 @@ const styles = StyleSheet.create({
   },
   cameraOverlay: {
     position: 'absolute',
-    bottom: 4,
-    right: 4,
+    bottom: 2,
+    right: 2,
     width: 22,
     height: 22,
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(128,128,128,0.7)',
   },
   profileInfo: {
     flex: 1,
@@ -398,6 +400,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.3,
   },
+  statsSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+  },
   memberBadge: {
     alignSelf: 'flex-start',
     borderWidth: 1.5,
@@ -420,9 +426,11 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    fontFamily: 'Outfit_600SemiBold',
+    marginLeft: 4,
   },
   achievementsWrapper: {
     position: 'relative' as const,
@@ -486,13 +494,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 12,
-  },
-  menuIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   menuText: {
     flex: 1,

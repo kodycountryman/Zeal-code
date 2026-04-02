@@ -11,13 +11,13 @@ import * as Haptics from 'expo-haptics';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
+import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext, type WorkoutPlan } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { PRO_STYLES_SET } from '@/services/proGate';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
-import { generatePlanSchedule, type PlanGenerationInput, type WeekSchedule, type DayPrescription } from '@/services/planEngine';
-import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
+import { generatePlanSchedule, type PlanGenerationInput, type DayPrescription } from '@/services/planEngine';
 import { COMMERCIAL_EQUIPMENT_PRESET, HOME_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
 import type { GenerateWorkoutParams } from '@/services/workoutEngine';
 import {
@@ -39,6 +39,7 @@ import {
 interface Props {
   visible: boolean;
   onClose: () => void;
+  editPlan?: WorkoutPlan;
 }
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
@@ -153,57 +154,63 @@ function PhaseTimeline({ segments, accentColor }: TimelineProps) {
   const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
   const total = segments.reduce((s, seg) => s + seg.weeks, 0);
 
-  // Build opacity steps: distribute evenly from 0.35 → 1.0 across non-deload segments
-  const nonDeload = segments.filter(s => s.phase !== 'deload');
-  const getSegmentOpacity = (seg: PhaseSegment, idx: number) => {
-    if (seg.phase === 'deload') return 0.22; // deload always dim
-    const pos = nonDeload.findIndex(s => s.startWeek === seg.startWeek);
-    const step = nonDeload.length <= 1 ? 1 : pos / (nonDeload.length - 1);
-    return 0.35 + step * 0.65; // 0.35 → 1.0
-  };
+  // Deduplicate legend: show each unique phase once with total weeks
+  const uniquePhases = useMemo(() => {
+    const map = new Map<string, { phase: PlanPhase; totalWeeks: number }>();
+    for (const seg of segments) {
+      const existing = map.get(seg.phase);
+      if (existing) {
+        existing.totalWeeks += seg.weeks;
+      } else {
+        map.set(seg.phase, { phase: seg.phase, totalWeeks: seg.weeks });
+      }
+    }
+    return Array.from(map.values());
+  }, [segments]);
+
+  const getPhaseColor = (phase: PlanPhase) => PHASE_COLORS[phase] ?? accentColor;
 
   return (
     <View style={tlStyles.wrap}>
       {/* Bar */}
       <View style={tlStyles.barRow}>
         {segments.map((seg, i) => {
-          const opacity = getSegmentOpacity(seg, i);
+          const segColor = getPhaseColor(seg.phase);
           const pct = (seg.weeks / total) * 100;
-          const isExpanded = expandedPhase === `${seg.phase}-${i}`;
+          const isExpanded = expandedPhase === seg.phase;
           return (
             <TouchableOpacity
               key={i}
               style={[
                 tlStyles.barSegment,
-                { width: `${pct}%` as any, backgroundColor: accentColor, opacity, borderRadius: 0 },
+                { width: `${pct}%` as any, backgroundColor: segColor, opacity: seg.phase === 'deload' ? 0.5 : 1, borderRadius: 0 },
                 i === 0 && { borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
                 i === segments.length - 1 && { borderTopRightRadius: 6, borderBottomRightRadius: 6 },
-                isExpanded && { opacity: 1 },
               ]}
-              onPress={() => setExpandedPhase(isExpanded ? null : `${seg.phase}-${i}`)}
+              onPress={() => setExpandedPhase(isExpanded ? null : seg.phase)}
               activeOpacity={0.75}
             />
           );
         })}
       </View>
 
-      {/* Labels */}
+      {/* Legend — deduplicated */}
       <View style={tlStyles.labelRow}>
-        {segments.map((seg, i) => {
-          const opacity = getSegmentOpacity(seg, i);
-          const isExpanded = expandedPhase === `${seg.phase}-${i}`;
+        {uniquePhases.map(({ phase, totalWeeks }) => {
+          const phaseColor = getPhaseColor(phase);
+          const isExpanded = expandedPhase === phase;
           return (
             <TouchableOpacity
-              key={i}
+              key={phase}
               style={tlStyles.labelItem}
-              onPress={() => setExpandedPhase(isExpanded ? null : `${seg.phase}-${i}`)}
+              onPress={() => setExpandedPhase(isExpanded ? null : phase)}
               activeOpacity={0.7}
             >
-              <View style={[tlStyles.dot, { backgroundColor: accentColor, opacity }]} />
-              <Text style={[tlStyles.labelText, { color: accentColor, opacity }]} numberOfLines={1}>
-                {PHASE_DISPLAY_NAMES[seg.phase]}
+              <View style={[tlStyles.dot, { backgroundColor: phaseColor }]} />
+              <Text style={[tlStyles.labelText, { color: phaseColor }]} numberOfLines={1}>
+                {PHASE_DISPLAY_NAMES[phase]}
               </Text>
-              <Text style={tlStyles.labelWeeks}>{seg.weeks}w</Text>
+              <Text style={tlStyles.labelWeeks}>{totalWeeks}w</Text>
             </TouchableOpacity>
           );
         })}
@@ -211,13 +218,13 @@ function PhaseTimeline({ segments, accentColor }: TimelineProps) {
 
       {/* Expanded phase info */}
       {expandedPhase !== null && (() => {
-        const [phase] = expandedPhase.split('-');
-        const desc = PHASE_DESCRIPTIONS[phase];
+        const desc = PHASE_DESCRIPTIONS[expandedPhase];
         if (!desc) return null;
+        const phaseColor = getPhaseColor(expandedPhase as PlanPhase);
         return (
-          <View style={[tlStyles.phaseInfo, { backgroundColor: `${accentColor}10`, borderColor: `${accentColor}28` }]}>
-            <Text style={[tlStyles.phaseInfoName, { color: accentColor }]}>
-              {PHASE_DISPLAY_NAMES[phase as PlanPhase] ?? phase}
+          <View style={[tlStyles.phaseInfo, { backgroundColor: `${phaseColor}10`, borderColor: `${phaseColor}28` }]}>
+            <Text style={[tlStyles.phaseInfoName, { color: phaseColor }]}>
+              {PHASE_DISPLAY_NAMES[expandedPhase as PlanPhase] ?? expandedPhase}
             </Text>
             <Text style={tlStyles.phaseInfoDesc}>{desc}</Text>
           </View>
@@ -249,7 +256,7 @@ const tlStyles = StyleSheet.create({
 // Goals that map to Pro-only styles (Strength, Bodybuilding)
 const PRO_GOALS = new Set(['build_strength', 'build_muscle']);
 
-export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
+export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
   const { hasPro, openPaywall } = useSubscription();
@@ -267,6 +274,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const [preGenProgress, setPreGenProgress] = useState<{ current: number; total: number } | null>(null);
   const [planEquipment, setPlanEquipment] = useState<Record<string, number>>({});
   const [planEquipPresetId, setPlanEquipPresetId] = useState<string>('');
+  const [showEquipmentDrawer, setShowEquipmentDrawer] = useState(false);
 
   const isEventGoal = goal === 'event_preparation';
   const totalSteps = isEventGoal ? 8 : 7;
@@ -280,27 +288,55 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
 
   useEffect(() => {
     if (visible) {
-      setStep(1); setGoal(''); setEvent('');
-      setDaysPerWeek(4); setSessionDuration(60);
-      setExperience(''); setPlanLength(8);
-      setSelectedSplit('');
       setPreGenProgress(null);
-      // Initialize equipment from current settings — detect which preset matches
-      const equip = ctx.selectedEquipment;
-      setPlanEquipment({ ...equip });
-      const count = Object.values(equip).filter(v => v > 0).length;
-      if (count === 0) {
-        setPlanEquipPresetId('no_equipment');
+
+      if (editPlan) {
+        // Edit mode — pre-fill from existing plan and jump to preview
+        setGoal(editPlan.goalId ?? '');
+        setEvent(editPlan.event?.[0] ?? '');
+        setDaysPerWeek(editPlan.daysPerWeek);
+        setSessionDuration(editPlan.sessionDuration);
+        setExperience((editPlan.experienceLevel as ExperienceLevel) || '');
+        setPlanLength(editPlan.planLength as PlanLength);
+        setSelectedSplit(editPlan.trainingSplit ?? '');
+        const equip = editPlan.equipment ?? ctx.selectedEquipment;
+        setPlanEquipment({ ...equip });
+        const count = Object.values(equip).filter(v => v > 0).length;
+        if (count === 0) {
+          setPlanEquipPresetId('no_equipment');
+        } else {
+          const matched = ctx.savedGyms.find(g => {
+            const gKeys = Object.keys(g.equipment).filter(k => (g.equipment[k] ?? 0) > 0).sort().join(',');
+            const eKeys = Object.keys(equip).filter(k => (equip[k] ?? 0) > 0).sort().join(',');
+            return gKeys === eKeys;
+          });
+          setPlanEquipPresetId(matched?.id ?? 'custom');
+        }
+        // Jump to step 1 so user can change any setting, then advance to preview
+        setStep(1);
       } else {
-        const matched = ctx.savedGyms.find(g => {
-          const gKeys = Object.keys(g.equipment).filter(k => (g.equipment[k] ?? 0) > 0).sort().join(',');
-          const eKeys = Object.keys(equip).filter(k => (equip[k] ?? 0) > 0).sort().join(',');
-          return gKeys === eKeys;
-        });
-        setPlanEquipPresetId(matched?.id ?? 'custom');
+        // New plan — reset everything
+        setStep(1); setGoal(''); setEvent('');
+        setDaysPerWeek(4); setSessionDuration(60);
+        setExperience(''); setPlanLength(8);
+        setSelectedSplit('');
+        // Initialize equipment from current settings — detect which preset matches
+        const equip = ctx.selectedEquipment;
+        setPlanEquipment({ ...equip });
+        const count = Object.values(equip).filter(v => v > 0).length;
+        if (count === 0) {
+          setPlanEquipPresetId('no_equipment');
+        } else {
+          const matched = ctx.savedGyms.find(g => {
+            const gKeys = Object.keys(g.equipment).filter(k => (g.equipment[k] ?? 0) > 0).sort().join(',');
+            const eKeys = Object.keys(equip).filter(k => (equip[k] ?? 0) > 0).sort().join(',');
+            return gKeys === eKeys;
+          });
+          setPlanEquipPresetId(matched?.id ?? 'custom');
+        }
       }
     }
-  }, [visible, ctx.selectedEquipment, ctx.savedGyms]);
+  }, [visible, editPlan, ctx.selectedEquipment, ctx.savedGyms]);
 
   const endDate = useMemo(() => addWeeks(startDate, planLength), [startDate, planLength]);
 
@@ -348,6 +384,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       experienceLevel: experience as ExperienceLevel,
       planLength,
       startDate,
+      trainingSplit: selectedSplit,
     };
 
     const schedule = generatePlanSchedule(genInput);
@@ -365,11 +402,13 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
             day.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           }
         }
+        // Strip any days that shifted into the past — plan always starts from today
+        schedule.weeks[0].days = schedule.weeks[0].days.filter(d => d.date >= startDate);
       }
     }
 
     const plan: WorkoutPlan = {
-      id: `plan_${Date.now()}`,
+      id: editPlan?.id ?? `plan_${Date.now()}`,
       name: planName,
       goal: goalLabel,
       goalId: goal as PlanGoal,
@@ -380,68 +419,46 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       trainingSplit: selectedSplit,
       experienceLevel: experience,
       planLength,
-      startDate,
+      startDate: editPlan?.startDate ?? startDate,
       endDate,
-      createdAt: new Date().toISOString(),
+      createdAt: editPlan?.createdAt ?? new Date().toISOString(),
       active: true,
       schedule,
-      missedDays: [],
-      completedDays: [],
+      missedDays: editPlan?.missedDays ?? [],
+      completedDays: editPlan?.completedDays ?? [],
       equipment: planEquipment,
     };
     ctx.saveActivePlan(plan, schedule);
 
-    // ── Pre-generate workouts for all weeks ──────────────────────────────────
-    const todayStr = getTodayStr();
-    const trainingDays: DayPrescription[] = (schedule.weeks as WeekSchedule[])
-      .flatMap(w => w.days)
-      .filter(d => !d.is_rest && d.date >= todayStr)
-      .slice(0, 60); // safety cap — 12-week × 5 days/week
+    // ── Generate workouts: Week 1 in parallel, rest in background ────────────
+    const genParamsFactory = (d: DayPrescription): GenerateWorkoutParams => ({
+      style: d.style,
+      split: d.session_type,
+      targetDuration: d.target_duration,
+      restSlider: ctx.restBetweenSets,
+      availableEquipment: planEquipment,
+      fitnessLevel: experience ?? ctx.fitnessLevel,
+      sex: ctx.sex,
+      specialLifeCase: ctx.specialLifeCase,
+      specialLifeCaseDetail: ctx.specialLifeCaseDetail,
+      warmUp: ctx.warmUp,
+      coolDown: ctx.coolDown,
+      recovery: false,
+      addCardio: false,
+      specificMuscles: [],
+      planPhase: d.phase,
+      volumeModifier: d.volume_modifier,
+    });
 
-    if (trainingDays.length > 0) {
-      setPreGenProgress({ current: 0, total: trainingDays.length });
-
-      for (let i = 0; i < trainingDays.length; i++) {
-        const d = trainingDays[i];
-        setPreGenProgress({ current: i, total: trainingDays.length });
-        try {
-          const genParams: GenerateWorkoutParams = {
-            style: d.style,
-            split: d.session_type,
-            targetDuration: d.target_duration,
-            restSlider: ctx.restBetweenSets,
-            availableEquipment: planEquipment,
-            fitnessLevel: experience ?? ctx.fitnessLevel,
-            sex: ctx.sex,
-            specialLifeCase: ctx.specialLifeCase,
-            specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-            warmUp: ctx.warmUp,
-            coolDown: ctx.coolDown,
-            recovery: false,
-            addCardio: false,
-            specificMuscles: [],
-            planPhase: d.phase,
-            volumeModifier: d.volume_modifier,
-          };
-          const result = await generateWorkoutAsync(genParams, d);
-          await AsyncStorage.setItem(`@zeal_plan_day_workout_${plan.id}_${d.date}`, JSON.stringify(result));
-
-          // For today: also write to daily snapshot so workout tab gets it instantly
-          if (d.date === todayStr) {
-            const snap = { date: todayStr, workout: result, title: d.session_type };
-            await AsyncStorage.setItem('@zeal_daily_generated_workout_v1', JSON.stringify(snap));
-          }
-        } catch {
-          // Skip — this day will generate on-demand in PlanDayPreviewDrawer
-        }
-      }
-      setPreGenProgress(null);
-    }
+    setPreGenProgress({ current: 0, total: 1 });
+    await ctx.startPlanGeneration(plan, schedule, genParamsFactory);
+    setPreGenProgress(null);
+    // Background generation continues in AppContext — drawer can close now
     // ────────────────────────────────────────────────────────────────────────
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     onClose();
-  }, [goal, event, daysPerWeek, sessionDuration, experience, planLength, startDate, endDate, autoStyle, isEventGoal, selectedSplit, planEquipment, ctx, onClose]);
+  }, [goal, event, daysPerWeek, sessionDuration, experience, planLength, startDate, endDate, autoStyle, isEventGoal, selectedSplit, planEquipment, editPlan, ctx, onClose]);
 
   const goalOption = PLAN_GOALS.find(g => g.id === goal);
   const expConfig = experience ? EXP_CONFIG[experience] : null;
@@ -457,7 +474,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <PlatformIcon name="sparkles" size={14} color={goalAccent} />
-          <Text style={[styles.headerLabel, { color: goalAccent }]}>WORKOUT PLAN</Text>
+          <Text style={[styles.headerLabel, { color: goalAccent }]}>{editPlan ? 'EDIT PLAN' : 'WORKOUT PLAN'}</Text>
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
           <PlatformIcon name="x" size={15} color={colors.textSecondary} strokeWidth={2.5} />
@@ -469,7 +486,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
     </View>
   );
 
-  return (
+  return (<>
     <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
       <View style={styles.content}>
 
@@ -686,29 +703,37 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
               const isSelected = planEquipPresetId === gym.id;
               const itemCount = Object.values(gym.equipment).filter(v => v > 0).length;
               return (
-                <TouchableOpacity
-                  key={gym.id}
-                  style={[
-                    styles.goalRow,
-                    { backgroundColor: colors.cardSecondary, borderColor: isSelected ? goalAccent : colors.border },
-                    isSelected && { backgroundColor: `${goalAccent}10` },
-                  ]}
-                  onPress={() => { setPlanEquipment({ ...gym.equipment }); setPlanEquipPresetId(gym.id); }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.goalIconWrap, { backgroundColor: isSelected ? `${goalAccent}20` : `${colors.border}60` }]}>
-                    <PlatformIcon name="building-2" size={18} color={isSelected ? goalAccent : colors.textSecondary} />
-                  </View>
-                  <View style={styles.goalRowText}>
-                    <Text style={[styles.goalLabel, { color: isSelected ? goalAccent : colors.text }]}>{gym.name}</Text>
-                    <Text style={[styles.goalDesc, { color: colors.textSecondary }]}>{itemCount} items</Text>
-                  </View>
-                  {isSelected && (
-                    <View style={[styles.checkCircle, { backgroundColor: goalAccent }]}>
-                      <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />
+                <View key={gym.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.goalRow,
+                      { flex: 1, backgroundColor: colors.cardSecondary, borderColor: isSelected ? goalAccent : colors.border },
+                      isSelected && { backgroundColor: `${goalAccent}10` },
+                    ]}
+                    onPress={() => { setPlanEquipment({ ...gym.equipment }); setPlanEquipPresetId(gym.id); }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.goalIconWrap, { backgroundColor: isSelected ? `${goalAccent}20` : `${colors.border}60` }]}>
+                      <PlatformIcon name={gym.name.toLowerCase().includes('crossfit') ? 'zap' : 'home'} size={18} color={isSelected ? goalAccent : colors.textSecondary} />
                     </View>
-                  )}
-                </TouchableOpacity>
+                    <View style={styles.goalRowText}>
+                      <Text style={[styles.goalLabel, { color: isSelected ? goalAccent : colors.text }]}>{gym.name}</Text>
+                      <Text style={[styles.goalDesc, { color: colors.textSecondary }]}>{itemCount} items</Text>
+                    </View>
+                    {isSelected && (
+                      <View style={[styles.checkCircle, { backgroundColor: goalAccent }]}>
+                        <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ padding: 10, borderRadius: 10, backgroundColor: `${colors.border}40` }}
+                    onPress={() => { setShowEquipmentDrawer(true); }}
+                    activeOpacity={0.7}
+                  >
+                    <PlatformIcon name="settings" size={16} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
               );
             })}
 
@@ -791,17 +816,21 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
         {preGenProgress && (
           <View style={styles.preGenView}>
             <ActivityIndicator size="large" color={goalAccent} style={{ marginBottom: 20 }} />
-            <Text style={[styles.preGenTitle, { color: colors.text }]}>Building your plan</Text>
+            <Text style={[styles.preGenTitle, { color: colors.text }]}>Generating this week</Text>
             <Text style={[styles.preGenSub, { color: colors.textSecondary }]}>
-              Setting up workout {preGenProgress.current + 1} of {preGenProgress.total}
+              {ctx.planGenProgress
+                ? `Workout ${ctx.planGenProgress.current + 1} of ${ctx.planGenProgress.total}`
+                : 'Starting...'}
             </Text>
 
-            <View style={[styles.preGenTrack, { backgroundColor: colors.border }]}>
-              <View style={[styles.preGenFill, {
-                width: `${Math.round((preGenProgress.current / preGenProgress.total) * 100)}%` as any,
-                backgroundColor: goalAccent,
-              }]} />
-            </View>
+            {ctx.planGenProgress && (
+              <View style={[styles.preGenTrack, { backgroundColor: colors.border }]}>
+                <View style={[styles.preGenFill, {
+                  width: `${Math.round((ctx.planGenProgress.current / ctx.planGenProgress.total) * 100)}%` as any,
+                  backgroundColor: goalAccent,
+                }]} />
+              </View>
+            )}
           </View>
         )}
 
@@ -879,6 +908,23 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
 
       </View>
     </BaseDrawer>
+
+    <EquipmentDrawer
+      visible={showEquipmentDrawer}
+      onClose={() => {
+        setShowEquipmentDrawer(false);
+        // Re-sync equipment from context after editing
+        const equip = ctx.selectedEquipment;
+        setPlanEquipment({ ...equip });
+        const matched = ctx.savedGyms.find(g => {
+          const gKeys = Object.keys(g.equipment).filter(k => (g.equipment[k] ?? 0) > 0).sort().join(',');
+          const eKeys = Object.keys(equip).filter(k => (equip[k] ?? 0) > 0).sort().join(',');
+          return gKeys === eKeys;
+        });
+        if (matched) setPlanEquipPresetId(matched.id);
+      }}
+    />
+    </>
   );
 }
 

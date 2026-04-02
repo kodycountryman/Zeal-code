@@ -29,7 +29,7 @@ export interface PlanGoalOption {
 }
 
 export const PLAN_GOALS: PlanGoalOption[] = [
-  { id: 'build_strength', label: 'Build Strength', description: 'Increase maximal force output', icon: 'trending' },
+  { id: 'build_strength', label: 'Build Strength', description: 'Increase maximal force output', icon: 'trending-up' },
   { id: 'build_muscle', label: 'Build Muscle', description: 'Hypertrophy-focused training', icon: 'dumbbell' },
   { id: 'lose_fat', label: 'Lose Fat', description: 'Body recomposition & fat loss', icon: 'scale' },
   { id: 'improve_endurance', label: 'Improve Endurance', description: 'Cardiovascular capacity', icon: 'heart' },

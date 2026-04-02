@@ -185,11 +185,11 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         <Text style={[styles.title, { color: colors.text }]}>About Me</Text>
       </View>
       <TouchableOpacity
-        style={[styles.headerDoneBtn, { backgroundColor: accent }]}
+        style={[styles.headerDoneBtn, { backgroundColor: colors.text }]}
         onPress={handleDone}
         activeOpacity={0.85}
       >
-        <Text style={styles.headerDoneText}>Done</Text>
+        <Text style={[styles.headerDoneText, { color: colors.card }]}>Done</Text>
       </TouchableOpacity>
     </View>
   );
@@ -200,7 +200,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
         {/* NAME */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>NAME</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Name</Text>
           <TextInput
             style={[
               styles.nameInput,
@@ -212,15 +212,15 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
             placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
             autoCorrect={false}
-            selectionColor={accent}
+            selectionColor={colors.text}
           />
         </View>
 
         {/* BIRTHDAY / AGE */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>AGE</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Age</Text>
           <View style={styles.ageRow}>
-            <Text style={[styles.ageNumber, { color: accent }]}>
+            <Text style={[styles.ageNumber, { color: colors.text }]}>
               {(() => {
                 if (!localDOBYear || localDOBYear < 1900) return '—';
                 const today = new Date();
@@ -243,18 +243,18 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>MUSCLE READINESS</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Muscle Readiness</Text>
               <Text style={[styles.sectionSubtitle, { color: colors.text }]}>
                 {readyCount} of {localMuscles.length} muscle groups ready
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.recoveryBtn, { borderColor: accent }]}
+              style={[styles.recoveryBtn, { borderColor: colors.border }]}
               onPress={handleRecovery}
               activeOpacity={0.7}
             >
-              <RefreshCw size={12} color={accent} />
-              <Text style={[styles.recoveryBtnText, { color: accent }]}>Recovery</Text>
+              <RefreshCw size={12} color={colors.textSecondary} />
+              <Text style={[styles.recoveryBtnText, { color: colors.textSecondary }]}>Recovery</Text>
             </TouchableOpacity>
           </View>
 
@@ -316,7 +316,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
         {/* HEIGHT — rolodex wheels */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>HEIGHT</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Height</Text>
           <View style={styles.pickerRow}>
             <View style={styles.pickerBlock}>
               <View style={[styles.pickerCard, { backgroundColor: wheelBg, borderColor: colors.border }]}>
@@ -328,7 +328,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                   visibleItems={1}
                   textColor={wheelText}
                   mutedColor={wheelMuted}
-                  accentColor={accent}
+                  accentColor={colors.text}
                   bgColor={wheelBg}
                 />
               </View>
@@ -345,7 +345,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                   visibleItems={1}
                   textColor={wheelText}
                   mutedColor={wheelMuted}
-                  accentColor={accent}
+                  accentColor={colors.text}
                   bgColor={wheelBg}
                 />
               </View>
@@ -359,7 +359,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
         {/* BODY WEIGHT — rolodex wheel */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>BODY WEIGHT</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Body Weight</Text>
           <View style={styles.singlePickerRow}>
             <View style={[styles.pickerCard, { backgroundColor: wheelBg, borderColor: colors.border }]}>
               <WheelPicker
@@ -370,12 +370,12 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                 visibleItems={1}
                 textColor={wheelText}
                 mutedColor={wheelMuted}
-                accentColor={accent}
+                accentColor={colors.text}
                 bgColor={wheelBg}
               />
             </View>
             <View style={styles.unitBadge}>
-              <Text style={[styles.unitBadgeText, { color: accent }]}>lbs</Text>
+              <Text style={[styles.unitBadgeText, { color: colors.textSecondary }]}>lbs</Text>
             </View>
           </View>
           <Text style={[styles.pickerHint, { color: colors.textMuted }]}>
@@ -384,7 +384,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>BIOLOGICAL SEX</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Biological Sex</Text>
           <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
             Used to calculate weight recommendations and programming.
           </Text>
@@ -395,7 +395,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                 style={[
                   styles.chip,
                   { borderColor: colors.border, backgroundColor: colors.cardSecondary },
-                  localSex === s && { backgroundColor: accent, borderColor: accent },
+                  localSex === s && { backgroundColor: colors.text, borderColor: colors.text },
                 ]}
                 onPress={() => setLocalSex(s)}
                 activeOpacity={0.7}
@@ -404,7 +404,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                   style={[
                     styles.chipText,
                     { color: colors.text },
-                    localSex === s && { color: '#fff', fontWeight: '700' as const },
+                    localSex === s && { color: colors.card, fontWeight: '700' as const },
                   ]}
                 >
                   {s === 'prefer_not' ? 'Prefer not to say' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -416,7 +416,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
         {/* BODY FAT % — rolodex wheel */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>BODY FAT %</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Body Fat %</Text>
           <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
             From DEXA scan, calipers, or body pod.
           </Text>
@@ -430,7 +430,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                 visibleItems={1}
                 textColor={wheelText}
                 mutedColor={wheelMuted}
-                accentColor={accent}
+                accentColor={colors.text}
                 bgColor={wheelBg}
                 formatValue={bodyFatFormatValue}
               />
@@ -452,7 +452,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>FITNESS LEVEL</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Fitness Level</Text>
           <View style={styles.chipRow}>
             {(['beginner', 'intermediate', 'advanced'] as FitnessLevel[]).map((l) => (
               <TouchableOpacity
@@ -460,7 +460,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                 style={[
                   styles.chip,
                   { borderColor: colors.border, backgroundColor: colors.cardSecondary },
-                  localFitnessLevel === l && { backgroundColor: accent, borderColor: accent },
+                  localFitnessLevel === l && { backgroundColor: colors.text, borderColor: colors.text },
                 ]}
                 onPress={() => setLocalFitnessLevel(l)}
                 activeOpacity={0.7}
@@ -469,7 +469,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                   style={[
                     styles.chipText,
                     { color: colors.text },
-                    localFitnessLevel === l && { color: '#fff', fontWeight: '700' as const },
+                    localFitnessLevel === l && { color: colors.card, fontWeight: '700' as const },
                   ]}
                 >
                   {l.charAt(0).toUpperCase() + l.slice(1)}
@@ -480,7 +480,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>WHAT ARE YOU TRAINING FOR?</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Training Goals</Text>
           <View style={styles.chipRowWrap}>
             {TRAINING_GOALS.map((g) => (
               <TouchableOpacity
@@ -488,7 +488,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                 style={[
                   styles.chip,
                   { borderColor: colors.border, backgroundColor: colors.cardSecondary },
-                  localGoals.includes(g) && { backgroundColor: accent, borderColor: accent },
+                  localGoals.includes(g) && { backgroundColor: colors.text, borderColor: colors.text },
                 ]}
                 onPress={() => toggleGoal(g)}
                 activeOpacity={0.7}
@@ -497,7 +497,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                   style={[
                     styles.chipText,
                     { color: colors.text },
-                    localGoals.includes(g) && { color: '#fff', fontWeight: '700' as const },
+                    localGoals.includes(g) && { color: colors.card, fontWeight: '700' as const },
                   ]}
                 >
                   {g}
@@ -508,7 +508,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>BMI</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>BMI</Text>
           <View style={styles.bmiRow}>
             <Text style={[styles.bmiValue, { color: colors.text }]}>{bmi}</Text>
             <Text style={[styles.bmiCat, { color: bmiCat.color }]}>{bmiCat.label}</Text>
@@ -529,11 +529,11 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.slcHeader}>
-            <Stethoscope size={22} color="#e84057" />
+            <Stethoscope size={18} color={colors.textSecondary} />
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>SPECIAL LIFE CASE</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Special Life Case</Text>
               <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
-                Adjusts Advanced workouts to your situation
+                Adjusts workouts to your situation
               </Text>
             </View>
           </View>
@@ -545,8 +545,8 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                   styles.slcBtn,
                   { borderColor: colors.border, backgroundColor: colors.cardSecondary },
                   localSLC === slc.id && {
-                    backgroundColor: '#7f1d1d',
-                    borderColor: '#ef4444',
+                    backgroundColor: colors.text,
+                    borderColor: colors.text,
                   },
                 ]}
                 onPress={() => {
@@ -559,7 +559,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                   style={[
                     styles.slcBtnText,
                     { color: colors.text },
-                    localSLC === slc.id && { color: '#fca5a5', fontWeight: '700' as const },
+                    localSLC === slc.id && { color: colors.card, fontWeight: '700' as const },
                   ]}
                 >
                   {slc.label}
@@ -570,7 +570,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {localSLC === 'pregnant' && (
             <View style={styles.slcDetail}>
-              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>DUE DATE</Text>
+              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>Due Date</Text>
               <TextInput
                 style={[styles.slcDetailInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardSecondary }]}
                 value={localSLCDetail}
@@ -582,7 +582,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
           )}
           {localSLC === 'postpartum' && (
             <View style={styles.slcDetail}>
-              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>NOTES (OPTIONAL)</Text>
+              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>Notes (optional)</Text>
               <TextInput
                 style={[styles.slcDetailInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardSecondary }]}
                 value={localSLCDetail}
@@ -595,7 +595,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
           )}
           {localSLC === 'injury' && (
             <View style={styles.slcDetail}>
-              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>INJURY LOCATION</Text>
+              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>Injury Location</Text>
               <TextInput
                 style={[styles.slcDetailInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardSecondary }]}
                 value={localSLCDetail}
@@ -607,7 +607,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
           )}
           {localSLC === 'disability' && (
             <View style={styles.slcDetail}>
-              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>DESCRIPTION</Text>
+              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>Description</Text>
               <TextInput
                 style={[styles.slcDetailInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardSecondary }]}
                 value={localSLCDetail}
@@ -620,7 +620,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
           )}
           {localSLC === 'chronic_pain' && (
             <View style={styles.slcDetail}>
-              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>AFFECTED AREA</Text>
+              <Text style={[styles.slcDetailLabel, { color: colors.textSecondary }]}>Affected Area</Text>
               <TextInput
                 style={[styles.slcDetailInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardSecondary }]}
                 value={localSLCDetail}
@@ -669,15 +669,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerDoneText: {
-    color: '#fff',
     fontSize: 15,
     fontWeight: '600' as const,
   },
   title: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   content: { paddingHorizontal: 16, gap: 12, paddingBottom: 12 },
   nameInput: {
-    borderWidth: 1.5,
-    borderRadius: 10,
+    borderWidth: 1,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
@@ -699,19 +698,24 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase' as const,
   },
-  section: { borderRadius: 16, padding: 16, gap: 12 },
+  section: { borderRadius: 20, padding: 16, gap: 12 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    fontFamily: 'Outfit_600SemiBold',
+  },
   sectionSubtitle: { fontSize: 14, fontWeight: '600', marginTop: 2 },
   recoveryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -728,7 +732,7 @@ const styles = StyleSheet.create({
   keyItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   keyDot: { width: 8, height: 8, borderRadius: 4 },
   keyText: { fontSize: 10 },
-  fieldLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', letterSpacing: 0.2, fontFamily: 'Outfit_600SemiBold' },
   fieldHint: { fontSize: 11, marginTop: -4 },
   fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fieldValue: { fontSize: 14, fontWeight: '700' },
@@ -776,9 +780,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   unitBadgeText: {
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   bfStatsCol: {
     gap: 8,
@@ -807,7 +811,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
   chipText: { fontSize: 13 },
   bmiRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
@@ -822,17 +826,17 @@ const styles = StyleSheet.create({
   slcBtn: {
     width: '47%',
     paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   slcBtnText: { fontSize: 14 },
   slcDetail: { gap: 8 },
-  slcDetailLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  slcDetailLabel: { fontSize: 13, fontWeight: '600', letterSpacing: 0.2, fontFamily: 'Outfit_600SemiBold' },
   slcDetailInput: {
-    borderWidth: 1.5,
-    borderRadius: 10,
+    borderWidth: 1,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,

@@ -10,12 +10,11 @@ import { useRouter } from 'expo-router';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
-import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PHASE_DISPLAY_NAMES } from '@/services/planConstants';
 import type { PlanPhase } from '@/services/planConstants';
 import type { DayPrescription } from '@/services/planEngine';
-import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -49,11 +48,6 @@ function formatDateMed(dateStr: string): string {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   } catch { return dateStr; }
-}
-
-function getTodayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 interface Props {
@@ -94,7 +88,6 @@ const skStyles = StyleSheet.create({
 export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, day }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
-  const tracking = useWorkoutTracking();
   const router = useRouter();
 
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
@@ -110,6 +103,8 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         return item && item.status === 'recovering';
       })
     : [];
+
+  const isGeneratingInBackground = !!(ctx.planGenProgress && (ctx.planGenProgress.phase === 'week1' || ctx.planGenProgress.phase === 'background'));
 
   // Generate workout when drawer opens (with per-day cache)
   useEffect(() => {
@@ -127,38 +122,49 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
     const cacheKey = `${PLAN_DAY_CACHE_PREFIX}${ctx.activePlan?.id}_${day.date}`;
 
-    const params = {
-      style: day.style,
-      split: day.session_type,
-      targetDuration: day.target_duration,
-      restSlider: ctx.restBetweenSets,
-      availableEquipment: ctx.activePlan?.equipment ?? ctx.selectedEquipment,
-      fitnessLevel: ctx.fitnessLevel,
-      sex: ctx.sex,
-      specialLifeCase: ctx.specialLifeCase,
-      specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-      warmUp: ctx.warmUp,
-      coolDown: ctx.coolDown,
-      recovery: false,
-      addCardio: false,
-      specificMuscles: [],
-      planPhase: day.phase,
-      volumeModifier: day.volume_modifier,
-    };
-
+    // First check cache — if already generated, show it
     AsyncStorage.getItem(cacheKey)
       .then(cached => {
         if (cancelled) return;
         if (cached) {
           try {
             const parsed: GeneratedWorkout = JSON.parse(cached);
+            parsed.workout = enforceStyleGrouping(parsed.workout, parsed.style);
             setWorkout(parsed);
             setLoading(false);
             return;
           } catch {
-            // Cache corrupt — fall through to generate
+            // Cache corrupt — fall through
           }
         }
+
+        // Not in cache — if background generation is running, don't trigger a new generation
+        if (isGeneratingInBackground) {
+          setLoading(false);
+          setError('still_generating');
+          return;
+        }
+
+        // Generate on-demand
+        const params = {
+          style: day.style,
+          split: day.session_type,
+          targetDuration: day.target_duration,
+          restSlider: ctx.restBetweenSets,
+          availableEquipment: ctx.activePlan?.equipment ?? ctx.selectedEquipment,
+          fitnessLevel: ctx.fitnessLevel,
+          sex: ctx.sex,
+          specialLifeCase: ctx.specialLifeCase,
+          specialLifeCaseDetail: ctx.specialLifeCaseDetail,
+          warmUp: ctx.warmUp,
+          coolDown: ctx.coolDown,
+          recovery: false,
+          addCardio: false,
+          specificMuscles: [],
+          planPhase: day.phase,
+          volumeModifier: day.volume_modifier,
+        };
+
         return generateWorkoutAsync(params, day)
           .then(result => {
             if (!cancelled) {
@@ -176,47 +182,24 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
       })
       .catch(() => {
         if (cancelled) return;
-        generateWorkoutAsync(params, day)
-          .then(result => {
-            if (!cancelled) {
-              setWorkout(result);
-              setLoading(false);
-              AsyncStorage.setItem(cacheKey, JSON.stringify(result)).catch(() => {});
-            }
-          })
-          .catch(() => {
-            if (!cancelled) {
-              setError('Could not preview this workout. You can still start it.');
-              setLoading(false);
-            }
-          });
+        if (isGeneratingInBackground) {
+          setLoading(false);
+          setError('still_generating');
+          return;
+        }
+        setError('Could not preview this workout. You can still start it.');
+        setLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [visible, day?.date]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, day?.date, isGeneratingInBackground]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = useCallback(() => {
     if (!day) return;
-
-    if (workout) {
-      // Pre-generated workout is ready — inject directly into workout tab, no regeneration
-      tracking.setCurrentGeneratedWorkout(workout);
-    } else {
-      // Preview not ready — fall back to override so workout tab regenerates
-      ctx.applyWorkoutOverride({
-        style: day.style,
-        split: day.session_type,
-        duration: day.target_duration,
-        rest: ctx.restBetweenSets,
-        muscles: [],
-        setDate: getTodayStr(),
-      });
-    }
-
     onClose();
     onClosePlan();
     setTimeout(() => router.push('/(tabs)/workout' as any), 400);
-  }, [day, workout, ctx, tracking, onClose, onClosePlan, router]);
+  }, [day, onClose, onClosePlan, router]);
 
   if (!day) return null;
 
@@ -300,8 +283,19 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
           </View>
         )}
 
+        {/* ── Still generating in background ───────────────── */}
+        {error === 'still_generating' && !loading && (
+          <View style={[styles.errorCard, { backgroundColor: `${styleColor}0d`, borderColor: `${styleColor}30` }]}>
+            <PlatformIcon name="sparkles" size={13} color={styleColor} />
+            <Text style={[styles.errorText, { color: styleColor }]}>
+              Still building this workout — check back in a moment.
+              {ctx.planGenProgress ? ` (${ctx.planGenProgress.current}/${ctx.planGenProgress.total})` : ''}
+            </Text>
+          </View>
+        )}
+
         {/* ── Error state ─────────────────────────────────── */}
-        {error && !loading && (
+        {error && error !== 'still_generating' && !loading && (
           <View style={[styles.errorCard, { backgroundColor: '#ef44440d', borderColor: '#ef444430' }]}>
             <PlatformIcon name="alert-triangle" size={13} color="#ef4444" />
             <Text style={styles.errorText}>{error}</Text>
@@ -421,6 +415,7 @@ function buildExerciseGroups(exercises: WorkoutExercise[]): ExerciseGroupItem[] 
 
   for (const ex of exercises) {
     if (ex.groupId && !seen.has(ex.groupId)) {
+      seen.add(ex.groupId);
       const members = exercises.filter(e => e.groupId === ex.groupId);
       members.forEach(e => seen.add(e.id));
       result.push({

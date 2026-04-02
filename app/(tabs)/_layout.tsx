@@ -9,7 +9,7 @@ import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
 function TabsWithPaywall() {
   const { loaded, triggerAppOpen } = useSubscription();
-  const { showPlusSpotlight, setShowPlusSpotlight } = useAppContext();
+  const { showPlusSpotlight, setShowPlusSpotlight, activePlan } = useAppContext();
   const tracking = useWorkoutTracking();
   const triggered = useRef(false);
 
@@ -37,7 +37,7 @@ function TabsWithPaywall() {
       </Tabs>
       <ConnectedPaywallModal />
       <PlusSpotlight
-        visible={showPlusSpotlight}
+        visible={showPlusSpotlight && !activePlan}
         onStartPlan={handleSpotlightStartPlan}
         onDismiss={() => setShowPlusSpotlight(false)}
       />

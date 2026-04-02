@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 import { healthService } from '@/services/healthService';
-import { generateWorkoutAsync, generateCoreFinisher } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync, generateCoreFinisher, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
 import { generateWorkout } from '@/services/workoutEngine';
 import { PRO_STYLES_SET } from '@/services/proGate';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -428,6 +428,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         const cached = await AsyncStorage.getItem(planCacheKey);
         if (cached) {
           const cachedWorkout: GeneratedWorkout = JSON.parse(cached);
+          cachedWorkout.workout = enforceStyleGrouping(cachedWorkout.workout, cachedWorkout.style);
           generatedForDateRef.current = todayStr;
           setCurrentGeneratedWorkout(cachedWorkout);
           ctx.setCurrentWorkoutTitle(
@@ -551,8 +552,19 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       AsyncStorage.getItem(WEEKLY_HOURS_KEY),
       AsyncStorage.getItem(DAILY_GENERATED_SNAPSHOT_KEY),
     ]).then(([historyRaw, prRaw, hoursRaw, dailyRaw]) => {
+      let loadedHistory: WorkoutLog[] = [];
       if (historyRaw) {
-        try { setWorkoutHistory(JSON.parse(historyRaw)); } catch (e) { console.log('[Tracking] history parse error', e); }
+        try { loadedHistory = JSON.parse(historyRaw); setWorkoutHistory(loadedHistory); } catch (e) { console.log('[Tracking] history parse error', e); }
+      }
+      // If no workout history, ensure muscle readiness is fully reset
+      if (loadedHistory.length === 0) {
+        const hasStaleReadiness = ctx.muscleReadiness.some(m => m.value < 100);
+        if (hasStaleReadiness) {
+          const fresh = ctx.muscleReadiness.map(m => ({ ...m, status: 'ready' as const, value: 100, lastWorked: 'Never' }));
+          ctx.setMuscleReadiness(fresh);
+          ctx.saveState();
+          console.log('[Tracking] Reset stale muscle readiness — no workout history');
+        }
       }
       if (prRaw) {
         try { setPrHistory(JSON.parse(prRaw)); } catch (e) { console.log('[Tracking] PR parse error', e); }
@@ -1420,6 +1432,48 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const newHistory = workoutHistory.filter(l => l.id !== logId);
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory)).catch(console.warn);
+
+    // Recalculate muscle readiness from remaining history
+    const freshReadiness: MuscleReadinessItem[] = [
+      { name: 'Chest', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Back', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Shoulders', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Biceps', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Triceps', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Quads', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Hamstrings', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Glutes', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Core', status: 'ready', value: 100, lastWorked: 'Never' },
+      { name: 'Calves', status: 'ready', value: 100, lastWorked: 'Never' },
+    ];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Replay remaining logs to rebuild readiness (most recent first)
+    const sortedRemaining = [...newHistory].sort((a, b) => b.date.localeCompare(a.date));
+    const muscleMap = new Map(freshReadiness.map(m => [m.name, m]));
+    for (const log of sortedRemaining) {
+      const logDate = new Date(log.date + 'T00:00:00');
+      const daysAgo = Math.max(0, Math.floor((today.getTime() - logDate.getTime()) / 86_400_000));
+      if (daysAgo > 7) continue; // Only care about last 7 days
+      const muscles = log.muscleGroups ?? [];
+      for (const name of muscles) {
+        const m = muscleMap.get(name);
+        if (!m) continue;
+        // Only apply if this is more recent than what we've already recorded
+        if (m.lastWorked === 'Never' || m.lastWorked === '') {
+          const recovery = Math.min(40, daysAgo * 13); // ~3 days to full recovery from -40
+          const newValue = Math.max(20, 100 - 40 + recovery);
+          const daysLabel = daysAgo === 0 ? 'Today' : `${daysAgo}d ago`;
+          m.value = newValue;
+          m.lastWorked = daysLabel;
+          m.status = newValue >= 80 ? 'ready' : newValue >= 50 ? 'building' : 'recovering';
+        }
+      }
+    }
+    const recalculated = Array.from(muscleMap.values());
+    ctx.setMuscleReadiness(recalculated);
+    ctx.saveState();
+    console.log('[Tracking] Recalculated muscle readiness after deletion');
   }, [workoutHistory, ctx, weeklyHoursMin]);
 
   const getLogForDate = useCallback((date: string): WorkoutLog | undefined => {

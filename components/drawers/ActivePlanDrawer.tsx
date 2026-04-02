@@ -7,7 +7,6 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -15,8 +14,6 @@ import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
 import type { DayPrescription } from '@/services/planEngine';
 
 import { useZealTheme, useAppContext } from '@/context/AppContext';
-import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
-import type { GeneratedWorkout } from '@/services/workoutEngine';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PHASE_DISPLAY_NAMES, PHASE_COLORS } from '@/services/planConstants';
 import type { WeekSchedule } from '@/services/planEngine';
@@ -39,6 +36,7 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onStartNewPlan: () => void;
+  onEditPlan: () => void;
 }
 
 function formatDateShort(dateStr: string): string {
@@ -74,10 +72,9 @@ function getTodayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: Props) {
+export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onEditPlan }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
-  const tracking = useWorkoutTracking();
   const router = useRouter();
 
   const plan = ctx.activePlan;
@@ -195,15 +192,17 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
   const styleColor = WORKOUT_STYLE_COLORS[plan.style] ?? accent;
   const currentWeek = getCurrentWeek(plan.startDate);
   const weeksLeft = getWeeksLeft(plan.endDate);
-  const progressPct = Math.min(100, Math.round((currentWeek / plan.planLength) * 100));
   const isPlanComplete = plan.endDate < today;
   const isPlanPaused = !!plan.pausedAt;
 
-  // Adherence stats for completion view
+  // Adherence stats
   const totalTrainingDays = schedule
     ? schedule.weeks.reduce((sum, w) => sum + w.days.filter(d => !d.is_rest).length, 0)
     : plan.daysPerWeek * plan.planLength;
   const completedCount = plan.completedDays?.length ?? 0;
+  const progressPct = totalTrainingDays > 0
+    ? Math.min(100, Math.round((completedCount / totalTrainingDays) * 100))
+    : 0;
   const adherencePct = totalTrainingDays > 0 ? Math.round((completedCount / totalTrainingDays) * 100) : 0;
 
   const headerContent = (
@@ -361,27 +360,14 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
         {!isPlanComplete && todayPrescription && !todayPrescription.is_rest && (
           <TouchableOpacity
             style={[styles.startTodayBtn, { backgroundColor: styleColor }]}
-            onPress={async () => {
-              // Try to load pre-generated workout from plan day cache
-              if (todayPrescription) {
-                try {
-                  const cacheKey = `@zeal_plan_day_workout_${plan.id}_${todayPrescription.date}`;
-                  const cached = await AsyncStorage.getItem(cacheKey);
-                  if (cached) {
-                    const cachedWorkout: GeneratedWorkout = JSON.parse(cached);
-                    tracking.setCurrentGeneratedWorkout(cachedWorkout);
-                  }
-                } catch {
-                  // Cache miss — workout tab will generate on arrival
-                }
-              }
+            onPress={() => {
               onClose();
               setTimeout(() => router.push('/(tabs)/workout' as any), 350);
             }}
             activeOpacity={0.85}
           >
             <Text style={styles.startTodayBtnText}>Start Today's Workout</Text>
-            <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+            <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 14 }} />
           </TouchableOpacity>
         )}
 
@@ -486,9 +472,6 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
                     >
                       <Text style={[styles.phaseWeekPhase, { color: dotTextColor }]}>{phaseInitial}</Text>
                       <Text style={[styles.phaseWeekNum, { color: dotTextColor }]}>{week.week_number}</Text>
-                      {week.is_deload && (
-                        <View style={[styles.deloadDot, { backgroundColor: '#22c55e' }]} />
-                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -735,6 +718,17 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan }: P
         )}
 
         {/* ── Actions ───────────────────────────────────── */}
+        {!isPlanComplete && (
+          <TouchableOpacity
+            style={[styles.ghostBtn, { borderColor: styleColor + '40' }]}
+            onPress={() => { onClose(); setTimeout(() => onEditPlan(), 350); }}
+            activeOpacity={0.7}
+          >
+            <PlatformIcon name="pencil" size={14} color={styleColor} />
+            <Text style={[styles.ghostBtnText, { color: styleColor }]}>Edit Plan</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={[styles.ghostBtn, { borderColor: colors.border }]}
           onPress={handleStartNew}

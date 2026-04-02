@@ -8,7 +8,7 @@ Full read/write access to all files in this project is authorized. Make edits di
 
 - **Platform**: Expo 54 / React Native 0.81 / React 19
 - **Routing**: Expo Router (file-based, app/ directory)
-- **AI**: Rork AI SDK (`@rork-ai/toolkit-sdk`) with Zod schemas for structured workout output
+- **AI**: Vercel AI SDK (`ai` + `@ai-sdk/google`) with Gemini 2.0 Flash + Zod schemas for structured workout output
 - **State**: React Context (3 providers) + Zustand + AsyncStorage + React Query
 - **Styling**: NativeWind + React Native StyleSheet + glass-morphism design language
 - **Fonts**: Outfit (primary, 400–800) + Playfair Display (headings)

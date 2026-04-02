@@ -1,5 +1,3 @@
-console.log('[PlanEngine] Loading Phase 5 plan generation engine');
-
 import {
   type PlanGoal,
   type PlanPhase,
@@ -61,6 +59,7 @@ export interface PlanGenerationInput {
   experienceLevel: ExperienceLevel;
   planLength: PlanLength;
   startDate: string;
+  trainingSplit?: string;
 }
 
 function addDays(dateStr: string, days: number): string {
@@ -80,8 +79,9 @@ function buildWeeklyTemplate(
   daysPerWeek: number,
   style: string,
   goal: PlanGoal,
+  trainingSplit?: string,
 ): WeeklyTemplate[] {
-  console.log('[PlanEngine] Building weekly template: days=', daysPerWeek, 'style=', style);
+  console.log('[PlanEngine] Building weekly template: days=', daysPerWeek, 'style=', style, 'split=', trainingSplit);
 
   const template: WeeklyTemplate[] = [];
   const totalDays = 7;
@@ -106,7 +106,7 @@ function buildWeeklyTemplate(
   const trainingSet = new Set(trainingDayIndices);
   let sessionIdx = 0;
 
-  const splitRotation = getSplitRotation(style, daysPerWeek, goal);
+  const splitRotation = getSplitRotation(style, daysPerWeek, goal, trainingSplit);
 
   for (let dayNum = 0; dayNum < 7; dayNum++) {
     if (trainingSet.has(dayNum)) {
@@ -133,7 +133,27 @@ function buildWeeklyTemplate(
   return template;
 }
 
-function getSplitRotation(style: string, daysPerWeek: number, goal: PlanGoal): string[] {
+const SPLIT_NAME_TO_ROTATION: Record<string, string[]> = {
+  'Full Body':             ['Full Body'],
+  'Upper / Lower':         ['Upper', 'Lower'],
+  'Push / Pull / Legs':    ['Push', 'Pull', 'Legs'],
+  'Upper / Lower / Full':  ['Upper', 'Lower', 'Full Body'],
+  'Body Part Split':       ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Full Body'],
+};
+
+function getSplitRotation(style: string, daysPerWeek: number, goal: PlanGoal, trainingSplit?: string): string[] {
+  // If user explicitly selected a split, expand it to fill daysPerWeek
+  if (trainingSplit) {
+    const base = SPLIT_NAME_TO_ROTATION[trainingSplit];
+    if (base) {
+      const rotation: string[] = [];
+      for (let i = 0; i < daysPerWeek; i++) {
+        rotation.push(base[i % base.length]);
+      }
+      return rotation;
+    }
+  }
+  // Fallback: hardcoded rotation for styles that don't use user-selected splits
   switch (style) {
     case 'Strength':
     case 'Bodybuilding': {
@@ -248,7 +268,7 @@ export function generatePlanSchedule(input: PlanGenerationInput): GeneratedPlanS
   phaseWeeks = applyEventModifications(phaseWeeks, input.event, input.planLength);
   console.log('[PlanEngine] Step 2: Event modifications applied');
 
-  const weeklyTemplate = buildWeeklyTemplate(input.daysPerWeek, input.style, input.goal);
+  const weeklyTemplate = buildWeeklyTemplate(input.daysPerWeek, input.style, input.goal, input.trainingSplit);
   console.log('[PlanEngine] Step 3: Weekly template built,', weeklyTemplate.length, 'days/week');
 
   phaseWeeks = applyExperienceModifiers(phaseWeeks, input.experienceLevel);

@@ -1,11 +1,12 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useColorScheme } from 'react-native';
 import { healthService } from '@/services/healthService';
-import type { WorkoutExercise } from '@/services/workoutEngine';
+import type { WorkoutExercise, GenerateWorkoutParams } from '@/services/workoutEngine';
 import { Colors, WORKOUT_STYLE_COLORS, ZEAL_ACCENT_COLORS } from '@/constants/colors';
-import type { GeneratedPlanSchedule, DayPrescription } from '@/services/planEngine';
+import type { GeneratedPlanSchedule, DayPrescription, WeekSchedule } from '@/services/planEngine';
+import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import type { PlanGoal, PlanLength, ExperienceLevel as PlanExperienceLevel } from '@/services/planConstants';
 import { ALL_EQUIPMENT_IDS, HOME_EQUIPMENT_PRESET, CROSSFIT_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
 import { type FitnessLevel } from '@/constants/fitnessLevel';
@@ -85,6 +86,13 @@ export interface WorkoutPlan {
   completedDays?: string[];
   equipment?: Record<string, number>;
   pausedAt?: string;  // ISO date when plan was paused; undefined = active
+}
+
+export interface PlanGenerationProgress {
+  planId: string;
+  current: number;
+  total: number;
+  phase: 'week1' | 'background' | 'done' | 'error';
 }
 
 export type ExercisePreference = 'liked' | 'disliked' | 'neutral';
@@ -186,16 +194,16 @@ function getTodayDateStr(): string {
 }
 
 const DEFAULT_MUSCLE_READINESS: MuscleReadinessItem[] = [
-  { name: 'Chest', status: 'ready', value: 95, lastWorked: '3d ago' },
-  { name: 'Back', status: 'ready', value: 88, lastWorked: '1d ago' },
-  { name: 'Shoulders', status: 'ready', value: 100, lastWorked: '4d ago' },
-  { name: 'Biceps', status: 'building', value: 65, lastWorked: '1d ago' },
-  { name: 'Triceps', status: 'building', value: 70, lastWorked: '1d ago' },
-  { name: 'Quads', status: 'ready', value: 90, lastWorked: '2d ago' },
-  { name: 'Hamstrings', status: 'ready', value: 85, lastWorked: '2d ago' },
-  { name: 'Glutes', status: 'recovering', value: 40, lastWorked: '1d ago' },
-  { name: 'Core', status: 'ready', value: 92, lastWorked: '1d ago' },
-  { name: 'Calves', status: 'ready', value: 88, lastWorked: '3d ago' },
+  { name: 'Chest', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Back', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Shoulders', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Biceps', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Triceps', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Quads', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Hamstrings', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Glutes', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Core', status: 'ready', value: 100, lastWorked: 'Never' },
+  { name: 'Calves', status: 'ready', value: 100, lastWorked: 'Never' },
 ];
 
 const DEFAULT_SAVED_GYMS: SavedGym[] = [
@@ -280,6 +288,10 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const [showPlusSpotlight, setShowPlusSpotlight] = useState<boolean>(false);
   const [googlePrefill, setGooglePrefill] = useState<{ name: string; photoUri: string | null } | null>(null);
   const [newUserResetToken, setNewUserResetToken] = useState<number>(0);
+
+  // Background plan generation
+  const [planGenProgress, setPlanGenProgress] = useState<PlanGenerationProgress | null>(null);
+  const planGenRef = useRef<{ abortController: AbortController; promise: Promise<void> } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -559,6 +571,16 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
         console.log('[AppContext] plan save error:', e)
       );
     } else {
+      // Cancel any in-flight background generation
+      if (planGenTimerRef.current) {
+        clearInterval(planGenTimerRef.current);
+        planGenTimerRef.current = null;
+      }
+      if (planGenRef.current) {
+        planGenRef.current.abortController.abort();
+        planGenRef.current = null;
+      }
+      setPlanGenProgress(null);
       AsyncStorage.removeItem(WORKOUT_PLAN_KEY).catch(() => {});
       // Clear per-day workout cache when plan is cancelled
       AsyncStorage.getAllKeys()
@@ -577,6 +599,131 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       }
     }
   }, []);
+
+  // ── Background plan generation ─────────────────────────────────────────────
+  const planGenCounterRef = useRef(0);
+  const planGenTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startPlanGeneration = useCallback(async (
+    plan: WorkoutPlan,
+    schedule: GeneratedPlanSchedule,
+    genParamsFactory: (day: DayPrescription) => GenerateWorkoutParams,
+  ): Promise<void> => {
+    const todayStr = getTodayDateStr();
+    const allWeeks = schedule.weeks as WeekSchedule[];
+
+    const allTrainingDays = allWeeks
+      .flatMap(w => w.days)
+      .filter((d: DayPrescription) => !d.is_rest && d.date >= todayStr)
+      .slice(0, 60);
+
+    if (allTrainingDays.length === 0) return;
+
+    // Split into week 1 and remaining
+    const week1Number = allWeeks[0]?.week_number;
+    const week1Days = allTrainingDays.filter((d: DayPrescription) => d.week_number === week1Number);
+    const remainingDays = allTrainingDays.filter((d: DayPrescription) => d.week_number !== week1Number);
+
+    // Abort any previous generation
+    if (planGenRef.current) {
+      planGenRef.current.abortController.abort();
+    }
+    if (planGenTimerRef.current) {
+      clearInterval(planGenTimerRef.current);
+    }
+
+    const abortController = new AbortController();
+    planGenRef.current = { abortController, promise: Promise.resolve() };
+    planGenCounterRef.current = 0;
+
+    const totalCount = allTrainingDays.length;
+
+    setPlanGenProgress({
+      planId: plan.id,
+      current: 0,
+      total: totalCount,
+      phase: 'week1',
+    });
+
+    // Helper: generate and save a single day (updates ref, not state)
+    const generateDay = async (d: DayPrescription) => {
+      if (abortController.signal.aborted) return;
+      try {
+        const result = await generateWorkoutAsync(genParamsFactory(d), d);
+        await AsyncStorage.setItem(
+          `@zeal_plan_day_workout_${plan.id}_${d.date}`,
+          JSON.stringify(result)
+        );
+        if (d.date === todayStr) {
+          const snap = { date: todayStr, workout: result, title: d.session_type };
+          await AsyncStorage.setItem('@zeal_daily_generated_workout_v1', JSON.stringify(snap));
+        }
+      } catch (e) {
+        console.warn('[PlanGen] Failed to generate day', d.date, e);
+      }
+      planGenCounterRef.current++;
+    };
+
+    // Phase 1: Week 1 in parallel
+    await Promise.all(week1Days.map(generateDay));
+
+    if (abortController.signal.aborted) return;
+
+    // Sync counter to state once after week 1
+    setPlanGenProgress({
+      planId: plan.id,
+      current: planGenCounterRef.current,
+      total: totalCount,
+      phase: 'background',
+    });
+
+    // Start a throttled interval to sync counter to state (every 2s)
+    planGenTimerRef.current = setInterval(() => {
+      if (abortController.signal.aborted) {
+        if (planGenTimerRef.current) clearInterval(planGenTimerRef.current);
+        return;
+      }
+      setPlanGenProgress(prev => prev ? { ...prev, current: planGenCounterRef.current } : null);
+    }, 2000);
+
+    // Phase 2: Remaining weeks in batches of 3
+    const BATCH_SIZE = 3;
+    const bgPromise = (async () => {
+      for (let i = 0; i < remainingDays.length; i += BATCH_SIZE) {
+        if (abortController.signal.aborted) return;
+        const batch = remainingDays.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(generateDay));
+      }
+      // Clean up timer
+      if (planGenTimerRef.current) {
+        clearInterval(planGenTimerRef.current);
+        planGenTimerRef.current = null;
+      }
+      if (!abortController.signal.aborted) {
+        setPlanGenProgress({ planId: plan.id, current: totalCount, total: totalCount, phase: 'done' });
+      }
+    })();
+
+    planGenRef.current.promise = bgPromise;
+    // Do NOT await bgPromise — let it run in background
+  }, []);
+
+  const clearPlanGenProgress = useCallback(() => {
+    setPlanGenProgress(null);
+  }, []);
+
+  const cancelPlanGeneration = useCallback(() => {
+    if (planGenTimerRef.current) {
+      clearInterval(planGenTimerRef.current);
+      planGenTimerRef.current = null;
+    }
+    if (planGenRef.current) {
+      planGenRef.current.abortController.abort();
+      planGenRef.current = null;
+    }
+    setPlanGenProgress(null);
+  }, []);
+  // ───────────────────────────────────────────────────────────────────────────
 
   const saveNotifPrefs = useCallback((prefs: Partial<NotifPrefs>) => {
     setNotifPrefs(prev => {
@@ -1085,6 +1232,10 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       resetForNewUser,
       saveOnboardingProfile,
       newUserResetToken,
+      planGenProgress,
+      startPlanGeneration,
+      clearPlanGenProgress,
+      cancelPlanGeneration,
     }),
     [
       userName, userPhotoUri, dateOfBirth, heightFt, heightIn, weight, sex, bodyFat,
@@ -1111,6 +1262,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       plannedWorkouts, savePlannedWorkout, deletePlannedWorkout, getPlannedWorkoutForDate,
       showPlusSpotlight, setShowPlusSpotlight,
       googlePrefill, setGooglePrefill, deleteAccount, resetForNewUser, saveOnboardingProfile, newUserResetToken,
+      planGenProgress, startPlanGeneration, clearPlanGenProgress, cancelPlanGeneration,
     ]
   );
 });

@@ -74,7 +74,7 @@ import {
   type SeventyFiveHardSession,
 } from '@/services/workoutEngine';
 import type { MovementType } from '@/mocks/exerciseDatabase';
-import { generateWorkoutAsync, generateCoreFinisher, getAIStyles } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync, generateCoreFinisher, getAIStyles, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 import ModifyWorkoutDrawer from '@/components/drawers/ModifyWorkoutDrawer';
 import AddToWorkoutSheet, { type AddMode } from '@/components/AddToWorkoutSheet';
@@ -1119,6 +1119,7 @@ export default function WorkoutScreen() {
         const cached = await AsyncStorage.getItem(`@zeal_plan_day_workout_${ctx.activePlan?.id}_${todayStr}`);
         if (cached) {
           const cachedWorkout = JSON.parse(cached) as GeneratedWorkout;
+          cachedWorkout.workout = enforceStyleGrouping(cachedWorkout.workout, cachedWorkout.style);
           console.log('[WorkoutScreen] Plan cache hit — using pre-generated workout');
           setWorkout(cachedWorkout);
           tracking.setCurrentGeneratedWorkout(cachedWorkout);
@@ -1255,6 +1256,19 @@ export default function WorkoutScreen() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx, hasPro]);
+
+  // When a plan is activated or deactivated, clear the local workout so the tab
+  // picks up the plan workout (or reverts to modify flow) via doGenerate()
+  const activePlanId = ctx.activePlan?.id ?? null;
+  const prevPlanIdRef = useRef(activePlanId);
+  useEffect(() => {
+    if (activePlanId !== prevPlanIdRef.current) {
+      prevPlanIdRef.current = activePlanId;
+      if (!tracking.isWorkoutActive) {
+        setWorkout(null);
+      }
+    }
+  }, [activePlanId, tracking.isWorkoutActive]);
 
   useFocusEffect(
     useCallback(() => {
