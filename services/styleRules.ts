@@ -860,6 +860,86 @@ export const LOW_IMPACT_RULES: StyleGenerationRules = {
   ],
 };
 
+export const HYBRID_RULES: StyleGenerationRules = {
+  style_id: 'hybrid',
+  display_name: 'Hybrid',
+  available_formats: ['straight_sets', 'ascending_sets', 'wave_loading', 'circuit', 'amrap'],
+  primary_format: 'straight_sets',
+  format_selection: [
+    { format: 'straight_sets', weight: 50 },
+    { format: 'ascending_sets', weight: 20, min_fitness_level: 'intermediate' },
+    { format: 'wave_loading', weight: 15, min_fitness_level: 'advanced' },
+    { format: 'circuit', weight: 10 },
+    { format: 'amrap', weight: 5, min_fitness_level: 'intermediate' },
+  ],
+  session_architecture_id: 'strength',
+  rest_overrides: {
+    heavy_compound:    { floor: 120, ceiling: 300, base: 180 },
+    moderate_compound: { floor: 60,  ceiling: 180, base: 90  },
+    isolation:         { floor: 30,  ceiling: 60,  base: 45  },
+    core:              { floor: 20,  ceiling: 60,  base: 30  },
+    quick_bodyweight:  { floor: 15,  ceiling: 45,  base: 30  },
+  },
+  superset_rules: {
+    enabled: false,
+    default_for_isolation: false,
+    never_superset_primaries: true,
+    never_superset_heavy_compounds: true,
+    min_supersets: 0,
+    max_supersets: 0,
+    allowed_pairing_types: [],
+  },
+  progression: {
+    beginner: {
+      rep_increase_per_week: 1,
+      load_increase_percent_per_week: 2.5,
+      set_increase_frequency_weeks: 4,
+      max_load_increase_lbs_upper: 5,
+      max_load_increase_lbs_lower: 10,
+      deload_frequency_weeks: 6,
+      deload_volume_reduction: 0.40,
+    },
+    intermediate: {
+      rep_increase_per_week: 0,
+      load_increase_percent_per_week: 2.0,
+      set_increase_frequency_weeks: 3,
+      max_load_increase_lbs_upper: 5,
+      max_load_increase_lbs_lower: 10,
+      deload_frequency_weeks: 5,
+      deload_volume_reduction: 0.35,
+    },
+    advanced: {
+      rep_increase_per_week: 0,
+      load_increase_percent_per_week: 1.0,
+      set_increase_frequency_weeks: 2,
+      max_load_increase_lbs_upper: 2.5,
+      max_load_increase_lbs_lower: 5,
+      deload_frequency_weeks: 4,
+      deload_volume_reduction: 0.30,
+    },
+  },
+  time_math: {
+    transition_buffer_seconds: 40,
+    distraction_factor: 0.875,
+    warmup_time_budget_fraction: 0.0,
+    cooldown_time_budget_fraction: 0.0,
+    strength_time_budget_fraction: 0.65,
+    metcon_time_budget_fraction: 0.35,
+  },
+  rep_range: { min: 3, max: 20 },
+  set_range: { min: 3, max: 5 },
+  compounds_first: true,
+  pattern_priority: ['squat', 'hinge', 'push', 'pull', 'plyometric', 'isolation'],
+  exercise_count: { min: 5, max: 9 },
+  special_rules: [
+    'TWO_BLOCK_STRUCTURE',
+    'STRENGTH_BLOCK_FIRST',
+    'CONDITIONING_FINISHER_LAST',
+    'HEAVY_COMPOUNDS_IN_STRENGTH_BLOCK',
+    'CIRCUITS_IN_CONDITIONING_BLOCK',
+  ],
+};
+
 export const ALL_STYLE_RULES: Record<string, StyleGenerationRules> = {
   strength: STRENGTH_RULES,
   bodybuilding: BODYBUILDING_RULES,
@@ -870,6 +950,7 @@ export const ALL_STYLE_RULES: Record<string, StyleGenerationRules> = {
   pilates: PILATES_RULES,
   mobility: MOBILITY_RULES,
   low_impact: LOW_IMPACT_RULES,
+  hybrid: HYBRID_RULES,
 };
 
 export function getStyleRules(style: string): StyleGenerationRules {

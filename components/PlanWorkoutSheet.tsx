@@ -23,7 +23,7 @@ import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseData
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact'] as const;
+const STYLE_OPTIONS = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Cardio', 'Hyrox', 'Mobility', 'Pilates', 'Low-Impact', 'Hybrid'] as const;
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
@@ -101,6 +101,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
 
   const [genExercises, setGenExercises] = useState<WorkoutExercise[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [isGenError, setIsGenError] = useState<boolean>(false);
   const [genSeedOffset, setGenSeedOffset] = useState<number>(0);
 
   const [swapTargetId, setSwapTargetId] = useState<string | null>(null);
@@ -200,6 +201,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
   const doGenerate = useCallback((seedOff: number) => {
     console.log('[PlanWorkoutSheet] Generating workout — style:', selectedStyle, 'split:', selectedSplit || recommendedSplit, 'seed:', seedOff);
     setIsGenerating(true);
+    setIsGenError(false);
     setSwapTargetId(null);
     setSwapAlts([]);
     setEditTargetId(null);
@@ -210,7 +212,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       split: selectedSplit || recommendedSplit,
       targetDuration: ctx.targetDuration,
       restSlider: ctx.restBetweenSets,
-      availableEquipment: ctx.selectedEquipment,
+      availableEquipment: ctx.activePlan?.equipment ?? ctx.selectedEquipment,
       fitnessLevel: ctx.fitnessLevel,
       sex: ctx.sex,
       specialLifeCase: ctx.specialLifeCase,
@@ -227,6 +229,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     }).catch((e) => {
       console.log('[PlanWorkoutSheet] Generation error:', e);
       setGenExercises([]);
+      setIsGenError(true);
     }).finally(() => {
       setIsGenerating(false);
     });
@@ -869,6 +872,21 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                   ))}
                   <ActivityIndicator color={styleColor} style={{ marginTop: 8 }} />
                   <Text style={[styles.loadingText, { color: colors.textMuted }]}>Generating workout…</Text>
+                </View>
+              ) : isGenError ? (
+                <View style={{ alignItems: 'center', paddingVertical: 24, gap: 12 }}>
+                  <Text style={{ fontSize: 28 }}>⚠️</Text>
+                  <Text style={{ fontSize: 14, fontFamily: 'Outfit_600SemiBold', color: colors.text }}>Generation failed</Text>
+                  <Text style={{ fontSize: 13, fontFamily: 'Outfit_400Regular', color: colors.textSecondary, textAlign: 'center' }}>
+                    Couldn't reach the AI. Check your connection and try again.
+                  </Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: styleColor, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 }}
+                    onPress={() => doGenerate(genSeedOffset + 1)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 14, fontFamily: 'Outfit_700Bold', color: '#fff' }}>Try Again</Text>
+                  </TouchableOpacity>
                 </View>
               ) : showAddPanel ? (
                 <View style={[styles.addPanel, { backgroundColor: isDark ? '#1a1a1a' : '#f8f8f8', borderColor: colors.border }]}>

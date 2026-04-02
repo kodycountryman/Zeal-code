@@ -12,6 +12,7 @@ export const FORMAT_AVAILABILITY: Record<string, WorkoutFormatId[]> = {
   cardio:       ['zone_steady', 'tempo_intervals', 'interval_repeats'],
   pilates:      ['flow_sequence', 'straight_sets', 'hold_sequence'],
   mobility:     ['hold_sequence', 'flow_sequence', 'straight_sets'],
+  hybrid:       ['straight_sets', 'ascending_sets', 'wave_loading', 'circuit', 'amrap'],
 };
 
 export interface RestPeriodEntry {
@@ -77,6 +78,13 @@ export const REST_PERIOD_MATRIX: Record<string, Record<string, RestPeriodEntry>>
     core:              { floor: 5,   ceiling: 15,  base: 10  },
     quick_bodyweight:  { floor: 5,   ceiling: 15,  base: 10  },
   },
+  hybrid: {
+    heavy_compound:    { floor: 120, ceiling: 300, base: 180 },
+    moderate_compound: { floor: 60,  ceiling: 180, base: 90  },
+    isolation:         { floor: 30,  ceiling: 60,  base: 45  },
+    core:              { floor: 20,  ceiling: 60,  base: 30  },
+    quick_bodyweight:  { floor: 15,  ceiling: 45,  base: 30  },
+  },
 };
 
 export const SUPERSET_ELIGIBILITY: Record<string, {
@@ -93,6 +101,7 @@ export const SUPERSET_ELIGIBILITY: Record<string, {
   cardio:       { enabled: false, default_for_isolation: false, min: 0, max: 0 },
   pilates:      { enabled: false, default_for_isolation: false, min: 0, max: 0 },
   mobility:     { enabled: false, default_for_isolation: false, min: 0, max: 0 },
+  hybrid:       { enabled: false, default_for_isolation: false, min: 0, max: 0 },
 };
 
 export const PROGRESSION_SPEED: Record<string, Record<FitnessLevel, {
@@ -141,6 +150,11 @@ export const PROGRESSION_SPEED: Record<string, Record<FitnessLevel, {
     intermediate: { volume_increase_per_week: 0.01, intensity_increase_per_week: 0.000, deload_frequency_weeks: 0, deload_reduction: 0 },
     advanced:     { volume_increase_per_week: 0.01, intensity_increase_per_week: 0.000, deload_frequency_weeks: 0, deload_reduction: 0 },
   },
+  hybrid: {
+    beginner:     { volume_increase_per_week: 0.05, intensity_increase_per_week: 0.025, deload_frequency_weeks: 6, deload_reduction: 0.40 },
+    intermediate: { volume_increase_per_week: 0.03, intensity_increase_per_week: 0.020, deload_frequency_weeks: 5, deload_reduction: 0.35 },
+    advanced:     { volume_increase_per_week: 0.02, intensity_increase_per_week: 0.010, deload_frequency_weeks: 4, deload_reduction: 0.30 },
+  },
 };
 
 export const EXERCISE_COUNT_RANGES: Record<string, { min: number; max: number }> = {
@@ -153,6 +167,7 @@ export const EXERCISE_COUNT_RANGES: Record<string, { min: number; max: number }>
   pilates:      { min: 5,  max: 10 },
   mobility:     { min: 5,  max: 10 },
   low_impact:   { min: 5,  max: 8  },
+  hybrid:       { min: 5,  max: 9  },
 };
 
 export const REP_RANGE_BY_STYLE: Record<string, { min: number; max: number }> = {
@@ -165,6 +180,7 @@ export const REP_RANGE_BY_STYLE: Record<string, { min: number; max: number }> = 
   pilates:      { min: 8,  max: 15 },
   mobility:     { min: 5,  max: 10 },
   low_impact:   { min: 12, max: 20 },
+  hybrid:       { min: 3,  max: 20 },
 };
 
 export const SET_RANGE_BY_STYLE: Record<string, { min: number; max: number }> = {
@@ -177,6 +193,7 @@ export const SET_RANGE_BY_STYLE: Record<string, { min: number; max: number }> = 
   pilates:      { min: 2, max: 3 },
   mobility:     { min: 2, max: 3 },
   low_impact:   { min: 2, max: 4 },
+  hybrid:       { min: 3, max: 5 },
 };
 
 export const COMPOUNDS_FIRST_BY_STYLE: Record<string, boolean> = {
@@ -189,6 +206,7 @@ export const COMPOUNDS_FIRST_BY_STYLE: Record<string, boolean> = {
   pilates:      false,
   mobility:     false,
   low_impact:   false,
+  hybrid:       true,
 };
 
 export const PATTERN_PRIORITY_BY_STYLE: Record<string, string[]> = {
@@ -201,6 +219,7 @@ export const PATTERN_PRIORITY_BY_STYLE: Record<string, string[]> = {
   pilates:      ['pilates', 'rotation', 'isolation', 'hinge'],
   mobility:     ['mobility', 'rotation', 'hinge', 'squat'],
   low_impact:   ['isolation', 'push', 'pull', 'hinge', 'squat', 'lunge'],
+  hybrid:       ['squat', 'hinge', 'push', 'pull', 'plyometric', 'isolation'],
 };
 
 export const DURATION_OVERRIDES: Record<string, { max_working_minutes?: number; fixed_minutes?: number }> = {
@@ -235,6 +254,7 @@ export const TRANSITION_BUFFER_BY_STYLE: Record<string, number> = {
   pilates:      10,
   mobility:     10,
   low_impact:   30,
+  hybrid:       40,
 };
 
 export const DISTRACTION_FACTOR_BY_STYLE: Record<string, number> = {
@@ -247,6 +267,7 @@ export const DISTRACTION_FACTOR_BY_STYLE: Record<string, number> = {
   pilates:      0.95,
   mobility:     0.95,
   low_impact:   0.90,
+  hybrid:       0.875,
 };
 
 export const CIRCUIT_GROUPING_STYLES = new Set(['hiit', 'crossfit', 'hyrox']);

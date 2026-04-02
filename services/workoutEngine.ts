@@ -87,6 +87,8 @@ export interface GenerateWorkoutParams {
   addCardio: boolean;
   specificMuscles: string[];
   seedOffset?: number;
+  planPhase?: string;
+  volumeModifier?: number;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2626,7 +2628,7 @@ export function generateWorkout(params: GenerateWorkoutParams, prescription?: Da
     cooldown: cooldownItems,
     recovery: result.recovery,
     estimatedDuration: estimatedMin,
-    style: displayStyle,
+    style: params.style || displayStyle,
     split: params.split,
     metconFormat: result.metconFormat,
     metconTimeCap: result.metconTimeCap,
@@ -2634,4 +2636,102 @@ export function generateWorkout(params: GenerateWorkoutParams, prescription?: Da
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// PUBLIC HELPER — used by AI workout path to generate warmup /
+// cooldown / recovery via the rule engine instead of AI
+// ─────────────────────────────────────────────────────────────
+
+const HIGH_INTENSITY_STYLES = new Set(['CrossFit', 'HIIT', 'Hybrid', 'Hyrox']);
+const LOW_INTENSITY_STYLES  = new Set(['Mobility', 'Pilates', 'Low-Impact']);
+
+function normalizeMuscleGroupToEnums(muscleGroup: string): string[] {
+  const g = muscleGroup.toLowerCase();
+  if (g.includes('quad') || g === 'legs' || g === 'lower body') return ['quads'];
+  if (g.includes('hamstring'))                                    return ['hamstrings'];
+  if (g.includes('glute') || g.includes('hip flexor'))           return ['glutes', 'hip_flexors'];
+  if (g.includes('chest') || g.includes('pec'))                  return ['chest'];
+  if (g.includes('lat') || (g.includes('back') && !g.includes('lower'))) return ['lats', 'upper_back'];
+  if (g.includes('lower back') || g.includes('erector'))         return ['lower_back'];
+  if (g.includes('shoulder') || g.includes('delt'))              return ['front_delt', 'side_delt'];
+  if (g.includes('core') || g.includes('abs') || g.includes('oblique')) return ['core'];
+  if (g.includes('bicep'))                                        return ['biceps'];
+  if (g.includes('tricep'))                                       return ['triceps'];
+  if (g.includes('calf') || g.includes('calv'))                  return ['calves'];
+  if (g.includes('full body') || g.includes('compound'))         return ['quads', 'chest', 'lats', 'core'];
+  return [];
+}
+
+export function buildWarmupCooldownRecovery(
+  params: GenerateWorkoutParams,
+  workoutExercises: WorkoutExercise[],
+): { warmup: WarmupItem[]; cooldown: CooldownItem[]; recovery: RecoveryItem[] } {
+  const rng = seededRandom(
+    getDaySeed() + params.style.length * 31 + params.split.length * 17
+  );
+
+  const workedMuscles = new Set(
+    workoutExercises.flatMap(e => normalizeMuscleGroupToEnums(e.muscleGroup ?? ''))
+  );
+  const targetMuscles = params.specificMuscles.length > 0
+    ? params.specificMuscles
+    : Array.from(workedMuscles);
+
+  // Warmup
+  const warmup: WarmupItem[] = [];
+  if (params.warmUp) {
+    const count = WARMUP_EXERCISE_COUNT.min +
+      Math.floor(rng() * (WARMUP_EXERCISE_COUNT.max - WARMUP_EXERCISE_COUNT.min + 1));
+    const built = buildMobilityFirstWarmup(workedMuscles, targetMuscles, count, rng);
+    warmup.push(...built.map(w => ({ name: w.name, description: w.description, swappable: w.swappable })));
+  }
+
+  // Cooldown — target muscles worked, fallback to classic static stretches
+  const cooldown: CooldownItem[] = [];
+  if (params.coolDown) {
+    const cooldownEligible = getZealExerciseDatabase().filter(ex =>
+      ex.is_cooldown_eligible &&
+      ex.cooldown_for_muscles.some(m => workedMuscles.has(m) || targetMuscles.includes(m))
+    );
+    const count = COOLDOWN_EXERCISE_COUNT.min +
+      Math.floor(rng() * (COOLDOWN_EXERCISE_COUNT.max - COOLDOWN_EXERCISE_COUNT.min + 1));
+
+    if (cooldownEligible.length >= count) {
+      shuffleArray(cooldownEligible, rng).slice(0, count).forEach(ex => {
+        cooldown.push({ name: ex.name, description: 'Hold 30–45 seconds each side' });
+      });
+    }
+    if (cooldown.length < COOLDOWN_EXERCISE_COUNT.min) {
+      for (const c of shuffleArray(COOLDOWN_EXERCISES, rng)) {
+        if (cooldown.length >= count) break;
+        if (!cooldown.some(e => e.name === c.name)) {
+          cooldown.push({ name: c.name, description: c.description });
+        }
+      }
+    }
+  }
+
+  // Style-aware recovery
+  const recovery: RecoveryItem[] = [];
+  if (params.recovery) {
+    const intensity = HIGH_INTENSITY_STYLES.has(params.style) ? 'high'
+      : LOW_INTENSITY_STYLES.has(params.style) ? 'low'
+      : 'medium';
+    const eligible = RECOVERY_ITEMS.filter(r => r.intensity === intensity || r.intensity === 'any');
+    const count = 2 + Math.floor(rng() * 2);
+    // Deduplicate by name before slicing
+    const seen = new Set<string>();
+    const deduped = shuffleArray(eligible, rng).filter(r => {
+      if (seen.has(r.name)) return false;
+      seen.add(r.name);
+      return true;
+    });
+    recovery.push(...deduped.slice(0, count).map(r => ({
+      name: r.name,
+      description: r.description,
+      benefit: r.benefit,
+    })));
+  }
+
+  return { warmup, cooldown, recovery };
+}
 

@@ -733,7 +733,7 @@ export default function WorkoutScreen() {
   const currentWorkoutTitleRef = useRef(ctx.currentWorkoutTitle);
   currentWorkoutTitleRef.current = ctx.currentWorkoutTitle;
   const tracking = useWorkoutTracking();
-  const { hasPro } = useSubscription();
+  const { hasPro, openPaywall } = useSubscription();
 
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [warmupHidden, setWarmupHidden] = useState(false);
@@ -768,6 +768,7 @@ export default function WorkoutScreen() {
   const [startAnotherVisible, setStartAnotherVisible] = useState(false);
   const [planChoiceVisible, setPlanChoiceVisible] = useState(false);
   const [coreStyleBannerDismissed, setCoreStyleBannerDismissed] = useState(false);
+  const [planLapseBannerDismissed, setPlanLapseBannerDismissed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const [logEditMode, setLogEditMode] = useState(false);
@@ -981,8 +982,22 @@ export default function WorkoutScreen() {
 
   // Post-workout plan card precomputed vars (only meaningful when ctx.activePlan is set)
   const pwPlan = ctx.activePlan;
-  const pwApWeek = pwPlan ? Math.max(1, Math.ceil((new Date().getTime() - new Date(pwPlan.startDate + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000))) : 0;
-  const pwWeekSched = pwPlan ? ctx.planSchedule?.weeks.find(w => w.week_number === pwApWeek) : undefined;
+  // Freeze the week counter at the pause date so a paused plan doesn't advance past where it stopped
+  const pwEffectiveNow = (pwPlan?.pausedAt
+    ? new Date(pwPlan.pausedAt + 'T00:00:00')
+    : new Date()
+  ).getTime();
+  const pwApWeek = pwPlan ? Math.max(1, Math.ceil((pwEffectiveNow - new Date(pwPlan.startDate + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000))) : 0;
+
+  // Plan prescription for today — used for rest day detection and workout tab context
+  const todayPrescription = ctx.getTodayPrescription();
+  const isPlanRestDay = !!pwPlan && !!todayPrescription && todayPrescription.is_rest;
+  const isPlanPaused = !!pwPlan && !!pwPlan.pausedAt;
+  // Clamp to the last available week so the card still shows progress past plan end
+  const pwWeekSched = pwPlan ? (
+    ctx.planSchedule?.weeks.find(w => w.week_number === pwApWeek)
+    ?? ctx.planSchedule?.weeks[ctx.planSchedule.weeks.length - 1]
+  ) : undefined;
   const pwWeekDays = pwWeekSched?.days ?? [];
   const pwTodayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const pwWeekTraining = pwWeekDays.filter(d => !d.is_rest);
@@ -1049,7 +1064,7 @@ export default function WorkoutScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGenerating]);
 
-  const doGenerate = useCallback((
+  const doGenerate = useCallback(async (
     style?: string,
     split?: string,
     duration?: number,
@@ -1096,6 +1111,39 @@ export default function WorkoutScreen() {
 
     const prescription = (!ov && !style && hasPlan) ? todayPrescription : null;
 
+    // Check plan day cache before hitting AI — instant load for pre-generated days
+    if (prescription && hasPlan && !ov && !style) {
+      const d = new Date();
+      const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      try {
+        const cached = await AsyncStorage.getItem(`@zeal_plan_day_workout_${ctx.activePlan?.id}_${todayStr}`);
+        if (cached) {
+          const cachedWorkout = JSON.parse(cached) as GeneratedWorkout;
+          console.log('[WorkoutScreen] Plan cache hit — using pre-generated workout');
+          setWorkout(cachedWorkout);
+          tracking.setCurrentGeneratedWorkout(cachedWorkout);
+          ctx.setCurrentWorkoutTitle(
+            buildCreativeWorkoutTitle({
+              style: cachedWorkout.style,
+              split: cachedWorkout.split,
+              metconFormat: cachedWorkout.metconFormat,
+              duration: cachedWorkout.estimatedDuration,
+              previousTitle: currentWorkoutTitleRef.current,
+            })
+          );
+          setWarmupHidden(false);
+          setTrackedExercises(new Set());
+          setDoneExercises(new Set());
+          setExpandedTrack(null);
+          setCompletedSets({});
+          setIsGenerating(false);
+          return;
+        }
+      } catch (e) {
+        console.log('[WorkoutScreen] Plan cache error, regenerating:', e);
+      }
+    }
+
     const isAI = getAIStyles(hasPro).has(effectiveStyle);
     setGeneratingIsAI(isAI);
     setGeneratingElapsed(0);
@@ -1105,12 +1153,17 @@ export default function WorkoutScreen() {
     const reqId = ++generateReqIdRef.current;
     let finished = false;
 
+    // Use plan's stored equipment if generating a plan workout, otherwise user's global settings
+    const effectiveEquipment = (prescription && hasPlan)
+      ? (ctx.activePlan?.equipment ?? ctx.selectedEquipment)
+      : ctx.selectedEquipment;
+
     const params = {
       style: effectiveStyle,
       split: effectiveSplit,
       targetDuration: effectiveDuration,
       restSlider: effectiveRest,
-      availableEquipment: ctx.selectedEquipment,
+      availableEquipment: effectiveEquipment,
       fitnessLevel: ctx.fitnessLevel,
       sex: ctx.sex,
       specialLifeCase: ctx.specialLifeCase,
@@ -1121,6 +1174,8 @@ export default function WorkoutScreen() {
       addCardio: ctx.addCardio,
       specificMuscles: effectiveMuscles,
       seedOffset: seedOffset ?? 0,
+      planPhase: prescription?.phase,
+      volumeModifier: prescription?.volume_modifier,
     } as const;
 
     const applyGeneratedWorkout = (finalWorkout: GeneratedWorkout, minDelayMs: number) => {
@@ -1161,27 +1216,32 @@ export default function WorkoutScreen() {
       applyGeneratedWorkout(fallback, 0);
     }, 20000);
 
-    generateWorkoutAsync(params as any, prescription, hasPro).then(async (w) => {
-      if (generateReqIdRef.current !== reqId) return;
-      let finalWorkout = w;
-      if (ctx.coreFinisher) {
-        try {
-          console.log('[WorkoutScreen] Core finisher enabled, generating AI core exercises...');
-          const coreExercises = await Promise.race([
-            generateCoreFinisher({
-              fitnessLevel: ctx.fitnessLevel,
-              sex: ctx.sex,
-              availableEquipment: ctx.selectedEquipment,
-            }),
-            new Promise<WorkoutExercise[]>((_, reject) => {
-              setTimeout(() => reject(new Error('core finisher timeout')), 5000);
-            }),
-          ]);
-          finalWorkout = { ...w, coreFinisher: coreExercises };
-          console.log('[WorkoutScreen] Core finisher appended:', coreExercises.length, 'exercises');
-        } catch (err) {
+    const suppressCoreFinisher = (params.volumeModifier ?? 1.0) < 0.75;
+    const shouldRunCoreFinisher = ctx.coreFinisher && !suppressCoreFinisher;
+
+    // Fire main workout + core finisher in parallel — cuts total time nearly in half when both are enabled
+    const mainWorkoutPromise = generateWorkoutAsync(params as any, prescription, hasPro);
+    const coreFinisherPromise: Promise<WorkoutExercise[] | null> = shouldRunCoreFinisher
+      ? Promise.race([
+          generateCoreFinisher({
+            fitnessLevel: ctx.fitnessLevel,
+            sex: ctx.sex,
+            availableEquipment: effectiveEquipment,
+          }),
+          new Promise<WorkoutExercise[]>((_, reject) => {
+            setTimeout(() => reject(new Error('core finisher timeout')), 5000);
+          }),
+        ]).catch((err) => {
           console.log('[WorkoutScreen] Core finisher generation failed, skipping:', err);
-        }
+          return null;
+        })
+      : Promise.resolve(null);
+
+    Promise.all([mainWorkoutPromise, coreFinisherPromise]).then(([w, coreExercises]) => {
+      if (generateReqIdRef.current !== reqId) return;
+      const finalWorkout: GeneratedWorkout = coreExercises ? { ...w, coreFinisher: coreExercises } : w;
+      if (coreExercises) {
+        console.log('[WorkoutScreen] Core finisher appended:', coreExercises.length, 'exercises');
       }
       clearTimeout(hardTimeout);
       applyGeneratedWorkout(finalWorkout, 1500);
@@ -1224,11 +1284,12 @@ export default function WorkoutScreen() {
           setGeneratingIsAI(false);
           setGeneratingElapsed(0);
           setIsGenerating(true);
-        } else {
+        } else if (!isPlanRestDay && !isPlanPaused) {
           doGenerate();
         }
+        // On plan rest days or paused plans: skip generation entirely
       }
-    }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx])
+    }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx, isPlanRestDay, isPlanPaused])
   );
 
   useEffect(() => {
@@ -3399,7 +3460,8 @@ export default function WorkoutScreen() {
                   onPress={() => {
                     const next = regenCounter + 1;
                     setRegenCounter(next);
-                    doGenerate(undefined, undefined, undefined, undefined, undefined, next);
+                    // Pass user's default style explicitly to bypass any active plan prescription
+                    doGenerate(ctx.workoutStyle, undefined, undefined, undefined, undefined, next);
                   }}
                   activeOpacity={0.8}
                 >
@@ -3495,6 +3557,28 @@ export default function WorkoutScreen() {
           </View>
         )}
 
+        {!hasCompletedToday && !hasPro && !planLapseBannerDismissed && ctx.activePlan && PRO_STYLES_SET.has(ctx.activePlan.style) && !tracking.isWorkoutActive && (
+          <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
+            <View style={styles.coreStyleBannerContent}>
+              <Info size={14} color="#f59e0b" />
+              <Text style={[styles.coreStyleBannerText, { color: colors.text }]}>
+                {'Your plan uses '}
+                <Text style={{ fontWeight: '700' as const }}>{ctx.activePlan.style}</Text>
+                {', a Pro style. '}
+                <Text style={{ fontWeight: '700' as const, color: '#f59e0b' }} onPress={openPaywall}>Upgrade to keep it</Text>
+                {' or switch styles in Settings.'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setPlanLapseBannerDismissed(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <X size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {!hasCompletedToday && !hasPro && !coreStyleBannerDismissed && PRO_STYLES_SET.has(ctx.workoutStyle) && !tracking.isWorkoutActive && (
           <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
             <View style={styles.coreStyleBannerContent}>
@@ -3524,112 +3608,201 @@ export default function WorkoutScreen() {
           <>
             <HealthImportBanner />
 
-            <GlassCard
-              style={[styles.workoutInfoCard, { borderWidth: 1 }]}
-              variant={isDark ? 'glass' : 'solid'}
-              testID="workout-info-card"
-            >
-              <View style={styles.workoutInfoTop}>
-                <View style={styles.workoutInfoLabelRow}>
-                  <View style={styles.workoutInfoLabelLeft}>
-                    <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today's Workout</Text>
-                    <View style={[styles.workoutStyleChip, { backgroundColor: `${colors.textMuted}18`, borderWidth: 1, borderColor: `${colors.textMuted}30` }]}>
-                      <Text style={[styles.workoutStyleChipText, { color: colors.textSecondary }]}>{currentStyle}</Text>
-                    </View>
-                  </View>
-                  <View style={{ flex: 1 }} />
+            {isPlanPaused ? (
+              /* ── Plan Paused Card ── */
+              <GlassCard
+                style={[styles.workoutInfoCard, { borderWidth: 1 }]}
+                variant={isDark ? 'glass' : 'solid'}
+              >
+                <View style={{ alignItems: 'center', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 4 }}>
+                  <Text style={{ fontSize: 36, marginBottom: 10 }}>⏸️</Text>
+                  <Text style={{ fontSize: 22, fontFamily: 'Outfit_700Bold', color: colors.text, marginBottom: 4 }}>Plan Paused</Text>
+                  <Text style={{ fontSize: 14, fontFamily: 'Outfit_400Regular', color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 4 }}>
+                    {'Your training plan is on hold. Resume it in the Plan drawer when you\'re ready.'}
+                  </Text>
+                </View>
+                <View style={styles.workoutInfoActions}>
                   <TouchableOpacity
-                    style={[styles.shuffleBtn, { borderColor: currentAccent, backgroundColor: `${currentAccent}12` }]}
-                    onPress={handleRegenerate}
+                    style={[styles.workoutModifyBtn, { flex: 1, borderWidth: 1, borderColor: `${currentAccent}40` }]}
+                    onPress={() => setStartAnotherVisible(true)}
                     activeOpacity={0.7}
-                    testID="shuffle-workout"
                   >
-                    <RefreshCw size={11} color={currentAccent} strokeWidth={2.5} />
-                    <Text style={[styles.shuffleBtnText, { color: currentAccent }]}>Shuffle</Text>
+                    <SlidersHorizontal size={14} color={currentAccent} />
+                    <Text style={[styles.workoutModifyBtnText, { color: currentAccent }]}>Custom</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.workoutStartBtn, { flex: 2, backgroundColor: currentAccent, shadowColor: currentAccent }]}
+                    onPress={() => {
+                      const next = regenCounter + 1;
+                      setRegenCounter(next);
+                      doGenerate(ctx.workoutStyle, undefined, undefined, undefined, undefined, next);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Zap size={15} color="#fff" fill="#fff" />
+                    <Text style={styles.workoutStartBtnText}>Quick Workout</Text>
                   </TouchableOpacity>
                 </View>
+              </GlassCard>
+            ) : isPlanRestDay ? (
+              /* ── Rest Day Card ── */
+              <GlassCard
+                style={[styles.workoutInfoCard, { borderWidth: 1 }]}
+                variant={isDark ? 'glass' : 'solid'}
+                testID="rest-day-card"
+              >
+                <View style={{ alignItems: 'center', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 4 }}>
+                  <Text style={{ fontSize: 36, marginBottom: 10 }}>🌙</Text>
+                  <Text style={{ fontSize: 22, fontFamily: 'Outfit_700Bold', color: colors.text, marginBottom: 4 }}>Recovery Day</Text>
+                  {ctx.activePlan && todayPrescription && (
+                    <Text style={{ fontSize: 13, fontFamily: 'Outfit_500Medium', color: colors.textMuted, marginBottom: 12 }}>
+                      {`Week ${pwApWeek} · ${PHASE_DISPLAY_NAMES[todayPrescription.phase as PlanPhase] ?? todayPrescription.phase}`}
+                    </Text>
+                  )}
+                  {!!todayPrescription?.rest_suggestion && (
+                    <Text style={{ fontSize: 14, fontFamily: 'Outfit_400Regular', color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 4 }}>
+                      {todayPrescription.rest_suggestion}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.workoutInfoActions}>
+                  <TouchableOpacity
+                    style={[styles.workoutModifyBtn, { flex: 1, borderWidth: 1, borderColor: `${currentAccent}40` }]}
+                    onPress={() => setStartAnotherVisible(true)}
+                    activeOpacity={0.7}
+                  >
+                    <SlidersHorizontal size={14} color={currentAccent} />
+                    <Text style={[styles.workoutModifyBtnText, { color: currentAccent }]}>Custom</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.workoutStartBtn, { flex: 2, backgroundColor: currentAccent, shadowColor: currentAccent }]}
+                    onPress={() => {
+                      const next = regenCounter + 1;
+                      setRegenCounter(next);
+                      doGenerate(ctx.workoutStyle, undefined, undefined, undefined, undefined, next);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Zap size={15} color="#fff" fill="#fff" />
+                    <Text style={styles.workoutStartBtnText}>Quick Workout</Text>
+                  </TouchableOpacity>
+                </View>
+              </GlassCard>
+            ) : (
+              /* ── Normal Workout Card ── */
+              <GlassCard
+                style={[styles.workoutInfoCard, { borderWidth: 1 }]}
+                variant={isDark ? 'glass' : 'solid'}
+                testID="workout-info-card"
+              >
+                <View style={styles.workoutInfoTop}>
+                  <View style={styles.workoutInfoLabelRow}>
+                    <View style={styles.workoutInfoLabelLeft}>
+                      <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today's Workout</Text>
+                      <View style={[styles.workoutStyleChip, { backgroundColor: `${colors.textMuted}18`, borderWidth: 1, borderColor: `${colors.textMuted}30` }]}>
+                        <Text style={[styles.workoutStyleChipText, { color: colors.textSecondary }]}>{currentStyle}</Text>
+                      </View>
+                    </View>
+                    <View style={{ flex: 1 }} />
+                    <TouchableOpacity
+                      style={[styles.shuffleBtn, { borderColor: currentAccent, backgroundColor: `${currentAccent}12` }]}
+                      onPress={handleRegenerate}
+                      activeOpacity={0.7}
+                      testID="shuffle-workout"
+                    >
+                      <RefreshCw size={11} color={currentAccent} strokeWidth={2.5} />
+                      <Text style={[styles.shuffleBtnText, { color: currentAccent }]}>Shuffle</Text>
+                    </TouchableOpacity>
+                  </View>
 
-                <View style={styles.workoutInfoTitleRow}>
-                  <Text style={styles.workoutInfoTitle} numberOfLines={1}>
-                    {displaySplit || 'Auto'}
+                  {ctx.activePlan && todayPrescription && (
+                    <Text style={[styles.workoutPlanContext, { color: colors.textMuted }]}>
+                      {`Week ${pwApWeek} · ${PHASE_DISPLAY_NAMES[todayPrescription.phase as PlanPhase] ?? todayPrescription.phase}`}
+                    </Text>
+                  )}
+
+                  <View style={styles.workoutInfoTitleRow}>
+                    <Text style={styles.workoutInfoTitle} numberOfLines={1}>
+                      {displaySplit || 'Auto'}
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.workoutInfoSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {`${displayDuration} min`}
+                    {targetedMuscles.length > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
+                    {targetedMuscles.length > 0 && targetedMuscles.slice(0, 2).join(', ')}
+                    {totalExercises > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
+                    {totalExercises > 0 && `${totalExercises} exercises`}
                   </Text>
                 </View>
 
-                <Text style={[styles.workoutInfoSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {`${displayDuration} min`}
-                  {targetedMuscles.length > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
-                  {targetedMuscles.length > 0 && targetedMuscles.slice(0, 2).join(', ')}
-                  {totalExercises > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
-                  {totalExercises > 0 && `${totalExercises} exercises`}
-                </Text>
-              </View>
+                <View style={styles.workoutInfoActions}>
+                  <View ref={modifyBtnRef} collapsable={false} style={{ flex: 1 }}>
+                    {ctx.activePlan ? (
+                      <TouchableOpacity
+                        style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
+                        onPress={() => {
+                          if (Platform.OS === 'ios') {
+                            ActionSheetIOS.showActionSheetWithOptions(
+                              {
+                                options: ['Cancel', 'Modify Workout', 'View Workout Plan'],
+                                cancelButtonIndex: 0,
+                              },
+                              (buttonIndex) => {
+                                if (buttonIndex === 1) setModifyVisible(true);
+                                if (buttonIndex === 2) tracking.setActivePlanVisible(true);
+                              }
+                            );
+                          } else {
+                            Alert.alert('Workout Options', undefined, [
+                              { text: 'Modify Workout', onPress: () => setModifyVisible(true) },
+                              { text: 'View Workout Plan', onPress: () => tracking.setActivePlanVisible(true) },
+                              { text: 'Cancel', style: 'cancel' },
+                            ]);
+                          }
+                        }}
+                        activeOpacity={0.7}
+                        testID="modify-workout-card"
+                      >
+                        <PlatformIcon name="sparkles" size={14} color={colors.textMuted} />
+                        <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Plan</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
+                        onPress={() => setModifyVisible(true)}
+                        activeOpacity={0.7}
+                        testID="modify-workout-card"
+                      >
+                        <SlidersHorizontal size={14} color={colors.textMuted} />
+                        <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Modify</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
 
-              <View style={styles.workoutInfoActions}>
-                <View ref={modifyBtnRef} collapsable={false} style={{ flex: 1 }}>
-                  {ctx.activePlan ? (
+                  <Animated.View style={[startWorkoutAnimStyle, { flex: 2 }]}>
                     <TouchableOpacity
-                      style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
-                      onPress={() => {
-                        if (Platform.OS === 'ios') {
-                          ActionSheetIOS.showActionSheetWithOptions(
-                            {
-                              options: ['Cancel', 'Modify Workout', 'View Workout Plan'],
-                              cancelButtonIndex: 0,
-                            },
-                            (buttonIndex) => {
-                              if (buttonIndex === 1) setModifyVisible(true);
-                              if (buttonIndex === 2) tracking.setActivePlanVisible(true);
-                            }
-                          );
-                        } else {
-                          Alert.alert('Workout Options', undefined, [
-                            { text: 'Modify Workout', onPress: () => setModifyVisible(true) },
-                            { text: 'View Workout Plan', onPress: () => tracking.setActivePlanVisible(true) },
-                            { text: 'Cancel', style: 'cancel' },
-                          ]);
-                        }
-                      }}
-                      activeOpacity={0.7}
-                      testID="modify-workout-card"
+                      style={[styles.workoutStartBtn, { backgroundColor: currentAccent, shadowColor: currentAccent }]}
+                      onPress={handleStartWorkout}
+                      onPressIn={() => { startWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
+                      onPressOut={() => { startWorkoutScale.value = withSpring(1, SPRING_BTN); }}
+                      activeOpacity={1}
+                      testID="start-workout-card"
                     >
-                      <PlatformIcon name="sparkles" size={14} color={colors.textMuted} />
-                      <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Plan</Text>
+                      <Play size={15} color="#fff" fill="#fff" />
+                      <Text style={styles.workoutStartBtnText}>Start Workout</Text>
                     </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
-                      onPress={() => setModifyVisible(true)}
-                      activeOpacity={0.7}
-                      testID="modify-workout-card"
-                    >
-                      <SlidersHorizontal size={14} color={colors.textMuted} />
-                      <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Modify</Text>
-                    </TouchableOpacity>
-                  )}
+                  </Animated.View>
                 </View>
-
-                <Animated.View style={[startWorkoutAnimStyle, { flex: 2 }]}>
-                  <TouchableOpacity
-                    style={[styles.workoutStartBtn, { backgroundColor: currentAccent, shadowColor: currentAccent }]}
-                    onPress={handleStartWorkout}
-                    onPressIn={() => { startWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
-                    onPressOut={() => { startWorkoutScale.value = withSpring(1, SPRING_BTN); }}
-                    activeOpacity={1}
-                    testID="start-workout-card"
-                  >
-                    <Play size={15} color="#fff" fill="#fff" />
-                    <Text style={styles.workoutStartBtnText}>Start Workout</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              </View>
-            </GlassCard>
+              </GlassCard>
+            )}
           </>
         )}
 
         </View>
 
         {/* Unified tab card — tab bar header + content */}
-        {!hasCompletedToday && <View style={[styles.tabPanel, {
+        {!hasCompletedToday && !isPlanRestDay && <View style={[styles.tabPanel, {
           marginHorizontal: 16,
           marginTop: 14,
           backgroundColor: colors.card,
@@ -5062,6 +5235,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Outfit_400Regular',
     letterSpacing: 0,
+  },
+  workoutPlanContext: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.1,
+    marginTop: -2,
   },
   workoutInfoTitleRow: {
     flexDirection: 'row' as const,

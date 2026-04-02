@@ -104,6 +104,16 @@ export const WORKOUT_SESSION_CONFIG: Record<string, StyleControlConfig> = {
     duration_max: 75,
     show_session_toggle: false,
   },
+  Hybrid: {
+    slot_label: 'TRAINING SPLIT',
+    slot_options: ['Full Body', 'Upper', 'Lower', 'Push', 'Pull', 'Legs'],
+    show_specific_muscles: true,
+    muscles_label: 'SPECIFIC MUSCLES',
+    show_rest_slider: false,
+    duration_min: 30,
+    duration_max: 90,
+    show_session_toggle: false,
+  },
 };
 
 export function getStyleConfig(style: string): StyleControlConfig {

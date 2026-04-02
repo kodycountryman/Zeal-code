@@ -440,6 +440,7 @@ export const LEGACY_STYLE_MAP: Record<string, EligibleStyle> = {
   'Mobility': 'mobility',
   'Pilates': 'pilates',
   'Low-Impact': 'low_impact',
+  'Hybrid': 'strength',
 };
 
 export const STYLE_DISPLAY_FROM_ENGINE: Record<string, string> = {

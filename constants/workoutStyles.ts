@@ -14,6 +14,7 @@ export const WORKOUT_STYLE_LIST: { key: string; desc: string }[] = [
   { key: 'Cardio',      desc: 'Endurance, zone training, conditioning' },
   { key: 'HIIT',        desc: 'High-intensity intervals, max effort' },
   { key: 'Mobility',    desc: 'Joint health, flexibility, recovery' },
+  { key: 'Hybrid',      desc: 'Strength blocks + conditioning finishers' },
 ];
 
 /** Just the key strings — use wherever a plain string[] is needed. */

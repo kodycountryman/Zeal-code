@@ -64,22 +64,16 @@ export interface PlanGenerationInput {
 }
 
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // Use UTC to avoid DST shifts — local midnight can jump to previous day during spring-forward
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const ms = Date.UTC(y, m - 1, d) + days * 86_400_000;
+  const result = new Date(ms);
+  return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')}`;
 }
 
 function getDayOfWeek(dateStr: string): number {
   const d = new Date(dateStr + 'T00:00:00');
   return d.getDay();
-}
-
-function getSessionTypesForStyle(style: string): string[] {
-  const config = WORKOUT_SESSION_CONFIG[style];
-  if (config && config.slot_options.length > 0) {
-    return config.slot_options;
-  }
-  return ['Full Body'];
 }
 
 function buildWeeklyTemplate(
@@ -90,7 +84,6 @@ function buildWeeklyTemplate(
   console.log('[PlanEngine] Building weekly template: days=', daysPerWeek, 'style=', style);
 
   const template: WeeklyTemplate[] = [];
-  const sessionTypes = getSessionTypesForStyle(style);
   const totalDays = 7;
   const restDays = totalDays - daysPerWeek;
 
@@ -145,11 +138,19 @@ function getSplitRotation(style: string, daysPerWeek: number, goal: PlanGoal): s
     case 'Strength':
     case 'Bodybuilding': {
       if (daysPerWeek <= 2) return ['Full Body', 'Full Body'];
-      if (daysPerWeek === 3) return ['Push Day', 'Pull Day', 'Leg Day'];
+      if (daysPerWeek === 3) return ['Push', 'Pull', 'Legs'];
       if (daysPerWeek === 4) return ['Upper', 'Lower', 'Upper', 'Lower'];
-      if (daysPerWeek === 5) return ['Push Day', 'Pull Day', 'Leg Day', 'Upper', 'Lower'];
-      if (daysPerWeek === 6) return ['Push Day', 'Pull Day', 'Leg Day', 'Push Day', 'Pull Day', 'Leg Day'];
-      return ['Push Day', 'Pull Day', 'Leg Day', 'Upper', 'Lower', 'Full Body', 'Core + Cardio'];
+      if (daysPerWeek === 5) return ['Push', 'Pull', 'Legs', 'Upper', 'Lower'];
+      if (daysPerWeek === 6) return ['Push', 'Pull', 'Legs', 'Push', 'Pull', 'Legs'];
+      return ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Full Body'];
+    }
+    case 'Hybrid': {
+      if (daysPerWeek <= 2) return ['Full Body', 'Full Body'];
+      if (daysPerWeek === 3) return ['Push', 'Pull', 'Legs'];
+      if (daysPerWeek === 4) return ['Upper', 'Lower', 'Upper', 'Lower'];
+      if (daysPerWeek === 5) return ['Push', 'Pull', 'Legs', 'Upper', 'Lower'];
+      if (daysPerWeek === 6) return ['Push', 'Pull', 'Legs', 'Push', 'Pull', 'Legs'];
+      return ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Full Body'];
     }
     case 'CrossFit':
       return ['Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto'].slice(0, daysPerWeek);
@@ -157,19 +158,27 @@ function getSplitRotation(style: string, daysPerWeek: number, goal: PlanGoal): s
       if (daysPerWeek <= 2) return ['Auto', 'Auto'];
       if (daysPerWeek === 3) return ['Strength Circuit', 'Compromised Run', 'Station Practice'];
       if (daysPerWeek === 4) return ['Strength Circuit', 'Compromised Run', 'Station Practice', 'Half Simulation'];
-      return ['Strength Circuit', 'Compromised Run', 'Station Practice', 'Half Simulation', 'Auto'].slice(0, daysPerWeek);
+      if (daysPerWeek === 5) return ['Strength Circuit', 'Compromised Run', 'Station Practice', 'Half Simulation', 'Full Simulation'];
+      return ['Strength Circuit', 'Compromised Run', 'Station Practice', 'Half Simulation', 'Full Simulation', 'Auto'].slice(0, daysPerWeek);
     }
     case 'HIIT': {
-      if (daysPerWeek <= 2) return ['Full Body HIIT', 'Full Body HIIT'];
-      if (daysPerWeek === 3) return ['Full Body HIIT', 'Upper HIIT', 'Lower HIIT'];
-      return ['Full Body HIIT', 'Upper HIIT', 'Lower HIIT', 'Core Blast', 'Full Body HIIT'].slice(0, daysPerWeek);
+      if (daysPerWeek <= 2) return ['Full Body', 'Full Body'];
+      if (daysPerWeek === 3) return ['Full Body', 'Upper', 'Lower'];
+      return ['Full Body', 'Upper', 'Lower', 'Core Blast', 'Full Body'].slice(0, daysPerWeek);
     }
     case 'Cardio':
-      return ['Auto', 'Steady-State (Zone 2)', 'Intervals', 'Tempo', 'Fartlek', 'Machine Rotation', 'Bodyweight Circuit'].slice(0, daysPerWeek);
+      return ['Auto', 'Steady-State (Zone 2)', 'Tempo', 'Intervals', 'Fartlek', 'Machine Rotation', 'Bodyweight Circuit'].slice(0, daysPerWeek);
     case 'Mobility':
-      return ['Full-Body Flow', 'Targeted', 'Foam Rolling + Stretch', 'Recovery Day', 'Auto'].slice(0, daysPerWeek);
+      return ['Full-Body Flow', 'Targeted', 'Foam Rolling + Stretch', 'Recovery Day', 'Auto', 'Full-Body Flow', 'Targeted'].slice(0, daysPerWeek);
     case 'Pilates':
-      return ['Classical Mat Flow', 'Themed Flow', 'Pilates Circuit', 'Reformer Flow', 'Auto'].slice(0, daysPerWeek);
+      return ['Classical Mat Flow', 'Themed Flow', 'Pilates Circuit', 'Reformer Flow', 'Auto', 'Classical Mat Flow', 'Themed Flow'].slice(0, daysPerWeek);
+    case 'Low-Impact': {
+      if (daysPerWeek <= 2) return ['Full Body', 'Full Body'];
+      if (daysPerWeek === 3) return ['Full Body', 'Upper', 'Lower'];
+      if (daysPerWeek === 4) return ['Full Body', 'Upper', 'Lower', 'Push Day'];
+      if (daysPerWeek === 5) return ['Full Body', 'Upper', 'Lower', 'Push Day', 'Pull Day'];
+      return ['Full Body', 'Upper', 'Lower', 'Push Day', 'Pull Day', 'Seated Circuit'].slice(0, daysPerWeek);
+    }
     default:
       return Array(daysPerWeek).fill('Full Body');
   }
@@ -366,9 +375,6 @@ export function getCurrentWeekFromSchedule(
 ): WeekSchedule | null {
   for (const week of schedule.weeks) {
     if (week.days.some(d => d.date === dateStr)) return week;
-    const weekStart = week.days[0]?.date;
-    const weekEnd = week.days[week.days.length - 1]?.date;
-    if (weekStart && weekEnd && dateStr >= weekStart && dateStr <= weekEnd) return week;
   }
   return null;
 }
@@ -404,10 +410,6 @@ export function handleMissedDays(
     action: 'slide_forward',
     message: 'Missed day will slide forward. Your split order is preserved.',
   };
-}
-
-export function getPhaseRepRanges(phase: PlanPhase) {
-  return PHASE_REP_RANGES[phase];
 }
 
 export function getEventMilestones(

@@ -83,6 +83,8 @@ export interface WorkoutPlan {
   schedule?: GeneratedPlanSchedule;
   missedDays?: string[];
   completedDays?: string[];
+  equipment?: Record<string, number>;
+  pausedAt?: string;  // ISO date when plan was paused; undefined = active
 }
 
 export type ExercisePreference = 'liked' | 'disliked' | 'neutral';
@@ -558,6 +560,11 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       );
     } else {
       AsyncStorage.removeItem(WORKOUT_PLAN_KEY).catch(() => {});
+      // Clear per-day workout cache when plan is cancelled
+      AsyncStorage.getAllKeys()
+        .then(keys => keys.filter(k => k.startsWith('@zeal_plan_day_workout_')))
+        .then(planKeys => planKeys.length > 0 ? AsyncStorage.multiRemove(planKeys) : Promise.resolve())
+        .catch(() => {});
     }
     if (schedule !== undefined) {
       setPlanSchedule(schedule ?? null);
@@ -793,6 +800,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const markDayMissed = useCallback((dateStr: string) => {
     setActivePlan(prev => {
       if (!prev) return prev;
+      // Avoid duplicates — same guard as markDayCompleted
+      if ((prev.missedDays ?? []).includes(dateStr)) return prev;
       const missed = [...(prev.missedDays ?? []), dateStr];
       const updated = { ...prev, missedDays: missed };
       AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) => console.warn('[AppContext] Failed to save missed day to plan:', e));
@@ -833,7 +842,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     if (newMissed.length === 0) return;
     setActivePlan(prev => {
       if (!prev) return prev;
-      const combined = [...(prev.missedDays ?? []), ...newMissed];
+      const combined = [...new Set([...(prev.missedDays ?? []), ...newMissed])];
       const updated = { ...prev, missedDays: combined };
       AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) =>
         console.warn('[AppContext] Failed to persist auto-detected missed days:', e)

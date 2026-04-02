@@ -6,6 +6,7 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import { SubscriptionProvider, useSubscription } from "@/context/SubscriptionContext";
 import { WorkoutTrackingProvider, useWorkoutTracking } from "@/context/WorkoutTrackingContext";
@@ -161,20 +162,22 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <AppProvider>
-          <SubscriptionProvider>
-            <WorkoutTrackingProvider>
-              <BottomSheetModalProvider>
-                <NotificationHandler />
-                <AutoGenerateTodayWorkout />
-                <RootLayoutNav />
-              </BottomSheetModalProvider>
-            </WorkoutTrackingProvider>
-          </SubscriptionProvider>
-        </AppProvider>
-      </QueryClientProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <QueryClientProvider client={queryClient}>
+          <AppProvider>
+            <SubscriptionProvider>
+              <WorkoutTrackingProvider>
+                <BottomSheetModalProvider>
+                  <NotificationHandler />
+                  <AutoGenerateTodayWorkout />
+                  <RootLayoutNav />
+                </BottomSheetModalProvider>
+              </WorkoutTrackingProvider>
+            </SubscriptionProvider>
+          </AppProvider>
+        </QueryClientProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

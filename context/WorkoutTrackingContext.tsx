@@ -325,7 +325,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     return 'Legs';
   }
 
-  const ensureTodayWorkoutGenerated = useCallback(() => {
+  const ensureTodayWorkoutGenerated = useCallback(async () => {
     // Re-entrancy guard for quick tab presses.
     if (isGeneratingWorkout) return;
     if (generationInFlightRef.current) return;
@@ -395,12 +395,17 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
     const prescription = (!ov && hasPlan) ? todayPrescription : null;
 
+    // Use plan's stored equipment for plan workouts; fall back to user's global settings
+    const effectiveEquipment = (prescription && hasPlan)
+      ? (ctx.activePlan?.equipment ?? ctx.selectedEquipment)
+      : ctx.selectedEquipment;
+
     const params = {
       style: effectiveStyle,
       split: effectiveSplit,
       targetDuration: effectiveDuration,
       restSlider: effectiveRest,
-      availableEquipment: ctx.selectedEquipment,
+      availableEquipment: effectiveEquipment,
       fitnessLevel: ctx.fitnessLevel,
       sex: ctx.sex,
       specialLifeCase: ctx.specialLifeCase,
@@ -411,7 +416,35 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       addCardio: ctx.addCardio,
       specificMuscles: effectiveMuscles,
       seedOffset: 0,
+      // Pass plan phase context so generation matches current training phase
+      planPhase: prescription?.phase,
+      volumeModifier: prescription?.volume_modifier,
     };
+
+    // If we have a pre-generated plan day workout in cache, use it directly — skip AI call
+    if (hasPlan && !ov) {
+      try {
+        const planCacheKey = `@zeal_plan_day_workout_${ctx.activePlan?.id}_${todayStr}`;
+        const cached = await AsyncStorage.getItem(planCacheKey);
+        if (cached) {
+          const cachedWorkout: GeneratedWorkout = JSON.parse(cached);
+          generatedForDateRef.current = todayStr;
+          setCurrentGeneratedWorkout(cachedWorkout);
+          ctx.setCurrentWorkoutTitle(
+            buildCreativeWorkoutTitle({
+              style: cachedWorkout.style,
+              split: cachedWorkout.split,
+              metconFormat: cachedWorkout.metconFormat,
+              duration: cachedWorkout.estimatedDuration,
+              previousTitle: currentWorkoutTitleRef.current,
+            })
+          );
+          return;
+        }
+      } catch {
+        // Cache read failed — fall through to normal generation
+      }
+    }
 
     const reqId = ++generationReqIdRef.current;
     generationInFlightRef.current = true;
@@ -426,7 +459,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
               generateCoreFinisher({
                 fitnessLevel: ctx.fitnessLevel,
                 sex: ctx.sex,
-                availableEquipment: ctx.selectedEquipment,
+                availableEquipment: effectiveEquipment,
               }),
               new Promise<WorkoutExercise[]>((_, reject) => {
                 setTimeout(() => reject(new Error('core finisher timeout')), 5000);
@@ -1141,9 +1174,9 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
     ctx.saveState();
 
-    // Auto-mark plan day completed when a real (non-rest) plan day is finished
+    // Auto-mark plan day completed only when the plan workout (not an override) was finished
     const planDay = ctx.getTodayPrescription();
-    if (ctx.activePlan && planDay && !planDay.is_rest) {
+    if (ctx.activePlan && planDay && !planDay.is_rest && !ctx.workoutOverride) {
       ctx.markDayCompleted(getTodayStr());
     }
 

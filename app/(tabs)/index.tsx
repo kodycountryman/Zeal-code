@@ -410,9 +410,8 @@ export default function HomeScreen() {
             duration={workoutDuration}
             muscleGroups={muscleGroups}
             exerciseCount={exerciseCount}
-            onPress={hasTodayWorkout ? handleViewTodayLog : handlePreviewPress}
+            onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
             activePlan={ctx.activePlan}
-            onViewPlan={() => tracking.setActivePlanVisible(true)}
             variant={isDark ? 'glass' : 'solid'}
             completedLog={hasTodayWorkout ? latestTodayLog : null}
           />

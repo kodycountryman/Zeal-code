@@ -370,12 +370,24 @@ export const COOLDOWN_EXERCISES = [
 ];
 
 export const RECOVERY_ITEMS = [
-  { name: 'Contrast Shower', description: 'Alternate between 1 minute cold and 2 minutes hot water for 10 minutes total.', benefit: 'Improves circulation and reduces muscle soreness.' },
-  { name: 'Foam Rolling', description: 'Spend 2-3 minutes per muscle group rolling slowly over tight areas.', benefit: 'Breaks up adhesions and improves tissue quality.' },
-  { name: 'Magnesium Supplement', description: 'Take 400-800mg magnesium glycinate before bed.', benefit: 'Supports muscle recovery and sleep quality.' },
-  { name: 'Protein Within 30min', description: 'Consume 30-50g protein within 30 minutes of training.', benefit: 'Maximizes muscle protein synthesis window.' },
-  { name: 'Sleep 7-9 Hours', description: 'Prioritize consistent sleep schedule for optimal recovery.', benefit: 'Growth hormone peaks during deep sleep cycles.' },
-  { name: 'Walk 10 Minutes', description: 'Light walking post-workout to aid active recovery.', benefit: 'Promotes blood flow and lactate clearance.' },
+  // High-intensity recovery (CrossFit, HIIT, Hybrid, Hyrox)
+  { name: 'Contrast Shower', description: 'Alternate between 1 minute cold and 2 minutes hot water for 10 minutes total.', benefit: 'Improves circulation and reduces muscle soreness.', intensity: 'high' as const },
+  { name: 'Cold Water Immersion', description: 'Submerge legs in cold water (50–60°F) for 10–15 minutes post-session.', benefit: 'Rapidly reduces exercise-induced inflammation and muscle soreness.', intensity: 'high' as const },
+  { name: 'Foam Rolling', description: 'Spend 2–3 minutes per muscle group rolling slowly over tight areas.', benefit: 'Breaks up adhesions and improves tissue quality.', intensity: 'high' as const },
+  { name: 'BCAA or Protein Shake', description: 'Consume 25–40g protein or a BCAA drink immediately after training.', benefit: 'Supports muscle protein synthesis and reduces muscle breakdown.', intensity: 'high' as const },
+  // Medium-intensity recovery (Strength, Bodybuilding, Cardio)
+  { name: 'Protein Within 30min', description: 'Consume 30–50g protein within 30 minutes of finishing training.', benefit: 'Maximizes the muscle protein synthesis window.', intensity: 'medium' as const },
+  { name: 'Foam Rolling', description: 'Spend 2–3 minutes per muscle group rolling slowly over tight areas.', benefit: 'Breaks up adhesions and improves tissue quality.', intensity: 'medium' as const },
+  { name: 'Epsom Salt Bath', description: 'Soak for 15–20 minutes in warm water with 2 cups of Epsom salt.', benefit: 'Reduces inflammation and muscle soreness via magnesium absorption.', intensity: 'medium' as const },
+  { name: 'Hydration', description: 'Drink 16–32oz of water within 30 minutes of finishing your workout.', benefit: 'Restores fluid balance and accelerates metabolic waste clearance.', intensity: 'medium' as const },
+  // Low-intensity recovery (Mobility, Pilates, Low-Impact)
+  { name: 'Sleep 7–9 Hours', description: 'Prioritize a consistent sleep schedule for optimal recovery.', benefit: 'Growth hormone peaks during deep sleep cycles.', intensity: 'low' as const },
+  { name: 'Magnesium Supplement', description: 'Take 400–800mg magnesium glycinate before bed.', benefit: 'Supports muscle relaxation, recovery, and sleep quality.', intensity: 'low' as const },
+  { name: 'Walk 10 Minutes', description: 'Light walking post-session to aid active recovery.', benefit: 'Promotes gentle blood flow and helps clear lactate.', intensity: 'low' as const },
+  // Any intensity
+  { name: 'Stretching Session', description: 'Spend 10 minutes on static stretches targeting the muscles worked today.', benefit: 'Improves flexibility and promotes blood flow to recovering tissue.', intensity: 'any' as const },
+  { name: 'Sleep 7–9 Hours', description: 'Prioritize a consistent sleep schedule for optimal recovery.', benefit: 'Growth hormone peaks during deep sleep cycles.', intensity: 'any' as const },
+  { name: 'Hydration', description: 'Drink 16–32oz of water within 30 minutes of finishing your workout.', benefit: 'Restores fluid balance and accelerates metabolic waste clearance.', intensity: 'any' as const },
 ];
 
 

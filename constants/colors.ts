@@ -64,6 +64,7 @@ export const WORKOUT_STYLE_COLORS: Record<string, string> = {
   Mobility: '#22c55e',
   Pilates: '#ec4899',
   'Low-Impact': '#86efac',
+  Hybrid: '#f59e0b',
 };
 
 export const ZEAL_ACCENT_COLORS = [
@@ -94,6 +95,8 @@ export const WORKOUT_STYLE_DESCRIPTIONS: Record<string, string> = {
     'Low-impact, high-focus training for core strength, posture, and body awareness.',
   'Low-Impact':
     'Gentle, joint-friendly training. Higher reps, lower loads, and controlled movements for sustainable fitness.',
+  Hybrid:
+    'The best of both worlds. Heavy compound strength blocks paired with metabolic conditioning finishers for power, endurance, and body composition.',
 };
 
 export const MUSCLE_STATUS_COLORS: Record<string, string> = {
@@ -112,4 +115,5 @@ export const TRAINING_SPLITS: Record<string, string[]> = {
   Mobility:     ['Auto', 'Full-Body Flow', 'Targeted', 'Foam Rolling + Stretch', 'Recovery Day'],
   Pilates:      ['Auto', 'Classical Mat Flow', 'Themed Flow', 'Pilates Circuit', 'Reformer Flow'],
   'Low-Impact': ['Full Body', 'Upper', 'Lower', 'Push Day', 'Pull Day', 'Seated Circuit'],
+  Hybrid:       ['Full Body', 'Upper', 'Lower', 'Push', 'Pull', 'Legs'],
 };

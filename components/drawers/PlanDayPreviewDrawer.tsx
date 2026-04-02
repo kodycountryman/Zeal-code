@@ -5,10 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
+import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PHASE_DISPLAY_NAMES } from '@/services/planConstants';
 import type { PlanPhase } from '@/services/planConstants';
@@ -17,6 +19,30 @@ import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const PLAN_DAY_CACHE_PREFIX = '@zeal_plan_day_workout_';
+
+// Maps session type keywords → muscle group names (matching MuscleReadinessItem.name)
+const SESSION_MUSCLES: Array<{ keys: string[]; muscles: string[] }> = [
+  { keys: ['push'],         muscles: ['Chest', 'Shoulders', 'Triceps'] },
+  { keys: ['pull'],         muscles: ['Back', 'Biceps'] },
+  { keys: ['leg', 'lower'], muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves'] },
+  { keys: ['upper'],        muscles: ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps'] },
+  { keys: ['chest'],        muscles: ['Chest', 'Triceps'] },
+  { keys: ['back'],         muscles: ['Back', 'Biceps'] },
+  { keys: ['shoulder'],     muscles: ['Shoulders'] },
+  { keys: ['arm'],          muscles: ['Biceps', 'Triceps'] },
+  { keys: ['core', 'ab'],   muscles: ['Core'] },
+  { keys: ['glute', 'hip'], muscles: ['Glutes'] },
+  { keys: ['full body', 'total body'], muscles: ['Chest', 'Back', 'Shoulders', 'Quads', 'Hamstrings', 'Glutes'] },
+];
+
+function getPrimaryMuscles(sessionType: string): string[] {
+  const lower = sessionType.toLowerCase();
+  for (const entry of SESSION_MUSCLES) {
+    if (entry.keys.some(k => lower.includes(k))) return entry.muscles;
+  }
+  return [];
+}
 
 function formatDateMed(dateStr: string): string {
   try {
@@ -43,10 +69,10 @@ function SkeletonRow({ opacity, colors }: { opacity: number; colors: any }) {
   return (
     <View style={[skStyles.row, { borderColor: colors.border }]}>
       <View style={skStyles.left}>
-        <View style={[skStyles.titleBar, { backgroundColor: colors.border, opacity }]} />
-        <View style={[skStyles.subBar, { backgroundColor: colors.border, opacity: opacity * 0.6 }]} />
+        <View style={[skStyles.titleBar, { backgroundColor: 'rgba(255,255,255,0.14)', opacity }]} />
+        <View style={[skStyles.subBar, { backgroundColor: 'rgba(255,255,255,0.14)', opacity: opacity * 0.6 }]} />
       </View>
-      <View style={[skStyles.badge, { backgroundColor: colors.border, opacity: opacity * 0.5 }]} />
+      <View style={[skStyles.badge, { backgroundColor: 'rgba(255,255,255,0.14)', opacity: opacity * 0.5 }]} />
     </View>
   );
 }
@@ -68,6 +94,7 @@ const skStyles = StyleSheet.create({
 export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, day }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
+  const tracking = useWorkoutTracking();
   const router = useRouter();
 
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
@@ -76,7 +103,15 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
   const styleColor = day ? (WORKOUT_STYLE_COLORS[day.style] ?? accent) : accent;
 
-  // Generate workout when drawer opens
+  // Muscle readiness warning — check if primary muscles for this session are recovering
+  const fatigued = day && !day.is_rest
+    ? getPrimaryMuscles(day.session_type || day.style).filter(muscle => {
+        const item = ctx.muscleReadiness.find(r => r.name === muscle);
+        return item && item.status === 'recovering';
+      })
+    : [];
+
+  // Generate workout when drawer opens (with per-day cache)
   useEffect(() => {
     if (!visible || !day || day.is_rest) {
       setWorkout(null);
@@ -90,36 +125,71 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
     setWorkout(null);
     setError(null);
 
-    generateWorkoutAsync(
-      {
-        style: day.style,
-        split: day.session_type,
-        targetDuration: day.target_duration,
-        restSlider: ctx.restBetweenSets,
-        availableEquipment: ctx.selectedEquipment,
-        fitnessLevel: ctx.fitnessLevel,
-        sex: ctx.sex,
-        specialLifeCase: ctx.specialLifeCase,
-        specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-        warmUp: ctx.warmUp,
-        coolDown: ctx.coolDown,
-        recovery: false,
-        addCardio: false,
-        specificMuscles: [],
-      },
-      day
-    )
-      .then(result => {
-        if (!cancelled) {
-          setWorkout(result);
-          setLoading(false);
+    const cacheKey = `${PLAN_DAY_CACHE_PREFIX}${ctx.activePlan?.id}_${day.date}`;
+
+    const params = {
+      style: day.style,
+      split: day.session_type,
+      targetDuration: day.target_duration,
+      restSlider: ctx.restBetweenSets,
+      availableEquipment: ctx.activePlan?.equipment ?? ctx.selectedEquipment,
+      fitnessLevel: ctx.fitnessLevel,
+      sex: ctx.sex,
+      specialLifeCase: ctx.specialLifeCase,
+      specialLifeCaseDetail: ctx.specialLifeCaseDetail,
+      warmUp: ctx.warmUp,
+      coolDown: ctx.coolDown,
+      recovery: false,
+      addCardio: false,
+      specificMuscles: [],
+      planPhase: day.phase,
+      volumeModifier: day.volume_modifier,
+    };
+
+    AsyncStorage.getItem(cacheKey)
+      .then(cached => {
+        if (cancelled) return;
+        if (cached) {
+          try {
+            const parsed: GeneratedWorkout = JSON.parse(cached);
+            setWorkout(parsed);
+            setLoading(false);
+            return;
+          } catch {
+            // Cache corrupt — fall through to generate
+          }
         }
+        return generateWorkoutAsync(params, day)
+          .then(result => {
+            if (!cancelled) {
+              setWorkout(result);
+              setLoading(false);
+              AsyncStorage.setItem(cacheKey, JSON.stringify(result)).catch(() => {});
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setError('Could not preview this workout. You can still start it.');
+              setLoading(false);
+            }
+          });
       })
       .catch(() => {
-        if (!cancelled) {
-          setError('Could not preview this workout. You can still start it.');
-          setLoading(false);
-        }
+        if (cancelled) return;
+        generateWorkoutAsync(params, day)
+          .then(result => {
+            if (!cancelled) {
+              setWorkout(result);
+              setLoading(false);
+              AsyncStorage.setItem(cacheKey, JSON.stringify(result)).catch(() => {});
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setError('Could not preview this workout. You can still start it.');
+              setLoading(false);
+            }
+          });
       });
 
     return () => { cancelled = true; };
@@ -127,18 +197,26 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
   const handleStart = useCallback(() => {
     if (!day) return;
-    ctx.applyWorkoutOverride({
-      style: day.style,
-      split: day.session_type,
-      duration: day.target_duration,
-      rest: ctx.restBetweenSets,
-      muscles: [],
-      setDate: getTodayStr(),
-    });
+
+    if (workout) {
+      // Pre-generated workout is ready — inject directly into workout tab, no regeneration
+      tracking.setCurrentGeneratedWorkout(workout);
+    } else {
+      // Preview not ready — fall back to override so workout tab regenerates
+      ctx.applyWorkoutOverride({
+        style: day.style,
+        split: day.session_type,
+        duration: day.target_duration,
+        rest: ctx.restBetweenSets,
+        muscles: [],
+        setDate: getTodayStr(),
+      });
+    }
+
     onClose();
     onClosePlan();
     setTimeout(() => router.push('/(tabs)/workout' as any), 400);
-  }, [day, ctx, onClose, onClosePlan, router]);
+  }, [day, workout, ctx, tracking, onClose, onClosePlan, router]);
 
   if (!day) return null;
 
@@ -194,6 +272,21 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
             <Text style={[styles.notesText, { color: colors.textSecondary }]}>{day.notes}</Text>
           </View>
         ) : null}
+
+        {/* ── Muscle readiness warning ────────────────────── */}
+        {fatigued.length > 0 && (
+          <View style={[styles.readinessWarn, { backgroundColor: '#f59e0b0d', borderColor: '#f59e0b35' }]}>
+            <PlatformIcon name="alert-triangle" size={13} color="#f59e0b" />
+            <Text style={[styles.readinessWarnText, { color: colors.textSecondary }]}>
+              <Text style={{ fontWeight: '700', color: '#f59e0b' }}>
+                {fatigued.join(', ')}
+              </Text>
+              {fatigued.length === 1
+                ? ' is still recovering. Consider lighter loads or extra warm-up.'
+                : ' are still recovering. Consider lighter loads or extra warm-up.'}
+            </Text>
+          </View>
+        )}
 
         {/* ── Loading skeleton ────────────────────────────── */}
         {loading && (
@@ -270,11 +363,8 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
           onPress={handleStart}
           activeOpacity={0.85}
         >
-          <PlatformIcon name="play" size={15} color="#fff" fill="#fff" />
-          <Text style={styles.startBtnText}>
-            {loading ? 'Start This Workout' : 'Start This Workout'}
-          </Text>
-          <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" />
+          <Text style={styles.startBtnText}>Start This Workout</Text>
+          <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
         </TouchableOpacity>
 
         <View style={{ height: 20 }} />
@@ -401,6 +491,12 @@ const styles = StyleSheet.create({
   },
   groupHeaderText: { fontSize: 11, fontFamily: 'Outfit_600SemiBold', flex: 1 },
   groupRest: { fontSize: 11, fontFamily: 'Outfit_400Regular' },
+
+  readinessWarn: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10,
+  },
+  readinessWarnText: { fontSize: 12, fontFamily: 'Outfit_400Regular', flex: 1, lineHeight: 17 },
 
   errorCard: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

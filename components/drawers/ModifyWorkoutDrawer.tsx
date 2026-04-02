@@ -25,7 +25,7 @@ import BaseDrawer from '@/components/drawers/BaseDrawer';
 
 const WORKOUT_STYLES = [
   'Strength', 'Bodybuilding', 'CrossFit', 'Hyrox',
-  'Cardio', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact',
+  'Cardio', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact', 'Hybrid',
 ];
 
 

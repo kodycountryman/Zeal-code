@@ -13,7 +13,10 @@
       "Bash(code \"/Users/kodycountryman/Desktop/zeal+ Code\")",
       "Bash(xcrun simctl:*)",
       "Bash(npx expo:*)",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "Bash(find '/Users/kodycountryman/Desktop/zeal+ Code' -name *constant* -o -name *config*)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(find \"/Users/kodycountryman/Desktop/zeal+ Code\" -path \"*/\\(tabs\\)/workout.tsx\")"
     ]
   },
   "hooks": {

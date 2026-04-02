@@ -4,14 +4,22 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext, type WorkoutPlan } from '@/context/AppContext';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { PRO_STYLES_SET } from '@/services/proGate';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
-import { generatePlanSchedule, type PlanGenerationInput } from '@/services/planEngine';
+import { generatePlanSchedule, type PlanGenerationInput, type WeekSchedule, type DayPrescription } from '@/services/planEngine';
+import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
+import { COMMERCIAL_EQUIPMENT_PRESET, HOME_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
+import type { GenerateWorkoutParams } from '@/services/workoutEngine';
 import {
   PLAN_GOALS,
   PLAN_EVENTS,
@@ -238,9 +246,13 @@ const tlStyles = StyleSheet.create({
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
+// Goals that map to Pro-only styles (Strength, Bodybuilding)
+const PRO_GOALS = new Set(['build_strength', 'build_muscle']);
+
 export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
+  const { hasPro, openPaywall } = useSubscription();
   const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState(1);
@@ -252,9 +264,12 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
   const [experience, setExperience] = useState<ExperienceLevel | ''>('');
   const [planLength, setPlanLength] = useState<PlanLength>(8);
   const [startDate] = useState(getTodayStr());
+  const [preGenProgress, setPreGenProgress] = useState<{ current: number; total: number } | null>(null);
+  const [planEquipment, setPlanEquipment] = useState<Record<string, number>>({});
+  const [planEquipPresetId, setPlanEquipPresetId] = useState<string>('');
 
   const isEventGoal = goal === 'event_preparation';
-  const totalSteps = isEventGoal ? 7 : 6;
+  const totalSteps = isEventGoal ? 8 : 7;
   const goalAccent = goal ? (GOAL_COLORS[goal] ?? accent) : accent;
   const autoStyle = goal ? getStyleForGoal(goal) : 'Strength';
 
@@ -269,8 +284,23 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       setDaysPerWeek(4); setSessionDuration(60);
       setExperience(''); setPlanLength(8);
       setSelectedSplit('');
+      setPreGenProgress(null);
+      // Initialize equipment from current settings — detect which preset matches
+      const equip = ctx.selectedEquipment;
+      setPlanEquipment({ ...equip });
+      const count = Object.values(equip).filter(v => v > 0).length;
+      if (count === 0) {
+        setPlanEquipPresetId('no_equipment');
+      } else {
+        const matched = ctx.savedGyms.find(g => {
+          const gKeys = Object.keys(g.equipment).filter(k => (g.equipment[k] ?? 0) > 0).sort().join(',');
+          const eKeys = Object.keys(equip).filter(k => (equip[k] ?? 0) > 0).sort().join(',');
+          return gKeys === eKeys;
+        });
+        setPlanEquipPresetId(matched?.id ?? 'custom');
+      }
     }
-  }, [visible]);
+  }, [visible, ctx.selectedEquipment, ctx.savedGyms]);
 
   const endDate = useMemo(() => addWeeks(startDate, planLength), [startDate, planLength]);
 
@@ -288,7 +318,8 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       case 3: return isEventGoal ? !!selectedSplit : true;
       case 4: return isEventGoal ? true : !!experience;
       case 5: return isEventGoal ? !!experience : true;
-      case 6: return true;
+      case 6: return true; // Equipment (event) or Plan Length (normal) — always valid
+      case 7: return true; // Plan Length (event) — always valid
       default: return false;
     }
   }, [step, goal, event, experience, isEventGoal, selectedSplit]);
@@ -302,7 +333,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
     if (step > 1) setStep(s => s - 1);
   }, [step]);
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     if (!goal || !experience) return;
     const goalOption = PLAN_GOALS.find(g => g.id === goal);
     const goalLabel = goalOption?.label ?? goal;
@@ -355,10 +386,62 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
       active: true,
       schedule,
       missedDays: [],
+      completedDays: [],
+      equipment: planEquipment,
     };
     ctx.saveActivePlan(plan, schedule);
+
+    // ── Pre-generate workouts for all weeks ──────────────────────────────────
+    const todayStr = getTodayStr();
+    const trainingDays: DayPrescription[] = (schedule.weeks as WeekSchedule[])
+      .flatMap(w => w.days)
+      .filter(d => !d.is_rest && d.date >= todayStr)
+      .slice(0, 60); // safety cap — 12-week × 5 days/week
+
+    if (trainingDays.length > 0) {
+      setPreGenProgress({ current: 0, total: trainingDays.length });
+
+      for (let i = 0; i < trainingDays.length; i++) {
+        const d = trainingDays[i];
+        setPreGenProgress({ current: i, total: trainingDays.length });
+        try {
+          const genParams: GenerateWorkoutParams = {
+            style: d.style,
+            split: d.session_type,
+            targetDuration: d.target_duration,
+            restSlider: ctx.restBetweenSets,
+            availableEquipment: planEquipment,
+            fitnessLevel: experience ?? ctx.fitnessLevel,
+            sex: ctx.sex,
+            specialLifeCase: ctx.specialLifeCase,
+            specialLifeCaseDetail: ctx.specialLifeCaseDetail,
+            warmUp: ctx.warmUp,
+            coolDown: ctx.coolDown,
+            recovery: false,
+            addCardio: false,
+            specificMuscles: [],
+            planPhase: d.phase,
+            volumeModifier: d.volume_modifier,
+          };
+          const result = await generateWorkoutAsync(genParams, d);
+          await AsyncStorage.setItem(`@zeal_plan_day_workout_${plan.id}_${d.date}`, JSON.stringify(result));
+
+          // For today: also write to daily snapshot so workout tab gets it instantly
+          if (d.date === todayStr) {
+            const snap = { date: todayStr, workout: result, title: d.session_type };
+            await AsyncStorage.setItem('@zeal_daily_generated_workout_v1', JSON.stringify(snap));
+          }
+        } catch {
+          // Skip — this day will generate on-demand in PlanDayPreviewDrawer
+        }
+      }
+      setPreGenProgress(null);
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     onClose();
-  }, [goal, event, daysPerWeek, sessionDuration, experience, planLength, startDate, endDate, autoStyle, isEventGoal, selectedSplit, ctx, onClose]);
+  }, [goal, event, daysPerWeek, sessionDuration, experience, planLength, startDate, endDate, autoStyle, isEventGoal, selectedSplit, planEquipment, ctx, onClose]);
 
   const goalOption = PLAN_GOALS.find(g => g.id === goal);
   const expConfig = experience ? EXP_CONFIG[experience] : null;
@@ -399,6 +482,8 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
               {PLAN_GOALS.map(g => {
                 const isSelected = goal === g.id;
                 const gColor = GOAL_COLORS[g.id] ?? accent;
+                const isProGoal = PRO_GOALS.has(g.id);
+                const isLocked = isProGoal && !hasPro;
                 return (
                   <TouchableOpacity
                     key={g.id}
@@ -406,8 +491,12 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
                       styles.goalRow,
                       { backgroundColor: colors.cardSecondary, borderColor: isSelected ? gColor : colors.border },
                       isSelected && { backgroundColor: `${gColor}10` },
+                      isLocked && { opacity: 0.7 },
                     ]}
-                    onPress={() => setGoal(g.id)}
+                    onPress={() => {
+                      if (isLocked) { openPaywall(); return; }
+                      setGoal(g.id);
+                    }}
                     activeOpacity={0.7}
                   >
                     <View style={[styles.goalIconWrap, { backgroundColor: isSelected ? `${gColor}20` : `${colors.border}60` }]}>
@@ -417,11 +506,15 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
                       <Text style={[styles.goalLabel, { color: isSelected ? gColor : colors.text }]}>{g.label}</Text>
                       <Text style={[styles.goalDesc, { color: colors.textSecondary }]} numberOfLines={1}>{g.description}</Text>
                     </View>
-                    {isSelected && (
+                    {isLocked ? (
+                      <View style={[styles.checkCircle, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                        <PlatformIcon name="lock" size={11} color={colors.textMuted} />
+                      </View>
+                    ) : isSelected ? (
                       <View style={[styles.checkCircle, { backgroundColor: gColor }]}>
                         <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />
                       </View>
-                    )}
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
@@ -582,8 +675,84 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
           </View>
         )}
 
-        {/* ─── Plan Length ────────────────────────────────────────────── */}
+        {/* ─── Equipment ──────────────────────────────────────────────── */}
         {step === cs(5, 6) && (
+          <View style={styles.stepContent}>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>Equipment</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>What do you have access to?</Text>
+
+            {/* Saved gyms */}
+            {ctx.savedGyms.map(gym => {
+              const isSelected = planEquipPresetId === gym.id;
+              const itemCount = Object.values(gym.equipment).filter(v => v > 0).length;
+              return (
+                <TouchableOpacity
+                  key={gym.id}
+                  style={[
+                    styles.goalRow,
+                    { backgroundColor: colors.cardSecondary, borderColor: isSelected ? goalAccent : colors.border },
+                    isSelected && { backgroundColor: `${goalAccent}10` },
+                  ]}
+                  onPress={() => { setPlanEquipment({ ...gym.equipment }); setPlanEquipPresetId(gym.id); }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.goalIconWrap, { backgroundColor: isSelected ? `${goalAccent}20` : `${colors.border}60` }]}>
+                    <PlatformIcon name="building-2" size={18} color={isSelected ? goalAccent : colors.textSecondary} />
+                  </View>
+                  <View style={styles.goalRowText}>
+                    <Text style={[styles.goalLabel, { color: isSelected ? goalAccent : colors.text }]}>{gym.name}</Text>
+                    <Text style={[styles.goalDesc, { color: colors.textSecondary }]}>{itemCount} items</Text>
+                  </View>
+                  {isSelected && (
+                    <View style={[styles.checkCircle, { backgroundColor: goalAccent }]}>
+                      <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Quick presets */}
+            {([
+              { id: 'commercial', label: 'Commercial Gym', desc: 'Full gym access', icon: 'dumbbell', preset: COMMERCIAL_EQUIPMENT_PRESET },
+              { id: 'no_equipment', label: 'No Equipment', desc: 'Bodyweight only', icon: 'user', preset: {} as Record<string, number> },
+            ] as { id: string; label: string; desc: string; icon: any; preset: Record<string, number> }[]).map(opt => {
+              const isSelected = planEquipPresetId === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[
+                    styles.goalRow,
+                    { backgroundColor: colors.cardSecondary, borderColor: isSelected ? goalAccent : colors.border },
+                    isSelected && { backgroundColor: `${goalAccent}10` },
+                  ]}
+                  onPress={() => { setPlanEquipment({ ...opt.preset }); setPlanEquipPresetId(opt.id); }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.goalIconWrap, { backgroundColor: isSelected ? `${goalAccent}20` : `${colors.border}60` }]}>
+                    <PlatformIcon name={opt.icon} size={18} color={isSelected ? goalAccent : colors.textSecondary} />
+                  </View>
+                  <View style={styles.goalRowText}>
+                    <Text style={[styles.goalLabel, { color: isSelected ? goalAccent : colors.text }]}>{opt.label}</Text>
+                    <Text style={[styles.goalDesc, { color: colors.textSecondary }]}>{opt.desc}</Text>
+                  </View>
+                  {isSelected && (
+                    <View style={[styles.checkCircle, { backgroundColor: goalAccent }]}>
+                      <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+
+            <Text style={[styles.goalDesc, { color: colors.textMuted, textAlign: 'center', marginTop: 8 }]}>
+              Equipment changes in Settings automatically apply to new workouts
+            </Text>
+          </View>
+        )}
+
+        {/* ─── Plan Length ────────────────────────────────────────────── */}
+        {step === cs(6, 7) && (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: colors.text }]}>Plan length?</Text>
             <Text style={[styles.stepSub, { color: colors.textSecondary }]}>More weeks = more mesocycles = better results</Text>
@@ -618,8 +787,26 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
           </View>
         )}
 
+        {/* ─── Pre-generation loading screen ──────────────────────────── */}
+        {preGenProgress && (
+          <View style={styles.preGenView}>
+            <ActivityIndicator size="large" color={goalAccent} style={{ marginBottom: 20 }} />
+            <Text style={[styles.preGenTitle, { color: colors.text }]}>Building your plan</Text>
+            <Text style={[styles.preGenSub, { color: colors.textSecondary }]}>
+              Setting up workout {preGenProgress.current + 1} of {preGenProgress.total}
+            </Text>
+
+            <View style={[styles.preGenTrack, { backgroundColor: colors.border }]}>
+              <View style={[styles.preGenFill, {
+                width: `${Math.round((preGenProgress.current / preGenProgress.total) * 100)}%` as any,
+                backgroundColor: goalAccent,
+              }]} />
+            </View>
+          </View>
+        )}
+
         {/* ─── Preview / Generate ─────────────────────────────────────── */}
-        {isPreviewStep && (
+        {isPreviewStep && !preGenProgress && (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: colors.text }]}>Your plan</Text>
             <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Looks good? We'll put it on your calendar.</Text>
@@ -632,6 +819,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
                 { icon: 'calendar', label: 'Schedule', value: `${daysPerWeek}d/wk · ${selectedSplit}` },
                 { icon: 'clock', label: 'Session', value: `${sessionDuration} min` },
                 { icon: 'star', label: 'Level', value: expConfig?.label ?? '' },
+                { icon: 'dumbbell', label: 'Equipment', value: planEquipPresetId === 'no_equipment' ? 'Bodyweight only' : planEquipPresetId === 'commercial' ? 'Commercial Gym' : ctx.savedGyms.find(g => g.id === planEquipPresetId)?.name ?? `${Object.values(planEquipment).filter(v => v > 0).length} items` },
                 { icon: 'calendar', label: 'Dates', value: formatDateRange(startDate, endDate) },
               ] as { icon: any; label: string; value: string }[]).map((row, i) => (
                 <View
@@ -666,7 +854,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
         )}
 
         {/* ─── Navigation — inside scroll so it's always measured ───── */}
-        <View style={[styles.navRow, { borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {!preGenProgress && <View style={[styles.navRow, { borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
           {step > 1 ? (
             <TouchableOpacity style={styles.navBtn} onPress={handleBack} activeOpacity={0.7}>
               <PlatformIcon name="chevron-left" size={16} color={colors.textSecondary} />
@@ -687,7 +875,7 @@ export default function WorkoutPlanDrawer({ visible, onClose }: Props) {
               <PlatformIcon name="chevron-right" size={16} color={canGoNext ? '#fff' : colors.textMuted} />
             </TouchableOpacity>
           ) : <View style={styles.navBtn} />}
-        </View>
+        </View>}
 
       </View>
     </BaseDrawer>
@@ -812,4 +1000,21 @@ const styles = StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 22, paddingVertical: 13,
   },
   nextBtnText: { fontSize: 14, fontFamily: 'Outfit_700Bold' },
+  preGenView: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  preGenTitle: { fontSize: 20, fontFamily: 'Outfit_700Bold', letterSpacing: -0.3 },
+  preGenSub: { fontSize: 14, fontFamily: 'Outfit_400Regular' },
+  preGenTrack: {
+    width: '100%' as any,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 12,
+    overflow: 'hidden' as const,
+  },
+  preGenFill: { height: 4, borderRadius: 2 },
 });

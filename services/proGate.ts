@@ -4,7 +4,7 @@ export const PRO_GOLD = '#d4a93e';
 export const PRO_GOLD_DIM = `${PRO_GOLD}40`;
 export const PRO_LOCKED_OPACITY = 0.55;
 
-export const PRO_STYLES = ['Bodybuilding', 'CrossFit', 'Hyrox', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact'] as const;
+export const PRO_STYLES = ['Bodybuilding', 'CrossFit', 'Hyrox', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact', 'Hybrid'] as const;
 export const PRO_STYLES_SET = new Set<string>(PRO_STYLES);
 
 interface ProFeatureInfo {

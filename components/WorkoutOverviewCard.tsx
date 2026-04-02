@@ -48,7 +48,6 @@ interface Props {
   exerciseCount?: number;
   onPress?: () => void;
   activePlan?: WorkoutPlan | null;
-  onViewPlan?: () => void;
   variant?: 'solid' | 'glass';
   completedLog?: WorkoutLog | null;
 }
@@ -61,7 +60,6 @@ export default function WorkoutOverviewCard({
   exerciseCount,
   onPress,
   activePlan,
-  onViewPlan,
   variant = 'solid',
   completedLog,
 }: Props) {
@@ -173,18 +171,6 @@ export default function WorkoutOverviewCard({
 
   const CardContent = (
     <View style={styles.inner}>
-      {activePlan && onViewPlan && (
-        <TouchableOpacity
-          style={styles.planLink}
-          onPress={onViewPlan}
-          activeOpacity={0.7}
-          testID="workout-overview-plan-link"
-        >
-          <PlatformIcon name="sparkles" size={11} color={accent} />
-          <Text style={[styles.planLinkText, { color: accent }]}>View Workout Plan</Text>
-        </TouchableOpacity>
-      )}
-
       <View style={styles.labelRow}>
         <View style={styles.labelLeft}>
           <Animated.View
@@ -262,16 +248,6 @@ const styles = StyleSheet.create({
   },
   inner: {
     gap: 10,
-  },
-  planLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  planLinkText: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.1,
   },
   labelRow: {
     flexDirection: 'row',
