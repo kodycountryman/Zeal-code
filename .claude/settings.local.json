@@ -26,7 +26,12 @@
       "Bash(node -e \"const { withRorkMetro } = require\\(''@rork-ai/toolkit-sdk/metro''\\); const { getDefaultConfig } = require\\(''expo/metro-config''\\); const config = getDefaultConfig\\(__dirname\\); const result = withRorkMetro\\(config\\); console.log\\(''transformer keys:'', Object.keys\\(result.transformer || {}\\)\\); console.log\\(''resolver extra:'', JSON.stringify\\(result.resolver?.sourceExts?.slice\\(-5\\)\\)\\)\")",
       "Bash(wc -l app/\\\\\\(tabs\\\\\\)/workout.tsx)",
       "Bash(awk 'NR>=1097 && NR<=1125' \"zeal+ Code/app/\\(tabs\\)/workout.tsx\")",
-      "Bash(wc -l \"zeal+ Code/app/\\(tabs\\)/workout.tsx\")"
+      "Bash(wc -l \"zeal+ Code/app/\\(tabs\\)/workout.tsx\")",
+      "Bash(grep -rn SPLIT_TO_MUSCLESs*: /Users/kodycountryman/Desktop/zeal+ Code/services/)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3:*)",
+      "Bash(node -e \":*)",
+      "Bash(jq \".exercises[] | select\\(.eligible_styles[] | select\\(. == \"\"hyrox\"\"\\)\\) | {id: .id, name: .name, movement_pattern: .movement_pattern}\" /Users/kodycountryman/Desktop/zeal+ Code/mocks/exerciseSchema.json)"
     ]
   },
   "hooks": {

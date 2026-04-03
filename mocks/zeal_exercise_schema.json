@@ -1,6 +1,6 @@
 {
   "_schema_version": "1.4",
-  "_description": "Zeal Exercise Database Schema & Sample Exercises. Every exercise in the app MUST follow this exact structure. No field is optional. The generation engine depends on every field \u2014 missing data causes rules to silently fail.",
+  "_description": "Zeal Exercise Database Schema & Sample Exercises. Every exercise in the app MUST follow this exact structure. No field is optional. The generation engine depends on every field — missing data causes rules to silently fail.",
   "_last_updated": "2026-03",
   "_enum_definitions": {
     "movement_pattern": [
@@ -55,7 +55,7 @@
       "cardio",
       "pilates"
     ],
-    "_75_hard_note": "75 Hard is NOT a workout style \u2014 it is a meta-layer / program mode that generates two daily sessions by pulling from the styles above. It does not appear in eligible_styles. See Master Rules Document Section 4 for details.",
+    "_75_hard_note": "75 Hard is NOT a workout style — it is a meta-layer / program mode that generates two daily sessions by pulling from the styles above. It does not appear in eligible_styles. See Master Rules Document Section 4 for details.",
     "muscle_groups": [
       "chest",
       "upper_chest",
@@ -166,35 +166,35 @@
     ]
   },
   "_field_reference": {
-    "id": "string \u2014 Unique identifier. Use snake_case. Example: 'barbell_back_squat'",
-    "name": "string \u2014 Display name shown in the app. Example: 'Barbell Back Squat'",
-    "aliases": "string[] \u2014 Alternate search names. Example: ['back squat', 'bb squat']",
-    "movement_pattern": "enum \u2014 Primary movement classification. One value from movement_pattern enum.",
-    "difficulty_tier": "enum \u2014 Skill/complexity level. Affects which fitness levels can access it.",
-    "eligible_styles": "string[] \u2014 Which workout styles may include this exercise. Values: strength, bodybuilding, crossfit, hyrox, mobility, hiit, cardio, pilates. Note: 75 Hard is a program mode, not a style \u2014 it pulls from these styles.",
-    "primary_muscles": "string[] \u2014 Main muscles trained. Used for split filtering and volume tracking.",
-    "secondary_muscles": "string[] \u2014 Assisting muscles. NOT used for split filtering but counted for volume awareness.",
-    "joints_loaded": "string[] \u2014 Joints bearing significant load. Used for injury/contraindication filtering.",
-    "equipment_required": "string[] \u2014 ALL equipment needed. Exercise only eligible if EVERY item is in user's inventory. Use ['bodyweight'] for no-equipment exercises.",
-    "equipment_optional": "string[] \u2014 Helpful but not required accessories.",
-    "is_unilateral": "boolean \u2014 If true, reps display as 'ea' and set_duration doubles in time calculations.",
-    "is_compound": "boolean \u2014 Multi-joint movement? Affects rest period tier and exercise ordering in some styles.",
-    "default_tempo_seconds_per_rep": "number \u2014 Average time for one full rep at controlled pace. For time-based exercises (planks, carries, cardio intervals), this is the duration in seconds per 'rep'. CRITICAL for time accuracy engine.",
-    "setup_time_seconds": "number \u2014 Time to get into position / set up equipment. Added to transition buffer.",
-    "contraindication_tags": "string[] \u2014 Life cases / injuries where this exercise is BLOCKED. Hard safety filter.",
-    "rom_requirement": "enum \u2014 Range of motion needed. Helps filter for ROM-limited users (pregnancy, injury).",
-    "spinal_load": "enum \u2014 How much the spine is loaded. Key filter for pregnancy and back injuries.",
-    "position": "enum \u2014 Body position during execution. Supine filtered for pregnancy after week 20.",
-    "weight_increment": "number \u2014 Standard progression jump in lbs. Barbell = 5, dumbbell = 2.5, cable = 5, bodyweight = 0 (progress via reps). Cardio exercises = 0 (progress via duration/speed).",
-    "rep_range_floor": "number \u2014 Minimum productive reps. Going below this means the weight is too heavy. For cardio, this is minimum intervals/rounds.",
-    "rep_range_ceiling": "number \u2014 Max reps before the user should increase weight. For cardio, max intervals/rounds.",
-    "default_load_table": "object \u2014 Starting weight suggestions keyed by gender_fitnesslevel. Each has a 'multiplier' (\u00d7 bodyweight) and 'absolute_fallback_lbs' for cases where bodyweight math produces odd numbers. Bodyweight / cardio / pilates exercises use 0 for all values.",
-    "is_warmup_eligible": "boolean \u2014 Can this serve as a warmup movement?",
-    "is_cooldown_eligible": "boolean \u2014 Can this serve as a cooldown/mobility movement?",
-    "warmup_for_muscles": "string[] \u2014 If warmup-eligible, which muscles does it prepare?",
-    "cooldown_for_muscles": "string[] \u2014 If cooldown-eligible, which muscles does it help recover?",
-    "substitutes": "string[] \u2014 Ranked exercise IDs: same muscle/pattern, different equipment/difficulty. Best substitute first.",
-    "variation_family": "string \u2014 Groups related variations. Shared novelty penalty in rotation logic.",
+    "id": "string — Unique identifier. Use snake_case. Example: 'barbell_back_squat'",
+    "name": "string — Display name shown in the app. Example: 'Barbell Back Squat'",
+    "aliases": "string[] — Alternate search names. Example: ['back squat', 'bb squat']",
+    "movement_pattern": "enum — Primary movement classification. One value from movement_pattern enum.",
+    "difficulty_tier": "enum — Skill/complexity level. Affects which fitness levels can access it.",
+    "eligible_styles": "string[] — Which workout styles may include this exercise. Values: strength, bodybuilding, crossfit, hyrox, mobility, hiit, cardio, pilates. Note: 75 Hard is a program mode, not a style — it pulls from these styles.",
+    "primary_muscles": "string[] — Main muscles trained. Used for split filtering and volume tracking.",
+    "secondary_muscles": "string[] — Assisting muscles. NOT used for split filtering but counted for volume awareness.",
+    "joints_loaded": "string[] — Joints bearing significant load. Used for injury/contraindication filtering.",
+    "equipment_required": "string[] — ALL equipment needed. Exercise only eligible if EVERY item is in user's inventory. Use ['bodyweight'] for no-equipment exercises.",
+    "equipment_optional": "string[] — Helpful but not required accessories.",
+    "is_unilateral": "boolean — If true, reps display as 'ea' and set_duration doubles in time calculations.",
+    "is_compound": "boolean — Multi-joint movement? Affects rest period tier and exercise ordering in some styles.",
+    "default_tempo_seconds_per_rep": "number — Average time for one full rep at controlled pace. For time-based exercises (planks, carries, cardio intervals), this is the duration in seconds per 'rep'. CRITICAL for time accuracy engine.",
+    "setup_time_seconds": "number — Time to get into position / set up equipment. Added to transition buffer.",
+    "contraindication_tags": "string[] — Life cases / injuries where this exercise is BLOCKED. Hard safety filter.",
+    "rom_requirement": "enum — Range of motion needed. Helps filter for ROM-limited users (pregnancy, injury).",
+    "spinal_load": "enum — How much the spine is loaded. Key filter for pregnancy and back injuries.",
+    "position": "enum — Body position during execution. Supine filtered for pregnancy after week 20.",
+    "weight_increment": "number — Standard progression jump in lbs. Barbell = 5, dumbbell = 2.5, cable = 5, bodyweight = 0 (progress via reps). Cardio exercises = 0 (progress via duration/speed).",
+    "rep_range_floor": "number — Minimum productive reps. Going below this means the weight is too heavy. For cardio, this is minimum intervals/rounds.",
+    "rep_range_ceiling": "number — Max reps before the user should increase weight. For cardio, max intervals/rounds.",
+    "default_load_table": "object — Starting weight suggestions keyed by gender_fitnesslevel. Each has a 'multiplier' (× bodyweight) and 'absolute_fallback_lbs' for cases where bodyweight math produces odd numbers. Bodyweight / cardio / pilates exercises use 0 for all values.",
+    "is_warmup_eligible": "boolean — Can this serve as a warmup movement?",
+    "is_cooldown_eligible": "boolean — Can this serve as a cooldown/mobility movement?",
+    "warmup_for_muscles": "string[] — If warmup-eligible, which muscles does it prepare?",
+    "cooldown_for_muscles": "string[] — If cooldown-eligible, which muscles does it help recover?",
+    "substitutes": "string[] — Ranked exercise IDs: same muscle/pattern, different equipment/difficulty. Best substitute first.",
+    "variation_family": "string — Groups related variations. Shared novelty penalty in rotation logic.",
     "equipment_note": "Equipment IDs bosu_ball, pilates_ring, and stability_ball are defined in the enum for future use but currently have no exercises requiring or optionally using them."
   },
   "exercises": [
@@ -261,7 +261,7 @@
           "absolute_fallback_lbs": 135
         },
         "male_advanced": {
-          "multiplier": 1.0,
+          "multiplier": 1,
           "absolute_fallback_lbs": 185
         },
         "female_beginner": {
@@ -6054,7 +6054,7 @@
           "absolute_fallback_lbs": 145
         },
         "male_advanced": {
-          "multiplier": 1.0,
+          "multiplier": 1,
           "absolute_fallback_lbs": 205
         },
         "female_beginner": {
@@ -8667,84 +8667,6 @@
         "copenhagen_plank"
       ],
       "variation_family": "plank_family"
-    },
-    {
-      "id": "copenhagen_plank",
-      "name": "Copenhagen Plank",
-      "aliases": [
-        "copenhagen adductor plank"
-      ],
-      "movement_pattern": "isolation",
-      "difficulty_tier": "advanced",
-      "eligible_styles": [
-        "strength"
-      ],
-      "primary_muscles": [
-        "adductors",
-        "obliques"
-      ],
-      "secondary_muscles": [
-        "core"
-      ],
-      "joints_loaded": [
-        "hip",
-        "shoulder"
-      ],
-      "equipment_required": [
-        "bodyweight",
-        "flat_bench"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": true,
-      "is_compound": false,
-      "default_tempo_seconds_per_rep": 20,
-      "setup_time_seconds": 10,
-      "contraindication_tags": [
-        "hip_injury",
-        "shoulder_injury"
-      ],
-      "rom_requirement": "minimal",
-      "spinal_load": "none",
-      "position": "side_lying",
-      "weight_increment": 0,
-      "rep_range_floor": 1,
-      "rep_range_ceiling": 3,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "side_plank",
-        "hip_adduction_machine",
-        "lateral_lunge"
-      ],
-      "variation_family": "adductor_family"
     },
     {
       "id": "pallof_press",
@@ -11444,149 +11366,6 @@
         "pilates_side_leg_series"
       ],
       "variation_family": "pilates_leg_family"
-    },
-    {
-      "id": "kegel_exercise",
-      "name": "Kegel Exercise",
-      "aliases": [
-        "pelvic floor contraction",
-        "kegels"
-      ],
-      "movement_pattern": "isolation",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "pilates",
-        "mobility"
-      ],
-      "primary_muscles": [
-        "pelvic_floor"
-      ],
-      "secondary_muscles": [
-        "transverse_abdominis"
-      ],
-      "joints_loaded": [],
-      "equipment_required": [
-        "bodyweight"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": false,
-      "default_tempo_seconds_per_rep": 5,
-      "setup_time_seconds": 0,
-      "contraindication_tags": [
-        "pelvic_floor_dysfunction"
-      ],
-      "rom_requirement": "minimal",
-      "spinal_load": "none",
-      "position": "seated",
-      "weight_increment": 0,
-      "rep_range_floor": 5,
-      "rep_range_ceiling": 20,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [],
-      "variation_family": "pelvic_floor_family"
-    },
-    {
-      "id": "wrist_curl",
-      "name": "Wrist Curl",
-      "aliases": [
-        "forearm curl",
-        "barbell wrist curl"
-      ],
-      "movement_pattern": "isolation",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "bodybuilding"
-      ],
-      "primary_muscles": [
-        "forearms"
-      ],
-      "secondary_muscles": [],
-      "joints_loaded": [
-        "wrist"
-      ],
-      "equipment_required": [
-        "dumbbell"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": false,
-      "default_tempo_seconds_per_rep": 3,
-      "setup_time_seconds": 5,
-      "contraindication_tags": [
-        "wrist_injury",
-        "carpal_tunnel"
-      ],
-      "rom_requirement": "moderate",
-      "spinal_load": "none",
-      "position": "seated",
-      "weight_increment": 2.5,
-      "rep_range_floor": 10,
-      "rep_range_ceiling": 25,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0.04,
-          "absolute_fallback_lbs": 8
-        },
-        "male_intermediate": {
-          "multiplier": 0.06,
-          "absolute_fallback_lbs": 12
-        },
-        "male_advanced": {
-          "multiplier": 0.1,
-          "absolute_fallback_lbs": 20
-        },
-        "female_beginner": {
-          "multiplier": 0.02,
-          "absolute_fallback_lbs": 5
-        },
-        "female_intermediate": {
-          "multiplier": 0.04,
-          "absolute_fallback_lbs": 8
-        },
-        "female_advanced": {
-          "multiplier": 0.06,
-          "absolute_fallback_lbs": 10
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "hammer_curl",
-        "farmers_carry"
-      ],
-      "variation_family": "forearm_family"
     },
     {
       "id": "muscle_up",
@@ -14573,85 +14352,6 @@
       "variation_family": "pilates_core_family"
     },
     {
-      "id": "pilates_seal",
-      "name": "Pilates Seal",
-      "aliases": [
-        "seal",
-        "rolling like a ball"
-      ],
-      "movement_pattern": "pilates",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "pilates"
-      ],
-      "primary_muscles": [
-        "core"
-      ],
-      "secondary_muscles": [
-        "hip_flexors",
-        "lower_back"
-      ],
-      "joints_loaded": [
-        "spine"
-      ],
-      "equipment_required": [
-        "pilates_mat"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": false,
-      "default_tempo_seconds_per_rep": 4,
-      "setup_time_seconds": 5,
-      "contraindication_tags": [
-        "lower_back_injury",
-        "herniated_disc",
-        "pregnancy_t2",
-        "pregnancy_t3",
-        "neck_injury"
-      ],
-      "rom_requirement": "full",
-      "spinal_load": "light",
-      "position": "seated",
-      "weight_increment": 0,
-      "rep_range_floor": 5,
-      "rep_range_ceiling": 15,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "pilates_hundred",
-        "dead_bug"
-      ],
-      "variation_family": "pilates_core_family"
-    },
-    {
       "id": "pilates_leg_pull_front",
       "name": "Pilates Leg Pull Front",
       "aliases": [
@@ -16537,98 +16237,6 @@
       "variation_family": "row_family"
     },
     {
-      "id": "man_maker",
-      "name": "Man Maker",
-      "aliases": [
-        "dumbbell man maker"
-      ],
-      "movement_pattern": "push",
-      "difficulty_tier": "advanced",
-      "eligible_styles": [
-        "hiit",
-        "crossfit",
-        "hyrox"
-      ],
-      "primary_muscles": [
-        "chest",
-        "front_delt",
-        "quads",
-        "glutes"
-      ],
-      "secondary_muscles": [
-        "triceps",
-        "upper_back",
-        "core",
-        "biceps",
-        "hamstrings"
-      ],
-      "joints_loaded": [
-        "shoulder",
-        "elbow",
-        "wrist",
-        "hip",
-        "knee"
-      ],
-      "equipment_required": [
-        "dumbbell"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": true,
-      "default_tempo_seconds_per_rep": 8,
-      "setup_time_seconds": 5,
-      "contraindication_tags": [
-        "shoulder_injury",
-        "wrist_injury",
-        "lower_back_injury",
-        "knee_injury",
-        "pregnancy_t1",
-        "pregnancy_t2",
-        "pregnancy_t3"
-      ],
-      "rom_requirement": "full",
-      "spinal_load": "moderate",
-      "position": "standing",
-      "weight_increment": 2.5,
-      "rep_range_floor": 3,
-      "rep_range_ceiling": 10,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0.06,
-          "absolute_fallback_lbs": 10
-        },
-        "male_intermediate": {
-          "multiplier": 0.1,
-          "absolute_fallback_lbs": 20
-        },
-        "male_advanced": {
-          "multiplier": 0.15,
-          "absolute_fallback_lbs": 30
-        },
-        "female_beginner": {
-          "multiplier": 0.03,
-          "absolute_fallback_lbs": 5
-        },
-        "female_intermediate": {
-          "multiplier": 0.06,
-          "absolute_fallback_lbs": 10
-        },
-        "female_advanced": {
-          "multiplier": 0.1,
-          "absolute_fallback_lbs": 15
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "burpee",
-        "dumbbell_thruster"
-      ],
-      "variation_family": "cardio_bodyweight_family"
-    },
-    {
       "id": "kettlebell_goblet_squat_to_press",
       "name": "Kettlebell Squat to Press",
       "aliases": [
@@ -16711,89 +16319,6 @@
         "wall_ball"
       ],
       "variation_family": "thruster_family"
-    },
-    {
-      "id": "sprawl",
-      "name": "Sprawl",
-      "aliases": [
-        "no push up burpee"
-      ],
-      "movement_pattern": "plyometric",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "hiit",
-        "crossfit",
-        "cardio"
-      ],
-      "primary_muscles": [
-        "quads",
-        "core",
-        "glutes"
-      ],
-      "secondary_muscles": [
-        "hip_flexors",
-        "front_delt"
-      ],
-      "joints_loaded": [
-        "hip",
-        "knee",
-        "wrist"
-      ],
-      "equipment_required": [
-        "bodyweight"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": true,
-      "default_tempo_seconds_per_rep": 3,
-      "setup_time_seconds": 0,
-      "contraindication_tags": [
-        "wrist_injury",
-        "knee_injury",
-        "pregnancy_t2",
-        "pregnancy_t3"
-      ],
-      "rom_requirement": "moderate",
-      "spinal_load": "light",
-      "position": "standing",
-      "weight_increment": 0,
-      "rep_range_floor": 5,
-      "rep_range_ceiling": 25,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "burpee",
-        "mountain_climber"
-      ],
-      "variation_family": "cardio_bodyweight_family"
     },
     {
       "id": "dumbbell_clean_and_press",
@@ -16884,89 +16409,6 @@
         "dumbbell_thruster"
       ],
       "variation_family": "clean_family"
-    },
-    {
-      "id": "sumo_squat_pulse",
-      "name": "Sumo Squat Pulse",
-      "aliases": [
-        "wide squat pulse",
-        "plie squat pulse"
-      ],
-      "movement_pattern": "squat",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "hiit",
-        "pilates",
-        "cardio"
-      ],
-      "primary_muscles": [
-        "adductors",
-        "quads",
-        "glutes"
-      ],
-      "secondary_muscles": [
-        "hamstrings",
-        "core"
-      ],
-      "joints_loaded": [
-        "hip",
-        "knee"
-      ],
-      "equipment_required": [
-        "bodyweight"
-      ],
-      "equipment_optional": [
-        "dumbbell"
-      ],
-      "is_unilateral": false,
-      "is_compound": true,
-      "default_tempo_seconds_per_rep": 2,
-      "setup_time_seconds": 0,
-      "contraindication_tags": [
-        "knee_injury",
-        "hip_injury"
-      ],
-      "rom_requirement": "moderate",
-      "spinal_load": "none",
-      "position": "standing",
-      "weight_increment": 0,
-      "rep_range_floor": 10,
-      "rep_range_ceiling": 30,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "bodyweight_squat",
-        "lateral_lunge"
-      ],
-      "variation_family": "squat_family"
     },
     {
       "id": "star_jump",
@@ -17638,254 +17080,6 @@
       "variation_family": "swing_family"
     },
     {
-      "id": "line_hops",
-      "name": "Line Hops",
-      "aliases": [
-        "lateral line hops",
-        "quick feet hops"
-      ],
-      "movement_pattern": "cardio",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "cardio",
-        "hiit"
-      ],
-      "primary_muscles": [
-        "calves",
-        "quads"
-      ],
-      "secondary_muscles": [
-        "core",
-        "glutes"
-      ],
-      "joints_loaded": [
-        "ankle",
-        "knee"
-      ],
-      "equipment_required": [
-        "bodyweight"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": true,
-      "default_tempo_seconds_per_rep": 30,
-      "setup_time_seconds": 0,
-      "contraindication_tags": [
-        "ankle_injury",
-        "knee_injury"
-      ],
-      "rom_requirement": "minimal",
-      "spinal_load": "none",
-      "position": "standing",
-      "weight_increment": 0,
-      "rep_range_floor": 1,
-      "rep_range_ceiling": 5,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": true,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [
-        "calves",
-        "quads"
-      ],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "high_knees",
-        "jump_rope_intervals"
-      ],
-      "variation_family": "cardio_bodyweight_family"
-    },
-    {
-      "id": "crab_walk",
-      "name": "Crab Walk",
-      "aliases": [
-        "reverse bear crawl",
-        "crab crawl"
-      ],
-      "movement_pattern": "cardio",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "cardio",
-        "hiit"
-      ],
-      "primary_muscles": [
-        "triceps",
-        "glutes",
-        "core"
-      ],
-      "secondary_muscles": [
-        "hamstrings",
-        "front_delt"
-      ],
-      "joints_loaded": [
-        "shoulder",
-        "wrist",
-        "hip"
-      ],
-      "equipment_required": [
-        "bodyweight"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": true,
-      "default_tempo_seconds_per_rep": 30,
-      "setup_time_seconds": 5,
-      "contraindication_tags": [
-        "wrist_injury",
-        "shoulder_injury"
-      ],
-      "rom_requirement": "moderate",
-      "spinal_load": "none",
-      "position": "supine",
-      "weight_increment": 0,
-      "rep_range_floor": 1,
-      "rep_range_ceiling": 5,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "bear_crawl",
-        "mountain_climber"
-      ],
-      "variation_family": "cardio_bodyweight_family"
-    },
-    {
-      "id": "seal_jack",
-      "name": "Seal Jack",
-      "aliases": [
-        "arm clap jack",
-        "horizontal jumping jack"
-      ],
-      "movement_pattern": "cardio",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "cardio",
-        "hiit"
-      ],
-      "primary_muscles": [
-        "chest",
-        "front_delt",
-        "calves"
-      ],
-      "secondary_muscles": [
-        "quads",
-        "rear_delt",
-        "upper_back"
-      ],
-      "joints_loaded": [
-        "shoulder",
-        "ankle"
-      ],
-      "equipment_required": [
-        "bodyweight"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": true,
-      "default_tempo_seconds_per_rep": 30,
-      "setup_time_seconds": 0,
-      "contraindication_tags": [
-        "shoulder_injury",
-        "ankle_injury"
-      ],
-      "rom_requirement": "moderate",
-      "spinal_load": "none",
-      "position": "standing",
-      "weight_increment": 0,
-      "rep_range_floor": 1,
-      "rep_range_ceiling": 5,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": true,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [
-        "chest",
-        "front_delt",
-        "calves"
-      ],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "star_jump",
-        "high_knees"
-      ],
-      "variation_family": "cardio_bodyweight_family"
-    },
-    {
       "id": "shuttle_run",
       "name": "Shuttle Run",
       "aliases": [
@@ -18057,91 +17251,6 @@
       "variation_family": "cardio_bodyweight_family"
     },
     {
-      "id": "shadow_boxing",
-      "name": "Shadow Boxing",
-      "aliases": [
-        "boxing cardio",
-        "air punches"
-      ],
-      "movement_pattern": "cardio",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "cardio",
-        "hiit"
-      ],
-      "primary_muscles": [
-        "front_delt",
-        "core",
-        "triceps"
-      ],
-      "secondary_muscles": [
-        "chest",
-        "biceps",
-        "obliques",
-        "quads"
-      ],
-      "joints_loaded": [
-        "shoulder",
-        "elbow"
-      ],
-      "equipment_required": [
-        "bodyweight"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": true,
-      "default_tempo_seconds_per_rep": 60,
-      "setup_time_seconds": 0,
-      "contraindication_tags": [
-        "shoulder_injury"
-      ],
-      "rom_requirement": "moderate",
-      "spinal_load": "none",
-      "position": "standing",
-      "weight_increment": 0,
-      "rep_range_floor": 1,
-      "rep_range_ceiling": 10,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": true,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [
-        "front_delt",
-        "core",
-        "triceps"
-      ],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "battle_rope_slams",
-        "mountain_climber"
-      ],
-      "variation_family": "cardio_bodyweight_family"
-    },
-    {
       "id": "pilates_push_up",
       "name": "Pilates Push-Up",
       "aliases": [
@@ -18219,86 +17328,6 @@
         "incline_push_up"
       ],
       "variation_family": "bench_press_family"
-    },
-    {
-      "id": "pilates_standing_arm_series",
-      "name": "Pilates Standing Arm Series",
-      "aliases": [
-        "arm springs",
-        "pilates arms"
-      ],
-      "movement_pattern": "pilates",
-      "difficulty_tier": "beginner",
-      "eligible_styles": [
-        "pilates"
-      ],
-      "primary_muscles": [
-        "biceps",
-        "triceps",
-        "front_delt"
-      ],
-      "secondary_muscles": [
-        "core"
-      ],
-      "joints_loaded": [
-        "shoulder",
-        "elbow"
-      ],
-      "equipment_required": [
-        "resistance_bands"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": false,
-      "default_tempo_seconds_per_rep": 3,
-      "setup_time_seconds": 5,
-      "contraindication_tags": [
-        "shoulder_injury"
-      ],
-      "rom_requirement": "moderate",
-      "spinal_load": "none",
-      "position": "standing",
-      "weight_increment": 0,
-      "rep_range_floor": 8,
-      "rep_range_ceiling": 15,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": true,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [
-        "biceps",
-        "triceps",
-        "front_delt"
-      ],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "resistance_band_pull_apart"
-      ],
-      "variation_family": "pilates_arm_family"
     },
     {
       "id": "pilates_inner_thigh_lift",
@@ -18535,86 +17564,6 @@
         "face_pull"
       ],
       "variation_family": "pilates_arm_family"
-    },
-    {
-      "id": "pilates_open_leg_rocker",
-      "name": "Pilates Open Leg Rocker",
-      "aliases": [
-        "open leg rocker"
-      ],
-      "movement_pattern": "pilates",
-      "difficulty_tier": "intermediate",
-      "eligible_styles": [
-        "pilates"
-      ],
-      "primary_muscles": [
-        "core",
-        "hamstrings"
-      ],
-      "secondary_muscles": [
-        "hip_flexors",
-        "lower_back"
-      ],
-      "joints_loaded": [
-        "spine",
-        "hip"
-      ],
-      "equipment_required": [
-        "pilates_mat"
-      ],
-      "equipment_optional": [],
-      "is_unilateral": false,
-      "is_compound": false,
-      "default_tempo_seconds_per_rep": 5,
-      "setup_time_seconds": 5,
-      "contraindication_tags": [
-        "lower_back_injury",
-        "herniated_disc",
-        "diastasis_recti",
-        "pregnancy_t2",
-        "pregnancy_t3"
-      ],
-      "rom_requirement": "full",
-      "spinal_load": "light",
-      "position": "seated",
-      "weight_increment": 0,
-      "rep_range_floor": 4,
-      "rep_range_ceiling": 10,
-      "default_load_table": {
-        "male_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "male_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_beginner": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_intermediate": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        },
-        "female_advanced": {
-          "multiplier": 0,
-          "absolute_fallback_lbs": 0
-        }
-      },
-      "is_warmup_eligible": false,
-      "is_cooldown_eligible": false,
-      "warmup_for_muscles": [],
-      "cooldown_for_muscles": [],
-      "substitutes": [
-        "pilates_seal",
-        "pilates_roll_up"
-      ],
-      "variation_family": "pilates_core_family"
     },
     {
       "id": "pilates_kneeling_side_kick",
@@ -19196,7 +18145,7 @@
           "absolute_fallback_lbs": 160
         },
         "male_advanced": {
-          "multiplier": 1.0,
+          "multiplier": 1,
           "absolute_fallback_lbs": 225
         },
         "female_beginner": {

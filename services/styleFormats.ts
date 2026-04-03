@@ -469,7 +469,8 @@ export type SessionPhaseId =
   | 'tabata_block'
   | 'emom_block'
   | 'run_segment'
-  | 'station_segment';
+  | 'station_segment'
+  | 'conditioning_block';
 
 export interface SessionPhase {
   id: SessionPhaseId;
@@ -621,9 +622,9 @@ export const HIIT_ARCHITECTURE: SessionArchitecture = {
     {
       id: 'circuit_block',
       name: 'Circuit',
-      exercise_count: { min: 4, max: 8 },
+      exercise_count: { min: 6, max: 10 },
       role_filter: ['primary', 'secondary', 'accessory'],
-      preferred_formats: ['tabata', 'circuit', 'emom', 'interval_repeats'],
+      preferred_formats: ['circuit', 'emom', 'interval_repeats', 'tabata'],
       time_budget_fraction: 0.85,
     },
     {
@@ -1148,6 +1149,41 @@ const SPLIT_TO_STRENGTH_ARCHITECTURE: Record<string, SessionArchitecture> = {
   'core+cardio': STRENGTH_CORE_CARDIO_ARCHITECTURE,
 };
 
+// Hybrid: strength compounds followed by a conditioning circuit finisher
+export const HYBRID_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'strength_block',
+      name: 'Strength Block',
+      exercise_count: { min: 3, max: 5 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.60,
+      is_compound_only: true,
+      movement_filter: ['push', 'pull', 'squat', 'hinge', 'lunge'],
+    },
+    {
+      id: 'conditioning_block',
+      name: 'Conditioning Finisher',
+      exercise_count: { min: 3, max: 5 },
+      role_filter: ['primary', 'secondary', 'accessory'],
+      preferred_formats: ['circuit'],
+      time_budget_fraction: 0.35,
+      movement_filter: ['squat', 'push', 'pull', 'hinge', 'plyometric', 'carry'],
+    },
+    {
+      id: 'core',
+      name: 'Core',
+      exercise_count: { min: 0, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['straight_sets'],
+      time_budget_fraction: 0.05,
+      muscle_filter: ['core', 'obliques'],
+    },
+  ],
+  total_phase_fraction: 1.0,
+};
+
 export function getArchitectureForStyle(style: string, split?: string): SessionArchitecture {
   if ((style === 'strength' || style === 'bodybuilding') && split) {
     const normalizedSplit = split.toLowerCase().trim();
@@ -1187,6 +1223,7 @@ export function getArchitectureForStyle(style: string, split?: string): SessionA
     case 'cardio': return CARDIO_ARCHITECTURE;
     case 'pilates': return PILATES_ARCHITECTURE;
     case 'mobility': return MOBILITY_ARCHITECTURE;
+    case 'hybrid': return HYBRID_ARCHITECTURE;
     default: return STRENGTH_ARCHITECTURE;
   }
 }

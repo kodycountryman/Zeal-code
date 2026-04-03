@@ -1107,11 +1107,11 @@ export function getAMRAPParams(
   timeBudgetMinutes: number,
   fitnessLevel: FitnessLevel,
 ): { time_cap_minutes: number; target_exercises: number } {
-  // AMRAP rarely exceeds 25 min even in long sessions — athletes need to sustain max effort
-  const cap = Math.min(25, Math.max(6, timeBudgetMinutes));
-  const target = fitnessLevel === 'beginner' ? 3
-    : fitnessLevel === 'intermediate' ? 4
-    : 5;
+  // AMRAP: 15-35 minute range — scales with session duration
+  const cap = Math.min(35, Math.max(15, timeBudgetMinutes));
+  const target = fitnessLevel === 'beginner' ? 4
+    : fitnessLevel === 'intermediate' ? 5
+    : 6;
   return { time_cap_minutes: cap, target_exercises: target };
 }
 
@@ -1119,11 +1119,18 @@ export function getEMOMParams(
   timeBudgetMinutes: number,
   fitnessLevel: FitnessLevel,
 ): { total_minutes: number; exercises_per_rotation: number } {
-  // EMOM minutes = rounds; cap at 24 to keep intensity sustainable
-  const total = Math.min(24, Math.max(8, timeBudgetMinutes));
-  const exercises = fitnessLevel === 'beginner' ? 2
-    : fitnessLevel === 'intermediate' ? 3
-    : 4;
+  // EMOM: duration MUST be a multiple of exercise count.
+  // Each rotation = 1 minute per exercise. Total = exercises × rounds.
+  // Target 4-6 exercises, 16-35 minute range.
+  const exercises = fitnessLevel === 'beginner' ? 4
+    : fitnessLevel === 'intermediate' ? 5
+    : 6;
+  // Snap total minutes to nearest multiple of exercise count within 16-35 range
+  const minRounds = Math.ceil(16 / exercises);
+  const maxRounds = Math.floor(35 / exercises);
+  const budgetRounds = Math.round(timeBudgetMinutes / exercises);
+  const rounds = Math.max(minRounds, Math.min(maxRounds, budgetRounds));
+  const total = exercises * rounds;
   return { total_minutes: total, exercises_per_rotation: exercises };
 }
 

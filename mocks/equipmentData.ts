@@ -61,7 +61,18 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
       { id: 'db_30', name: '30lb Dumbbells' },
       { id: 'db_35', name: '35lb Dumbbells' },
       { id: 'db_40', name: '40lb Dumbbells' },
+      { id: 'db_45', name: '45lb Dumbbells' },
       { id: 'db_50', name: '50lb Dumbbells' },
+      { id: 'db_55', name: '55lb Dumbbells' },
+      { id: 'db_60', name: '60lb Dumbbells' },
+      { id: 'db_65', name: '65lb Dumbbells' },
+      { id: 'db_70', name: '70lb Dumbbells' },
+      { id: 'db_75', name: '75lb Dumbbells' },
+      { id: 'db_80', name: '80lb Dumbbells' },
+      { id: 'db_85', name: '85lb Dumbbells' },
+      { id: 'db_90', name: '90lb Dumbbells' },
+      { id: 'db_95', name: '95lb Dumbbells' },
+      { id: 'db_100', name: '100lb Dumbbells' },
     ],
   },
   {
@@ -103,6 +114,14 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
       { id: 'smith_machine', name: 'Smith Machine' },
       { id: 'glute_ham', name: 'Glute Ham Developer (GHD)' },
       { id: 'back_extension', name: 'Back Extension / Roman Chair' },
+      { id: 'standing_calf_raise', name: 'Standing Calf Raise Machine' },
+      { id: 'seated_calf_raise', name: 'Seated Calf Raise Machine' },
+      { id: 'reverse_hyper', name: 'Reverse Hyper' },
+      { id: 'belt_squat', name: 'Belt Squat Machine' },
+      { id: 'assisted_dip_pullup', name: 'Assisted Pull-Up / Dip Machine' },
+      { id: 'rear_delt_machine', name: 'Rear Delt / Reverse Fly Machine' },
+      { id: 't_bar_row', name: 'T-Bar Row' },
+      { id: 'glute_kickback_machine', name: 'Glute Kickback Machine' },
     ],
   },
   {
@@ -127,6 +146,7 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
       { id: 'cable_attachment_rope', name: 'Rope Attachment' },
       { id: 'cable_attachment_v', name: 'V-Bar Attachment' },
       { id: 'dip_belt', name: 'Dip Belt' },
+      { id: 'landmine', name: 'Landmine Attachment' },
     ],
   },
   {
@@ -138,10 +158,14 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
       { id: 'ski_erg', name: 'Ski Erg' },
       { id: 'treadmill', name: 'Treadmill' },
       { id: 'stationary_bike', name: 'Stationary Bike' },
+      { id: 'stairmaster', name: 'Stairmaster / StepMill' },
+      { id: 'elliptical', name: 'Elliptical' },
       { id: 'battle_ropes', name: 'Battle Ropes' },
       { id: 'jump_rope', name: 'Jump Rope' },
       { id: 'sled_push', name: 'Push Sled' },
       { id: 'sled_pull', name: 'Pull Sled / Rope Drag' },
+      { id: 'prowler', name: 'Prowler' },
+      { id: 'farmer_carry_handles', name: 'Farmer Carry Handles' },
       { id: 'tire_flip', name: 'Tire (Flip)' },
       { id: 'sandbag', name: 'Sandbag' },
       { id: 'plyo_box', name: 'Plyo Box' },
@@ -164,6 +188,20 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
     ],
   },
   {
+    id: 'accessories',
+    name: 'Accessories',
+    items: [
+      { id: 'ab_wheel', name: 'Ab Wheel / Ab Roller' },
+      { id: 'ankle_straps', name: 'Ankle Straps (Cable)' },
+      { id: 'lifting_belt', name: 'Lifting Belt' },
+      { id: 'wrist_wraps', name: 'Wrist Wraps' },
+      { id: 'knee_sleeves', name: 'Knee Sleeves' },
+      { id: 'lifting_straps', name: 'Lifting Straps' },
+      { id: 'bosu_ball', name: 'Bosu Ball' },
+      { id: 'parallettes', name: 'Parallettes' },
+    ],
+  },
+  {
     id: 'recovery',
     name: 'Recovery',
     items: [
@@ -175,6 +213,10 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
       { id: 'yoga_mat', name: 'Yoga / Exercise Mat' },
       { id: 'ice_bath', name: 'Ice Bath / Cold Plunge' },
       { id: 'stretching_strap', name: 'Stretching Strap' },
+      { id: 'sauna', name: 'Sauna' },
+      { id: 'infrared_sauna', name: 'Infrared Sauna' },
+      { id: 'steam_room', name: 'Steam Room' },
+      { id: 'compression_boots', name: 'Compression Boots (Normatec)' },
     ],
   },
 ];
@@ -195,10 +237,14 @@ export const COMMERCIAL_EQUIPMENT_PRESET: Record<string, number> = {
   leg_press: 1, leg_extension: 1, lying_leg_curl: 1, seated_leg_curl: 1,
   pec_deck: 1, chest_press_machine: 1, shoulder_press_machine: 1,
   smith_machine: 1, hack_squat: 1,
+  standing_calf_raise: 1, seated_calf_raise: 1,
+  assisted_dip_pullup: 1, rear_delt_machine: 1, t_bar_row: 1,
   flat_bench: 2, adjustable_bench: 2, squat_rack: 1, power_rack: 1,
   pullup_bar: 1, dip_bar: 1,
   rowing_machine: 1, assault_bike: 1, treadmill: 2, stationary_bike: 1,
+  stairmaster: 1, elliptical: 1,
   plyo_box: 1, foam_roller: 1, resistance_bands: 1, yoga_mat: 1,
+  sauna: 1,
 };
 
 export const HOME_EQUIPMENT_PRESET: Record<string, number> = {
@@ -211,6 +257,7 @@ export const HOME_EQUIPMENT_PRESET: Record<string, number> = {
   pullup_bar: 1, dip_bar: 1,
   resistance_bands: 1, mobility_bands: 1,
   yoga_mat: 1, foam_roller: 1,
+  ab_wheel: 1,
 };
 
 export const CROSSFIT_EQUIPMENT_PRESET: Record<string, number> = {
@@ -229,6 +276,7 @@ export const CROSSFIT_EQUIPMENT_PRESET: Record<string, number> = {
   slam_ball_20: 1, slam_ball_30: 1, slam_ball_40: 1,
   wall_ball_14: 1, wall_ball_20: 1,
   resistance_bands: 1, mobility_bands: 1,
-  back_extension: 1,
+  back_extension: 1, reverse_hyper: 1,
+  farmer_carry_handles: 1, prowler: 1,
   foam_roller: 1, yoga_mat: 1,
 };

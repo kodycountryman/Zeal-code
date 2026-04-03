@@ -231,12 +231,13 @@ export const MIN_EXERCISES_PER_STYLE: Record<string, number> = {
   bodybuilding: 6,
   crossfit: 5,
   hyrox: 6,
-  hiit: 4,
+  hiit: 6,
   cardio: 1,
   mobility: 5,
   pilates: 5,
   '75_hard': 5,
   low_impact: 5,
+  hybrid: 6,
 };
 
 export const MAX_EXERCISES_PER_STYLE: Record<string, number> = {
@@ -244,12 +245,13 @@ export const MAX_EXERCISES_PER_STYLE: Record<string, number> = {
   bodybuilding: 9,
   crossfit: 10,
   hyrox: 16,
-  hiit: 8,
+  hiit: 12,
   cardio: 3,
   mobility: 10,
   pilates: 10,
   '75_hard': 8,
   low_impact: 8,
+  hybrid: 11,
 };
 
 export interface StyleEngineConfig {
@@ -344,10 +346,20 @@ export const STYLE_ENGINE_CONFIGS: Record<string, StyleEngineConfig> = {
     compounds_first: false,
     pattern_priority: ['isolation', 'push', 'pull', 'hinge', 'squat', 'lunge'],
   },
+  hybrid: {
+    rep_range_override: { min: 3, max: 15 },
+    set_range_override: { min: 3, max: 5 },
+    allow_supersets: false,
+    superset_min: 0,
+    superset_max: 0,
+    compounds_first: true,
+    pattern_priority: ['squat', 'hinge', 'push', 'pull', 'plyometric', 'isolation'],
+    circuit_grouping: true,
+  },
 };
 
 export const STYLE_DURATION_OVERRIDES: Record<string, { max_working_minutes?: number; fixed_minutes?: number }> = {
-  hiit: { max_working_minutes: 30 },
+  hiit: { max_working_minutes: 50 },
   '75_hard': { fixed_minutes: 45 },
   mobility: { max_working_minutes: 45 },
   pilates: { max_working_minutes: 50 },
@@ -439,7 +451,7 @@ export const LEGACY_STYLE_MAP: Record<string, EligibleStyle> = {
   'Mobility': 'mobility',
   'Pilates': 'pilates',
   'Low-Impact': 'low_impact',
-  'Hybrid': 'strength',
+  'Hybrid': 'hybrid',
 };
 
 export const STYLE_DISPLAY_FROM_ENGINE: Record<string, string> = {
@@ -451,6 +463,7 @@ export const STYLE_DISPLAY_FROM_ENGINE: Record<string, string> = {
   mobility: 'Mobility',
   pilates: 'Pilates',
   low_impact: 'Low-Impact',
+  hybrid: 'Hybrid',
 };
 
 export function mapLegacyStyleToEngine(displayStyle: string): string {

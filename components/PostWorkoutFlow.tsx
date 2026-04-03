@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSheetAnimation } from '@/hooks/useSheetAnimation';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import { useZealTheme } from '@/context/AppContext';
+import { useZealTheme, useAppContext, type SavedWorkout } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -188,11 +188,34 @@ export default function PostWorkoutFlow() {
     tracking.prepareSaveStep(starRating, rpe, chips);
   }, [tracking, starRating, rpe, chips]);
 
-  const handleSave = useCallback(() => {
+  const ctx = useAppContext();
+
+  const handleDone = useCallback(() => {
     requestAnimationFrame(() => {
-      tracking.saveWorkout();
+      tracking.dismissPostWorkout();
     });
   }, [tracking]);
+
+  const handleSaveAsCustom = useCallback(() => {
+    if (!tracking.activeWorkout) return;
+    const exercises = tracking.activeWorkout.workout.map(ex => ({
+      exerciseId: ex.id,
+      name: ex.name,
+    }));
+    const newSaved: SavedWorkout = {
+      id: `custom_${Date.now()}`,
+      name: tracking.activeWorkout.split ?? 'Custom Workout',
+      exercises,
+      defaultFocus: tracking.activeWorkout.workout[0]?.muscleGroup ?? '',
+      createdAt: new Date().toISOString(),
+      lastUsed: new Date().toISOString(),
+    };
+    const updated = [newSaved, ...ctx.savedWorkouts];
+    ctx.saveSavedWorkouts(updated);
+    requestAnimationFrame(() => {
+      tracking.dismissPostWorkout();
+    });
+  }, [tracking, ctx]);
 
   const handleDiscard = useCallback(() => {
     tracking.discardWorkout();
@@ -302,8 +325,8 @@ export default function PostWorkoutFlow() {
           {step === 'save' && (
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.saveHeader}>
-                <PlatformIcon name="save" size={24} color="#f87116" />
-                <Text style={[styles.stepTitle, { color: colors.text }]}>Save Workout</Text>
+                <PlatformIcon name="check-circle" size={24} color="#22c55e" />
+                <Text style={[styles.stepTitle, { color: colors.text }]}>Workout Saved</Text>
               </View>
 
               <Text style={[styles.saveName, { color: colors.text }]}>
@@ -377,12 +400,12 @@ export default function PostWorkoutFlow() {
                 </View>
               )}
 
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-                <Text style={styles.saveBtnText}>Save Workout</Text>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleDone} activeOpacity={0.85}>
+                <Text style={styles.saveBtnText}>Done</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.discardBtn} onPress={handleDiscard} activeOpacity={0.7}>
-                <Text style={[styles.discardBtnText, { color: colors.textMuted }]}>Discard</Text>
+              <TouchableOpacity style={styles.discardBtn} onPress={handleSaveAsCustom} activeOpacity={0.7}>
+                <Text style={[styles.discardBtnText, { color: colors.textSecondary }]}>Save as Custom Workout</Text>
               </TouchableOpacity>
             </ScrollView>
           )}

@@ -431,6 +431,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
     ctx.saveActivePlan(plan, schedule);
 
     // ── Generate workouts: Week 1 in parallel, rest in background ────────────
+    // Always generate all components — user toggles control visibility at render time
     const genParamsFactory = (d: DayPrescription): GenerateWorkoutParams => ({
       style: d.style,
       split: d.session_type,
@@ -441,13 +442,15 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
       sex: ctx.sex,
       specialLifeCase: ctx.specialLifeCase,
       specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-      warmUp: ctx.warmUp,
-      coolDown: ctx.coolDown,
-      recovery: false,
-      addCardio: false,
+      warmUp: true,
+      coolDown: true,
+      recovery: true,
+      addCardio: true,
       specificMuscles: [],
       planPhase: d.phase,
       volumeModifier: d.volume_modifier,
+      bodyweightLbs: ctx.weight,
+      cacheVariantKey: `${plan.id}_${d.date}`,
     });
 
     setPreGenProgress({ current: 0, total: 1 });

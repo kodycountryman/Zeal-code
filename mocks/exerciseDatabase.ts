@@ -20,7 +20,8 @@ export type SpinalLoad = 'none' | 'light' | 'moderate' | 'heavy';
 
 export type EligibleStyle =
   | 'strength' | 'bodybuilding' | 'crossfit' | 'hyrox'
-  | 'mobility' | 'hiit' | 'cardio' | 'pilates' | 'low_impact';
+  | 'mobility' | 'hiit' | 'cardio' | 'pilates' | 'low_impact'
+  | 'hybrid';
 
 export type MuscleGroup =
   | 'chest' | 'upper_chest' | 'lower_chest'

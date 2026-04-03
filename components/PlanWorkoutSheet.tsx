@@ -207,32 +207,33 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
     setEditTargetId(null);
     setShowAddPanel(false);
     setReorderActiveId(null);
-    generateWorkoutAsync({
-      style: selectedStyle,
-      split: selectedSplit || recommendedSplit,
-      targetDuration: ctx.targetDuration,
-      restSlider: ctx.restBetweenSets,
-      availableEquipment: ctx.activePlan?.equipment ?? ctx.selectedEquipment,
-      fitnessLevel: ctx.fitnessLevel,
-      sex: ctx.sex,
-      specialLifeCase: ctx.specialLifeCase,
-      specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-      warmUp: false,
-      coolDown: false,
-      recovery: false,
-      addCardio: false,
-      specificMuscles: topMuscles,
-      seedOffset: seedOff,
-    }, undefined, hasPro).then((result) => {
+    try {
+      const result = generateWorkoutAsync({
+        style: selectedStyle,
+        split: selectedSplit || recommendedSplit,
+        targetDuration: ctx.targetDuration,
+        restSlider: ctx.restBetweenSets,
+        availableEquipment: ctx.activePlan?.equipment ?? ctx.selectedEquipment,
+        fitnessLevel: ctx.fitnessLevel,
+        sex: ctx.sex,
+        specialLifeCase: ctx.specialLifeCase,
+        specialLifeCaseDetail: ctx.specialLifeCaseDetail,
+        warmUp: false,
+        coolDown: false,
+        recovery: false,
+        addCardio: false,
+        specificMuscles: topMuscles,
+        seedOffset: seedOff,
+      }, undefined, hasPro);
       setGenExercises(result.workout);
       console.log('[PlanWorkoutSheet] Generated', result.workout.length, 'exercises');
-    }).catch((e) => {
+    } catch (e) {
       console.log('[PlanWorkoutSheet] Generation error:', e);
       setGenExercises([]);
       setIsGenError(true);
-    }).finally(() => {
+    } finally {
       setIsGenerating(false);
-    });
+    }
   }, [selectedStyle, selectedSplit, recommendedSplit, ctx, topMuscles]);
 
   useEffect(() => {

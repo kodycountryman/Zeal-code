@@ -90,6 +90,7 @@ export interface GenerateWorkoutParams {
   planPhase?: string;
   volumeModifier?: number;
   bodyweightLbs?: number;
+  cacheVariantKey?: string;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -654,9 +655,10 @@ function stage3PoolFiltering(
   }
 
   if (targetMuscles.length > 0) {
+    // Filter by PRIMARY muscles only to prevent wrong-split exercises leaking in
+    // via secondary muscles (e.g., squat has secondary: lower_back → would pass Pull filter).
     const muscleFiltered = pool.filter(ex =>
-      ex.primary_muscles.some(m => targetMuscles.includes(m)) ||
-      ex.secondary_muscles.some(m => targetMuscles.includes(m))
+      ex.primary_muscles.some(m => targetMuscles.includes(m))
     );
     if (muscleFiltered.length > 0) {
       pool = muscleFiltered;
@@ -1583,17 +1585,16 @@ function applyStyleAwareGrouping(
         ex.restSeconds = 0;
       }
     } else if (formatId === 'emom') {
-      const params = getEMOMParams(metconBudgetMin, level);
-      const emomMinutes = params.total_minutes;
-      timeCap = emomMinutes;
-      rounds = emomMinutes;
-      // EMOM structure should divide evenly into the total minutes so rounds end cleanly.
-      // Example: 24 min -> 4 or 6 exercises, 25 min -> 5 exercises.
-      const emomDivisors = [6, 5, 4, 3, 2].filter(n => emomMinutes % n === 0);
-      const preferredCount =
-        emomDivisors.find(d => d <= metconCandidates.length)
-        ?? 1; // 1 always divides; ensures EMOM "ends cleanly" even with limited pool
-      const emomExerciseCount = Math.max(1, preferredCount);
+      const emomParams = getEMOMParams(metconBudgetMin, level);
+      const emomExerciseCount = Math.min(emomParams.exercises_per_rotation, metconCandidates.length);
+      // EMOM duration must be a multiple of exercise count (each round = 1 min per exercise)
+      const emomMinutes = emomParams.total_minutes;
+      // Verify divisibility — getEMOMParams already ensures this, but clamp if exercise pool was smaller
+      const adjustedMinutes = emomExerciseCount > 0
+        ? Math.floor(emomMinutes / emomExerciseCount) * emomExerciseCount
+        : emomMinutes;
+      timeCap = adjustedMinutes;
+      rounds = adjustedMinutes; // EMOM total minutes = number of 1-minute slots
       metconPool = metconCandidates.slice(0, emomExerciseCount);
 
       // EMOM: small rep counts completable within ~40 s to earn rest within the minute
@@ -1618,7 +1619,7 @@ function applyStyleAwareGrouping(
         ex.sets = 1;
         ex.restSeconds = 0;
       }
-      console.log('[EngineV2] EMOM structure:', emomMinutes, 'min with', emomExerciseCount, 'exercise(s) (divisors:', emomDivisors.join(',') || 'none', ')');
+      console.log('[EngineV2] EMOM structure:', adjustedMinutes, 'min with', emomExerciseCount, 'exercise(s),', adjustedMinutes / emomExerciseCount, 'rounds');
     } else if (formatId === 'rft') {
       const maxRftExercises = sessionDuration >= 55 ? 5 : 4;
       metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxRftExercises, metconCandidates.length)));
@@ -1697,8 +1698,8 @@ function applyStyleAwareGrouping(
       const maxLadderExercises = sessionDuration >= 55 ? 5 : 4;
       metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxLadderExercises, metconCandidates.length)));
       const ladderParams = getLadderParams(level, rng);
-      // Ladders are shorter structured pieces; cap is lower than a full chipper
-      timeCap = Math.max(10, Math.min(20, metconBudgetMin));
+      // Ladders scale with session duration
+      timeCap = Math.max(10, Math.min(35, metconBudgetMin));
       // Use metconRounds to encode the ladder increment so the UI can display "start X · +Y/rd".
       // (We don't track "target round" yet — this is strictly metadata clarity.)
       const ladderInc = level === 'beginner' ? 2 : level === 'intermediate' ? 2 : 3;

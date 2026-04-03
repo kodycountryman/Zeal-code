@@ -119,8 +119,8 @@ export type { BaseDrawerProps };
 
 const styles = StyleSheet.create({
   sheetBg: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
   },
   handle: {
     width: 38,

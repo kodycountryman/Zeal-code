@@ -950,12 +950,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (!log) return prev;
       const newSets = [...log.sets];
       newSets[setIndex] = { ...newSets[setIndex], [field]: value };
-      // Cascade to all following sets that haven't been checked off yet
-      for (let i = setIndex + 1; i < newSets.length; i++) {
-        if (!newSets[i].done) {
-          newSets[i] = { ...newSets[i], [field]: value };
-        }
-      }
       return { ...prev, [exerciseId]: { ...log, sets: newSets } };
     });
   }, []);
@@ -979,6 +973,16 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (!log) return prev;
       const newSets = [...log.sets];
       newSets[setIndex] = { ...newSets[setIndex], done: !newSets[setIndex].done };
+
+      // On check: cascade weight/reps to all following undone sets
+      if (newSets[setIndex].done) {
+        const { weight, reps } = newSets[setIndex];
+        for (let i = setIndex + 1; i < newSets.length; i++) {
+          if (!newSets[i].done) {
+            newSets[i] = { ...newSets[i], weight, reps };
+          }
+        }
+      }
 
       if (newSets[setIndex].done) {
         const set = newSets[setIndex];
@@ -1141,6 +1145,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setSelectedDifficulty(starToDifficulty[starRating] ?? 'moderate');
 
     setPostWorkoutStep('save');
+
+    // Auto-save the workout log immediately — no manual "Save" tap required.
+    // saveWorkout reads from state that was just set above; React batches these
+    // so we defer one frame to let the state commit.
+    requestAnimationFrame(() => {
+      saveWorkoutRef.current?.();
+    });
   }, [calculateScore, confirmedPRs]);
 
   const saveWorkout = useCallback(() => {
@@ -1263,8 +1274,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       ctx.markDayCompleted(getTodayStr());
     }
 
-    console.log('[Tracking] Workout saved. Score:', score.finalScore, 'PRs:', confirmedPRs.length);
-
     if (ctx.healthSyncEnabled && ctx.healthConnected && Platform.OS !== 'web') {
       const durationSec = workoutElapsed;
       const endDate = new Date();
@@ -1283,12 +1292,22 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       });
     }
 
+    console.log('[Tracking] Workout auto-saved. Score:', score?.finalScore ?? 0, 'PRs:', confirmedPRs.length);
+  }, [sessionScoreBreakdown, exerciseLogs, confirmedPRs, sessionPRs, activeWorkout, workoutHistory, prHistory, weeklyHoursMin, workoutElapsed, ctx, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell]);
+
+  // Stable ref so prepareSaveStep can call saveWorkout after state commits
+  const saveWorkoutRef = useRef<() => void>();
+  saveWorkoutRef.current = saveWorkout;
+
+  // Dismiss the post-workout modal and clean up state
+  const dismissPostWorkout = useCallback(() => {
+    console.log('[Tracking] Dismissing post-workout flow');
     setPostWorkoutStep(null);
     setSessionScoreBreakdown(null);
     setSessionPRs([]);
     setConfirmedPRs([]);
     setIsTimerMinimized(false);
-  }, [sessionScoreBreakdown, exerciseLogs, confirmedPRs, sessionPRs, activeWorkout, workoutHistory, prHistory, weeklyHoursMin, workoutElapsed, ctx, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell]);
+  }, []);
 
   const discardWorkout = useCallback(() => {
     console.log('[Tracking] Discarding workout');
@@ -1678,6 +1697,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     beginPostWorkout,
     prepareSaveStep,
     saveWorkout,
+    dismissPostWorkout,
     discardWorkout,
     completeWorkout,
     logPreviousWorkout,
@@ -1711,7 +1731,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setRestPreset, cancelRestTimer, initExerciseLog, updateSetLog,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout, prepareSaveStep,
-    saveWorkout, discardWorkout, completeWorkout,
+    saveWorkout, dismissPostWorkout, discardWorkout, completeWorkout,
     logPreviousWorkout, removeWorkoutLog, getLogForDate, getLogsForDate,
     getExerciseSuggestion, getLastSetsForExercise,
     pendingHealthImports, duplicateCandidates, healthImportReviewVisible, setHealthImportReviewVisible,

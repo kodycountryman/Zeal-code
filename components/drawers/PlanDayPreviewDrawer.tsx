@@ -165,20 +165,19 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
           volumeModifier: day.volume_modifier,
         };
 
-        return generateWorkoutAsync(params, day)
-          .then(result => {
-            if (!cancelled) {
-              setWorkout(result);
+        try {
+          const result = generateWorkoutAsync(params, day);
+          if (!cancelled) {
+            setWorkout(result);
+            setLoading(false);
+            AsyncStorage.setItem(cacheKey, JSON.stringify(result)).catch(() => {});
+          }
+        } catch {
+          if (!cancelled) {
+            setError('Could not preview this workout. You can still start it.');
               setLoading(false);
-              AsyncStorage.setItem(cacheKey, JSON.stringify(result)).catch(() => {});
             }
-          })
-          .catch(() => {
-            if (!cancelled) {
-              setError('Could not preview this workout. You can still start it.');
-              setLoading(false);
-            }
-          });
+          }
       })
       .catch(() => {
         if (cancelled) return;

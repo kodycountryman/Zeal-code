@@ -69,12 +69,13 @@ import {
   workoutExercisesFromSavedRefs,
   generateWorkout,
   calculateRest,
+  buildWarmupCooldownRecovery,
   type GeneratedWorkout,
   type WorkoutExercise,
   type SeventyFiveHardSession,
 } from '@/services/workoutEngine';
 import type { MovementType } from '@/mocks/exerciseDatabase';
-import { generateWorkoutAsync, generateCoreFinisher, getAIStyles, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync, generateCoreFinisher, enhanceCrossFitMetCon } from '@/services/aiWorkoutGenerator';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 import ModifyWorkoutDrawer from '@/components/drawers/ModifyWorkoutDrawer';
 import AddToWorkoutSheet, { type AddMode } from '@/components/AddToWorkoutSheet';
@@ -1171,49 +1172,6 @@ export default function WorkoutScreen() {
 
     const prescription = (!ov && !style && hasPlan) ? todayPrescription : null;
 
-    // Check plan day cache before hitting AI — instant load for pre-generated days
-    if (prescription && hasPlan && !ov && !style) {
-      const d = new Date();
-      const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      try {
-        const cached = await AsyncStorage.getItem(`@zeal_plan_day_workout_${ctx.activePlan?.id}_${todayStr}`);
-        if (cached) {
-          const cachedWorkout = JSON.parse(cached) as GeneratedWorkout;
-          cachedWorkout.workout = enforceStyleGrouping(cachedWorkout.workout, cachedWorkout.style);
-          console.log('[WorkoutScreen] Plan cache hit — using pre-generated workout');
-          setWorkout(cachedWorkout);
-          tracking.setCurrentGeneratedWorkout(cachedWorkout);
-          ctx.setCurrentWorkoutTitle(
-            buildCreativeWorkoutTitle({
-              style: cachedWorkout.style,
-              split: cachedWorkout.split,
-              metconFormat: cachedWorkout.metconFormat,
-              duration: cachedWorkout.estimatedDuration,
-              previousTitle: currentWorkoutTitleRef.current,
-            })
-          );
-          setWarmupHidden(false);
-          setTrackedExercises(new Set());
-          setDoneExercises(new Set());
-          setExpandedTrack(null);
-          setCompletedSets({});
-          setIsGenerating(false);
-          return;
-        }
-      } catch (e) {
-        console.log('[WorkoutScreen] Plan cache error, regenerating:', e);
-      }
-    }
-
-    const isAI = getAIStyles(hasPro).has(effectiveStyle);
-    setGeneratingIsAI(isAI);
-    setGeneratingElapsed(0);
-    setIsGenerating(true);
-    const genStart = Date.now();
-
-    const reqId = ++generateReqIdRef.current;
-    let finished = false;
-
     // Use plan's stored equipment if generating a plan workout, otherwise user's global settings
     const effectiveEquipment = (prescription && hasPlan)
       ? (ctx.activePlan?.equipment ?? ctx.selectedEquipment)
@@ -1229,10 +1187,10 @@ export default function WorkoutScreen() {
       sex: ctx.sex,
       specialLifeCase: ctx.specialLifeCase,
       specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-      warmUp: ctx.warmUp,
-      coolDown: ctx.coolDown,
-      recovery: ctx.recovery,
-      addCardio: ctx.addCardio,
+      warmUp: true,
+      coolDown: true,
+      recovery: true,
+      addCardio: true,
       specificMuscles: effectiveMuscles,
       seedOffset: seedOffset ?? 0,
       planPhase: prescription?.phase,
@@ -1240,81 +1198,58 @@ export default function WorkoutScreen() {
       bodyweightLbs: ctx.weight,
     } as const;
 
-    const applyGeneratedWorkout = (finalWorkout: GeneratedWorkout, minDelayMs: number) => {
-      if (finished) return;
-      finished = true;
+    setIsGenerating(true);
 
-      const elapsed = Date.now() - genStart;
-      const remaining = Math.max(0, minDelayMs - elapsed);
-      if (generatingTimerRef.current) clearTimeout(generatingTimerRef.current);
-      generatingTimerRef.current = setTimeout(() => {
-        if (generateReqIdRef.current !== reqId) return;
-        setWorkout(finalWorkout);
-        tracking.setCurrentGeneratedWorkout(finalWorkout);
-        ctx.setCurrentWorkoutTitle(
-          buildCreativeWorkoutTitle({
-            style: finalWorkout.style,
-            split: finalWorkout.split,
-            metconFormat: finalWorkout.metconFormat,
-            duration: finalWorkout.estimatedDuration,
-            previousTitle: currentWorkoutTitleRef.current,
-          })
-        );
-        setWarmupHidden(false);
-        setTrackedExercises(new Set());
-        setDoneExercises(new Set());
-        setExpandedTrack(null);
-        setCompletedSets({});
-        setIsGenerating(false);
-      }, remaining);
-    };
+    // Rule engine generates instantly (<100ms) — no AI, no cache, no timeout needed.
+    // Split enforcement is structural: exercises are filtered by primary_muscles
+    // against SPLIT_TO_MUSCLES before scoring even begins.
+    const result = generateWorkoutAsync(params as any, prescription, hasPro);
 
-    // Hard cap: never block longer than 20 seconds.
-    const hardTimeout = setTimeout(() => {
-      if (generateReqIdRef.current !== reqId) return;
-      console.log('[WorkoutScreen] Generation exceeded 20s — falling back to rule engine');
-      setGeneratingIsAI(false);
-      const fallback = generateWorkout(params as any, prescription);
-      applyGeneratedWorkout(fallback, 0);
-    }, 20000);
+    // CrossFit MetCon AI enhancement — runs async, updates format/theme after workout displays
+    if (effectiveStyle === 'CrossFit' && result.metconFormat) {
+      enhanceCrossFitMetCon(result).then(enhanced => {
+        setWorkout(prev => prev ? {
+          ...prev,
+          metconFormat: enhanced.format,
+          metconTimeCap: enhanced.timeCap,
+          metconRounds: enhanced.rounds,
+        } : prev);
+        ctx.setCurrentWorkoutTitle(enhanced.theme);
+      }).catch(() => { /* rule engine format stands */ });
+    }
 
+    // Core finisher — still uses AI for variety, runs async in background
     const suppressCoreFinisher = (params.volumeModifier ?? 1.0) < 0.75;
-    const shouldRunCoreFinisher = ctx.coreFinisher && !suppressCoreFinisher;
+    if (!suppressCoreFinisher) {
+      generateCoreFinisher({
+        fitnessLevel: ctx.fitnessLevel,
+        sex: ctx.sex,
+        availableEquipment: effectiveEquipment,
+      }).then(coreExercises => {
+        if (coreExercises?.length) {
+          setWorkout(prev => prev ? { ...prev, coreFinisher: coreExercises } : prev);
+        }
+      }).catch(() => {});
+    }
 
-    // Fire main workout + core finisher in parallel — cuts total time nearly in half when both are enabled
-    const mainWorkoutPromise = generateWorkoutAsync(params as any, prescription, hasPro);
-    const coreFinisherPromise: Promise<WorkoutExercise[] | null> = shouldRunCoreFinisher
-      ? Promise.race([
-          generateCoreFinisher({
-            fitnessLevel: ctx.fitnessLevel,
-            sex: ctx.sex,
-            availableEquipment: effectiveEquipment,
-          }),
-          new Promise<WorkoutExercise[]>((_, reject) => {
-            setTimeout(() => reject(new Error('core finisher timeout')), 5000);
-          }),
-        ]).catch((err) => {
-          console.log('[WorkoutScreen] Core finisher generation failed, skipping:', err);
-          return null;
-        })
-      : Promise.resolve(null);
-
-    Promise.all([mainWorkoutPromise, coreFinisherPromise]).then(([w, coreExercises]) => {
-      if (generateReqIdRef.current !== reqId) return;
-      const finalWorkout: GeneratedWorkout = coreExercises ? { ...w, coreFinisher: coreExercises } : w;
-      if (coreExercises) {
-        console.log('[WorkoutScreen] Core finisher appended:', coreExercises.length, 'exercises');
-      }
-      clearTimeout(hardTimeout);
-      applyGeneratedWorkout(finalWorkout, 1500);
-    }).catch((err) => {
-      clearTimeout(hardTimeout);
-      if (generateReqIdRef.current !== reqId) return;
-      console.log('[WorkoutScreen] Generation failed, falling back to rule engine:', err);
-      setGeneratingIsAI(false);
-      const fallback = generateWorkout(params as any, prescription);
-      applyGeneratedWorkout(fallback, 0);
-    });
+    const finalWorkout = result;
+    setWorkout(finalWorkout);
+    tracking.setCurrentGeneratedWorkout(finalWorkout);
+    ctx.setCurrentWorkoutTitle(
+      buildCreativeWorkoutTitle({
+        style: finalWorkout.style,
+        split: finalWorkout.split,
+        metconFormat: finalWorkout.metconFormat,
+        duration: finalWorkout.estimatedDuration,
+        previousTitle: currentWorkoutTitleRef.current,
+      })
+    );
+    setWarmupHidden(false);
+    setTrackedExercises(new Set());
+    setDoneExercises(new Set());
+    setExpandedTrack(null);
+    setCompletedSets({});
+    setIsGenerating(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx, hasPro]);
 
@@ -1984,7 +1919,17 @@ export default function WorkoutScreen() {
   const currentStyle = workout?.style ?? ctx.workoutStyle;
   const currentAccent = WORKOUT_STYLE_COLORS[currentStyle] ?? accent;
 
-  const hasCardio = (workout?.cardio.length ?? 0) > 0;
+  const hasCardio = ctx.addCardio && (workout?.cardio.length ?? 0) > 0;
+  if (workout) {
+    console.log('[WorkoutScreen] Component visibility:', {
+      hasCardio,
+      addCardioToggle: ctx.addCardio,
+      cardioCount: workout.cardio?.length ?? 0,
+      coreFinisherToggle: ctx.coreFinisher,
+      coreFinisherCount: workout.coreFinisher?.length ?? 0,
+      showCore: ctx.coreFinisher && (workout.coreFinisher?.length ?? 0) > 0,
+    });
+  }
 
   const playCircleBg = currentAccent;
   const playIconColor = '#fff';
@@ -4203,7 +4148,7 @@ export default function WorkoutScreen() {
                 </View>
               </View>
 
-              {workout?.coreFinisher && workout.coreFinisher.length > 0 && (
+              {ctx.coreFinisher && workout?.coreFinisher && workout.coreFinisher.length > 0 && (
                 <View style={[
                   styles.coreFinisherCard,
                   {
@@ -7007,8 +6952,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end' as const,
   },
   planChoiceSheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 36,
