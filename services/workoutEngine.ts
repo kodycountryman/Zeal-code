@@ -89,6 +89,7 @@ export interface GenerateWorkoutParams {
   seedOffset?: number;
   planPhase?: string;
   volumeModifier?: number;
+  bodyweightLbs?: number;
 }
 
 // ═══════════════════════════════════════════════════════

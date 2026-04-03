@@ -24,7 +24,9 @@
       "Bash(npm ls:*)",
       "Bash(node -e \"const { withRorkMetro } = require\\(''@rork-ai/toolkit-sdk/metro''\\); const config = {}; const result = withRorkMetro\\(config\\); console.log\\(JSON.stringify\\(Object.keys\\(result\\), null, 2\\)\\)\")",
       "Bash(node -e \"const { withRorkMetro } = require\\(''@rork-ai/toolkit-sdk/metro''\\); const { getDefaultConfig } = require\\(''expo/metro-config''\\); const config = getDefaultConfig\\(__dirname\\); const result = withRorkMetro\\(config\\); console.log\\(''transformer keys:'', Object.keys\\(result.transformer || {}\\)\\); console.log\\(''resolver extra:'', JSON.stringify\\(result.resolver?.sourceExts?.slice\\(-5\\)\\)\\)\")",
-      "Bash(wc -l app/\\\\\\(tabs\\\\\\)/workout.tsx)"
+      "Bash(wc -l app/\\\\\\(tabs\\\\\\)/workout.tsx)",
+      "Bash(awk 'NR>=1097 && NR<=1125' \"zeal+ Code/app/\\(tabs\\)/workout.tsx\")",
+      "Bash(wc -l \"zeal+ Code/app/\\(tabs\\)/workout.tsx\")"
     ]
   },
   "hooks": {

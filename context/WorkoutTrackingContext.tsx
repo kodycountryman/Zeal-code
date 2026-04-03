@@ -178,20 +178,34 @@ function parseEngineSuggestedWeight(raw: string): number {
   return match ? parseFloat(match[1]) : 0;
 }
 
+function getOverloadIncrement(exercise: WorkoutExercise): number {
+  if (exercise.movementType === 'heavyCompound') return 10;
+  if (exercise.movementType === 'moderateCompound') return 5;
+  return 2.5; // isolation
+}
+
+function getRoundingStep(exercise: WorkoutExercise): number {
+  return exercise.equipment?.toLowerCase().includes('dumbbell') ? 2.5 : 5;
+}
+
 function getSuggestedWeight(
   exercise: WorkoutExercise,
   prHistory: PersonalRecord[],
   workoutHistory: WorkoutLog[],
   fitnessLevel: string,
   sex: string,
+  bodyweightLbs: number,
 ): { suggestedWeight: number; lastWeight: number; lastReps: number; oneRepMax: number } {
   const targetReps = parseInt(exercise.reps, 10) || 8;
+  const roundTo = getRoundingStep(exercise);
+  const increment = getOverloadIncrement(exercise);
 
   let best1RM = 0;
   let lastWeight = 0;
   let lastReps = 0;
   let foundLast = false;
 
+  // Tier 1: Workout history — progressive overload from logged sessions
   for (const log of workoutHistory) {
     const exerciseLog = log.exercises.find(e => e.exerciseName === exercise.name);
     if (!exerciseLog) continue;
@@ -215,11 +229,12 @@ function getSuggestedWeight(
 
   if (best1RM > 0) {
     const targetWeight = weightAtReps(best1RM, targetReps);
-    const progressive = Math.round((targetWeight + 5) / 5) * 5;
-    console.log(`[Suggest] ${exercise.name}: 1RM=${Math.round(best1RM)}, @${targetReps}reps=${Math.round(targetWeight)}, overload=${progressive}`);
+    const progressive = Math.round((targetWeight + increment) / roundTo) * roundTo;
+    console.log(`[Suggest] ${exercise.name}: 1RM=${Math.round(best1RM)}, @${targetReps}reps=${Math.round(targetWeight)}, +${increment}→${progressive}`);
     return { suggestedWeight: progressive, lastWeight, lastReps, oneRepMax: Math.round(best1RM) };
   }
 
+  // Tier 2: PR history fallback
   const exercisePRs = prHistory.filter(pr => pr.exerciseName === exercise.name);
   const lastWeightPR = exercisePRs.find(pr => pr.type === 'weight');
   const lastRepsPR = exercisePRs.find(pr => pr.type === 'reps');
@@ -228,17 +243,20 @@ function getSuggestedWeight(
     const prReps = lastRepsPR?.value ?? targetReps;
     const oneRM = epley1RM(lastWeightPR.value, prReps);
     const targetWeight = weightAtReps(oneRM, targetReps);
-    const progressive = Math.round((targetWeight + 5) / 5) * 5;
-    console.log(`[Suggest] ${exercise.name} (PR fallback): 1RM=${Math.round(oneRM)}, overload=${progressive}`);
+    const progressive = Math.round((targetWeight + increment) / roundTo) * roundTo;
+    console.log(`[Suggest] ${exercise.name} (PR fallback): 1RM=${Math.round(oneRM)}, +${increment}→${progressive}`);
     return { suggestedWeight: progressive, lastWeight: lastWeightPR.value, lastReps: prReps, oneRepMax: Math.round(oneRM) };
   }
 
+  // Tier 3: AI/engine suggested weight string
   const engineWeight = parseEngineSuggestedWeight(exercise.suggestedWeight);
   if (engineWeight > 0) {
     console.log(`[Suggest] ${exercise.name} (no data, engine): engineLoad=${engineWeight}`);
     return { suggestedWeight: engineWeight, lastWeight: 0, lastReps: 0, oneRepMax: 0 };
   }
 
+  // Tier 4: Bodyweight-scaled defaults
+  const bw = bodyweightLbs > 0 ? bodyweightLbs : 160; // fallback if not set
   const isHeavyCompound = exercise.movementType === 'heavyCompound';
   const isModerateCompound = exercise.movementType === 'moderateCompound';
   const isLowerBody = ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Legs'].includes(exercise.muscleGroup);
@@ -246,19 +264,19 @@ function getSuggestedWeight(
   const isChestShoulder = ['Chest', 'Shoulders'].includes(exercise.muscleGroup);
   const isArms = ['Biceps', 'Triceps', 'Forearms'].includes(exercise.muscleGroup);
 
-  let base: number;
-  if (isHeavyCompound && isLowerBody) base = 135;
-  else if (isHeavyCompound && isUpperBack) base = 115;
-  else if (isHeavyCompound && isChestShoulder) base = 95;
-  else if (isModerateCompound && isLowerBody) base = 95;
-  else if (isModerateCompound) base = 75;
-  else if (isArms) base = 25;
-  else base = 35;
+  let multiplier: number;
+  if (isHeavyCompound && isLowerBody) multiplier = 0.75;
+  else if (isHeavyCompound && isUpperBack) multiplier = 0.55;
+  else if (isHeavyCompound && isChestShoulder) multiplier = 0.50;
+  else if (isModerateCompound && isLowerBody) multiplier = 0.45;
+  else if (isModerateCompound) multiplier = 0.35;
+  else if (isArms) multiplier = 0.12;
+  else multiplier = 0.15;
 
   const sexMul = sex === 'female' ? 0.6 : 1.0;
   const levelMul = fitnessLevel === 'beginner' ? 0.6 : fitnessLevel === 'advanced' ? 1.4 : 1.0;
-  const suggested = Math.round(base * sexMul * levelMul / 5) * 5;
-  console.log(`[Suggest] ${exercise.name} (no data, generic): base=${base}, suggested=${suggested}`);
+  const suggested = Math.max(5, Math.round(bw * multiplier * sexMul * levelMul / roundTo) * roundTo);
+  console.log(`[Suggest] ${exercise.name} (no data, BW-scaled): BW=${bw}, mul=${multiplier}, suggested=${suggested}`);
   return { suggestedWeight: suggested, lastWeight: 0, lastReps: 0, oneRepMax: 0 };
 }
 
@@ -540,6 +558,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const hasScanedHealthRef = useRef<boolean>(false);
   const saveTimeRef = useRef<number>(0);
 
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTotalRef = useRef<number>(0);
@@ -759,6 +778,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
           setIsRestActive(false);
           if (Platform.OS !== 'web') {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            void cancelRestCompleteNotification();
           }
         }
       }, 500);
@@ -776,18 +796,37 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   // Snap both timers to wall-clock truth the moment the app comes back to foreground
   useEffect(() => {
     const handleAppStateChange = (nextState: AppStateStatus) => {
-      if (nextState !== 'active') return;
-      if (isWorkoutActive && !isPaused) {
-        const corrected = Math.floor((Date.now() - workoutStartWallRef.current) / 1000);
-        workoutElapsedRef.current = corrected;
-        setWorkoutElapsed(corrected);
+      const prevState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      // Going to background — schedule notification if rest timer is active
+      if (prevState === 'active' && nextState !== 'active') {
+        if (isRestActive && Platform.OS !== 'web') {
+          const remaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
+          if (remaining > 0) {
+            void scheduleRestCompleteNotification(remaining);
+          }
+        }
+        return;
       }
-      if (isRestActive) {
-        const remaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
-        restRemainingRef.current = remaining;
-        setRestTimeRemaining(remaining);
-        if (remaining <= 0) {
-          setIsRestActive(false);
+
+      // Coming back to foreground — cancel any pending notification + sync timers
+      if (nextState === 'active') {
+        if (Platform.OS !== 'web') {
+          void cancelRestCompleteNotification();
+        }
+        if (isWorkoutActive && !isPaused) {
+          const corrected = Math.floor((Date.now() - workoutStartWallRef.current) / 1000);
+          workoutElapsedRef.current = corrected;
+          setWorkoutElapsed(corrected);
+        }
+        if (isRestActive) {
+          const remaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
+          restRemainingRef.current = remaining;
+          setRestTimeRemaining(remaining);
+          if (remaining <= 0) {
+            setIsRestActive(false);
+          }
         }
       }
     };
@@ -842,9 +881,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setRestTimeTotal(seconds);
     setIsRestActive(true);
     setShowRestTimer(true);
-    if (Platform.OS !== 'web') {
-      void scheduleRestCompleteNotification(seconds);
-    }
+    // Notification is only scheduled when app goes to background (AppState listener)
   }, []);
 
   const adjustRestTimer = useCallback((delta: number) => {
@@ -853,9 +890,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const newRemaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
     restRemainingRef.current = newRemaining;
     setRestTimeRemaining(newRemaining);
-    if (Platform.OS !== 'web' && newRemaining > 0) {
-      void scheduleRestCompleteNotification(newRemaining);
-    }
+    // Notification rescheduled automatically if app is backgrounded (AppState listener)
     if (!isRestActive && newRemaining > 0) {
       setIsRestActive(true);
     }
@@ -869,9 +904,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setRestTimeTotal(seconds);
     setIsRestActive(true);
     setShowRestTimer(true);
-    if (Platform.OS !== 'web') {
-      void scheduleRestCompleteNotification(seconds);
-    }
+    // Notification is only scheduled when app goes to background (AppState listener)
   }, []);
 
   const cancelRestTimer = useCallback(() => {
@@ -888,7 +921,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const existing = exerciseLogs[exercise.id];
     if (existing) return;
 
-    const weightData = getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex);
+    const weightData = getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight);
     const targetReps = parseInt(exercise.reps, 10) || 8;
 
     const sets: SetLog[] = Array.from({ length: exercise.sets }, (_, i) => ({
@@ -909,7 +942,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
     setExerciseLogs(prev => ({ ...prev, [exercise.id]: log }));
     console.log('[Tracking] Initialized exercise log:', exercise.name, 'suggested:', weightData.suggestedWeight, 'last:', weightData.lastWeight);
-  }, [exerciseLogs, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex]);
+  }, [exerciseLogs, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight]);
 
   const updateSetLog = useCallback((exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => {
     setExerciseLogs(prev => {
@@ -917,6 +950,12 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (!log) return prev;
       const newSets = [...log.sets];
       newSets[setIndex] = { ...newSets[setIndex], [field]: value };
+      // Cascade to all following sets that haven't been checked off yet
+      for (let i = setIndex + 1; i < newSets.length; i++) {
+        if (!newSets[i].done) {
+          newSets[i] = { ...newSets[i], [field]: value };
+        }
+      }
       return { ...prev, [exerciseId]: { ...log, sets: newSets } };
     });
   }, []);
@@ -1517,8 +1556,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, [workoutHistory]);
 
   const getExerciseSuggestion = useCallback((exercise: WorkoutExercise) => {
-    return getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex);
-  }, [prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex]);
+    return getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight);
+  }, [prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight]);
 
   // Returns the set array from the most recent session containing this exercise
   const getLastSetsForExercise = useCallback((exerciseName: string): SetLog[] => {

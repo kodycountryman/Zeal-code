@@ -331,7 +331,7 @@ type SetRowPressableProps = {
 };
 function SetRowPressable({ done, flashColor, onPress, style, children }: SetRowPressableProps) {
   const flashOpacity = useSharedValue(0);
-  const prevDoneRef = useRef(false);
+  const prevDoneRef = useRef(done); // init to current value so mount doesn't flash
   useEffect(() => {
     if (done && !prevDoneRef.current) {
       cancelAnimation(flashOpacity);
@@ -839,15 +839,20 @@ export default function WorkoutScreen() {
       useNativeDriver: true,
     }).start();
 
-    setActivePanel(tab);
-
-    // Pill slides smoothly — gentle tension so it never catches or overshoots hard
+    // Pill slides on the native thread — won't be blocked by heavy React mounts
     RNAnimated.spring(pillAnim, {
       toValue: tab,
-      useNativeDriver: false,
+      useNativeDriver: true,
       tension: 72,
       friction: 11,
     }).start();
+
+    // Defer the heavy panel mount until the pill animation has started —
+    // gives the native driver 1-2 frames to begin the slide before React
+    // commits the new panel tree (which blocks the JS thread briefly).
+    requestAnimationFrame(() => {
+      setActivePanel(tab);
+    });
 
     // Fade in the new label midway through the slide (overlapping feel)
     const targetAnim = tab === 0 ? tab0Anim : tab === 1 ? tab1Anim : tab2Anim;
@@ -992,13 +997,7 @@ export default function WorkoutScreen() {
       if (!workoutRef.current) return;
       const firstEx = getFirstRemainingGroupExercise(workoutRef.current, groupId, exerciseLogsRef.current);
       if (firstEx) {
-        setTimeout(() => {
-          if (!exerciseLogsRef.current[firstEx.id]) {
-            tracking.initExerciseLog(firstEx);
-          }
-          setExpandedTrack(firstEx.id);
-          scrollToExercise(firstEx.id);
-        }, 200);
+        setTimeout(() => advanceToExercise(firstEx.id), 200);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1238,6 +1237,7 @@ export default function WorkoutScreen() {
       seedOffset: seedOffset ?? 0,
       planPhase: prescription?.phase,
       volumeModifier: prescription?.volume_modifier,
+      bodyweightLbs: ctx.weight,
     } as const;
 
     const applyGeneratedWorkout = (finalWorkout: GeneratedWorkout, minDelayMs: number) => {
@@ -1597,9 +1597,7 @@ export default function WorkoutScreen() {
     setSwipeOpenId(null);
     if (isOpening) {
       if (exercise && !tracking.exerciseLogs[exId]) {
-        InteractionManager.runAfterInteractions(() => {
-          tracking.initExerciseLog(exercise);
-        });
+        tracking.initExerciseLog(exercise);
       }
     } else {
       setActiveEditCell(null);
@@ -1613,10 +1611,32 @@ export default function WorkoutScreen() {
   const scrollToExercise = useCallback((exId: string) => {
     const layout = rowLayoutsRef.current.get(exId);
     if (!layout || !scrollViewRef.current) return;
-    // Place the exercise in the upper-center of the screen (30% from top)
     const targetY = Math.max(0, layout.y - Math.floor(screenHeight * 0.3));
     scrollViewRef.current.scrollTo({ y: targetY, animated: true });
   }, [screenHeight]);
+
+  // Staggered superset advance: close → scroll → open → haptic
+  // Creates a breathing rhythm between exercises instead of an abrupt snap
+  const advanceToExercise = useCallback((targetExId: string) => {
+    // Step 1: close current panel
+    setExpandedTrack(null);
+    // Step 2: after close fade (150ms), init log + scroll into view
+    setTimeout(() => {
+      if (!exerciseLogsRef.current[targetExId]) {
+        const w = workoutRef.current;
+        const targetEx = w?.workout.find(ex => ex.id === targetExId);
+        if (targetEx) tracking.initExerciseLog(targetEx);
+      }
+      scrollToExercise(targetExId);
+      // Step 3: after scroll settles (250ms), open the panel + haptic
+      setTimeout(() => {
+        setExpandedTrack(targetExId);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }, 250);
+    }, 150);
+  }, [scrollToExercise, tracking]);
 
   const openChip = useCallback((cell: { exId: string; setIdx: number; field: 'weight' | 'reps' }) => {
     chipExpandHeight.value = CHIP_H;
@@ -1690,11 +1710,7 @@ export default function WorkoutScreen() {
               const nextEx = getNextGroupExercise(w, exId, exercise.groupId!, trackedExercisesRef.current);
               console.log('[AutoAdvance] Next exercise:', nextEx?.name ?? 'null', 'tracked:', [...trackedExercisesRef.current]);
               if (nextEx) {
-                if (!exerciseLogsRef.current[nextEx.id]) {
-                  tracking.initExerciseLog(nextEx);
-                }
-                setExpandedTrack(nextEx.id);
-                scrollToExercise(nextEx.id);
+                advanceToExercise(nextEx.id);
               }
             }, delay);
           } else {
@@ -1709,11 +1725,7 @@ export default function WorkoutScreen() {
               const firstEx = getFirstRemainingGroupExercise(w, exercise.groupId!, exerciseLogsRef.current);
               console.log('[AutoAdvance] First remaining:', firstEx?.name ?? 'null (all done)');
               if (firstEx) {
-                if (!exerciseLogsRef.current[firstEx.id]) {
-                  tracking.initExerciseLog(firstEx);
-                }
-                setExpandedTrack(firstEx.id);
-                scrollToExercise(firstEx.id);
+                advanceToExercise(firstEx.id);
               } else {
                 setExpandedTrack(null);
               }
@@ -1724,7 +1736,7 @@ export default function WorkoutScreen() {
         }
       });
     }
-  }, [tracking, ctx.restBetweenSets, workout, closeChip, handleMarkExerciseDone, scrollToExercise]);
+  }, [tracking, ctx.restBetweenSets, workout, closeChip, handleMarkExerciseDone, advanceToExercise]);
 
   const handleMarkExerciseDone = useCallback((exId: string, exercise?: WorkoutExercise) => {
     if (!tracking.isWorkoutActive && workout) {

@@ -91,7 +91,7 @@ Suitable for beginners, older adults, or those with joint concerns. metconFormat
 Start with 1 primary lift (squat, deadlift, bench press, overhead press, or row) as the anchor — 3-5 sets, 3-6 reps, heavy weight, full rest (2:00-3:00). Mark as movementType 'heavyCompound'.
 Follow with accessory compound movements (Romanian deadlift, Bulgarian split squat, incline press, weighted pull-ups) — 3-4 sets, 6-10 reps, moderate rest (90s). Mark as 'moderateCompound'.
 Finish with isolation exercises targeting weaknesses or supporting muscles — 3 sets, 10-15 reps, shorter rest (60s). Mark as 'isolation'.
-SuggestedWeight must be specific and percentage-based or RPE-based (e.g., 'RPE 8', '80% 1RM', '185-225 lbs'). Do NOT group as superset/circuit — all exercises standalone (groupType null, groupId null).
+SuggestedWeight must be specific and scaled to the user's bodyweight and fitness level (e.g., '135 lbs', '0.75x BW', 'RPE 8'). Compounds should be bodyweight-relative. Do NOT group as superset/circuit — all exercises standalone (groupType null, groupId null).
 metconFormat, metconTimeCap, metconRounds all null.
 IMPORTANT: Scale the total number of exercises strictly to the TARGET EXERCISE COUNT specified in REQUIREMENTS.`,
   Bodybuilding: `Create a hypertrophy-focused bodybuilding session targeting the specified muscle group(s) for maximum muscle growth stimulus.
@@ -99,7 +99,7 @@ Use moderate-to-heavy weights, 3-5 sets, 8-15 reps, with controlled tempo and mi
 Begin with compound movements as the primary exercises (movementType 'heavyCompound' or 'moderateCompound'). Follow with isolation exercises (movementType 'isolation') hitting the muscle from different angles.
 Pair isolation exercises into supersets where it makes sense (1–2 supersets maximum) — use groupType 'superset' and a shared groupId (e.g., 'ss_a').
 Rest: 90s-2:00 for compound, 45s-60s for isolation/supersets.
-SuggestedWeight should reflect typical hypertrophy loads ('Moderate', '30-50 lbs', 'light-to-moderate resistance band').
+SuggestedWeight should be specific numbers scaled to the user's bodyweight and fitness level (e.g., '40 lbs', '25 lbs', 'light-to-moderate resistance band').
 Notes should cue the mind-muscle connection specifically (e.g., 'Squeeze at the top', 'Control the eccentric for 3 counts').
 metconFormat, metconTimeCap, metconRounds all null.
 IMPORTANT: Scale the total number of exercises strictly to the TARGET EXERCISE COUNT specified in REQUIREMENTS.`,
@@ -213,6 +213,7 @@ function buildPrompt(params: GenerateWorkoutParams): string {
     addCardio,
     specificMuscles,
     availableEquipment,
+    bodyweightLbs,
   } = params;
 
   const equipmentList =
@@ -241,7 +242,7 @@ ${styleGuide}
 
 USER PROFILE:
 - Fitness level: ${fitnessLevel}
-- Sex: ${sex}
+- Sex: ${sex}${bodyweightLbs ? `\n- Bodyweight: ${bodyweightLbs} lbs` : ''}
 - Target duration: ${targetDuration} minutes
 - Muscle focus: ${musclesFocus}
 - Available equipment: ${equipmentList}${injuryNote}
