@@ -1,7 +1,7 @@
 {
-  "_schema_version": "1.4",
+  "_schema_version": "1.5",
   "_description": "Zeal Exercise Database Schema & Sample Exercises. Every exercise in the app MUST follow this exact structure. No field is optional. The generation engine depends on every field — missing data causes rules to silently fail.",
-  "_last_updated": "2026-03",
+  "_last_updated": "2026-04",
   "_enum_definitions": {
     "movement_pattern": [
       "push",
@@ -53,7 +53,9 @@
       "mobility",
       "hiit",
       "cardio",
-      "pilates"
+      "pilates",
+      "low_impact",
+      "hybrid"
     ],
     "_75_hard_note": "75 Hard is NOT a workout style — it is a meta-layer / program mode that generates two daily sessions by pulling from the styles above. It does not appear in eligible_styles. See Master Rules Document Section 4 for details.",
     "muscle_groups": [
@@ -163,6 +165,18 @@
       "diastasis_recti",
       "pelvic_floor_dysfunction",
       "elbow_injury"
+    ],
+    "tracking_metric": [
+      "reps",
+      "distance_meters",
+      "calories",
+      "time_seconds",
+      "max_weight"
+    ],
+    "execution_logic": [
+      "bilateral",
+      "alternating",
+      "per_side"
     ]
   },
   "_field_reference": {
@@ -195,6 +209,12 @@
     "cooldown_for_muscles": "string[] — If cooldown-eligible, which muscles does it help recover?",
     "substitutes": "string[] — Ranked exercise IDs: same muscle/pattern, different equipment/difficulty. Best substitute first.",
     "variation_family": "string — Groups related variations. Shared novelty penalty in rotation logic.",
+    "style_popularity": "object — Per-style popularity scores from -100 to 100. Keys are eligible style names, values are numeric. Higher = more likely to be selected for that style. Only includes styles from this exercise's eligible_styles. Example: { strength: 90, bodybuilding: 70, crossfit: 40 }",
+    "tracking_metric": "object — How the exercise is measured. { primary: enum, alternates: enum[] }. Primary is the default metric (reps, distance_meters, calories, time_seconds, max_weight). Alternates are valid alternative metrics (empty for most exercises).",
+    "execution_logic": "enum — How reps are distributed for the movement. 'bilateral' = both sides simultaneously (squat, bench). 'alternating' = alternates sides each rep (walking lunges). 'per_side' = all reps one side then switch (single-arm rows). Must be 'bilateral' when is_unilateral is false.",
+    "default_rest_sec": "number — Baseline rest period in seconds for this exercise. Heavy compounds 120-180, moderate compounds 90, isolation 60, core 45, cardio 60, mobility/pilates 20. Style rules may override but this is the exercise-specific default.",
+    "standard_rx_weight": "object | null — Competition prescribed weights. { male_rx_lbs, female_rx_lbs, male_scaled_lbs, female_scaled_lbs, male_pro_lbs, female_pro_lbs }. null for exercises without competitive standards. Used for CrossFit Rx and Hyrox race standards.",
+    "media_url": "string — URL to hosted video/GIF/image for exercise demonstration. Empty string as placeholder until media hosting is configured.",
     "equipment_note": "Equipment IDs bosu_ball, pilates_ring, and stability_ball are defined in the enum for future use but currently have no exercises requiring or optionally using them."
   },
   "exercises": [
@@ -288,7 +308,28 @@
         "smith_machine_squat",
         "dumbbell_squat"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "strength": 95,
+        "bodybuilding": 75,
+        "crossfit": 65,
+        "hybrid": 80
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": {
+        "male_rx_lbs": 225,
+        "female_rx_lbs": 155,
+        "male_scaled_lbs": 155,
+        "female_scaled_lbs": 105,
+        "male_pro_lbs": 275,
+        "female_pro_lbs": 185
+      },
+      "media_url": ""
     },
     {
       "id": "goblet_squat",
@@ -379,7 +420,24 @@
         "dumbbell_squat",
         "leg_press"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "hiit": 40,
+        "hyrox": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "barbell_bench_press",
@@ -468,7 +526,21 @@
         "chest_press_machine",
         "push_up"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 90,
+        "bodybuilding": 80,
+        "low_impact": -10,
+        "hybrid": 60
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_bench_press",
@@ -555,7 +627,22 @@
         "chest_press_machine",
         "incline_dumbbell_bench"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 70,
+        "bodybuilding": 80,
+        "crossfit": 25,
+        "low_impact": 55,
+        "hybrid": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "incline_dumbbell_bench",
@@ -640,7 +727,21 @@
         "dumbbell_bench_press",
         "chest_press_machine"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 65,
+        "bodybuilding": 85,
+        "low_impact": 50,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "conventional_deadlift",
@@ -732,7 +833,28 @@
         "dumbbell_rdl",
         "kettlebell_deadlift"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 95,
+        "bodybuilding": 70,
+        "crossfit": 50,
+        "hybrid": 80
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": {
+        "male_rx_lbs": 225,
+        "female_rx_lbs": 155,
+        "male_scaled_lbs": 155,
+        "female_scaled_lbs": 105,
+        "male_pro_lbs": 315,
+        "female_pro_lbs": 225
+      },
+      "media_url": ""
     },
     {
       "id": "romanian_deadlift",
@@ -818,7 +940,21 @@
         "single_leg_rdl",
         "kettlebell_deadlift"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 80,
+        "bodybuilding": 85,
+        "crossfit": 30,
+        "hybrid": 65
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "single_leg_rdl",
@@ -906,7 +1042,23 @@
         "dumbbell_rdl",
         "kettlebell_deadlift"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 10,
+        "bodybuilding": 15,
+        "crossfit": -10,
+        "hyrox": -10,
+        "low_impact": -10,
+        "hybrid": 20
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pull_up",
@@ -999,7 +1151,23 @@
         "inverted_row",
         "cable_lat_pulldown"
       ],
-      "variation_family": "vertical_pull_family"
+      "variation_family": "vertical_pull_family",
+      "style_popularity": {
+        "strength": 85,
+        "bodybuilding": 60,
+        "crossfit": 80,
+        "hyrox": -10,
+        "low_impact": -10,
+        "hybrid": 70
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "lat_pulldown",
@@ -1083,7 +1251,22 @@
         "cable_lat_pulldown",
         "seated_row_machine"
       ],
-      "variation_family": "vertical_pull_family"
+      "variation_family": "vertical_pull_family",
+      "style_popularity": {
+        "strength": 60,
+        "bodybuilding": 80,
+        "crossfit": -10,
+        "low_impact": 75,
+        "hybrid": 45
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "bulgarian_split_squat",
@@ -1174,7 +1357,23 @@
         "step_up",
         "goblet_squat"
       ],
-      "variation_family": "lunge_family"
+      "variation_family": "lunge_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "hyrox": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_lateral_raise",
@@ -1254,7 +1453,21 @@
         "machine_lateral_raise",
         "resistance_band_lateral_raise"
       ],
-      "variation_family": "lateral_raise_family"
+      "variation_family": "lateral_raise_family",
+      "style_popularity": {
+        "strength": 50,
+        "bodybuilding": 90,
+        "low_impact": 60,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "barbell_curl",
@@ -1334,7 +1547,21 @@
         "cable_curl",
         "hammer_curl"
       ],
-      "variation_family": "bicep_curl_family"
+      "variation_family": "bicep_curl_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "kettlebell_swing",
@@ -1427,7 +1654,29 @@
         "cable_pull_through",
         "hip_thrust"
       ],
-      "variation_family": "swing_family"
+      "variation_family": "swing_family",
+      "style_popularity": {
+        "crossfit": 80,
+        "hiit": 50,
+        "hyrox": 40,
+        "cardio": -10,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": {
+        "male_rx_lbs": 53,
+        "female_rx_lbs": 35,
+        "male_scaled_lbs": 35,
+        "female_scaled_lbs": 26,
+        "male_pro_lbs": 70,
+        "female_pro_lbs": 53
+      },
+      "media_url": ""
     },
     {
       "id": "push_up",
@@ -1522,7 +1771,25 @@
         "chest_press_machine",
         "incline_push_up"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 35,
+        "bodybuilding": 25,
+        "crossfit": 70,
+        "hiit": 75,
+        "hyrox": 55,
+        "pilates": 15,
+        "low_impact": 45,
+        "hybrid": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "standing_overhead_press",
@@ -1619,7 +1886,28 @@
         "shoulder_press_machine",
         "landmine_press"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "strength": 85,
+        "bodybuilding": 65,
+        "crossfit": 45,
+        "hybrid": 65
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": {
+        "male_rx_lbs": 95,
+        "female_rx_lbs": 65,
+        "male_scaled_lbs": 65,
+        "female_scaled_lbs": 45,
+        "male_pro_lbs": 135,
+        "female_pro_lbs": 95
+      },
+      "media_url": ""
     },
     {
       "id": "plank",
@@ -1712,7 +2000,26 @@
         "bird_dog",
         "hollow_body_hold"
       ],
-      "variation_family": "plank_family"
+      "variation_family": "plank_family",
+      "style_popularity": {
+        "strength": 20,
+        "bodybuilding": 15,
+        "crossfit": 25,
+        "hiit": 40,
+        "hyrox": 20,
+        "pilates": 55,
+        "mobility": 25,
+        "low_impact": 55,
+        "hybrid": 30
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "foam_roll_quads",
@@ -1787,7 +2094,19 @@
         "quad_stretch_standing",
         "couch_stretch"
       ],
-      "variation_family": "quad_mobility_family"
+      "variation_family": "quad_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hip_90_90_stretch",
@@ -1873,7 +2192,20 @@
         "pigeon_stretch",
         "seated_figure_four"
       ],
-      "variation_family": "hip_mobility_family"
+      "variation_family": "hip_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "box_jump",
@@ -1962,7 +2294,21 @@
         "step_up",
         "broad_jump"
       ],
-      "variation_family": "plyometric_family"
+      "variation_family": "plyometric_family",
+      "style_popularity": {
+        "crossfit": 70,
+        "hiit": 65,
+        "hyrox": -10,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "farmers_carry",
@@ -2053,7 +2399,25 @@
         "overhead_carry",
         "trap_bar_carry"
       ],
-      "variation_family": "carry_family"
+      "variation_family": "carry_family",
+      "style_popularity": {
+        "strength": 50,
+        "crossfit": 50,
+        "hiit": -10,
+        "hyrox": 60,
+        "hybrid": 55
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds",
+          "calories"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "treadmill_run",
@@ -2151,7 +2515,23 @@
         "stationary_bike_intervals",
         "jump_rope_intervals"
       ],
-      "variation_family": "running_family"
+      "variation_family": "running_family",
+      "style_popularity": {
+        "cardio": 90,
+        "hiit": 50,
+        "hyrox": 75
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds",
+          "calories"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "rowing_machine_intervals",
@@ -2249,7 +2629,24 @@
         "assault_bike_intervals",
         "ski_erg_intervals"
       ],
-      "variation_family": "rowing_family"
+      "variation_family": "rowing_family",
+      "style_popularity": {
+        "cardio": 85,
+        "hiit": 45,
+        "hyrox": 60,
+        "crossfit": 65
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "assault_bike_intervals",
@@ -2344,7 +2741,24 @@
         "stationary_bike_intervals",
         "jump_rope_intervals"
       ],
-      "variation_family": "bike_family"
+      "variation_family": "bike_family",
+      "style_popularity": {
+        "cardio": 80,
+        "hiit": 55,
+        "hyrox": 50,
+        "crossfit": 65
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "jump_rope_intervals",
@@ -2439,7 +2853,24 @@
         "assault_bike_intervals",
         "high_knees"
       ],
-      "variation_family": "jump_rope_family"
+      "variation_family": "jump_rope_family",
+      "style_popularity": {
+        "cardio": 60,
+        "hiit": 65,
+        "hyrox": -10,
+        "crossfit": 55
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_hundred",
@@ -2524,7 +2955,19 @@
         "dead_bug",
         "pilates_roll_up"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_roll_up",
@@ -2608,7 +3051,18 @@
         "dead_bug",
         "hollow_body_hold"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_swimming",
@@ -2694,7 +3148,19 @@
         "superman_hold",
         "back_extension"
       ],
-      "variation_family": "pilates_back_family"
+      "variation_family": "pilates_back_family",
+      "style_popularity": {
+        "pilates": 55,
+        "mobility": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_side_leg_series",
@@ -2782,7 +3248,20 @@
         "banded_lateral_walk",
         "fire_hydrant"
       ],
-      "variation_family": "pilates_leg_family"
+      "variation_family": "pilates_leg_family",
+      "style_popularity": {
+        "pilates": 55,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_teaser",
@@ -2867,7 +3346,18 @@
         "pilates_hundred",
         "hollow_body_hold"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "decline_barbell_bench",
@@ -2952,7 +3442,21 @@
         "dumbbell_bench_press",
         "cable_chest_fly"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_chest_fly",
@@ -3029,7 +3533,20 @@
         "pec_deck_fly",
         "dumbbell_chest_fly"
       ],
-      "variation_family": "chest_fly_family"
+      "variation_family": "chest_fly_family",
+      "style_popularity": {
+        "bodybuilding": 85,
+        "low_impact": 60,
+        "hybrid": 30
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pec_deck_fly",
@@ -3107,7 +3624,20 @@
         "cable_chest_fly",
         "dumbbell_chest_fly"
       ],
-      "variation_family": "chest_fly_family"
+      "variation_family": "chest_fly_family",
+      "style_popularity": {
+        "bodybuilding": 85,
+        "low_impact": 60,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_chest_fly",
@@ -3187,7 +3717,20 @@
         "cable_chest_fly",
         "pec_deck_fly"
       ],
-      "variation_family": "chest_fly_family"
+      "variation_family": "chest_fly_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_crossover",
@@ -3265,7 +3808,20 @@
         "pec_deck_fly",
         "dumbbell_chest_fly"
       ],
-      "variation_family": "chest_fly_family"
+      "variation_family": "chest_fly_family",
+      "style_popularity": {
+        "bodybuilding": 80,
+        "low_impact": 55,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "machine_chest_press",
@@ -3345,7 +3901,21 @@
         "dumbbell_bench_press",
         "push_up"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "strength": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "incline_barbell_bench",
@@ -3430,7 +4000,21 @@
         "barbell_bench_press",
         "landmine_press"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 70,
+        "bodybuilding": 80,
+        "low_impact": -10,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dip",
@@ -3516,7 +4100,22 @@
         "cable_tricep_pushdown",
         "push_up"
       ],
-      "variation_family": "dip_family"
+      "variation_family": "dip_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "diamond_push_up",
@@ -3601,7 +4200,23 @@
         "cable_tricep_pushdown",
         "close_grip_bench_press"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "hiit": 0,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "incline_push_up",
@@ -3692,7 +4307,23 @@
         "dumbbell_bench_press",
         "machine_chest_press"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "hiit": 0,
+        "pilates": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "seated_dumbbell_shoulder_press",
@@ -3776,7 +4407,21 @@
         "arnold_press",
         "machine_shoulder_press"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "strength": 85,
+        "bodybuilding": 85,
+        "low_impact": 85,
+        "hybrid": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "arnold_press",
@@ -3858,7 +4503,20 @@
         "seated_dumbbell_shoulder_press",
         "standing_overhead_press"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "machine_shoulder_press",
@@ -3938,7 +4596,21 @@
         "seated_dumbbell_shoulder_press",
         "standing_overhead_press"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "strength": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_front_raise",
@@ -4015,7 +4687,20 @@
         "cable_front_raise",
         "plate_front_raise"
       ],
-      "variation_family": "front_raise_family"
+      "variation_family": "front_raise_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_lateral_raise",
@@ -4091,7 +4776,20 @@
         "dumbbell_lateral_raise",
         "machine_lateral_raise"
       ],
-      "variation_family": "lateral_raise_family"
+      "variation_family": "lateral_raise_family",
+      "style_popularity": {
+        "bodybuilding": 85,
+        "low_impact": 55,
+        "hybrid": 35
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "landmine_press",
@@ -4171,7 +4869,21 @@
         "incline_dumbbell_bench",
         "standing_overhead_press"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "strength": 0,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_tricep_pushdown",
@@ -4251,7 +4963,21 @@
         "overhead_tricep_extension",
         "dip"
       ],
-      "variation_family": "tricep_isolation_family"
+      "variation_family": "tricep_isolation_family",
+      "style_popularity": {
+        "bodybuilding": 85,
+        "strength": 45,
+        "low_impact": 65,
+        "hybrid": 35
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "skull_crusher",
@@ -4336,7 +5062,21 @@
         "overhead_tricep_extension",
         "close_grip_bench_press"
       ],
-      "variation_family": "tricep_isolation_family"
+      "variation_family": "tricep_isolation_family",
+      "style_popularity": {
+        "bodybuilding": 85,
+        "strength": 50,
+        "low_impact": -10,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "overhead_tricep_extension",
@@ -4414,7 +5154,20 @@
         "skull_crusher",
         "tricep_kickback"
       ],
-      "variation_family": "tricep_isolation_family"
+      "variation_family": "tricep_isolation_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "close_grip_bench_press",
@@ -4499,7 +5252,21 @@
         "skull_crusher",
         "dip"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "strength": 60,
+        "bodybuilding": 65,
+        "low_impact": -10,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "tricep_kickback",
@@ -4573,7 +5340,20 @@
         "cable_tricep_pushdown",
         "overhead_tricep_extension"
       ],
-      "variation_family": "tricep_isolation_family"
+      "variation_family": "tricep_isolation_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "barbell_bent_over_row",
@@ -4661,7 +5441,21 @@
         "t_bar_row",
         "inverted_row"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "strength": 80,
+        "bodybuilding": 70,
+        "crossfit": 30,
+        "hybrid": 60
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_row",
@@ -4744,7 +5538,22 @@
         "cable_seated_row",
         "inverted_row"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "strength": 65,
+        "bodybuilding": 80,
+        "crossfit": -10,
+        "low_impact": 60,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_seated_row",
@@ -4824,7 +5633,21 @@
         "barbell_bent_over_row",
         "dumbbell_row"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "strength": 55,
+        "bodybuilding": 75,
+        "low_impact": 65,
+        "hybrid": 45
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "seated_row_machine",
@@ -4904,7 +5727,21 @@
         "dumbbell_row",
         "barbell_bent_over_row"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "strength": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "t_bar_row",
@@ -4987,7 +5824,20 @@
         "dumbbell_row",
         "cable_seated_row"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "inverted_row",
@@ -5079,7 +5929,23 @@
         "lat_pulldown",
         "dumbbell_row"
       ],
-      "variation_family": "vertical_pull_family"
+      "variation_family": "vertical_pull_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "hiit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "face_pull",
@@ -5163,7 +6029,22 @@
         "rear_delt_fly",
         "resistance_band_pull_apart"
       ],
-      "variation_family": "rear_delt_family"
+      "variation_family": "rear_delt_family",
+      "style_popularity": {
+        "bodybuilding": 75,
+        "strength": 60,
+        "crossfit": -10,
+        "low_impact": 60,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "rear_delt_fly",
@@ -5243,7 +6124,20 @@
         "resistance_band_pull_apart",
         "cable_rear_delt_fly"
       ],
-      "variation_family": "rear_delt_family"
+      "variation_family": "rear_delt_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "resistance_band_pull_apart",
@@ -5326,7 +6220,23 @@
         "face_pull",
         "rear_delt_fly"
       ],
-      "variation_family": "rear_delt_family"
+      "variation_family": "rear_delt_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "strength": 0,
+        "crossfit": 0,
+        "mobility": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "straight_arm_pulldown",
@@ -5403,7 +6313,20 @@
         "lat_pulldown",
         "pull_up"
       ],
-      "variation_family": "vertical_pull_family"
+      "variation_family": "vertical_pull_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "assisted_pull_up",
@@ -5488,7 +6411,22 @@
         "pull_up",
         "inverted_row"
       ],
-      "variation_family": "vertical_pull_family"
+      "variation_family": "vertical_pull_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_curl",
@@ -5566,7 +6504,21 @@
         "hammer_curl",
         "cable_curl"
       ],
-      "variation_family": "bicep_curl_family"
+      "variation_family": "bicep_curl_family",
+      "style_popularity": {
+        "bodybuilding": 85,
+        "strength": 45,
+        "low_impact": 65,
+        "hybrid": 35
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hammer_curl",
@@ -5641,7 +6593,21 @@
         "barbell_curl",
         "cable_curl"
       ],
-      "variation_family": "bicep_curl_family"
+      "variation_family": "bicep_curl_family",
+      "style_popularity": {
+        "bodybuilding": 80,
+        "strength": 45,
+        "low_impact": 60,
+        "hybrid": 35
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_curl",
@@ -5718,7 +6684,20 @@
         "dumbbell_curl",
         "hammer_curl"
       ],
-      "variation_family": "bicep_curl_family"
+      "variation_family": "bicep_curl_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "ez_bar_curl",
@@ -5795,7 +6774,21 @@
         "dumbbell_curl",
         "cable_curl"
       ],
-      "variation_family": "bicep_curl_family"
+      "variation_family": "bicep_curl_family",
+      "style_popularity": {
+        "bodybuilding": 80,
+        "strength": 40,
+        "low_impact": -10,
+        "hybrid": 30
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "preacher_curl",
@@ -5873,7 +6866,20 @@
         "ez_bar_curl",
         "dumbbell_curl"
       ],
-      "variation_family": "bicep_curl_family"
+      "variation_family": "bicep_curl_family",
+      "style_popularity": {
+        "bodybuilding": 80,
+        "low_impact": 55,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_shrug",
@@ -5951,7 +6957,21 @@
         "barbell_shrug",
         "cable_shrug"
       ],
-      "variation_family": "shrug_family"
+      "variation_family": "shrug_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "strength": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "sumo_deadlift",
@@ -6037,7 +7057,20 @@
         "conventional_deadlift",
         "trap_bar_deadlift"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 70,
+        "crossfit": -10,
+        "hybrid": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "trap_bar_deadlift",
@@ -6122,7 +7155,21 @@
         "sumo_deadlift",
         "goblet_squat"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 75,
+        "bodybuilding": 55,
+        "crossfit": -10,
+        "hybrid": 65
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hip_thrust",
@@ -6203,7 +7250,21 @@
         "cable_pull_through",
         "kettlebell_swing"
       ],
-      "variation_family": "hip_thrust_family"
+      "variation_family": "hip_thrust_family",
+      "style_popularity": {
+        "strength": 70,
+        "bodybuilding": 80,
+        "low_impact": 65,
+        "hybrid": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "glute_bridge",
@@ -6287,7 +7348,23 @@
         "kettlebell_swing",
         "cable_pull_through"
       ],
-      "variation_family": "hip_thrust_family"
+      "variation_family": "hip_thrust_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "pilates": 40,
+        "mobility": 40,
+        "strength": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_pull_through",
@@ -6365,7 +7442,21 @@
         "kettlebell_swing",
         "glute_bridge"
       ],
-      "variation_family": "hip_thrust_family"
+      "variation_family": "hip_thrust_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "strength": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "good_morning",
@@ -6447,7 +7538,19 @@
         "romanian_deadlift",
         "back_extension"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "back_extension",
@@ -6532,7 +7635,20 @@
         "romanian_deadlift",
         "glute_bridge"
       ],
-      "variation_family": "back_extension_family"
+      "variation_family": "back_extension_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "strength": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "kettlebell_deadlift",
@@ -6618,7 +7734,21 @@
         "trap_bar_deadlift",
         "romanian_deadlift"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 0,
+        "crossfit": 0,
+        "hiit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_rdl",
@@ -6700,7 +7830,22 @@
         "single_leg_rdl",
         "kettlebell_deadlift"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "front_squat",
@@ -6712,7 +7857,6 @@
       "movement_pattern": "squat",
       "difficulty_tier": "advanced",
       "eligible_styles": [
-        "strength",
         "crossfit",
         "hybrid"
       ],
@@ -6787,7 +7931,19 @@
         "goblet_squat",
         "leg_press"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "crossfit": 85,
+        "hybrid": 60
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hack_squat",
@@ -6865,7 +8021,20 @@
         "barbell_back_squat",
         "smith_machine_squat"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "bodybuilding": 80,
+        "low_impact": 70,
+        "hybrid": 35
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "leg_press",
@@ -6946,7 +8115,21 @@
         "hack_squat",
         "goblet_squat"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "bodybuilding": 75,
+        "strength": 55,
+        "low_impact": 85,
+        "hybrid": 45
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "bodyweight_squat",
@@ -7035,7 +8218,24 @@
         "goblet_squat",
         "leg_press"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "hiit": 40,
+        "hyrox": 40,
+        "crossfit": 40,
+        "cardio": 40,
+        "pilates": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "smith_machine_squat",
@@ -7112,7 +8312,19 @@
         "leg_press",
         "hack_squat"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "wall_sit",
@@ -7192,7 +8404,22 @@
         "bodyweight_squat",
         "goblet_squat"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "hiit": 0,
+        "crossfit": 0,
+        "hyrox": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "reverse_lunge",
@@ -7284,7 +8511,24 @@
         "bulgarian_split_squat",
         "step_up"
       ],
-      "variation_family": "lunge_family"
+      "variation_family": "lunge_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "hiit": 40,
+        "hyrox": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "walking_lunge",
@@ -7372,7 +8616,23 @@
         "bulgarian_split_squat",
         "step_up"
       ],
-      "variation_family": "lunge_family"
+      "variation_family": "lunge_family",
+      "style_popularity": {
+        "strength": 55,
+        "bodybuilding": 50,
+        "crossfit": 50,
+        "hyrox": 70,
+        "low_impact": 40,
+        "hybrid": 55
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "alternating",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "step_up",
@@ -7460,7 +8720,23 @@
         "walking_lunge",
         "bulgarian_split_squat"
       ],
-      "variation_family": "lunge_family"
+      "variation_family": "lunge_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "hyrox": 40,
+        "crossfit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "lateral_lunge",
@@ -7551,7 +8827,23 @@
         "reverse_lunge",
         "goblet_squat"
       ],
-      "variation_family": "lunge_family"
+      "variation_family": "lunge_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "mobility": 0,
+        "hyrox": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "curtsy_lunge",
@@ -7634,7 +8926,20 @@
         "lateral_lunge",
         "reverse_lunge"
       ],
-      "variation_family": "lunge_family"
+      "variation_family": "lunge_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "leg_extension",
@@ -7709,7 +9014,20 @@
         "bodyweight_squat",
         "goblet_squat"
       ],
-      "variation_family": "quad_isolation_family"
+      "variation_family": "quad_isolation_family",
+      "style_popularity": {
+        "bodybuilding": 75,
+        "low_impact": 85,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "leg_curl",
@@ -7786,7 +9104,20 @@
         "romanian_deadlift",
         "glute_bridge"
       ],
-      "variation_family": "hamstring_isolation_family"
+      "variation_family": "hamstring_isolation_family",
+      "style_popularity": {
+        "bodybuilding": 75,
+        "low_impact": 85,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "standing_calf_raise",
@@ -7863,7 +9194,21 @@
       "substitutes": [
         "seated_calf_raise"
       ],
-      "variation_family": "calf_raise_family"
+      "variation_family": "calf_raise_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "strength": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "seated_calf_raise",
@@ -7935,7 +9280,20 @@
       "substitutes": [
         "standing_calf_raise"
       ],
-      "variation_family": "calf_raise_family"
+      "variation_family": "calf_raise_family",
+      "style_popularity": {
+        "bodybuilding": 70,
+        "low_impact": 75,
+        "hybrid": 20
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hip_adduction_machine",
@@ -8009,7 +9367,20 @@
         "lateral_lunge",
         "copenhagen_plank"
       ],
-      "variation_family": "adductor_family"
+      "variation_family": "adductor_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_kickback",
@@ -8085,7 +9456,20 @@
         "glute_bridge",
         "hip_thrust"
       ],
-      "variation_family": "glute_isolation_family"
+      "variation_family": "glute_isolation_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_woodchop",
@@ -8166,7 +9550,22 @@
         "russian_twist",
         "pallof_press"
       ],
-      "variation_family": "rotational_core_family"
+      "variation_family": "rotational_core_family",
+      "style_popularity": {
+        "strength": 15,
+        "bodybuilding": 20,
+        "crossfit": 10,
+        "low_impact": -10,
+        "hybrid": 15
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "russian_twist",
@@ -8251,7 +9650,22 @@
         "bicycle_crunch",
         "pallof_press"
       ],
-      "variation_family": "rotational_core_family"
+      "variation_family": "rotational_core_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "hiit": 40,
+        "crossfit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hanging_leg_raise",
@@ -8336,7 +9750,22 @@
         "dead_bug",
         "mountain_climber"
       ],
-      "variation_family": "core_flexion_family"
+      "variation_family": "core_flexion_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "ab_wheel_rollout",
@@ -8422,7 +9851,21 @@
         "dead_bug",
         "hollow_body_hold"
       ],
-      "variation_family": "core_flexion_family"
+      "variation_family": "core_flexion_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "crossfit": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dead_bug",
@@ -8502,7 +9945,21 @@
         "plank",
         "hollow_body_hold"
       ],
-      "variation_family": "core_stability_family"
+      "variation_family": "core_stability_family",
+      "style_popularity": {
+        "strength": 0,
+        "pilates": 0,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "bird_dog",
@@ -8587,7 +10044,21 @@
         "plank",
         "pilates_swimming"
       ],
-      "variation_family": "core_stability_family"
+      "variation_family": "core_stability_family",
+      "style_popularity": {
+        "mobility": 40,
+        "pilates": 30,
+        "strength": -10,
+        "low_impact": 20
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "mountain_climber",
@@ -8676,7 +10147,24 @@
         "burpee",
         "jump_rope_intervals"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "hiit": 85,
+        "crossfit": 40,
+        "cardio": -10,
+        "hyrox": -10
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "bicycle_crunch",
@@ -8758,7 +10246,21 @@
         "russian_twist",
         "cable_woodchop"
       ],
-      "variation_family": "rotational_core_family"
+      "variation_family": "rotational_core_family",
+      "style_popularity": {
+        "bodybuilding": 40,
+        "hiit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "side_plank",
@@ -8844,7 +10346,24 @@
         "plank",
         "copenhagen_plank"
       ],
-      "variation_family": "plank_family"
+      "variation_family": "plank_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "pilates": 40,
+        "mobility": 40,
+        "hiit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pallof_press",
@@ -8927,7 +10446,22 @@
         "plank",
         "dead_bug"
       ],
-      "variation_family": "core_stability_family"
+      "variation_family": "core_stability_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hollow_body_hold",
@@ -9010,7 +10544,22 @@
         "dead_bug",
         "pilates_hundred"
       ],
-      "variation_family": "core_flexion_family"
+      "variation_family": "core_flexion_family",
+      "style_popularity": {
+        "crossfit": 35,
+        "pilates": 30,
+        "strength": -10,
+        "low_impact": -10,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "superman_hold",
@@ -9092,7 +10641,20 @@
         "back_extension",
         "pilates_swimming"
       ],
-      "variation_family": "back_extension_family"
+      "variation_family": "back_extension_family",
+      "style_popularity": {
+        "mobility": 30,
+        "pilates": 20,
+        "low_impact": 15
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "suitcase_carry",
@@ -9176,7 +10738,23 @@
         "farmers_carry",
         "overhead_carry"
       ],
-      "variation_family": "carry_family"
+      "variation_family": "carry_family",
+      "style_popularity": {
+        "strength": 15,
+        "crossfit": 20,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds",
+          "calories"
+        ]
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "overhead_carry",
@@ -9260,7 +10838,23 @@
         "farmers_carry",
         "suitcase_carry"
       ],
-      "variation_family": "carry_family"
+      "variation_family": "carry_family",
+      "style_popularity": {
+        "strength": -10,
+        "crossfit": 30,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds",
+          "calories"
+        ]
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "jump_squat",
@@ -9349,7 +10943,22 @@
         "bodyweight_squat",
         "broad_jump"
       ],
-      "variation_family": "plyometric_family"
+      "variation_family": "plyometric_family",
+      "style_popularity": {
+        "hiit": 80,
+        "crossfit": 50,
+        "hyrox": -10,
+        "cardio": -10,
+        "hybrid": 45
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "burpee",
@@ -9444,7 +11053,22 @@
         "mountain_climber",
         "high_knees"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "hiit": 90,
+        "crossfit": 80,
+        "hyrox": -10,
+        "cardio": -10,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "broad_jump",
@@ -9530,7 +11154,20 @@
         "jump_squat",
         "box_jump"
       ],
-      "variation_family": "plyometric_family"
+      "variation_family": "plyometric_family",
+      "style_popularity": {
+        "crossfit": 30,
+        "hyrox": -10,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "skater_jump",
@@ -9617,7 +11254,21 @@
         "lateral_lunge",
         "jump_squat"
       ],
-      "variation_family": "plyometric_family"
+      "variation_family": "plyometric_family",
+      "style_popularity": {
+        "hiit": 70,
+        "crossfit": 40,
+        "cardio": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "alternating",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "lunge_jump",
@@ -9706,7 +11357,21 @@
         "jump_squat",
         "box_jump"
       ],
-      "variation_family": "plyometric_family"
+      "variation_family": "plyometric_family",
+      "style_popularity": {
+        "hiit": 50,
+        "crossfit": 25,
+        "hyrox": -10,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "alternating",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "battle_rope_slams",
@@ -9790,7 +11455,24 @@
         "assault_bike_intervals",
         "mountain_climber"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "hiit": 70,
+        "crossfit": 40,
+        "cardio": 40,
+        "hyrox": 40
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "ski_erg_intervals",
@@ -9877,7 +11559,23 @@
         "rowing_machine_intervals",
         "assault_bike_intervals"
       ],
-      "variation_family": "erg_family"
+      "variation_family": "erg_family",
+      "style_popularity": {
+        "cardio": 55,
+        "crossfit": 0,
+        "hyrox": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "stationary_bike_intervals",
@@ -9961,7 +11659,22 @@
         "treadmill_run",
         "rowing_machine_intervals"
       ],
-      "variation_family": "bike_family"
+      "variation_family": "bike_family",
+      "style_popularity": {
+        "cardio": 55,
+        "hiit": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "sled_push",
@@ -9976,7 +11689,8 @@
         "crossfit",
         "hyrox",
         "hiit",
-        "cardio"
+        "cardio",
+        "hybrid"
       ],
       "primary_muscles": [
         "quads",
@@ -10046,7 +11760,32 @@
         "treadmill_run",
         "assault_bike_intervals"
       ],
-      "variation_family": "sled_family"
+      "variation_family": "sled_family",
+      "style_popularity": {
+        "hyrox": 90,
+        "crossfit": 40,
+        "hiit": 20,
+        "cardio": 15,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": {
+        "male_rx_lbs": 276,
+        "female_rx_lbs": 221,
+        "male_scaled_lbs": 221,
+        "female_scaled_lbs": 165,
+        "male_pro_lbs": 386,
+        "female_pro_lbs": 276
+      },
+      "media_url": ""
     },
     {
       "id": "high_knees",
@@ -10135,7 +11874,24 @@
         "jump_rope_intervals",
         "burpee"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "hiit": 55,
+        "cardio": 0,
+        "crossfit": 0,
+        "hyrox": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cat_cow",
@@ -10217,7 +11973,20 @@
         "bird_dog",
         "childs_pose"
       ],
-      "variation_family": "spinal_mobility_family"
+      "variation_family": "spinal_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "thoracic_spine_rotation",
@@ -10295,7 +12064,19 @@
       "substitutes": [
         "cat_cow"
       ],
-      "variation_family": "spinal_mobility_family"
+      "variation_family": "spinal_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "worlds_greatest_stretch",
@@ -10380,7 +12161,19 @@
         "pigeon_stretch",
         "hip_90_90_stretch"
       ],
-      "variation_family": "full_body_mobility_family"
+      "variation_family": "full_body_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "downward_dog",
@@ -10471,7 +12264,20 @@
         "standing_hamstring_stretch",
         "standing_calf_stretch"
       ],
-      "variation_family": "full_body_mobility_family"
+      "variation_family": "full_body_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pigeon_stretch",
@@ -10551,7 +12357,19 @@
         "hip_90_90_stretch",
         "seated_figure_four"
       ],
-      "variation_family": "hip_mobility_family"
+      "variation_family": "hip_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "childs_pose",
@@ -10629,7 +12447,20 @@
         "cat_cow",
         "downward_dog"
       ],
-      "variation_family": "spinal_mobility_family"
+      "variation_family": "spinal_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "standing_hamstring_stretch",
@@ -10705,7 +12536,19 @@
         "downward_dog",
         "worlds_greatest_stretch"
       ],
-      "variation_family": "hamstring_mobility_family"
+      "variation_family": "hamstring_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "standing_calf_stretch",
@@ -10778,7 +12621,19 @@
         "downward_dog",
         "foam_roll_calves"
       ],
-      "variation_family": "calf_mobility_family"
+      "variation_family": "calf_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "shoulder_pass_through",
@@ -10864,7 +12719,21 @@
       "substitutes": [
         "resistance_band_pull_apart"
       ],
-      "variation_family": "shoulder_mobility_family"
+      "variation_family": "shoulder_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "chest_doorway_stretch",
@@ -10942,7 +12811,19 @@
       "substitutes": [
         "shoulder_pass_through"
       ],
-      "variation_family": "chest_mobility_family"
+      "variation_family": "chest_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "neck_stretch",
@@ -11015,7 +12896,19 @@
         "traps"
       ],
       "substitutes": [],
-      "variation_family": "neck_mobility_family"
+      "variation_family": "neck_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "seated_figure_four",
@@ -11093,7 +12986,19 @@
         "pigeon_stretch",
         "hip_90_90_stretch"
       ],
-      "variation_family": "hip_mobility_family"
+      "variation_family": "hip_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_bridge",
@@ -11173,7 +13078,19 @@
         "glute_bridge",
         "hip_thrust"
       ],
-      "variation_family": "hip_thrust_family"
+      "variation_family": "hip_thrust_family",
+      "style_popularity": {
+        "pilates": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_single_leg_stretch",
@@ -11253,7 +13170,19 @@
         "dead_bug",
         "pilates_hundred"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_saw",
@@ -11332,7 +13261,19 @@
         "russian_twist",
         "cable_woodchop"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "clamshell",
@@ -11414,7 +13355,20 @@
         "pilates_side_leg_series",
         "fire_hydrant"
       ],
-      "variation_family": "pilates_leg_family"
+      "variation_family": "pilates_leg_family",
+      "style_popularity": {
+        "pilates": 0,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_mermaid",
@@ -11492,7 +13446,20 @@
         "side_plank",
         "pilates_saw"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "fire_hydrant",
@@ -11574,7 +13541,20 @@
         "clamshell",
         "pilates_side_leg_series"
       ],
-      "variation_family": "pilates_leg_family"
+      "variation_family": "pilates_leg_family",
+      "style_popularity": {
+        "pilates": 0,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "muscle_up",
@@ -11662,7 +13642,19 @@
         "pull_up",
         "dip"
       ],
-      "variation_family": "vertical_pull_family"
+      "variation_family": "vertical_pull_family",
+      "style_popularity": {
+        "crossfit": 60,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pistol_squat",
@@ -11747,7 +13739,20 @@
         "bulgarian_split_squat",
         "bodyweight_squat"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "crossfit": 40,
+        "strength": -10,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "handstand_push_up",
@@ -11836,7 +13841,19 @@
         "standing_overhead_press",
         "pike_push_up"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "tuck_jump",
@@ -11922,7 +13939,21 @@
         "jump_squat",
         "box_jump"
       ],
-      "variation_family": "plyometric_family"
+      "variation_family": "plyometric_family",
+      "style_popularity": {
+        "hiit": 30,
+        "crossfit": -10,
+        "cardio": -10,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_swing",
@@ -12011,7 +14042,21 @@
         "kettlebell_swing",
         "cable_pull_through"
       ],
-      "variation_family": "swing_family"
+      "variation_family": "swing_family",
+      "style_popularity": {
+        "hiit": 0,
+        "cardio": 0,
+        "strength": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "trx_row",
@@ -12097,7 +14142,23 @@
         "dumbbell_row",
         "lat_pulldown"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "crossfit": 0,
+        "hiit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_squat",
@@ -12180,7 +14241,22 @@
         "barbell_back_squat",
         "leg_press"
       ],
-      "variation_family": "squat_family"
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "strength": 40,
+        "bodybuilding": 40,
+        "hiit": 40,
+        "low_impact": 40,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "concentration_curl",
@@ -12253,7 +14329,20 @@
         "cable_curl",
         "preacher_curl"
       ],
-      "variation_family": "bicep_curl_family"
+      "variation_family": "bicep_curl_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pike_push_up",
@@ -12337,7 +14426,22 @@
         "seated_dumbbell_shoulder_press",
         "handstand_push_up"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "crossfit": 0,
+        "strength": 0,
+        "hiit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "medicine_ball_slam",
@@ -12425,7 +14529,22 @@
         "battle_rope_slams",
         "kettlebell_swing"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "hiit": 0,
+        "crossfit": 0,
+        "hyrox": 0,
+        "cardio": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "single_leg_hip_thrust",
@@ -12506,7 +14625,21 @@
         "glute_bridge",
         "cable_kickback"
       ],
-      "variation_family": "hip_thrust_family"
+      "variation_family": "hip_thrust_family",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "strength": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "foam_roll_lats",
@@ -12579,7 +14712,19 @@
         "childs_pose",
         "downward_dog"
       ],
-      "variation_family": "lat_mobility_family"
+      "variation_family": "lat_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "power_clean",
@@ -12674,7 +14819,26 @@
         "dumbbell_power_clean",
         "kettlebell_clean"
       ],
-      "variation_family": "clean_family"
+      "variation_family": "clean_family",
+      "style_popularity": {
+        "crossfit": 85,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": {
+        "male_rx_lbs": 135,
+        "female_rx_lbs": 95,
+        "male_scaled_lbs": 95,
+        "female_scaled_lbs": 65,
+        "male_pro_lbs": 185,
+        "female_pro_lbs": 135
+      },
+      "media_url": ""
     },
     {
       "id": "hang_clean",
@@ -12765,7 +14929,26 @@
         "dumbbell_power_clean",
         "kettlebell_clean"
       ],
-      "variation_family": "clean_family"
+      "variation_family": "clean_family",
+      "style_popularity": {
+        "crossfit": 80,
+        "hybrid": 35
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": {
+        "male_rx_lbs": 135,
+        "female_rx_lbs": 95,
+        "male_scaled_lbs": 95,
+        "female_scaled_lbs": 65,
+        "male_pro_lbs": 155,
+        "female_pro_lbs": 105
+      },
+      "media_url": ""
     },
     {
       "id": "clean_and_jerk",
@@ -12862,7 +15045,26 @@
         "power_clean",
         "thruster"
       ],
-      "variation_family": "clean_family"
+      "variation_family": "clean_family",
+      "style_popularity": {
+        "crossfit": 90,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": {
+        "male_rx_lbs": 135,
+        "female_rx_lbs": 95,
+        "male_scaled_lbs": 95,
+        "female_scaled_lbs": 65,
+        "male_pro_lbs": 185,
+        "female_pro_lbs": 135
+      },
+      "media_url": ""
     },
     {
       "id": "snatch",
@@ -12959,7 +15161,19 @@
         "dumbbell_snatch",
         "hang_snatch"
       ],
-      "variation_family": "snatch_family"
+      "variation_family": "snatch_family",
+      "style_popularity": {
+        "crossfit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_snatch",
@@ -13049,7 +15263,28 @@
         "kettlebell_snatch",
         "dumbbell_power_clean"
       ],
-      "variation_family": "snatch_family"
+      "variation_family": "snatch_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hiit": 0,
+        "hyrox": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": {
+        "male_rx_lbs": 50,
+        "female_rx_lbs": 35,
+        "male_scaled_lbs": 35,
+        "female_scaled_lbs": 20,
+        "male_pro_lbs": 70,
+        "female_pro_lbs": 50
+      },
+      "media_url": ""
     },
     {
       "id": "kettlebell_snatch",
@@ -13137,7 +15372,21 @@
         "dumbbell_snatch",
         "kettlebell_swing"
       ],
-      "variation_family": "snatch_family"
+      "variation_family": "snatch_family",
+      "style_popularity": {
+        "crossfit": 0,
+        "hiit": 0,
+        "hyrox": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "thruster",
@@ -13231,7 +15480,27 @@
         "dumbbell_thruster",
         "wall_ball"
       ],
-      "variation_family": "thruster_family"
+      "variation_family": "thruster_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hiit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": {
+        "male_rx_lbs": 95,
+        "female_rx_lbs": 65,
+        "male_scaled_lbs": 65,
+        "female_scaled_lbs": 45,
+        "male_pro_lbs": 135,
+        "female_pro_lbs": 95
+      },
+      "media_url": ""
     },
     {
       "id": "dumbbell_thruster",
@@ -13320,7 +15589,22 @@
         "wall_ball",
         "goblet_squat"
       ],
-      "variation_family": "thruster_family"
+      "variation_family": "thruster_family",
+      "style_popularity": {
+        "crossfit": 0,
+        "hiit": 0,
+        "hyrox": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "wall_ball",
@@ -13408,7 +15692,29 @@
         "dumbbell_thruster",
         "goblet_squat"
       ],
-      "variation_family": "thruster_family"
+      "variation_family": "thruster_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hiit": 0,
+        "hyrox": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": {
+        "male_rx_lbs": 20,
+        "female_rx_lbs": 14,
+        "male_scaled_lbs": 14,
+        "female_scaled_lbs": 10,
+        "male_pro_lbs": 30,
+        "female_pro_lbs": 20
+      },
+      "media_url": ""
     },
     {
       "id": "toes_to_bar",
@@ -13494,7 +15800,19 @@
         "hanging_leg_raise",
         "knees_to_elbow"
       ],
-      "variation_family": "core_flexion_family"
+      "variation_family": "core_flexion_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "knees_to_elbow",
@@ -13577,7 +15895,19 @@
         "toes_to_bar",
         "hanging_leg_raise"
       ],
-      "variation_family": "core_flexion_family"
+      "variation_family": "core_flexion_family",
+      "style_popularity": {
+        "crossfit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "kettlebell_clean",
@@ -13666,7 +15996,21 @@
         "dumbbell_power_clean",
         "kettlebell_swing"
       ],
-      "variation_family": "clean_family"
+      "variation_family": "clean_family",
+      "style_popularity": {
+        "crossfit": 0,
+        "hiit": 0,
+        "hyrox": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_power_clean",
@@ -13753,7 +16097,21 @@
         "power_clean",
         "kettlebell_clean"
       ],
-      "variation_family": "clean_family"
+      "variation_family": "clean_family",
+      "style_popularity": {
+        "crossfit": 60,
+        "hiit": -10,
+        "hyrox": -10,
+        "hybrid": 30
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "double_under",
@@ -13838,7 +16196,23 @@
         "jump_rope_intervals",
         "high_knees"
       ],
-      "variation_family": "jump_rope_family"
+      "variation_family": "jump_rope_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hiit": 0,
+        "cardio": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "rope_climb",
@@ -13923,7 +16297,19 @@
         "pull_up",
         "towel_pull_up"
       ],
-      "variation_family": "vertical_pull_family"
+      "variation_family": "vertical_pull_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "ring_dip",
@@ -14006,7 +16392,19 @@
         "push_up",
         "diamond_push_up"
       ],
-      "variation_family": "dip_family"
+      "variation_family": "dip_family",
+      "style_popularity": {
+        "crossfit": 55,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "sled_pull",
@@ -14090,7 +16488,28 @@
         "sled_push",
         "cable_seated_row"
       ],
-      "variation_family": "sled_family"
+      "variation_family": "sled_family",
+      "style_popularity": {
+        "hyrox": 85,
+        "crossfit": 35,
+        "strength": -10,
+        "hybrid": 45
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": {
+        "male_rx_lbs": 276,
+        "female_rx_lbs": 221,
+        "male_scaled_lbs": 221,
+        "female_scaled_lbs": 165,
+        "male_pro_lbs": 386,
+        "female_pro_lbs": 276
+      },
+      "media_url": ""
     },
     {
       "id": "sandbag_lunges",
@@ -14175,7 +16594,20 @@
         "reverse_lunge",
         "farmers_carry"
       ],
-      "variation_family": "lunge_family"
+      "variation_family": "lunge_family",
+      "style_popularity": {
+        "hyrox": 0,
+        "crossfit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "elliptical_intervals",
@@ -14258,7 +16690,21 @@
         "stationary_bike_intervals",
         "treadmill_run"
       ],
-      "variation_family": "elliptical_family"
+      "variation_family": "elliptical_family",
+      "style_popularity": {
+        "cardio": 55
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "stair_climber",
@@ -14346,7 +16792,22 @@
         "treadmill_run",
         "step_up"
       ],
-      "variation_family": "cardio_machine_family"
+      "variation_family": "cardio_machine_family",
+      "style_popularity": {
+        "cardio": 55,
+        "hiit": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "bear_crawl",
@@ -14435,7 +16896,24 @@
         "mountain_climber",
         "plank"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "hiit": 40,
+        "crossfit": 20,
+        "cardio": -10,
+        "hyrox": -10
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds",
+          "calories"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_spine_stretch",
@@ -14516,7 +16994,20 @@
         "childs_pose",
         "standing_hamstring_stretch"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_criss_cross",
@@ -14597,7 +17088,19 @@
         "pilates_saw",
         "russian_twist"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_leg_pull_front",
@@ -14680,7 +17183,19 @@
         "plank",
         "bird_dog"
       ],
-      "variation_family": "plank_family"
+      "variation_family": "plank_family",
+      "style_popularity": {
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_double_leg_stretch",
@@ -14763,7 +17278,19 @@
         "pilates_hundred",
         "dead_bug"
       ],
-      "variation_family": "pilates_core_family"
+      "variation_family": "pilates_core_family",
+      "style_popularity": {
+        "pilates": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "arm_circles",
@@ -14841,7 +17368,19 @@
       "substitutes": [
         "shoulder_pass_through"
       ],
-      "variation_family": "shoulder_mobility_family"
+      "variation_family": "shoulder_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "leg_swings_forward",
@@ -14923,7 +17462,19 @@
         "leg_swings_lateral",
         "worlds_greatest_stretch"
       ],
-      "variation_family": "dynamic_warmup_family"
+      "variation_family": "dynamic_warmup_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "leg_swings_lateral",
@@ -15004,7 +17555,19 @@
         "leg_swings_forward",
         "lateral_lunge"
       ],
-      "variation_family": "dynamic_warmup_family"
+      "variation_family": "dynamic_warmup_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hip_circles",
@@ -15088,7 +17651,19 @@
         "leg_swings_lateral",
         "hip_90_90_stretch"
       ],
-      "variation_family": "dynamic_warmup_family"
+      "variation_family": "dynamic_warmup_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "ankle_circles",
@@ -15162,7 +17737,19 @@
       "substitutes": [
         "standing_calf_stretch"
       ],
-      "variation_family": "dynamic_warmup_family"
+      "variation_family": "dynamic_warmup_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "inchworm",
@@ -15252,7 +17839,25 @@
         "worlds_greatest_stretch",
         "downward_dog"
       ],
-      "variation_family": "full_body_mobility_family"
+      "variation_family": "full_body_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "hiit": 0,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds",
+          "calories"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "a_skip",
@@ -15338,7 +17943,22 @@
         "high_knees",
         "butt_kicks"
       ],
-      "variation_family": "dynamic_warmup_family"
+      "variation_family": "dynamic_warmup_family",
+      "style_popularity": {
+        "cardio": 0,
+        "hiit": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "butt_kicks",
@@ -15420,7 +18040,22 @@
         "high_knees",
         "a_skip"
       ],
-      "variation_family": "dynamic_warmup_family"
+      "variation_family": "dynamic_warmup_family",
+      "style_popularity": {
+        "cardio": 0,
+        "hiit": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "wrist_circles",
@@ -15493,7 +18128,19 @@
       ],
       "cooldown_for_muscles": [],
       "substitutes": [],
-      "variation_family": "wrist_mobility_family"
+      "variation_family": "wrist_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "banded_lateral_walk",
@@ -15580,7 +18227,22 @@
         "clamshell",
         "fire_hydrant"
       ],
-      "variation_family": "pilates_leg_family"
+      "variation_family": "pilates_leg_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "mobility": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "tricep_stretch",
@@ -15655,7 +18317,19 @@
         "lats"
       ],
       "substitutes": [],
-      "variation_family": "arm_stretch_family"
+      "variation_family": "arm_stretch_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cross_body_shoulder_stretch",
@@ -15733,7 +18407,19 @@
       "substitutes": [
         "shoulder_pass_through"
       ],
-      "variation_family": "shoulder_mobility_family"
+      "variation_family": "shoulder_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "quad_stretch_standing",
@@ -15811,7 +18497,19 @@
         "foam_roll_quads",
         "couch_stretch"
       ],
-      "variation_family": "quad_mobility_family"
+      "variation_family": "quad_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "couch_stretch",
@@ -15893,7 +18591,21 @@
         "quad_stretch_standing",
         "foam_roll_quads"
       ],
-      "variation_family": "quad_mobility_family"
+      "variation_family": "quad_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "foam_roll_hamstrings",
@@ -15962,7 +18674,19 @@
       "substitutes": [
         "standing_hamstring_stretch"
       ],
-      "variation_family": "hamstring_mobility_family"
+      "variation_family": "hamstring_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "foam_roll_upper_back",
@@ -16038,7 +18762,19 @@
         "thoracic_spine_rotation",
         "childs_pose"
       ],
-      "variation_family": "spinal_mobility_family"
+      "variation_family": "spinal_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "foam_roll_calves",
@@ -16107,7 +18843,19 @@
       "substitutes": [
         "standing_calf_stretch"
       ],
-      "variation_family": "calf_mobility_family"
+      "variation_family": "calf_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "foam_roll_glutes",
@@ -16178,7 +18926,19 @@
         "pigeon_stretch",
         "seated_figure_four"
       ],
-      "variation_family": "hip_mobility_family"
+      "variation_family": "hip_mobility_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "bicep_stretch",
@@ -16256,7 +19016,19 @@
       "substitutes": [
         "chest_doorway_stretch"
       ],
-      "variation_family": "arm_stretch_family"
+      "variation_family": "arm_stretch_family",
+      "style_popularity": {
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "seated_spinal_twist",
@@ -16338,7 +19110,20 @@
         "thoracic_spine_rotation",
         "cat_cow"
       ],
-      "variation_family": "spinal_mobility_family"
+      "variation_family": "spinal_mobility_family",
+      "style_popularity": {
+        "mobility": 55,
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "time_seconds",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 15,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "plyo_push_up",
@@ -16422,7 +19207,20 @@
         "push_up",
         "diamond_push_up"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "hiit": 55,
+        "crossfit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "renegade_row",
@@ -16508,7 +19306,22 @@
         "dumbbell_row",
         "inverted_row"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "hiit": 0,
+        "crossfit": 0,
+        "strength": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "kettlebell_goblet_squat_to_press",
@@ -16594,7 +19407,23 @@
         "dumbbell_thruster",
         "wall_ball"
       ],
-      "variation_family": "thruster_family"
+      "variation_family": "thruster_family",
+      "style_popularity": {
+        "hiit": 0,
+        "crossfit": 0,
+        "hyrox": 0,
+        "cardio": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "dumbbell_clean_and_press",
@@ -16684,7 +19513,21 @@
         "dumbbell_power_clean",
         "dumbbell_thruster"
       ],
-      "variation_family": "clean_family"
+      "variation_family": "clean_family",
+      "style_popularity": {
+        "hiit": -10,
+        "crossfit": 65,
+        "hyrox": -10,
+        "hybrid": 35
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "star_jump",
@@ -16773,7 +19616,22 @@
         "high_knees",
         "jump_squat"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "hiit": 55,
+        "cardio": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "speed_skater",
@@ -16859,7 +19717,20 @@
         "skater_jump",
         "lateral_lunge"
       ],
-      "variation_family": "plyometric_family"
+      "variation_family": "plyometric_family",
+      "style_popularity": {
+        "hiit": 55,
+        "cardio": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "alternating",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "superman_to_hollow",
@@ -16942,7 +19813,21 @@
         "hollow_body_hold",
         "superman_hold"
       ],
-      "variation_family": "core_stability_family"
+      "variation_family": "core_stability_family",
+      "style_popularity": {
+        "hiit": 0,
+        "crossfit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 45,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "commando_plank",
@@ -17027,7 +19912,22 @@
         "push_up",
         "mountain_climber"
       ],
-      "variation_family": "plank_family"
+      "variation_family": "plank_family",
+      "style_popularity": {
+        "hiit": 0,
+        "crossfit": 0,
+        "cardio": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "kettlebell_push_press",
@@ -17112,7 +20012,22 @@
         "standing_overhead_press",
         "dumbbell_clean_and_press"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "hyrox": 0,
+        "crossfit": 0,
+        "hiit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "trx_chest_press",
@@ -17194,7 +20109,22 @@
         "push_up",
         "dumbbell_bench_press"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "hyrox": 0,
+        "hiit": 0,
+        "strength": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "kettlebell_windmill",
@@ -17279,7 +20209,20 @@
         "cable_woodchop",
         "russian_twist"
       ],
-      "variation_family": "rotational_core_family"
+      "variation_family": "rotational_core_family",
+      "style_popularity": {
+        "hyrox": -10,
+        "crossfit": 20,
+        "hybrid": -10
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "kettlebell_high_pull",
@@ -17363,7 +20306,21 @@
         "face_pull",
         "kettlebell_swing"
       ],
-      "variation_family": "swing_family"
+      "variation_family": "swing_family",
+      "style_popularity": {
+        "hyrox": 0,
+        "crossfit": 0,
+        "hiit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "shuttle_run",
@@ -17447,7 +20404,23 @@
         "treadmill_run",
         "high_knees"
       ],
-      "variation_family": "running_family"
+      "variation_family": "running_family",
+      "style_popularity": {
+        "cardio": 0,
+        "hiit": 0,
+        "hyrox": 0
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "inchworm_to_push_up",
@@ -17534,7 +20507,22 @@
         "inchworm",
         "burpee"
       ],
-      "variation_family": "cardio_bodyweight_family"
+      "variation_family": "cardio_bodyweight_family",
+      "style_popularity": {
+        "cardio": 0,
+        "hiit": 55
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_push_up",
@@ -17614,7 +20602,19 @@
         "push_up",
         "incline_push_up"
       ],
-      "variation_family": "bench_press_family"
+      "variation_family": "bench_press_family",
+      "style_popularity": {
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_inner_thigh_lift",
@@ -17690,7 +20690,20 @@
         "pilates_side_leg_series",
         "hip_adduction_machine"
       ],
-      "variation_family": "pilates_leg_family"
+      "variation_family": "pilates_leg_family",
+      "style_popularity": {
+        "pilates": 0,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_back_extension",
@@ -17772,7 +20785,20 @@
         "superman_hold",
         "bird_dog"
       ],
-      "variation_family": "pilates_back_family"
+      "variation_family": "pilates_back_family",
+      "style_popularity": {
+        "pilates": 0,
+        "mobility": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_chest_expansion",
@@ -17853,7 +20879,19 @@
         "resistance_band_pull_apart",
         "face_pull"
       ],
-      "variation_family": "pilates_arm_family"
+      "variation_family": "pilates_arm_family",
+      "style_popularity": {
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "pilates_kneeling_side_kick",
@@ -17932,7 +20970,19 @@
         "pilates_side_leg_series",
         "fire_hydrant"
       ],
-      "variation_family": "pilates_leg_family"
+      "variation_family": "pilates_leg_family",
+      "style_popularity": {
+        "pilates": 0,
+        "low_impact": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 20,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "sumo_deadlift_high_pull",
@@ -18023,7 +21073,19 @@
         "kettlebell_high_pull",
         "sumo_deadlift"
       ],
-      "variation_family": "deadlift_family"
+      "variation_family": "deadlift_family",
+      "style_popularity": {
+        "crossfit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "chest_press_machine",
@@ -18102,7 +21164,20 @@
           "absolute_fallback_lbs": 100
         }
       },
-      "notes": "Machine-guided pressing. Good beginner substitute for barbell bench."
+      "notes": "Machine-guided pressing. Good beginner substitute for barbell bench.",
+      "style_popularity": {
+        "strength": 25,
+        "bodybuilding": 65,
+        "hybrid": 20
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_lat_pulldown",
@@ -18175,7 +21250,20 @@
           "absolute_fallback_lbs": 90
         }
       },
-      "notes": "Cable variation of lat pulldown. Constant tension throughout ROM."
+      "notes": "Cable variation of lat pulldown. Constant tension throughout ROM.",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "machine_lateral_raise",
@@ -18245,7 +21333,19 @@
           "absolute_fallback_lbs": 40
         }
       },
-      "notes": "Machine-guided lateral raise. Easier to isolate side delts."
+      "notes": "Machine-guided lateral raise. Easier to isolate side delts.",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "resistance_band_lateral_raise",
@@ -18319,7 +21419,21 @@
           "absolute_fallback_lbs": 0
         }
       },
-      "notes": "Band lateral raise. Increasing tension at the top of the movement."
+      "notes": "Band lateral raise. Increasing tension at the top of the movement.",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "hiit": 0,
+        "pilates": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "shoulder_press_machine",
@@ -18391,7 +21505,20 @@
           "absolute_fallback_lbs": 70
         }
       },
-      "notes": "Machine-guided overhead press."
+      "notes": "Machine-guided overhead press.",
+      "style_popularity": {
+        "strength": 30,
+        "bodybuilding": 65,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "trap_bar_carry",
@@ -18465,7 +21592,23 @@
           "absolute_fallback_lbs": 135
         }
       },
-      "notes": "Carry with trap bar. Easier grip than dumbbells for heavy loads."
+      "notes": "Carry with trap bar. Easier grip than dumbbells for heavy loads.",
+      "style_popularity": {
+        "strength": 0,
+        "hyrox": 0,
+        "crossfit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_front_raise",
@@ -18534,7 +21677,19 @@
           "absolute_fallback_lbs": 20
         }
       },
-      "notes": "Cable front raise. Constant tension through the entire ROM."
+      "notes": "Cable front raise. Constant tension through the entire ROM.",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "plate_front_raise",
@@ -18605,7 +21760,20 @@
           "absolute_fallback_lbs": 25
         }
       },
-      "notes": "Hold a weight plate by the edges for front raises."
+      "notes": "Hold a weight plate by the edges for front raises.",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "crossfit": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_rear_delt_fly",
@@ -18677,7 +21845,20 @@
           "absolute_fallback_lbs": 20
         }
       },
-      "notes": "Cable rear delt fly with cables at eye height. Constant tension."
+      "notes": "Cable rear delt fly with cables at eye height. Constant tension.",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "strength": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "barbell_shrug",
@@ -18751,7 +21932,20 @@
           "absolute_fallback_lbs": 95
         }
       },
-      "notes": "Barbell shrug. Allows heavier loads than dumbbells."
+      "notes": "Barbell shrug. Allows heavier loads than dumbbells.",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "cable_shrug",
@@ -18821,7 +22015,19 @@
           "absolute_fallback_lbs": 75
         }
       },
-      "notes": "Cable shrug. Constant tension throughout ROM."
+      "notes": "Cable shrug. Constant tension throughout ROM.",
+      "style_popularity": {
+        "bodybuilding": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "hang_snatch",
@@ -18900,7 +22106,20 @@
           "absolute_fallback_lbs": 85
         }
       },
-      "notes": "Snatch from hang position (above knees). Less technical than full snatch from floor."
+      "notes": "Snatch from hang position (above knees). Less technical than full snatch from floor.",
+      "style_popularity": {
+        "crossfit": 0,
+        "strength": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "towel_pull_up",
@@ -18975,7 +22194,20 @@
           "absolute_fallback_lbs": 0
         }
       },
-      "notes": "Pull-up gripping towels draped over the bar. Extreme grip demand."
+      "notes": "Pull-up gripping towels draped over the bar. Extreme grip demand.",
+      "style_popularity": {
+        "crossfit": 0,
+        "strength": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_tricep_pushdown",
@@ -19053,7 +22285,22 @@
         "dumbbell_tricep_kickback",
         "skull_crusher"
       ],
-      "variation_family": "tricep_family"
+      "variation_family": "tricep_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "hiit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_overhead_tricep_extension",
@@ -19134,7 +22381,21 @@
         "band_tricep_pushdown",
         "skull_crusher"
       ],
-      "variation_family": "tricep_family"
+      "variation_family": "tricep_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_bicep_curl",
@@ -19214,7 +22475,22 @@
         "barbell_curl",
         "cable_curl"
       ],
-      "variation_family": "bicep_family"
+      "variation_family": "bicep_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "hiit": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_face_pull",
@@ -19299,7 +22575,22 @@
         "resistance_band_pull_apart",
         "dumbbell_rear_delt_fly"
       ],
-      "variation_family": "rear_delt_family"
+      "variation_family": "rear_delt_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "mobility": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_seated_row",
@@ -19379,7 +22670,21 @@
         "dumbbell_row",
         "band_bent_over_row"
       ],
-      "variation_family": "row_family"
+      "variation_family": "row_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_overhead_press",
@@ -19461,7 +22766,21 @@
         "seated_dumbbell_shoulder_press",
         "machine_shoulder_press"
       ],
-      "variation_family": "overhead_press_family"
+      "variation_family": "overhead_press_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_glute_kickback",
@@ -19544,7 +22863,23 @@
         "fire_hydrant",
         "glute_bridge"
       ],
-      "variation_family": "glute_family"
+      "variation_family": "glute_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "hiit": 0,
+        "low_impact": 0,
+        "pilates": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_hip_abduction",
@@ -19627,7 +22962,23 @@
         "clamshell",
         "fire_hydrant"
       ],
-      "variation_family": "glute_family"
+      "variation_family": "glute_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "pilates": 0,
+        "mobility": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_external_rotation",
@@ -19708,7 +23059,22 @@
         "resistance_band_pull_apart",
         "band_face_pull"
       ],
-      "variation_family": "rear_delt_family"
+      "variation_family": "rear_delt_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "mobility": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
     },
     {
       "id": "band_good_morning",
@@ -19797,7 +23163,1298 @@
         "romanian_deadlift",
         "dumbbell_romanian_deadlift"
       ],
-      "variation_family": "hinge_family"
+      "variation_family": "hinge_family",
+      "style_popularity": {
+        "strength": 0,
+        "bodybuilding": 0,
+        "low_impact": 0,
+        "mobility": 0,
+        "hybrid": 0
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "chest_to_bar_pull_up",
+      "name": "Chest-to-Bar Pull-Up",
+      "aliases": [
+        "C2B",
+        "c2b pull-up",
+        "chest to bar"
+      ],
+      "movement_pattern": "pull",
+      "difficulty_tier": "advanced",
+      "eligible_styles": [
+        "crossfit",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "lats",
+        "upper_back"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "rear_delt",
+        "core",
+        "forearms"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow"
+      ],
+      "equipment_required": [
+        "pull_up_bar"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 3,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "shoulder_injury",
+        "shoulder_impingement",
+        "elbow_injury",
+        "wrist_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "none",
+      "position": "hanging",
+      "weight_increment": 0,
+      "rep_range_floor": 3,
+      "rep_range_ceiling": 15,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "pull_up",
+        "lat_pulldown",
+        "inverted_row"
+      ],
+      "variation_family": "pull_up_family",
+      "style_popularity": {
+        "crossfit": 80,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "handstand_walk",
+      "name": "Handstand Walk",
+      "aliases": [
+        "HS walk",
+        "handstand walking"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "advanced",
+      "eligible_styles": [
+        "crossfit"
+      ],
+      "primary_muscles": [
+        "front_delt",
+        "side_delt"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "core",
+        "traps",
+        "upper_back"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "wrist",
+        "elbow"
+      ],
+      "equipment_required": [
+        "bodyweight"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 3,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "shoulder_injury",
+        "shoulder_impingement",
+        "wrist_injury",
+        "high_blood_pressure",
+        "neck_injury",
+        "pregnancy_t1",
+        "pregnancy_t2",
+        "pregnancy_t3"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "moderate",
+      "position": "hanging",
+      "weight_increment": 0,
+      "rep_range_floor": 5,
+      "rep_range_ceiling": 50,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "handstand_push_up",
+        "pike_push_up",
+        "standing_overhead_press"
+      ],
+      "variation_family": "handstand_family",
+      "style_popularity": {
+        "crossfit": 55
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "reps"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "split_jerk",
+      "name": "Split Jerk",
+      "aliases": [
+        "jerk",
+        "barbell split jerk"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "advanced",
+      "eligible_styles": [
+        "crossfit",
+        "strength",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "front_delt",
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "core",
+        "hip_flexors",
+        "calves"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow",
+        "hip",
+        "knee",
+        "ankle"
+      ],
+      "equipment_required": [
+        "barbell",
+        "squat_rack"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 4,
+      "setup_time_seconds": 30,
+      "contraindication_tags": [
+        "shoulder_injury",
+        "shoulder_impingement",
+        "overhead_restricted",
+        "knee_injury",
+        "ankle_injury",
+        "lower_back_injury",
+        "wrist_injury",
+        "pregnancy_t2",
+        "pregnancy_t3"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "heavy",
+      "position": "standing",
+      "weight_increment": 5,
+      "rep_range_floor": 1,
+      "rep_range_ceiling": 5,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0.35,
+          "absolute_fallback_lbs": 65
+        },
+        "male_intermediate": {
+          "multiplier": 0.55,
+          "absolute_fallback_lbs": 115
+        },
+        "male_advanced": {
+          "multiplier": 0.75,
+          "absolute_fallback_lbs": 165
+        },
+        "female_beginner": {
+          "multiplier": 0.25,
+          "absolute_fallback_lbs": 45
+        },
+        "female_intermediate": {
+          "multiplier": 0.4,
+          "absolute_fallback_lbs": 75
+        },
+        "female_advanced": {
+          "multiplier": 0.6,
+          "absolute_fallback_lbs": 115
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "clean_and_jerk",
+        "standing_overhead_press",
+        "thruster"
+      ],
+      "variation_family": "jerk_family",
+      "style_popularity": {
+        "crossfit": 70,
+        "strength": 30,
+        "hybrid": 45
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 150,
+      "standard_rx_weight": {
+        "male_rx_lbs": 135,
+        "female_rx_lbs": 95,
+        "male_scaled_lbs": 95,
+        "female_scaled_lbs": 65,
+        "male_pro_lbs": 185,
+        "female_pro_lbs": 135
+      },
+      "media_url": ""
+    },
+    {
+      "id": "dumbbell_hang_clean_and_jerk",
+      "name": "DB Hang Clean & Jerk",
+      "aliases": [
+        "dumbbell hang clean and jerk",
+        "db hang c&j",
+        "single arm db clean and jerk"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "intermediate",
+      "eligible_styles": [
+        "crossfit",
+        "hiit",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "front_delt",
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "core",
+        "hamstrings",
+        "traps",
+        "forearms"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow",
+        "hip",
+        "knee",
+        "wrist"
+      ],
+      "equipment_required": [
+        "dumbbell"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": true,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 4,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "shoulder_injury",
+        "shoulder_impingement",
+        "overhead_restricted",
+        "lower_back_injury",
+        "wrist_injury",
+        "pregnancy_t2",
+        "pregnancy_t3"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "moderate",
+      "position": "standing",
+      "weight_increment": 5,
+      "rep_range_floor": 5,
+      "rep_range_ceiling": 15,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 25
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 40
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 55
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 15
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 25
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 40
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "dumbbell_snatch",
+        "dumbbell_clean_and_press",
+        "dumbbell_power_clean"
+      ],
+      "variation_family": "db_olympic_family",
+      "style_popularity": {
+        "crossfit": 75,
+        "hiit": 35,
+        "hybrid": 50
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "alternating",
+      "default_rest_sec": 90,
+      "standard_rx_weight": {
+        "male_rx_lbs": 50,
+        "female_rx_lbs": 35,
+        "male_scaled_lbs": 35,
+        "female_scaled_lbs": 20,
+        "male_pro_lbs": 70,
+        "female_pro_lbs": 50
+      },
+      "media_url": ""
+    },
+    {
+      "id": "outdoor_run",
+      "name": "Outdoor Run",
+      "aliases": [
+        "track run",
+        "road run",
+        "outdoor jog",
+        "trail run"
+      ],
+      "movement_pattern": "cardio",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "cardio",
+        "hiit",
+        "hyrox",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "quads",
+        "hamstrings",
+        "calves",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "core",
+        "hip_flexors"
+      ],
+      "joints_loaded": [
+        "hip",
+        "knee",
+        "ankle"
+      ],
+      "equipment_required": [
+        "bodyweight"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 60,
+      "setup_time_seconds": 5,
+      "contraindication_tags": [
+        "knee_injury",
+        "ankle_injury",
+        "acl_tear",
+        "pregnancy_t3",
+        "hip_replacement"
+      ],
+      "rom_requirement": "moderate",
+      "spinal_load": "light",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 400,
+      "rep_range_ceiling": 5000,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": true,
+      "warmup_for_muscles": [
+        "quads",
+        "hamstrings",
+        "calves",
+        "glutes"
+      ],
+      "cooldown_for_muscles": [
+        "quads",
+        "hamstrings",
+        "calves"
+      ],
+      "substitutes": [
+        "treadmill_run",
+        "rowing_machine_intervals",
+        "assault_bike_intervals"
+      ],
+      "variation_family": "running_family",
+      "style_popularity": {
+        "cardio": 85,
+        "hiit": 45,
+        "hyrox": 80,
+        "hybrid": 65
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds",
+          "calories"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "rucking",
+      "name": "Rucking",
+      "aliases": [
+        "weighted walk",
+        "ruck march",
+        "ruck walk",
+        "weighted ruck"
+      ],
+      "movement_pattern": "carry",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "hybrid",
+        "low_impact",
+        "hyrox",
+        "cardio"
+      ],
+      "primary_muscles": [
+        "quads",
+        "hamstrings",
+        "glutes",
+        "calves"
+      ],
+      "secondary_muscles": [
+        "core",
+        "traps",
+        "lower_back",
+        "hip_flexors"
+      ],
+      "joints_loaded": [
+        "hip",
+        "knee",
+        "ankle",
+        "spine"
+      ],
+      "equipment_required": [
+        "bodyweight"
+      ],
+      "equipment_optional": [
+        "weight_plates"
+      ],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 60,
+      "setup_time_seconds": 15,
+      "contraindication_tags": [
+        "knee_injury",
+        "ankle_injury",
+        "lower_back_injury",
+        "hip_replacement"
+      ],
+      "rom_requirement": "moderate",
+      "spinal_load": "moderate",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 400,
+      "rep_range_ceiling": 5000,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": true,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [
+        "quads",
+        "hamstrings",
+        "calves"
+      ],
+      "substitutes": [
+        "farmers_carry",
+        "outdoor_run",
+        "treadmill_run"
+      ],
+      "variation_family": "rucking_family",
+      "style_popularity": {
+        "hybrid": 60,
+        "low_impact": 50,
+        "hyrox": 45,
+        "cardio": 40
+      },
+      "tracking_metric": {
+        "primary": "distance_meters",
+        "alternates": [
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "calorie_row",
+      "name": "Calorie Row",
+      "aliases": [
+        "cal row",
+        "row for calories",
+        "rowing calories"
+      ],
+      "movement_pattern": "cardio",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "crossfit",
+        "hybrid",
+        "hiit"
+      ],
+      "primary_muscles": [
+        "lats",
+        "upper_back",
+        "quads"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "hamstrings",
+        "glutes",
+        "core",
+        "forearms"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow",
+        "hip",
+        "knee"
+      ],
+      "equipment_required": [
+        "rowing_machine"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 4,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "lower_back_injury",
+        "shoulder_injury"
+      ],
+      "rom_requirement": "moderate",
+      "spinal_load": "light",
+      "position": "seated",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 30,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "lats",
+        "upper_back",
+        "quads"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "rowing_machine_intervals",
+        "calorie_assault_bike",
+        "calorie_ski_erg"
+      ],
+      "variation_family": "rowing_family",
+      "style_popularity": {
+        "crossfit": 80,
+        "hybrid": 55,
+        "hiit": 45
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "calorie_assault_bike",
+      "name": "Calorie Assault Bike",
+      "aliases": [
+        "cal bike",
+        "assault bike calories",
+        "echo bike calories",
+        "air bike calories"
+      ],
+      "movement_pattern": "cardio",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "crossfit",
+        "hybrid",
+        "hiit"
+      ],
+      "primary_muscles": [
+        "quads",
+        "hamstrings",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "core",
+        "front_delt",
+        "biceps",
+        "triceps",
+        "calves"
+      ],
+      "joints_loaded": [
+        "hip",
+        "knee",
+        "shoulder"
+      ],
+      "equipment_required": [
+        "assault_bike"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 4,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "knee_injury"
+      ],
+      "rom_requirement": "moderate",
+      "spinal_load": "none",
+      "position": "seated",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 30,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "quads",
+        "hamstrings"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "assault_bike_intervals",
+        "calorie_row",
+        "calorie_ski_erg"
+      ],
+      "variation_family": "assault_bike_family",
+      "style_popularity": {
+        "crossfit": 75,
+        "hybrid": 50,
+        "hiit": 50
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "calorie_ski_erg",
+      "name": "Calorie Ski Erg",
+      "aliases": [
+        "cal ski",
+        "ski erg calories",
+        "ski for calories"
+      ],
+      "movement_pattern": "cardio",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "crossfit",
+        "hybrid",
+        "hiit"
+      ],
+      "primary_muscles": [
+        "lats",
+        "triceps",
+        "core"
+      ],
+      "secondary_muscles": [
+        "front_delt",
+        "upper_back",
+        "quads",
+        "glutes"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow",
+        "hip"
+      ],
+      "equipment_required": [
+        "ski_erg"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 4,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "shoulder_injury"
+      ],
+      "rom_requirement": "moderate",
+      "spinal_load": "light",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 30,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "lats",
+        "triceps",
+        "core"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "ski_erg_intervals",
+        "calorie_row",
+        "calorie_assault_bike"
+      ],
+      "variation_family": "ski_erg_family",
+      "style_popularity": {
+        "crossfit": 65,
+        "hybrid": 45,
+        "hiit": 40
+      },
+      "tracking_metric": {
+        "primary": "calories",
+        "alternates": [
+          "distance_meters",
+          "time_seconds"
+        ]
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 60,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "nordic_hamstring_curl",
+      "name": "Nordic Hamstring Curl",
+      "aliases": [
+        "nordic curl",
+        "NHC",
+        "nordic ham curl",
+        "russian ham curl"
+      ],
+      "movement_pattern": "isolation",
+      "difficulty_tier": "intermediate",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "hamstrings"
+      ],
+      "secondary_muscles": [
+        "glutes",
+        "calves",
+        "core"
+      ],
+      "joints_loaded": [
+        "knee"
+      ],
+      "equipment_required": [
+        "bodyweight"
+      ],
+      "equipment_optional": [
+        "flat_bench"
+      ],
+      "is_unilateral": false,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 5,
+      "setup_time_seconds": 15,
+      "contraindication_tags": [
+        "knee_injury",
+        "acl_tear"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "none",
+      "position": "kneeling",
+      "weight_increment": 0,
+      "rep_range_floor": 3,
+      "rep_range_ceiling": 12,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "leg_curl",
+        "romanian_deadlift",
+        "back_extension"
+      ],
+      "variation_family": "hamstring_curl_family",
+      "style_popularity": {
+        "strength": 50,
+        "bodybuilding": 55,
+        "hybrid": 45
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 90,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "scapular_pull_up",
+      "name": "Scapular Pull-Up",
+      "aliases": [
+        "scap pull-up",
+        "scapula pull-up",
+        "scap retraction hang"
+      ],
+      "movement_pattern": "pull",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "mobility",
+        "crossfit",
+        "strength",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "lats",
+        "lower_back"
+      ],
+      "secondary_muscles": [
+        "rhomboids",
+        "traps",
+        "rear_delt"
+      ],
+      "joints_loaded": [
+        "shoulder"
+      ],
+      "equipment_required": [
+        "pull_up_bar"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 4,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "shoulder_injury",
+        "shoulder_impingement"
+      ],
+      "rom_requirement": "minimal",
+      "spinal_load": "none",
+      "position": "hanging",
+      "weight_increment": 0,
+      "rep_range_floor": 8,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "lats",
+        "upper_back",
+        "rear_delt",
+        "rhomboids"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "face_pull",
+        "inverted_row",
+        "lat_pulldown"
+      ],
+      "variation_family": "scap_activation_family",
+      "style_popularity": {
+        "mobility": 60,
+        "crossfit": 35,
+        "strength": 25,
+        "hybrid": 30
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
+    },
+    {
+      "id": "scapular_push_up",
+      "name": "Scapular Push-Up",
+      "aliases": [
+        "scap push-up",
+        "scapula push-up",
+        "serratus push-up",
+        "push-up plus"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "mobility",
+        "crossfit",
+        "strength",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "front_delt",
+        "chest"
+      ],
+      "secondary_muscles": [
+        "core",
+        "triceps"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "wrist"
+      ],
+      "equipment_required": [
+        "bodyweight"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 4,
+      "setup_time_seconds": 5,
+      "contraindication_tags": [
+        "shoulder_injury",
+        "wrist_injury"
+      ],
+      "rom_requirement": "minimal",
+      "spinal_load": "none",
+      "position": "prone",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "male_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_beginner": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_intermediate": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        },
+        "female_advanced": {
+          "multiplier": 0,
+          "absolute_fallback_lbs": 0
+        }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "front_delt",
+        "chest",
+        "core"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "scapular_pull_up",
+        "face_pull",
+        "push_up"
+      ],
+      "variation_family": "scap_activation_family",
+      "style_popularity": {
+        "mobility": 55,
+        "crossfit": 30,
+        "strength": 20,
+        "hybrid": 25
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 30,
+      "standard_rx_weight": null,
+      "media_url": ""
     }
   ]
 }

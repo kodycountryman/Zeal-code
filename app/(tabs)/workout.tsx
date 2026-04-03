@@ -195,7 +195,25 @@ function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
   const pattern = (ref?.movement_pattern ?? '').toLowerCase();
   const req = (ref?.equipment_required ?? []).map(r => r.toLowerCase());
 
-  // What metric did the AI prescribe?
+  // v1.5: Use trackingMetric as primary source when available
+  const metric = (ex as any).trackingMetric as string | undefined;
+  if (metric === 'time_seconds') {
+    return { isRepsOnly: false, isHoldForTime: true, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: false };
+  }
+  if (metric === 'calories') {
+    return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: true, isDistanceOnly: false, isWeightDistance: false };
+  }
+  if (metric === 'distance_meters') {
+    // Sleds and loaded carries show weight + distance
+    const hasLoad = equipment.includes('barbell') || equipment.includes('dumbbell') ||
+      equipment.includes('kettlebell') || name.includes('sled') || req.includes('sled');
+    if (hasLoad) {
+      return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: true };
+    }
+    return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: true, isWeightDistance: false };
+  }
+
+  // Fallback: regex-based detection for exercises without trackingMetric (e.g. AI core finisher)
   const prescribedTime = /s$|sec|min/i.test(repsStr) || repsStr.includes(':');
   const prescribedCals = /\bcal\b/i.test(repsStr);
   const prescribedDistance = /\bm$/.test(repsStr.toLowerCase());
@@ -263,6 +281,14 @@ function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
 
   // --- Default: weight + reps ---
   return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: false };
+}
+
+/** Returns a suffix like " /side" or " alt" based on execution_logic, or empty string for bilateral. */
+function getExecutionSuffix(ex: WorkoutExercise): string {
+  const logic = (ex as any).executionLogic as string | undefined;
+  if (logic === 'per_side') return ' /side';
+  if (logic === 'alternating') return ' alt';
+  return '';
 }
 
 function parseNumberPrefix(raw: string): number | null {
@@ -2749,6 +2775,7 @@ export default function WorkoutScreen() {
   const renderStrengthRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const reps = ex.reps && ex.reps !== 'NaN' ? ex.reps : '—';
+    const exSuffix = getExecutionSuffix(ex);
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
@@ -2758,7 +2785,7 @@ export default function WorkoutScreen() {
           </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{reps}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
+              {ex.sets}×{reps}{exSuffix}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
             </Text>
           )}
         </View>
@@ -2770,6 +2797,7 @@ export default function WorkoutScreen() {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const repsNum = parseInt(ex.reps, 10);
     const repRange = !isNaN(repsNum) ? `${repsNum}–${repsNum + 2}` : (ex.reps && ex.reps !== 'NaN' ? ex.reps : '—');
+    const exSuffix = getExecutionSuffix(ex);
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
@@ -2779,7 +2807,7 @@ export default function WorkoutScreen() {
           </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{repRange}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
+              {ex.sets}×{repRange}{exSuffix}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
             </Text>
           )}
         </View>
@@ -2790,6 +2818,7 @@ export default function WorkoutScreen() {
   const renderDefaultRow = useCallback((ex: WorkoutExercise, idx: number, isExpanded: boolean, hideRest?: boolean) => {
     const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
     const reps = ex.reps && ex.reps !== 'NaN' ? ex.reps : '—';
+    const exSuffix = getExecutionSuffix(ex);
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
@@ -2799,7 +2828,7 @@ export default function WorkoutScreen() {
           </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{reps}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
+              {ex.sets}×{reps}{exSuffix}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
             </Text>
           )}
         </View>
@@ -2925,7 +2954,7 @@ export default function WorkoutScreen() {
                       <View style={styles.exerciseInfo}>
                         <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                          {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
+                          {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
                         </Text>
                       </View>
                       {renderTrackButton(ex)}
@@ -3409,7 +3438,7 @@ export default function WorkoutScreen() {
                         </Text>
                         {!isCompleted && (
                           <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                            {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
+                            {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
                           </Text>
                         )}
                       </View>
@@ -4206,7 +4235,7 @@ export default function WorkoutScreen() {
                               </TouchableOpacity>
                               {!isCompleted && (
                                 <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                                  {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
+                                  {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
                                 </Text>
                               )}
                             </View>

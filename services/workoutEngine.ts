@@ -19,6 +19,8 @@ export interface WorkoutExercise {
   lastSessionWeight: string;
   lastSessionReps: string;
   exerciseRef: { movement_pattern?: string; equipment_required?: string[] } | null;
+  trackingMetric?: string;    // "reps" | "distance_meters" | "calories" | "time_seconds"
+  executionLogic?: string;    // "bilateral" | "alternating" | "per_side"
 }
 
 export interface CardioItem {
@@ -118,7 +120,6 @@ import {
   TRANSITION_BUFFER_SECONDS,
   DISTRACTION_BUFFER_FACTOR,
   SCORING_WEIGHTS,
-  EXERCISE_POPULARITY_SCORES,
   MIN_EXERCISES_PER_STYLE,
   MAX_EXERCISES_PER_STYLE,
   STYLE_ENGINE_CONFIGS,
@@ -337,9 +338,11 @@ function calculateTieredRest(restTier: RestTier, sliderMultiplier: number): numb
   return Math.round(clamped / 5) * 5;
 }
 
-function calculateStyleAwareRest(style: string, restTier: RestTier, sliderMultiplier: number): number {
+function calculateStyleAwareRest(style: string, restTier: RestTier, sliderMultiplier: number, exerciseRestSec?: number): number {
   const override = lookupRestForStyleAndTier(style, restTier);
-  const rawRest = override.base * sliderMultiplier;
+  // Use exercise-specific default_rest_sec as base when available, otherwise style matrix base
+  const baseRest = exerciseRestSec ?? override.base;
+  const rawRest = baseRest * sliderMultiplier;
   const clamped = clamp(rawRest, override.floor, override.ceiling);
   return Math.round(clamped / 5) * 5;
 }
@@ -831,8 +834,9 @@ function stage4Scoring(
       if (isBodyweight) score += 8;
     }
 
-    const popularityDelta = EXERCISE_POPULARITY_SCORES[ex.id] ?? 0;
-    score += popularityDelta;
+    // Per-style popularity: read from exercise's style_popularity field (v1.5)
+    const stylePopularity = (ex as any).style_popularity?.[style] ?? 0;
+    score += stylePopularity * SCORING_WEIGHTS.style_popularity_scale;
 
     score += rng() * 20;
 
@@ -924,7 +928,28 @@ function stage5LoadAndReps(
         if (minReps > maxReps) maxReps = minReps;
       }
     }
-    const reps = minReps + Math.floor(rng() * (maxReps - minReps + 1));
+    let reps: number;
+    const trackingMetric = (ex as any).tracking_metric?.primary ?? 'reps';
+
+    if (trackingMetric === 'time_seconds') {
+      // Time-based exercises (planks, holds, mobility): use tempo as time target
+      reps = ex.default_tempo_seconds_per_rep;
+    } else if (trackingMetric === 'calories') {
+      // Calorie-based (erg machines): generate calorie target within range
+      const calFloor = Math.max(minReps, 8);
+      const calCeil = Math.min(maxReps, 30);
+      reps = calFloor + Math.floor(rng() * (Math.max(calCeil - calFloor + 1, 1)));
+    } else if (trackingMetric === 'distance_meters') {
+      // Distance-based (running, carries): generate meter target, snap to 50m
+      const distFloor = Math.max(minReps, 100);
+      const distCeil = Math.min(maxReps, 1000);
+      reps = distFloor + Math.floor(rng() * (Math.max(distCeil - distFloor + 1, 1)));
+      reps = Math.round(reps / 50) * 50;
+      if (reps < 50) reps = 50;
+    } else {
+      // Standard reps
+      reps = minReps + Math.floor(rng() * (maxReps - minReps + 1));
+    }
 
     let minSets = 2;
     let maxSets = 4;
@@ -959,7 +984,8 @@ function stage5LoadAndReps(
     if (ex.weight_increment > 0) loadLbs = Math.round(loadLbs / ex.weight_increment) * ex.weight_increment;
     if (loadLbs < 0) loadLbs = 0;
 
-    const restSeconds = calculateStyleAwareRest(style, scored.restTier, sliderMultiplier);
+    const exerciseRestSec = (ex as any).default_rest_sec as number | undefined;
+    const restSeconds = calculateStyleAwareRest(style, scored.restTier, sliderMultiplier, exerciseRestSec);
     const styleTransition = TRANSITION_BUFFER_BY_STYLE[style] ?? TRANSITION_BUFFER_SECONDS;
     const setDuration = calculateSetDuration(ex, reps);
     const totalTime = calculateExerciseTime(setDuration, restSeconds, sets, ex.setup_time_seconds, styleTransition);
@@ -2143,6 +2169,13 @@ function normalizeCrossfitRepsString(
   metconFormat?: string | null,
 ): string {
   const z = engineEx.exerciseRef;
+
+  // v1.5: If the exercise has a non-reps tracking_metric, Stage 5 already
+  // generated the correct metric-aware value and displayReps is pre-formatted
+  // with units (e.g. "15 cal", "400m", "30s"). Return as-is.
+  const trackingMetric = (z as any).tracking_metric?.primary ?? 'reps';
+  if (trackingMetric !== 'reps') return fallbackReps;
+
   const name = (z.name ?? '').toLowerCase();
   const id = (z.id ?? '').toLowerCase();
   const equip = z.equipment_required ?? [];
@@ -2261,7 +2294,28 @@ function convertEngineExerciseToLegacy(
   const isHyroxStation = z.variation_family === 'hyrox_station';
 
   let displayName = z.name;
-  let displayReps = `${engineEx.reps}`;
+  const trackingMetric: string = (z as any).tracking_metric?.primary ?? 'reps';
+  const executionLogic: string = (z as any).execution_logic ?? 'bilateral';
+
+  // Format reps string based on tracking metric
+  let displayReps: string;
+  if (trackingMetric === 'time_seconds') {
+    const secs = engineEx.reps;
+    if (secs >= 60) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      displayReps = s > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${m} min`;
+    } else {
+      displayReps = `${secs}s`;
+    }
+  } else if (trackingMetric === 'calories') {
+    displayReps = `${engineEx.reps} cal`;
+  } else if (trackingMetric === 'distance_meters') {
+    displayReps = `${engineEx.reps}m`;
+  } else {
+    displayReps = `${engineEx.reps}`;
+  }
+
   let displayType = displayStyle;
 
   if (isHyroxRun) {
@@ -2305,6 +2359,8 @@ function convertEngineExerciseToLegacy(
     suggestedWeight: formatLoadDisplay(engineEx.loadLbs, engineEx),
     lastSessionWeight: '',
     lastSessionReps: '',
+    trackingMetric,
+    executionLogic,
     exerciseRef: legacyEx ?? {
       id: z.id,
       name: z.name,

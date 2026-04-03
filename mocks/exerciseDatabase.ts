@@ -58,6 +58,22 @@ export type ContraindicationTag =
   | 'diastasis_recti' | 'pelvic_floor_dysfunction' | 'elbow_injury';
 
 // ============================================================
+// NEW v1.5 TYPES — tracking, execution, Rx weights, popularity
+// ============================================================
+
+export type TrackingMetric = 'reps' | 'distance_meters' | 'calories' | 'time_seconds' | 'max_weight';
+export type ExecutionLogic = 'bilateral' | 'alternating' | 'per_side';
+
+export interface StandardRxWeight {
+  male_rx_lbs: number;
+  female_rx_lbs: number;
+  male_scaled_lbs: number;
+  female_scaled_lbs: number;
+  male_pro_lbs: number;
+  female_pro_lbs: number;
+}
+
+// ============================================================
 // LOAD TABLE
 // ============================================================
 
@@ -76,7 +92,7 @@ export interface DefaultLoadTable {
 }
 
 // ============================================================
-// ZEAL EXERCISE — canonical schema v1.4 (29 fields, all required)
+// ZEAL EXERCISE — canonical schema v1.5 (35 fields, all required)
 // ============================================================
 
 export interface ZealExercise {
@@ -109,6 +125,13 @@ export interface ZealExercise {
   cooldown_for_muscles: MuscleGroup[];
   substitutes: string[];
   variation_family: string;
+  // v1.5 fields
+  style_popularity: Partial<Record<EligibleStyle, number>>;
+  tracking_metric: { primary: TrackingMetric; alternates: TrackingMetric[] };
+  execution_logic: ExecutionLogic;
+  default_rest_sec: number;
+  standard_rx_weight: StandardRxWeight | null;
+  media_url: string;
 }
 
 // ============================================================
@@ -129,7 +152,7 @@ function _ensureDb() {
   _zealDb = rawSchema.exercises as ZealExercise[];
   _enumDefs = rawSchema._enum_definitions;
   _legacyDb = _zealDb.map(zealToLegacy);
-  console.log(`[ExerciseDatabase] Lazy-loaded ${_zealDb.length} exercises from schema v1.4`);
+  console.log(`[ExerciseDatabase] Lazy-loaded ${_zealDb.length} exercises from schema v1.5`);
   console.log(`[ExerciseDatabase] Legacy EXERCISE_DATABASE mapped: ${_legacyDb.length} exercises`);
 }
 
