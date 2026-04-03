@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, AppState, type AppStateStatus } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
@@ -544,6 +544,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTotalRef = useRef<number>(0);
   const restRemainingRef = useRef<number>(0);
+  // Wall-clock anchors — used to stay accurate across background/foreground cycles
+  const workoutStartWallRef = useRef<number>(0);   // Date.now() when workout started (adjusted for elapsed on resume)
+  const restEndWallRef = useRef<number>(0);          // Date.now() when rest timer should reach zero
+  const workoutElapsedRef = useRef<number>(0);       // mirror of workoutElapsed for use inside effects
 
   useEffect(() => {
     void Promise.all([
@@ -724,11 +728,16 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     }).catch(e => console.log('[HealthImport] AsyncStorage error:', e));
   }, [historyLoaded, ctx.healthConnected, ctx.healthSyncEnabled]);
 
+  // Keep a ref mirror of workoutElapsed so the timer effect can read it without re-subscribing
+  useEffect(() => { workoutElapsedRef.current = workoutElapsed; }, [workoutElapsed]);
+
   useEffect(() => {
     if (isWorkoutActive && !isPaused) {
+      // Anchor to wall clock — preserves accumulated elapsed across pause/resume and background
+      workoutStartWallRef.current = Date.now() - workoutElapsedRef.current * 1000;
       workoutTimerRef.current = setInterval(() => {
-        setWorkoutElapsed(prev => prev + 1);
-      }, 1000);
+        setWorkoutElapsed(Math.floor((Date.now() - workoutStartWallRef.current) / 1000));
+      }, 500);
     } else {
       if (workoutTimerRef.current) {
         clearInterval(workoutTimerRef.current);
@@ -741,21 +750,18 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, [isWorkoutActive, isPaused]);
 
   useEffect(() => {
-    if (isRestActive && restTimeRemaining > 0) {
+    if (isRestActive) {
       restTimerRef.current = setInterval(() => {
-        setRestTimeRemaining(prev => {
-          const next = prev - 1;
-          restRemainingRef.current = next;
-          if (next <= 0) {
-            setIsRestActive(false);
-            if (Platform.OS !== 'web') {
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }
-            return 0;
+        const remaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
+        restRemainingRef.current = remaining;
+        setRestTimeRemaining(remaining);
+        if (remaining <= 0) {
+          setIsRestActive(false);
+          if (Platform.OS !== 'web') {
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
-          return next;
-        });
-      }, 1000);
+        }
+      }, 500);
     } else {
       if (restTimerRef.current) {
         clearInterval(restTimerRef.current);
@@ -765,13 +771,37 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     return () => {
       if (restTimerRef.current) clearInterval(restTimerRef.current);
     };
-  }, [isRestActive, restTimeRemaining]);
+  }, [isRestActive]);
+
+  // Snap both timers to wall-clock truth the moment the app comes back to foreground
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      if (isWorkoutActive && !isPaused) {
+        const corrected = Math.floor((Date.now() - workoutStartWallRef.current) / 1000);
+        workoutElapsedRef.current = corrected;
+        setWorkoutElapsed(corrected);
+      }
+      if (isRestActive) {
+        const remaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
+        restRemainingRef.current = remaining;
+        setRestTimeRemaining(remaining);
+        if (remaining <= 0) {
+          setIsRestActive(false);
+        }
+      }
+    };
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, [isWorkoutActive, isPaused, isRestActive]);
 
   const startWorkout = useCallback((workout: GeneratedWorkout, preserveLogs = false) => {
     console.log('[Tracking] Starting workout:', workout.split, 'preserveLogs:', preserveLogs);
     setActiveWorkout(workout);
     setIsWorkoutActive(true);
     setWorkoutStartTime(Date.now());
+    workoutStartWallRef.current = Date.now();
+    workoutElapsedRef.current = 0;
     setWorkoutElapsed(0);
     setIsPaused(false);
     if (!preserveLogs) {
@@ -807,6 +837,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     console.log('[Tracking] Starting rest timer:', seconds, 's');
     restTotalRef.current = seconds;
     restRemainingRef.current = seconds;
+    restEndWallRef.current = Date.now() + seconds * 1000;
     setRestTimeRemaining(seconds);
     setRestTimeTotal(seconds);
     setIsRestActive(true);
@@ -817,22 +848,23 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, []);
 
   const adjustRestTimer = useCallback((delta: number) => {
-    setRestTimeRemaining(prev => {
-      const next = Math.max(0, prev + delta);
-      restRemainingRef.current = next;
-      if (Platform.OS !== 'web' && next > 0) {
-        void scheduleRestCompleteNotification(next);
-      }
-      return next;
-    });
-    if (!isRestActive && restTimeRemaining + delta > 0) {
+    // Shift the end timestamp by delta — stays accurate even after backgrounding
+    restEndWallRef.current = Math.max(Date.now(), restEndWallRef.current + delta * 1000);
+    const newRemaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
+    restRemainingRef.current = newRemaining;
+    setRestTimeRemaining(newRemaining);
+    if (Platform.OS !== 'web' && newRemaining > 0) {
+      void scheduleRestCompleteNotification(newRemaining);
+    }
+    if (!isRestActive && newRemaining > 0) {
       setIsRestActive(true);
     }
-  }, [isRestActive, restTimeRemaining]);
+  }, [isRestActive]);
 
   const setRestPreset = useCallback((seconds: number) => {
     restTotalRef.current = seconds;
     restRemainingRef.current = seconds;
+    restEndWallRef.current = Date.now() + seconds * 1000;
     setRestTimeRemaining(seconds);
     setRestTimeTotal(seconds);
     setIsRestActive(true);

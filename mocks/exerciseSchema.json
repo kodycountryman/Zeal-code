@@ -19732,6 +19732,765 @@
         }
       },
       "notes": "Pull-up gripping towels draped over the bar. Extreme grip demand."
+    },
+    {
+      "id": "band_tricep_pushdown",
+      "name": "Band Tricep Pushdown",
+      "aliases": [
+        "resistance band tricep pushdown",
+        "band pushdown",
+        "band tricep extension"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "hiit",
+        "low_impact"
+      ],
+      "primary_muscles": [
+        "triceps"
+      ],
+      "secondary_muscles": [],
+      "joints_loaded": [
+        "elbow"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 2,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "elbow_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "none",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "cable_tricep_pushdown",
+        "dumbbell_tricep_kickback",
+        "skull_crusher"
+      ],
+      "variation_family": "tricep_family"
+    },
+    {
+      "id": "band_overhead_tricep_extension",
+      "name": "Band Overhead Tricep Extension",
+      "aliases": [
+        "resistance band overhead tricep",
+        "band overhead extension",
+        "band tricep overhead"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact"
+      ],
+      "primary_muscles": [
+        "triceps"
+      ],
+      "secondary_muscles": [
+        "core"
+      ],
+      "joints_loaded": [
+        "elbow",
+        "shoulder"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 2.5,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "elbow_injury",
+        "shoulder_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "light",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "overhead_dumbbell_tricep_extension",
+        "band_tricep_pushdown",
+        "skull_crusher"
+      ],
+      "variation_family": "tricep_family"
+    },
+    {
+      "id": "band_bicep_curl",
+      "name": "Band Bicep Curl",
+      "aliases": [
+        "resistance band curl",
+        "band curl",
+        "banded bicep curl"
+      ],
+      "movement_pattern": "pull",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "hiit",
+        "low_impact"
+      ],
+      "primary_muscles": [
+        "biceps"
+      ],
+      "secondary_muscles": [
+        "forearms"
+      ],
+      "joints_loaded": [
+        "elbow"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 2,
+      "setup_time_seconds": 5,
+      "contraindication_tags": [
+        "elbow_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "none",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "dumbbell_curl",
+        "barbell_curl",
+        "cable_curl"
+      ],
+      "variation_family": "bicep_family"
+    },
+    {
+      "id": "band_face_pull",
+      "name": "Band Face Pull",
+      "aliases": [
+        "resistance band face pull",
+        "banded face pull"
+      ],
+      "movement_pattern": "pull",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact",
+        "mobility"
+      ],
+      "primary_muscles": [
+        "rear_delt",
+        "rhomboids"
+      ],
+      "secondary_muscles": [
+        "traps",
+        "rotator_cuff"
+      ],
+      "joints_loaded": [
+        "shoulder"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 2.5,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "shoulder_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "none",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 12,
+      "rep_range_ceiling": 25,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "rear_delt",
+        "rhomboids",
+        "rotator_cuff"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "face_pull",
+        "resistance_band_pull_apart",
+        "dumbbell_rear_delt_fly"
+      ],
+      "variation_family": "rear_delt_family"
+    },
+    {
+      "id": "band_chest_press",
+      "name": "Band Chest Press",
+      "aliases": [
+        "resistance band chest press",
+        "banded chest press",
+        "band bench press"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact"
+      ],
+      "primary_muscles": [
+        "chest"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "front_delt"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 2.5,
+      "setup_time_seconds": 15,
+      "contraindication_tags": [
+        "shoulder_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "none",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 8,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "barbell_bench_press",
+        "dumbbell_bench_press",
+        "push_up"
+      ],
+      "variation_family": "chest_press_family"
+    },
+    {
+      "id": "band_bent_over_row",
+      "name": "Band Bent-Over Row",
+      "aliases": [
+        "resistance band row",
+        "banded bent over row",
+        "band row"
+      ],
+      "movement_pattern": "pull",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact"
+      ],
+      "primary_muscles": [
+        "lats",
+        "rhomboids"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "rear_delt",
+        "traps"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow",
+        "spine"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 2.5,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "lower_back_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "light",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 8,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "barbell_bent_over_row",
+        "dumbbell_row",
+        "cable_seated_row"
+      ],
+      "variation_family": "row_family"
+    },
+    {
+      "id": "band_seated_row",
+      "name": "Band Seated Row",
+      "aliases": [
+        "resistance band seated row",
+        "banded seated row",
+        "seated band row"
+      ],
+      "movement_pattern": "pull",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact"
+      ],
+      "primary_muscles": [
+        "lats",
+        "rhomboids"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "rear_delt"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 2.5,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [],
+      "rom_requirement": "full",
+      "spinal_load": "light",
+      "position": "seated",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "cable_seated_row",
+        "dumbbell_row",
+        "band_bent_over_row"
+      ],
+      "variation_family": "row_family"
+    },
+    {
+      "id": "band_overhead_press",
+      "name": "Band Overhead Press",
+      "aliases": [
+        "resistance band overhead press",
+        "banded overhead press",
+        "band shoulder press"
+      ],
+      "movement_pattern": "push",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact"
+      ],
+      "primary_muscles": [
+        "front_delt",
+        "side_delt"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "traps"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 2.5,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "shoulder_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "light",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 8,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "standing_overhead_press",
+        "seated_dumbbell_shoulder_press",
+        "machine_shoulder_press"
+      ],
+      "variation_family": "overhead_press_family"
+    },
+    {
+      "id": "band_glute_kickback",
+      "name": "Band Glute Kickback",
+      "aliases": [
+        "resistance band glute kickback",
+        "banded kickback",
+        "band donkey kick"
+      ],
+      "movement_pattern": "isolation",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "hiit",
+        "low_impact",
+        "pilates"
+      ],
+      "primary_muscles": [
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "hamstrings"
+      ],
+      "joints_loaded": [
+        "hip"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": true,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 2,
+      "setup_time_seconds": 5,
+      "contraindication_tags": [
+        "knee_injury"
+      ],
+      "rom_requirement": "moderate",
+      "spinal_load": "none",
+      "position": "kneeling",
+      "weight_increment": 0,
+      "rep_range_floor": 12,
+      "rep_range_ceiling": 25,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "glutes"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "cable_glute_kickback",
+        "fire_hydrant",
+        "glute_bridge"
+      ],
+      "variation_family": "glute_family"
+    },
+    {
+      "id": "band_hip_abduction",
+      "name": "Band Hip Abduction",
+      "aliases": [
+        "resistance band hip abduction",
+        "banded hip abduction",
+        "band side raise"
+      ],
+      "movement_pattern": "isolation",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact",
+        "pilates",
+        "mobility"
+      ],
+      "primary_muscles": [
+        "glutes",
+        "hip_abductors"
+      ],
+      "secondary_muscles": [
+        "core"
+      ],
+      "joints_loaded": [
+        "hip"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": true,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 2,
+      "setup_time_seconds": 5,
+      "contraindication_tags": [],
+      "rom_requirement": "moderate",
+      "spinal_load": "none",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 12,
+      "rep_range_ceiling": 25,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [
+        "glutes",
+        "hip_abductors"
+      ],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "banded_lateral_walk",
+        "clamshell",
+        "fire_hydrant"
+      ],
+      "variation_family": "glute_family"
+    },
+    {
+      "id": "band_external_rotation",
+      "name": "Band External Rotation",
+      "aliases": [
+        "resistance band external rotation",
+        "banded external rotation",
+        "band shoulder external rotation"
+      ],
+      "movement_pattern": "isolation",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact",
+        "mobility"
+      ],
+      "primary_muscles": [
+        "rotator_cuff",
+        "rear_delt"
+      ],
+      "secondary_muscles": [],
+      "joints_loaded": [
+        "shoulder"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": true,
+      "is_compound": false,
+      "default_tempo_seconds_per_rep": 2.5,
+      "setup_time_seconds": 5,
+      "contraindication_tags": [],
+      "rom_requirement": "moderate",
+      "spinal_load": "none",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 12,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": true,
+      "warmup_for_muscles": [
+        "rotator_cuff",
+        "rear_delt"
+      ],
+      "cooldown_for_muscles": [
+        "rotator_cuff"
+      ],
+      "substitutes": [
+        "resistance_band_pull_apart",
+        "band_face_pull"
+      ],
+      "variation_family": "rear_delt_family"
+    },
+    {
+      "id": "band_good_morning",
+      "name": "Band Good Morning",
+      "aliases": [
+        "resistance band good morning",
+        "banded good morning"
+      ],
+      "movement_pattern": "hinge",
+      "difficulty_tier": "beginner",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact",
+        "mobility"
+      ],
+      "primary_muscles": [
+        "hamstrings",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "lower_back",
+        "core"
+      ],
+      "joints_loaded": [
+        "hip",
+        "spine"
+      ],
+      "equipment_required": [
+        "resistance_bands"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 3,
+      "setup_time_seconds": 10,
+      "contraindication_tags": [
+        "lower_back_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "light",
+      "position": "standing",
+      "weight_increment": 0,
+      "rep_range_floor": 10,
+      "rep_range_ceiling": 20,
+      "default_load_table": {
+        "male_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "male_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_beginner": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_intermediate": { "multiplier": 0, "absolute_fallback_lbs": 0 },
+        "female_advanced": { "multiplier": 0, "absolute_fallback_lbs": 0 }
+      },
+      "is_warmup_eligible": true,
+      "is_cooldown_eligible": true,
+      "warmup_for_muscles": [
+        "hamstrings",
+        "glutes",
+        "lower_back"
+      ],
+      "cooldown_for_muscles": [
+        "hamstrings",
+        "lower_back"
+      ],
+      "substitutes": [
+        "good_morning",
+        "romanian_deadlift",
+        "dumbbell_romanian_deadlift"
+      ],
+      "variation_family": "hinge_family"
     }
   ]
 }

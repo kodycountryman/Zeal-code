@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ScrollView, View, Text } from 'react-native';
+import { FlatList, View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface WheelPickerProps {
@@ -40,7 +40,7 @@ export default function WheelPicker({
   textColor = '#fff',
   bgColor,
 }: WheelPickerProps) {
-  const scrollRef = useRef<ScrollView>(null);
+  const listRef = useRef<FlatList>(null);
   const initIndex = findClosestIndex(values, selectedValue);
   const [selIdx, setSelIdx] = useState<number>(initIndex);
   const lastEmitted = useRef<number>(-1);
@@ -49,20 +49,27 @@ export default function WheelPicker({
   const padding = ITEM_H * Math.floor(visibleItems / 2);
   const containerH = ITEM_H * visibleItems;
 
+  // O(1) layout — required for accurate scrollToOffset and virtualization
+  const getItemLayout = useCallback((_: any, index: number) => ({
+    length: ITEM_H,
+    offset: ITEM_H * index,
+    index,
+  }), []);
+
   useEffect(() => {
     if (mounted.current) return;
     mounted.current = true;
     const t = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: initIndex * ITEM_H, animated: false });
+      listRef.current?.scrollToOffset({ offset: initIndex * ITEM_H, animated: false });
     }, 60);
     return () => clearTimeout(t);
   }, [initIndex]);
 
-  // Re-snap when selectedValue changes externally (e.g. switching chips) — always instant, no animation
+  // Re-snap when selectedValue changes externally — always instant, no animation
   useEffect(() => {
     const idx = findClosestIndex(values, selectedValue);
     setSelIdx(idx);
-    scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: false });
+    listRef.current?.scrollToOffset({ offset: idx * ITEM_H, animated: false });
   }, [selectedValue, values]);
 
   const onScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
@@ -83,6 +90,32 @@ export default function WheelPicker({
     onValueChange(values[clamped]);
   }, [values, onValueChange]);
 
+  const renderItem = useCallback(({ item: val, index: i }: { item: number; index: number }) => {
+    const dist = Math.abs(i - selIdx);
+    const opacity = dist === 0 ? 1 : dist === 1 ? 0.35 : 0;
+    const fontSize = dist === 0 ? 22 : 16;
+    const fontWeight = dist === 0 ? ('800' as const) : ('400' as const);
+    const displayText = formatValue ? formatValue(val) : `${val}${suffix}`;
+    return (
+      <View style={{ height: ITEM_H, justifyContent: 'center', alignItems: 'center' }}>
+        <Text
+          style={{
+            fontSize,
+            opacity,
+            fontWeight,
+            color: textColor,
+            textAlign: 'center',
+            letterSpacing: -0.3,
+          }}
+        >
+          {displayText}
+        </Text>
+      </View>
+    );
+  }, [selIdx, formatValue, suffix, textColor]);
+
+  const Spacer = useCallback(() => <View style={{ height: padding }} />, [padding]);
+
   const containerStyle = width
     ? { width, height: containerH, overflow: 'hidden' as const }
     : { alignSelf: 'stretch' as const, height: containerH, overflow: 'hidden' as const };
@@ -91,56 +124,44 @@ export default function WheelPicker({
 
   return (
     <View style={[containerStyle, bgColor ? { backgroundColor: bgColor } : undefined]}>
-      <ScrollView
-        ref={scrollRef}
+      <FlatList
+        ref={listRef}
+        data={values}
+        keyExtractor={(_, i) => String(i)}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_H}
-        decelerationRate="fast"
+        decelerationRate={0.993}
         onScroll={onScroll}
         onMomentumScrollEnd={onEnd}
         onScrollEndDrag={onEnd}
         scrollEventThrottle={16}
         nestedScrollEnabled
-      >
-        <View style={{ height: padding }} />
-        {values.map((val, i) => {
-          const dist = Math.abs(i - selIdx);
-          const opacity = dist === 0 ? 1 : dist === 1 ? 0.35 : 0;
-          const fontSize = dist === 0 ? 22 : 16;
-          const fontWeight = dist === 0 ? ('800' as const) : ('400' as const);
-          const displayText = formatValue ? formatValue(val) : `${val}${suffix}`;
-          return (
-            <View key={`${val}-${i}`} style={{ height: ITEM_H, justifyContent: 'center', alignItems: 'center' }}>
-              <Text
-                style={{
-                  fontSize,
-                  opacity,
-                  fontWeight,
-                  color: textColor,
-                  textAlign: 'center',
-                  letterSpacing: -0.3,
-                }}
-              >
-                {displayText}
-              </Text>
-            </View>
-          );
-        })}
-        <View style={{ height: padding }} />
-      </ScrollView>
+        ListHeaderComponent={Spacer}
+        ListFooterComponent={Spacer}
+        // Keep only the visible window + a small buffer — anything beyond is unmounted
+        windowSize={5}
+        initialNumToRender={visibleItems + 2}
+        maxToRenderPerBatch={visibleItems + 2}
+        removeClippedSubviews={false}
+      />
 
-      {/* Top fade */}
-      <LinearGradient
-        colors={[fadeColor, 'transparent']}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H, zIndex: 3 }}
-        pointerEvents="none"
-      />
-      {/* Bottom fade */}
-      <LinearGradient
-        colors={['transparent', fadeColor]}
-        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H, zIndex: 3 }}
-        pointerEvents="none"
-      />
+      {/* Fade gradients — only when there are adjacent rows visible to fade */}
+      {visibleItems > 1 && (
+        <>
+          <LinearGradient
+            colors={[fadeColor, 'transparent']}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H, zIndex: 3 }}
+            pointerEvents="none"
+          />
+          <LinearGradient
+            colors={['transparent', fadeColor]}
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H, zIndex: 3 }}
+            pointerEvents="none"
+          />
+        </>
+      )}
     </View>
   );
 }
