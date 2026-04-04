@@ -338,7 +338,8 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
     }
   }, [visible, editPlan, ctx.selectedEquipment, ctx.savedGyms]);
 
-  const endDate = useMemo(() => addWeeks(startDate, planLength), [startDate, planLength]);
+  const effectiveStartDate = editPlan?.startDate ?? startDate;
+  const endDate = useMemo(() => addWeeks(effectiveStartDate, planLength), [effectiveStartDate, planLength]);
 
   const phaseSegments = useMemo<PhaseSegment[]>(() => {
     if (!goal || !experience) return [];
@@ -383,7 +384,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
       sessionDuration,
       experienceLevel: experience as ExperienceLevel,
       planLength,
-      startDate,
+      startDate: effectiveStartDate,
       trainingSplit: selectedSplit,
     };
 
@@ -402,8 +403,11 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
             day.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           }
         }
-        // Strip any days that shifted into the past — plan always starts from today
-        schedule.weeks[0].days = schedule.weeks[0].days.filter(d => d.date >= startDate);
+        // For new plans: strip days before today. For edits: keep all past days
+        // so the schedule history remains intact for the progress display.
+        schedule.weeks[0].days = schedule.weeks[0].days.filter(
+          d => d.date >= effectiveStartDate
+        );
       }
     }
 
@@ -419,8 +423,8 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
       trainingSplit: selectedSplit,
       experienceLevel: experience,
       planLength,
-      startDate: editPlan?.startDate ?? startDate,
-      endDate,
+      startDate: effectiveStartDate,
+      endDate: addWeeks(effectiveStartDate, planLength),
       createdAt: editPlan?.createdAt ?? new Date().toISOString(),
       active: true,
       schedule,

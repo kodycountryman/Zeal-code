@@ -20,6 +20,8 @@ interface BaseDrawerProps {
   hasTextInput?: boolean;
   sheetRef?: React.RefObject<BottomSheetModal>;
   stackBehavior?: 'push' | 'replace';
+  snapPoints?: string[];
+  backgroundColor?: string;
 }
 
 export default function BaseDrawer({
@@ -32,6 +34,8 @@ export default function BaseDrawer({
   hasTextInput = false,
   sheetRef,
   stackBehavior,
+  snapPoints,
+  backgroundColor,
 }: BaseDrawerProps) {
   const { colors } = useZealTheme();
   const insets = useSafeAreaInsets();
@@ -75,24 +79,29 @@ export default function BaseDrawer({
 
   const keyboardProps = hasTextInput
     ? {
-        keyboardBehavior: 'interactive' as const,
+        // 'extend' keeps the sheet at full height when keyboard opens (used with snap points).
+        // 'interactive' moves the sheet up with the keyboard (used for dynamic-sized drawers).
+        keyboardBehavior: snapPoints ? 'extend' as const : 'interactive' as const,
         keyboardBlurBehavior: 'restore' as const,
         android_keyboardInputMode: 'adjustResize' as const,
       }
     : {};
 
+  const sheetBgColor = backgroundColor ?? colors.card;
+  const dynamicProps = snapPoints
+    ? { snapPoints, enableDynamicSizing: false, topInset: topOffset }
+    : { enableDynamicSizing: true, maxDynamicContentSize: maxContentSize, topInset: topOffset };
+
   return (
     <BottomSheetModal
       ref={ref}
-      enableDynamicSizing
-      maxDynamicContentSize={maxContentSize}
+      {...dynamicProps}
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
-      backgroundStyle={[styles.sheetBg, { backgroundColor: colors.card }]}
+      backgroundStyle={[styles.sheetBg, { backgroundColor: sheetBgColor }]}
       handleIndicatorStyle={[styles.handle, { backgroundColor: colors.border }]}
       enablePanDownToClose
       enableOverDrag={false}
-      topInset={topOffset}
       stackBehavior={stackBehavior}
       {...keyboardProps}
     >

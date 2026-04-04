@@ -15,11 +15,10 @@ import {
   RotateCcw,
   Trash2,
   CheckCircle2,
-  Sparkles,
   ChevronRight,
 } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
-import { getExerciseDatabase, getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
+import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
 import type { WorkoutExercise } from '@/services/workoutEngine';
 
 export type AddMode = 'exercise' | 'superset' | 'circuit';
@@ -137,6 +136,78 @@ function getRecommendations(source: WorkoutExercise): ZealExercise[] {
     .slice(0, 10);
 }
 
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cur = a[i - 1] === b[j - 1] ? dp[j - 1] : Math.min(dp[j - 1], dp[j], prev) + 1;
+      dp[j - 1] = prev;
+      prev = cur;
+    }
+    dp[b.length] = prev;
+  }
+  return dp[b.length];
+}
+
+function fuzzyScore(query: string, ex: ZealExercise): number {
+  const q = normalize(query);
+  const name = normalize(ex.name);
+  const aliases = (ex.aliases ?? []).map(normalize);
+  const muscles = (ex.primary_muscles ?? []).map(m => normalize(m));
+
+  // Exact substring match on name or any alias
+  if (name.includes(q) || aliases.some(a => a.includes(q))) return 5;
+
+  const qWords = q.split(' ').filter(w => w.length > 1);
+  const nameWords = name.split(' ');
+
+  // All query words appear exactly in name
+  if (qWords.every(qw => nameWords.some(nw => nw.includes(qw) || qw.includes(nw)))) return 4;
+
+  // All query words match within 1 edit (typo tolerance)
+  const typoMatch = qWords.every(qw =>
+    nameWords.some(nw =>
+      nw.includes(qw) || qw.includes(nw) ||
+      (qw.length >= 4 && editDistance(qw, nw) <= 1)
+    ) ||
+    aliases.some(alias =>
+      alias.split(' ').some(aw =>
+        aw.includes(qw) || (qw.length >= 4 && editDistance(qw, aw) <= 1)
+      )
+    )
+  );
+  if (typoMatch && qWords.length > 0) return 3;
+
+  // Majority of words match (handles missing/extra words)
+  const matchCount = qWords.filter(qw =>
+    nameWords.some(nw =>
+      nw.includes(qw) || qw.includes(nw) ||
+      (qw.length >= 4 && editDistance(qw, nw) <= 2)
+    )
+  ).length;
+  if (matchCount > 0 && matchCount >= qWords.length * 0.6) return 2;
+
+  // Muscle group name match
+  const muscleStr = muscles.join(' ');
+  if (qWords.some(qw => muscleStr.includes(qw))) return 1;
+
+  return 0;
+}
+
+function formatEquipment(ex: ZealExercise): string {
+  const first = (ex.equipment_required ?? [])[0];
+  if (!first || first === 'bodyweight') return '';
+  return first.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleGroupFilter, swapSourceExercise, onClose, onAdd }: Props) {
   const { colors, accent } = useZealTheme();
 
@@ -161,12 +232,13 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
-    const q = search.toLowerCase();
-    const db = getExerciseDatabase();
-    return db.filter(ex =>
-      ex.name.toLowerCase().includes(q) ||
-      (ex.primary_muscles ?? []).some((m: string) => m.toLowerCase().replace(/_/g, ' ').includes(q))
-    ).slice(0, 15);
+    const db = getZealExerciseDatabase();
+    return db
+      .map(ex => ({ ex, score: fuzzyScore(search, ex) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 15)
+      .map(({ ex }) => ex);
   }, [search]);
 
   const defaults = useMemo(() => getStyleDefaults(workoutStyle), [workoutStyle]);
@@ -216,6 +288,32 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
     ? swapSourceExercise.muscleGroup.split(',')[0].trim()
     : '';
 
+  // Search bar — rendered in header so it stays fixed and never scrolls away
+  const searchBar = (
+    <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Search size={14} color={colors.textSecondary} />
+      <BottomSheetTextInput
+        style={[styles.searchInput, { color: colors.text }]}
+        placeholder={
+          isSwapMode
+            ? 'Search any exercise...'
+            : activeMode === 'exercise'
+              ? 'Search exercises...'
+              : `Search to add to ${activeMode === 'superset' ? 'superset' : 'circuit'}...`
+        }
+        placeholderTextColor={colors.textMuted}
+        value={search}
+        onChangeText={setSearch}
+        autoFocus={!isSwapMode}
+      />
+      {search.length > 0 && (
+        <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
+          <X size={14} color={colors.textSecondary} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   const headerContent = (
     <>
       <View style={styles.header}>
@@ -224,16 +322,16 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
             {isSwapMode ? 'Swap Exercise' : 'Add to Workout'}
           </Text>
           {isSwapMode && (
-            <View style={[styles.replacingBadge, { backgroundColor: `${accent}14`, borderColor: `${accent}28` }]}>
-              <ArrowLeftRight size={10} color={accent} strokeWidth={2.5} />
-              <Text style={[styles.replacingText, { color: accent }]} numberOfLines={1}>
+            <View style={[styles.replacingBadge, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+              <ArrowLeftRight size={10} color={colors.textSecondary} strokeWidth={2.5} />
+              <Text style={[styles.replacingText, { color: colors.text }]} numberOfLines={1}>
                 {swapSourceExercise?.name ?? ''}
               </Text>
             </View>
           )}
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={16} color="#888" strokeWidth={2.5} />
+          <X size={18} color={colors.textSecondary} strokeWidth={2} />
         </TouchableOpacity>
       </View>
 
@@ -262,12 +360,24 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
           })}
         </View>
       )}
+
+      <View style={styles.headerSearch}>
+        {searchBar}
+      </View>
     </>
   );
 
   return (
-    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} hasTextInput>
+    <BaseDrawer
+      visible={visible}
+      onClose={onClose}
+      header={headerContent}
+      hasTextInput
+      snapPoints={['75%']}
+      backgroundColor={colors.card}
+    >
       <View style={[styles.content, isSwapMode && styles.contentSwap]}>
+        {/* Pending group (superset/circuit builder) */}
         {!isSwapMode && activeMode !== 'exercise' && pending.length > 0 && (
           <View style={[styles.pendingGroup, { backgroundColor: `${modeColor}0C`, borderColor: `${modeColor}30` }]}>
             <View style={styles.pendingHeader}>
@@ -315,110 +425,98 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
           </View>
         )}
 
-        {isSwapMode && recommendations.length > 0 && !search.trim() && (
-          <View style={styles.recSection}>
-            <View style={styles.recHeader}>
-              <View style={styles.recHeaderLeft}>
-                <Sparkles size={13} color={accent} strokeWidth={2.2} />
-                <Text style={[styles.recTitle, { color: colors.text }]}>Recommended Swaps</Text>
-              </View>
-              <View style={[styles.musclePill, { backgroundColor: `${accent}14`, borderColor: `${accent}28` }]}>
-                <Text style={[styles.musclePillText, { color: accent }]}>{sourceMuscleName}</Text>
-              </View>
-            </View>
-            <View style={[styles.recList, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-              {recommendations.map((ex, idx) => {
-                const isTopMatch = idx < 3;
-                return (
-                  <TouchableOpacity
-                    key={ex.id}
-                    style={[
-                      styles.recRow,
-                      idx < recommendations.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
-                    ]}
-                    onPress={() => handleSelectForSingle(ex)}
-                    activeOpacity={0.65}
-                  >
-                    <View style={styles.recInfo}>
-                      <View style={styles.recNameRow}>
-                        <Text style={[styles.recName, { color: colors.text }]} numberOfLines={1}>
-                          {ex.name}
-                        </Text>
-                        {isTopMatch && (
-                          <View style={[styles.bestMatchBadge, { backgroundColor: `${accent}18` }]}>
-                            <Text style={[styles.bestMatchText, { color: accent }]}>Best Match</Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.recMeta}>
-                        <Text style={[styles.recMuscle, { color: colors.textSecondary }]}>
-                          {primaryMuscleLabel(ex)}
-                        </Text>
-                        <View style={[styles.recTypePill, { backgroundColor: ex.is_compound ? '#3b82f614' : '#8b5cf614' }]}>
-                          <Text style={[styles.recTypeText, { color: ex.is_compound ? '#3b82f6' : '#8b5cf6' }]}>
-                            {ex.is_compound ? 'Compound' : 'Isolation'}
+        {/* Recommendations — shown in swap mode when no search query */}
+        {isSwapMode && recommendations.length > 0 && !search.trim() && (() => {
+          const topMatches = recommendations.slice(0, 3);
+          const otherMatches = recommendations.slice(3);
+          return (
+            <View style={styles.recSection}>
+              {/* Best Matches card */}
+              <View style={styles.recGroup}>
+                <View style={styles.recHeader}>
+                  <Text style={[styles.recTitle, { color: colors.textMuted }]}>BEST MATCHES</Text>
+                  {sourceMuscleName ? (
+                    <View style={[styles.musclePill, { backgroundColor: `${accent}14`, borderColor: `${accent}28` }]}>
+                      <Text style={[styles.musclePillText, { color: accent }]}>{sourceMuscleName}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={[styles.recCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                  {topMatches.map((ex, idx) => {
+                    const equipLabel = formatEquipment(ex);
+                    return (
+                      <TouchableOpacity
+                        key={ex.id}
+                        style={[
+                          styles.recRow,
+                          idx < topMatches.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+                        ]}
+                        onPress={() => handleSelectForSingle(ex)}
+                        activeOpacity={0.65}
+                      >
+                        <View style={styles.recInfo}>
+                          <Text style={[styles.recName, { color: colors.text }]} numberOfLines={1}>{ex.name}</Text>
+                          <Text style={[styles.recMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {primaryMuscleLabel(ex)}{equipLabel ? ` · ${equipLabel}` : ''}
                           </Text>
                         </View>
-                      </View>
-                    </View>
-                    <ChevronRight size={15} color={colors.textMuted} strokeWidth={2} />
-                  </TouchableOpacity>
-                );
-              })}
+                        <ChevronRight size={14} color={colors.textMuted} strokeWidth={2} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* More Options card */}
+              {otherMatches.length > 0 && (
+                <View style={styles.recGroup}>
+                  <Text style={[styles.recTitle, { color: colors.textMuted }]}>MORE OPTIONS</Text>
+                  <View style={[styles.recCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                    {otherMatches.map((ex, idx) => {
+                      const equipLabel = formatEquipment(ex);
+                      return (
+                        <TouchableOpacity
+                          key={ex.id}
+                          style={[
+                            styles.recRow,
+                            idx < otherMatches.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+                          ]}
+                          onPress={() => handleSelectForSingle(ex)}
+                          activeOpacity={0.65}
+                        >
+                          <View style={styles.recInfo}>
+                            <Text style={[styles.recName, { color: colors.text }]} numberOfLines={1}>{ex.name}</Text>
+                            <Text style={[styles.recMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                              {primaryMuscleLabel(ex)}{equipLabel ? ` · ${equipLabel}` : ''}
+                            </Text>
+                          </View>
+                          <ChevronRight size={14} color={colors.textMuted} strokeWidth={2} />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
             </View>
-          </View>
-        )}
+          );
+        })()}
 
-        {isSwapMode && (
-          <View style={styles.dividerRow}>
-            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-            <Text style={[styles.dividerText, { color: colors.textMuted }]}>or search</Text>
-            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-          </View>
-        )}
-
-        <View style={[styles.searchContainer, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-          <Search size={14} color={colors.textSecondary} />
-          <BottomSheetTextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder={
-              isSwapMode
-                ? 'Search any exercise...'
-                : activeMode === 'exercise'
-                  ? 'Search exercises...'
-                  : `Search to add to ${activeMode === 'superset' ? 'superset' : 'circuit'}...`
-            }
-            placeholderTextColor={colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            autoFocus={!isSwapMode}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
-              <X size={14} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {search.trim().length > 0 && searchResults.length === 0 && (
-          <View style={styles.noResults}>
-            <Text style={[styles.noResultsText, { color: colors.textMuted }]}>No exercises found</Text>
-          </View>
-        )}
-
+        {/* Search results */}
         {searchResults.length > 0 && (
-          <View style={[styles.resultsContainer, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+          <View style={styles.resultsContainer}>
             {searchResults.map((ex, idx) => {
               const isPending = pending.some(p => p.id === ex.id);
+              const equipLabel = formatEquipment(ex);
+              const muscleName = primaryMuscleLabel(ex);
               return (
                 <TouchableOpacity
                   key={ex.id}
-                  style={[styles.resultRow, idx < searchResults.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}
+                  style={styles.resultRow}
                   onPress={() => {
                     if (isSwapMode || activeMode === 'exercise') {
-                      handleSelectForSingle(ex as unknown as ZealExercise);
+                      handleSelectForSingle(ex);
                     } else {
-                      handleAddToPending(ex as unknown as ZealExercise);
+                      handleAddToPending(ex);
                     }
                   }}
                   activeOpacity={0.7}
@@ -427,29 +525,24 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
                     <Text style={[styles.resultName, { color: isPending ? colors.textMuted : colors.text }]} numberOfLines={1}>
                       {ex.name}
                     </Text>
-                    <View style={styles.resultMeta}>
-                      <Text style={[styles.resultMuscle, { color: colors.textSecondary }]}>
-                        {(ex.primaryMuscles ?? [])[0] ?? ''}
-                      </Text>
-                      <View style={[styles.defaultPill, { backgroundColor: `${accent}14` }]}>
-                        <Text style={[styles.defaultPillText, { color: accent }]}>
-                          {defaults.sets}×{defaults.reps}
-                        </Text>
-                      </View>
-                    </View>
+                    <Text style={[styles.resultMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {muscleName}{equipLabel ? ` · ${equipLabel}` : ''}
+                    </Text>
                   </View>
                   {isPending ? (
                     <CheckCircle2 size={16} color={modeColor} />
                   ) : (
-                    <View style={[styles.addCircle, { backgroundColor: `${modeColor}18`, borderColor: `${modeColor}40` }]}>
-                      {isSwapMode
-                        ? <ArrowLeftRight size={12} color={modeColor} />
-                        : <Plus size={13} color={modeColor} />}
-                    </View>
+                    <ChevronRight size={14} color={colors.textMuted} strokeWidth={2} />
                   )}
                 </TouchableOpacity>
               );
             })}
+          </View>
+        )}
+
+        {search.trim().length > 0 && searchResults.length === 0 && (
+          <View style={styles.noResults}>
+            <Text style={[styles.noResultsText, { color: colors.textMuted }]}>No exercises found</Text>
           </View>
         )}
 
@@ -484,7 +577,6 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
 }
 
 const styles = StyleSheet.create({
-  sheetBg: { borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -517,8 +609,6 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(128,128,128,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -527,7 +617,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   modePill: {
     flex: 1,
@@ -540,25 +630,35 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   modePillText: { fontSize: 12, fontWeight: '600' as const },
-  content: { paddingHorizontal: 16, gap: 12 },
+  headerSearch: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  content: { paddingHorizontal: 16, gap: 10 },
   contentSwap: { paddingTop: 4 },
+
+  // Recommended section
   recSection: {
-    gap: 10,
+    gap: 8,
+  },
+  recGroup: {
+    gap: 6,
+  },
+  recCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden' as const,
   },
   recHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  recHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    paddingHorizontal: 2,
   },
   recTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700' as const,
-    letterSpacing: 0.1,
+    letterSpacing: 0.8,
   },
   musclePill: {
     borderRadius: 8,
@@ -571,20 +671,18 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   recList: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
+    gap: 0,
   },
   recRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 11,
     gap: 10,
   },
   recInfo: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
   recNameRow: {
     flexDirection: 'row',
@@ -593,52 +691,42 @@ const styles = StyleSheet.create({
     flexWrap: 'nowrap' as const,
   },
   recName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600' as const,
     flexShrink: 1,
   },
   bestMatchBadge: {
-    borderRadius: 5,
-    paddingHorizontal: 5,
+    borderRadius: 6,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     flexShrink: 0,
   },
   bestMatchText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700' as const,
     letterSpacing: 0.3,
   },
   recMeta: {
+    fontSize: 13,
+  },
+
+  // Search results
+  resultsContainer: {
+    gap: 0,
+  },
+  resultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    paddingVertical: 11,
+    gap: 12,
   },
-  recMuscle: {
-    fontSize: 12,
-  },
-  recTypePill: {
-    borderRadius: 5,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  recTypeText: {
-    fontSize: 10,
-    fontWeight: '600' as const,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 2,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontSize: 11,
-    fontWeight: '500' as const,
-  },
+  resultInfo: { flex: 1, gap: 3 },
+  resultName: { fontSize: 15, fontWeight: '600' as const },
+  resultMeta: { fontSize: 13 },
+
+  // Pending group
   pendingGroup: {
     borderRadius: 16,
     borderWidth: 1,
@@ -683,6 +771,8 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: { fontSize: 14, fontWeight: '700' as const, color: '#fff' },
   pendingHint: { fontSize: 11, textAlign: 'center' as const, marginTop: -4 },
+
+  // Search bar
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -693,39 +783,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   searchInput: { flex: 1, fontSize: 15, padding: 0 },
+
+  // Empty / no results
   noResults: { alignItems: 'center' as const, paddingVertical: 20 },
   noResultsText: { fontSize: 14 },
-  resultsContainer: {
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    gap: 12,
-  },
-  resultInfo: { flex: 1, gap: 3 },
-  resultName: { fontSize: 14, fontWeight: '600' as const },
-  resultMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  resultMuscle: { fontSize: 12 },
-  defaultPill: {
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  defaultPillText: { fontSize: 10, fontWeight: '700' as const },
-  addCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
   emptyState: {
     alignItems: 'center' as const,
     paddingVertical: 32,

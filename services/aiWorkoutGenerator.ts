@@ -3,9 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // The rule engine (workoutEngine.ts) is the sole exercise selection path.
 // AI is used ONLY for:
-//   1. Core finisher generation
-//   2. CrossFit MetCon format creativity
-//   3. Style grouping enforcement (for cached workouts)
+//   1. CrossFit MetCon format creativity
+//   2. Style grouping enforcement (for cached workouts)
+// Core finisher generation uses the rule engine (generateCoreFinisherFromEngine).
 // AI never selects, substitutes, or reorders main workout exercises.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -17,7 +17,6 @@ const gemini = google('gemini-2.0-flash');
 
 import type {
   GeneratedWorkout,
-  WorkoutExercise,
   GenerateWorkoutParams,
 } from '@/services/workoutEngine';
 import { generateWorkout } from '@/services/workoutEngine';
@@ -83,89 +82,6 @@ export function enforceStyleGrouping<T extends { groupType: string | null; group
     default:
       return exercises;
   }
-}
-
-// ─── Core Finisher (AI-generated) ────────────────────────────────────────────
-
-const CoreExerciseSchema = z.object({
-  name: z.string().describe('Exercise name'),
-  sets: z.number().int().min(1).max(10).describe('Number of sets'),
-  reps: z.string().describe("e.g. '10', '12-15', 'AMRAP', '45s', '30s'"),
-  rest: z.string().describe("e.g. '60s', '90s', '2:00', ':30', 'None'"),
-  muscleGroup: z.string().describe("Primary muscle group e.g. 'Core', 'Obliques'"),
-  equipment: z.string().describe("e.g. 'Bodyweight', 'Ab Wheel'"),
-  notes: z.string().describe('One brief coaching cue'),
-  movementType: z
-    .enum(['heavyCompound', 'moderateCompound', 'isolation', 'circuit'])
-    .describe('Movement classification'),
-  suggestedWeight: z.string().describe("e.g. 'Bodyweight', '10 lbs'"),
-});
-
-const CoreFinisherSchema = z.object({
-  exercises: z.array(CoreExerciseSchema).min(3).max(5),
-});
-
-export async function generateCoreFinisher(params: {
-  fitnessLevel: string;
-  sex: string;
-  availableEquipment: Record<string, number>;
-}): Promise<WorkoutExercise[]> {
-  const equipmentList =
-    Object.keys(params.availableEquipment)
-      .filter((k) => params.availableEquipment[k] > 0)
-      .join(', ') || 'bodyweight only';
-
-  const prompt = `You are an expert personal trainer. Generate a short core finisher circuit of 3-5 exercises targeting the abdominals and core muscles.
-
-USER PROFILE:
-- Fitness level: ${params.fitnessLevel}
-- Sex: ${params.sex}
-- Available equipment: ${equipmentList}
-
-REQUIREMENTS:
-- 3-5 exercises total
-- Target muscles: abs, core, obliques
-- This is added AFTER a full workout — keep it short and focused
-- Prioritize bodyweight movements (planks, hollow holds, leg raises, crunches, ab wheel, etc.)
-- Sets: 2-3 per exercise
-- Reps: 10-20 or time-based ("30s", "45s") where appropriate
-- Rest: short ("30s" between exercises)
-- Scale difficulty to ${params.fitnessLevel} level
-- Every exercise must have a specific, actionable coaching cue in notes
-- All groupType should be null (standalone exercises)
-- All groupId should be null`;
-
-  console.log('[generateCoreFinisher] Generating AI core finisher for level:', params.fitnessLevel);
-
-  const { object: result } = await generateObject({
-    model: gemini,
-    messages: [{ role: 'user', content: prompt }],
-    schema: CoreFinisherSchema,
-  });
-
-  console.log('[generateCoreFinisher] AI returned', result.exercises.length, 'core exercises');
-
-  return result.exercises.map((ex, i) => ({
-    id: `core_finisher_${i}_${Date.now()}`,
-    name: ex.name,
-    sets: ex.sets,
-    reps: ex.reps,
-    rest: ex.rest,
-    muscleGroup: ex.muscleGroup,
-    equipment: ex.equipment,
-    notes: ex.notes,
-    type: 'Core',
-    movementType: ex.movementType,
-    groupType: null as null,
-    groupId: null as null,
-    suggestedWeight: ex.suggestedWeight,
-    lastSessionWeight: '',
-    lastSessionReps: '',
-    exerciseRef: {
-      movement_pattern: 'isolation',
-      equipment_required: [],
-    },
-  }));
 }
 
 // ─── CrossFit MetCon AI Enhancement ──────────────────────────────────────────

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import { Target, Lightbulb, Settings2, ThumbsUp, ThumbsDown, TrendingUp, Zap } from 'lucide-react-native';
+import { ThumbsUp, ThumbsDown, TrendingUp, Zap } from 'lucide-react-native';
 import ExerciseAnimationView from '@/components/ExerciseAnimationView';
 import Svg, { Polyline, Circle as SvgCircle } from 'react-native-svg';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
@@ -377,7 +377,6 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
   const primaryMuscles: string[] = (ref?.primary_muscles ?? ref?.primaryMuscles ?? []);
   const secondaryMuscles: string[] = (ref?.secondary_muscles ?? ref?.secondaryMuscles ?? []);
   const movementPattern: string = ref?.movement_pattern ?? ref?.movementPattern ?? '';
-  const setupText = generateSetup(ref);
   const steps = generateSteps(ref, exercise.name);
   const equipDisplay = exercise.equipment === 'Bodyweight'
     ? 'Bodyweight'
@@ -402,38 +401,44 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
           cardBg={colors.card}
         />
 
-        {/* ── Header: name + like/dislike ── */}
+        {/* ── Header: name + muscles + like/dislike ── */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <Text style={[styles.exerciseName, { color: colors.text }]}>{exercise.name}</Text>
+            {primaryMuscles.length > 0 && (
+              <View style={styles.muscleChipRow}>
+                {primaryMuscles.map((m: string) => (
+                  <View key={m} style={[styles.muscleChip, { borderColor: styleAccent, backgroundColor: `${styleAccent}15` }]}>
+                    <Text style={[styles.muscleChipText, { color: styleAccent }]}>{m.replace(/_/g, ' ')}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {secondaryMuscles.length > 0 && (
+              <Text style={[styles.secondaryMuscleText, { color: colors.textSecondary }]}>
+                {secondaryMuscles.map((m: string) => m.replace(/_/g, ' ')).join(' · ')}
+              </Text>
+            )}
             {currentOrmStr ? (
               <Text style={[styles.ormLine, { color: styleAccent }]}>{currentOrmStr} est. 1RM</Text>
             ) : null}
           </View>
           <View style={styles.prefButtons}>
             <TouchableOpacity
-              style={[
-                styles.prefBtn,
-                { borderColor: isLiked ? '#22c55e' : colors.border },
-                isLiked && { backgroundColor: '#22c55e' },
-              ]}
+              style={[styles.prefBtn, isLiked && { backgroundColor: '#22c55e20' }]}
               onPress={() => handlePrefToggle('liked')}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <ThumbsUp size={15} color={isLiked ? '#fff' : colors.textMuted} strokeWidth={2} />
+              <ThumbsUp size={15} color={isLiked ? '#22c55e' : colors.textMuted} strokeWidth={2} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.prefBtn,
-                { borderColor: isDisliked ? '#ef4444' : colors.border },
-                isDisliked && { backgroundColor: '#ef4444' },
-              ]}
+              style={[styles.prefBtn, isDisliked && { backgroundColor: '#ef444420' }]}
               onPress={() => handlePrefToggle('disliked')}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <ThumbsDown size={15} color={isDisliked ? '#fff' : colors.textMuted} strokeWidth={2} />
+              <ThumbsDown size={15} color={isDisliked ? '#ef4444' : colors.textMuted} strokeWidth={2} />
             </TouchableOpacity>
           </View>
         </View>
@@ -442,94 +447,41 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
         <View style={styles.sectionRow}>
           <TrendingUp size={13} color={styleAccent} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>1RM TREND</Text>
-        </View>
-        <View style={[styles.trendCard, { backgroundColor: colors.cardSecondary }]}>
-          {hasHistory ? (
-            <>
-              <Sparkline
-                data={exerciseHistory}
-                accent={styleAccent}
-                textMuted={colors.textMuted}
-              />
-              {nextTarget !== null && (
-                <View style={[styles.nextTargetRow, { borderTopColor: colors.border }]}>
-                  <Text style={[styles.nextTargetLabel, { color: colors.textMuted }]}>NEXT TARGET</Text>
-                  <Text style={[styles.nextTargetValue, { color: styleAccent }]}>
-                    {nextTarget} lb × 5 reps
-                  </Text>
-                  <Text style={[styles.nextTargetSub, { color: colors.textMuted }]}>to beat your PR</Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.noHistoryRow}>
-              <Text style={[styles.noHistoryText, { color: colors.textMuted }]}>
-                Complete this exercise to start tracking your 1RM trend.
-              </Text>
-              {currentOrmStr ? (
-                <Text style={[styles.noHistorySub, { color: styleAccent }]}>
-                  Today's estimate: {currentOrmStr}
-                </Text>
-              ) : null}
-            </View>
+          {!hasHistory && (
+            <Text style={[styles.noHistoryInline, { color: colors.textMuted }]}>
+              {currentOrmStr ? `· No history yet  ·  Est. ${currentOrmStr}` : '· Complete this exercise to start tracking'}
+            </Text>
           )}
         </View>
-
-        {/* ── Muscles Worked ── */}
-        {primaryMuscles.length > 0 && (
-          <>
-            <View style={styles.sectionRow}>
-              <Target size={13} color={styleAccent} />
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>MUSCLES WORKED</Text>
-            </View>
-            <View style={[styles.muscleCard, { backgroundColor: colors.cardSecondary }]}>
-              <View style={styles.muscleCardSection}>
-                <Text style={[styles.muscleGroupLabel, { color: colors.textMuted }]}>PRIMARY</Text>
-                <View style={styles.tagRow}>
-                  {primaryMuscles.map((m: string) => (
-                    <View key={m} style={[styles.muscleTag, { borderColor: styleAccent, backgroundColor: `${styleAccent}15` }]}>
-                      <Text style={[styles.muscleTagText, { color: styleAccent }]}>{m.replace(/_/g, ' ')}</Text>
-                    </View>
-                  ))}
-                </View>
+        {hasHistory && (
+          <View style={[styles.trendCard, { backgroundColor: colors.cardSecondary }]}>
+            <Sparkline
+              data={exerciseHistory}
+              accent={styleAccent}
+              textMuted={colors.textMuted}
+            />
+            {nextTarget !== null && (
+              <View style={[styles.nextTargetRow, { borderTopColor: colors.border }]}>
+                <Text style={[styles.nextTargetLabel, { color: colors.textMuted }]}>NEXT TARGET</Text>
+                <Text style={[styles.nextTargetValue, { color: styleAccent }]}>
+                  {nextTarget} lb × 5 reps
+                </Text>
+                <Text style={[styles.nextTargetSub, { color: colors.textMuted }]}>to beat your PR</Text>
               </View>
-              {secondaryMuscles.length > 0 && (
-                <>
-                  <View style={[styles.muscleDivider, { backgroundColor: colors.border }]} />
-                  <View style={styles.muscleCardSection}>
-                    <Text style={[styles.muscleGroupLabel, { color: colors.textMuted }]}>SECONDARY</Text>
-                    <View style={styles.tagRow}>
-                      {secondaryMuscles.map((m: string) => (
-                        <View key={m} style={[styles.muscleTag, { borderColor: colors.border }]}>
-                          <Text style={[styles.muscleTagText, { color: colors.textSecondary }]}>{m.replace(/_/g, ' ')}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
-          </>
+            )}
+          </View>
         )}
 
-        {/* ── Setup ── */}
+        {/* ── Execution (setup + steps merged) ── */}
         <View style={styles.sectionRow}>
-          <Settings2 size={13} color={styleAccent} />
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>SETUP</Text>
+          <Zap size={13} color={styleAccent} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>EXECUTION</Text>
         </View>
         <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
           <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>
             {equipDisplay}
           </Text>
-          <Text style={[styles.infoText, { color: colors.textSecondary }]}>{setupText}</Text>
-        </View>
-
-        {/* ── How to Perform ── */}
-        <View style={styles.sectionRow}>
-          <Lightbulb size={13} color={styleAccent} />
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>HOW TO PERFORM</Text>
-        </View>
-        <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
+          <View style={[styles.executionDivider, { backgroundColor: colors.border }]} />
           {steps.map((step: string, idx: number) => (
             <View key={idx} style={styles.stepRow}>
               <View style={[styles.stepNum, { backgroundColor: styleAccent }]}>
@@ -541,8 +493,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
         </View>
 
         {/* ── 1RM Tip ── */}
-        <View style={[styles.tipRow, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-          <Zap size={13} color={styleAccent} strokeWidth={2.5} />
+        <View style={[styles.tipRow, { borderLeftColor: styleAccent }]}>
           <Text style={[styles.tipText, { color: colors.textSecondary }]}>{tip}</Text>
         </View>
 
@@ -578,6 +529,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700' as const,
   },
+  muscleChipRow: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 5,
+    marginTop: 4,
+  },
+  muscleChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  muscleChipText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    textTransform: 'capitalize' as const,
+  },
+  secondaryMuscleText: {
+    fontSize: 12,
+    marginTop: 2,
+    textTransform: 'capitalize' as const,
+  },
+  noHistoryInline: {
+    fontSize: 10,
+    fontWeight: '500' as const,
+    flex: 1,
+  },
   prefButtons: {
     flexDirection: 'row',
     gap: 7,
@@ -587,7 +565,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -601,40 +578,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700' as const,
     letterSpacing: 1,
-  },
-  muscleCard: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  muscleCardSection: {
-    padding: 12,
-    gap: 8,
-  },
-  muscleGroupLabel: {
-    fontSize: 9,
-    fontWeight: '700' as const,
-    letterSpacing: 0.8,
-  },
-  muscleDivider: {
-    height: 1,
-    marginHorizontal: 12,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    gap: 5,
-    flexWrap: 'wrap',
-    marginTop: -2,
-  },
-  muscleTag: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 7,
-    borderWidth: 1.5,
-  },
-  muscleTagText: {
-    fontSize: 11,
-    fontWeight: '600' as const,
-    textTransform: 'capitalize' as const,
   },
   trendCard: {
     borderRadius: 14,
@@ -662,18 +605,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500' as const,
   },
-  noHistoryRow: {
-    gap: 4,
-    paddingVertical: 4,
-  },
-  noHistoryText: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  noHistorySub: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-  },
   infoBox: {
     borderRadius: 12,
     padding: 12,
@@ -685,9 +616,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textTransform: 'capitalize' as const,
   },
-  infoText: {
-    fontSize: 12,
-    lineHeight: 18,
+  executionDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: -12,
   },
   stepRow: {
     flexDirection: 'row',
@@ -714,18 +645,13 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   tipRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderLeftWidth: 3,
+    paddingLeft: 12,
+    paddingVertical: 4,
   },
   tipText: {
-    flex: 1,
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 18,
     fontStyle: 'italic' as const,
   },
 });

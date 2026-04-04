@@ -7,6 +7,15 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import {
+  Layers,
+  Clock,
+  Dumbbell,
+  ArrowLeftRight,
+  RotateCcw,
+  Circle,
+  ChevronRight,
+} from 'lucide-react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
@@ -17,7 +26,6 @@ import type { DayPrescription } from '@/services/planEngine';
 import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PLAN_DAY_CACHE_PREFIX = '@zeal_plan_day_workout_';
 
 // Maps session type keywords → muscle group names (matching MuscleReadinessItem.name)
@@ -43,13 +51,6 @@ function getPrimaryMuscles(sessionType: string): string[] {
   return [];
 }
 
-function formatDateMed(dateStr: string): string {
-  try {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch { return dateStr; }
-}
-
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -57,11 +58,23 @@ interface Props {
   day: DayPrescription | null;
 }
 
+// ── Section header (label + horizontal divider) ───────────────────────────────
+
+function SectionHeader({ label, color }: { label: string; color: string }) {
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
+      <View style={[styles.sectionDivider, { backgroundColor: `${color}35` }]} />
+    </View>
+  );
+}
+
 // ── Skeleton row ──────────────────────────────────────────────────────────────
 
 function SkeletonRow({ opacity, colors }: { opacity: number; colors: any }) {
   return (
-    <View style={[skStyles.row, { borderColor: colors.border }]}>
+    <View style={[skStyles.row, { borderBottomColor: `${colors.border}55` }]}>
+      <View style={[skStyles.indexBar, { backgroundColor: 'rgba(255,255,255,0.14)', opacity: opacity * 0.5 }]} />
       <View style={skStyles.left}>
         <View style={[skStyles.titleBar, { backgroundColor: 'rgba(255,255,255,0.14)', opacity }]} />
         <View style={[skStyles.subBar, { backgroundColor: 'rgba(255,255,255,0.14)', opacity: opacity * 0.6 }]} />
@@ -73,20 +86,20 @@ function SkeletonRow({ opacity, colors }: { opacity: number; colors: any }) {
 
 const skStyles = StyleSheet.create({
   row: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 13,
-    borderTopWidth: 0.5,
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 14, borderBottomWidth: 1, gap: 12,
   },
+  indexBar: { width: 20, height: 13, borderRadius: 4 },
   left: { flex: 1, gap: 6 },
   titleBar: { height: 13, borderRadius: 6, width: '55%' },
   subBar: { height: 10, borderRadius: 5, width: '35%' },
-  badge: { width: 38, height: 22, borderRadius: 8, marginLeft: 12 },
+  badge: { width: 48, height: 22, borderRadius: 8 },
 });
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, day }: Props) {
-  const { colors, accent } = useZealTheme();
+  const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const router = useRouter();
 
@@ -96,7 +109,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
   const styleColor = day ? (WORKOUT_STYLE_COLORS[day.style] ?? accent) : accent;
 
-  // Muscle readiness warning — check if primary muscles for this session are recovering
+  // Muscle readiness warning
   const fatigued = day && !day.is_rest
     ? getPrimaryMuscles(day.session_type || day.style).filter(muscle => {
         const item = ctx.muscleReadiness.find(r => r.name === muscle);
@@ -106,7 +119,6 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
   const isGeneratingInBackground = !!(ctx.planGenProgress && (ctx.planGenProgress.phase === 'week1' || ctx.planGenProgress.phase === 'background'));
 
-  // Generate workout when drawer opens (with per-day cache)
   useEffect(() => {
     if (!visible || !day || day.is_rest) {
       setWorkout(null);
@@ -122,7 +134,6 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
     const cacheKey = `${PLAN_DAY_CACHE_PREFIX}${ctx.activePlan?.id}_${day.date}`;
 
-    // First check cache — if already generated, show it
     AsyncStorage.getItem(cacheKey)
       .then(cached => {
         if (cancelled) return;
@@ -138,14 +149,12 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
           }
         }
 
-        // Not in cache — if background generation is running, don't trigger a new generation
         if (isGeneratingInBackground) {
           setLoading(false);
           setError('still_generating');
           return;
         }
 
-        // Generate on-demand
         const params = {
           style: day.style,
           split: day.session_type,
@@ -175,9 +184,9 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         } catch {
           if (!cancelled) {
             setError('Could not preview this workout. You can still start it.');
-              setLoading(false);
-            }
+            setLoading(false);
           }
+        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -202,22 +211,75 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
   if (!day) return null;
 
-  const dayOfWeek = DAY_NAMES[new Date(day.date + 'T00:00:00').getDay()] ?? '';
   const phaseLabel = PHASE_DISPLAY_NAMES[day.phase as PlanPhase] ?? day.phase;
-
-  // Group exercises by superset/circuit groupId
+  const exerciseCount = workout?.workout?.length ?? 0;
+  const warmupCount = workout?.warmup?.length ?? 0;
   const groupedExercises = workout ? buildExerciseGroups(workout.workout) : [];
+
+  const renderGroupBadge = (type: 'superset' | 'circuit' | 'rounds' | null) => {
+    if (!type) return null;
+    const Icon = type === 'superset' ? ArrowLeftRight : type === 'circuit' ? RotateCcw : Circle;
+    const label = type === 'superset' ? 'SUPERSET' : type === 'circuit' ? 'CIRCUIT' : 'ROUNDS';
+    return (
+      <View style={[styles.groupTag, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+        <Icon size={10} color={colors.textMuted} />
+        <Text style={[styles.groupTagText, { color: colors.textSecondary }]}>{label}</Text>
+      </View>
+    );
+  };
+
+  const renderExercise = (ex: WorkoutExercise, idx: number, inGroup = false) => {
+    const meta = [ex.muscleGroup, ex.rest ? `${ex.rest} rest` : null].filter(Boolean).join(' · ');
+    return (
+      <View
+        key={ex.id}
+        style={[
+          styles.exerciseBlock,
+          { borderBottomColor: `${colors.border}55` },
+          inGroup && styles.exerciseBlockGrouped,
+        ]}
+      >
+        <View style={styles.exerciseHeader}>
+          <Text style={[styles.exerciseIndex, { color: colors.textMuted }]}>{String(idx + 1).padStart(2, '0')}</Text>
+          <View style={styles.exerciseTitleWrap}>
+            <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={1}>{ex.name}</Text>
+            {meta ? (
+              <Text style={[styles.exerciseMetaText, { color: colors.textSecondary }]} numberOfLines={1}>{meta}</Text>
+            ) : null}
+          </View>
+          <Text style={[styles.exerciseSetsLabel, { color: colors.textSecondary }]}>{ex.sets} × {ex.reps}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderGroup = (group: WorkoutExercise[], startIdx: number) => {
+    const type = (group[0]?.groupType ?? null) as 'superset' | 'circuit' | 'rounds' | null;
+    return (
+      <View
+        key={group[0]?.id}
+        style={[
+          styles.groupBlock,
+          {
+            borderColor: `${colors.border}75`,
+            backgroundColor: isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.015)',
+          },
+        ]}
+      >
+        <View style={styles.groupBlockHeader}>
+          {renderGroupBadge(type)}
+          <Text style={[styles.groupBlockCount, { color: colors.textMuted }]}>{group.length} exercises</Text>
+        </View>
+        {group.map((ex, i) => renderExercise(ex, startIdx + i, true))}
+      </View>
+    );
+  };
 
   const headerContent = (
     <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <PlatformIcon name="dumbbell" size={14} color={styleColor} />
-        <Text style={[styles.headerLabel, { color: styleColor }]}>
-          {dayOfWeek.toUpperCase()}  ·  {formatDateMed(day.date).toUpperCase()}
-        </Text>
-      </View>
-      <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-        <PlatformIcon name="x" size={14} color="#888" />
+      <View style={{ flex: 1 }} />
+      <TouchableOpacity onPress={onClose} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <PlatformIcon name="x" size={16} color={colors.textSecondary} />
       </TouchableOpacity>
     </View>
   );
@@ -226,24 +288,41 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
     <BaseDrawer visible={visible} onClose={onClose} header={headerContent} stackBehavior="push">
       <View style={styles.content}>
 
-        {/* ── Session identity ────────────────────────────── */}
-        <View style={styles.sessionTop}>
-          <Text style={[styles.sessionTitle, { color: colors.text }]} numberOfLines={1}>
-            {day.session_type || day.style}
-          </Text>
-          <View style={styles.metaRow}>
-            <View style={[styles.metaChip, { backgroundColor: `${styleColor}15`, borderColor: `${styleColor}30` }]}>
-              <PlatformIcon name="clock" size={10} color={styleColor} />
-              <Text style={[styles.metaChipText, { color: styleColor }]}>{day.target_duration} min</Text>
+        {/* ── Eyebrow ─────────────────────────────────────── */}
+        <View style={styles.eyebrowRow}>
+          <View style={[styles.styleDot, { backgroundColor: styleColor }]} />
+          <Text style={[styles.eyebrowText, { color: colors.textSecondary }]}>{day.style.toUpperCase()}</Text>
+          {day.is_deload_week && (
+            <>
+              <Text style={[styles.eyebrowSep, { color: colors.textMuted }]}>·</Text>
+              <Text style={[styles.eyebrowText, { color: '#22c55e' }]}>DELOAD</Text>
+            </>
+          )}
+        </View>
+
+        {/* ── Session title ────────────────────────────────── */}
+        <Text style={[styles.sessionTitle, { color: colors.text }]} numberOfLines={2}>
+          {day.session_type || day.style}
+        </Text>
+        <Text style={[styles.sessionSubtitle, { color: colors.textSecondary }]}>{phaseLabel}</Text>
+
+        {/* ── Stat chips ──────────────────────────────────── */}
+        <View style={styles.statsRow}>
+          {exerciseCount > 0 && (
+            <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
+              <Layers size={13} color={colors.textMuted} />
+              <Text style={[styles.statText, { color: colors.text }]}>{exerciseCount} exercises</Text>
             </View>
-            <View style={[styles.metaChip, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.1)' }]}>
-              <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{phaseLabel}</Text>
+          )}
+          {warmupCount > 0 && (
+            <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
+              <Dumbbell size={13} color={colors.textMuted} />
+              <Text style={[styles.statText, { color: colors.text }]}>{warmupCount} warm-up</Text>
             </View>
-            {day.is_deload_week && (
-              <View style={[styles.metaChip, { backgroundColor: '#22c55e0d', borderColor: '#22c55e30' }]}>
-                <Text style={[styles.metaChipText, { color: '#22c55e' }]}>Deload</Text>
-              </View>
-            )}
+          )}
+          <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
+            <Clock size={13} color={colors.textMuted} />
+            <Text style={[styles.statText, { color: colors.text }]}>{day.target_duration} min</Text>
           </View>
         </View>
 
@@ -272,14 +351,12 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
         {/* ── Loading skeleton ────────────────────────────── */}
         {loading && (
-          <View style={[styles.exerciseCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.cardLabelRow}>
-              <View style={[styles.cardLabelSkeleton, { backgroundColor: colors.border }]} />
-            </View>
+          <>
+            <SectionHeader label="EXERCISE LIST" color={colors.textSecondary} />
             {[0.9, 0.75, 0.6, 0.48, 0.36].map((op, i) => (
               <SkeletonRow key={i} opacity={op} colors={colors} />
             ))}
-          </View>
+          </>
         )}
 
         {/* ── Still generating in background ───────────────── */}
@@ -303,51 +380,22 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
         {/* ── Exercise list ───────────────────────────────── */}
         {!loading && workout && workout.workout.length > 0 && (
-          <View style={[styles.exerciseCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.cardLabelRow}>
-              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
-                {workout.workout.length} EXERCISES
-              </Text>
-            </View>
-            {groupedExercises.map((item, i) => {
-              if (item.type === 'group') {
-                return (
-                  <View key={i}>
-                    {/* Group header */}
-                    <View style={[styles.groupHeader, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
-                      <PlatformIcon name="link" size={10} color={colors.textMuted} />
-                      <Text style={[styles.groupHeaderText, { color: colors.textMuted }]}>
-                        {item.groupType === 'circuit' ? 'Circuit' : 'Superset'}
-                      </Text>
-                      {item.rest ? (
-                        <Text style={[styles.groupRest, { color: colors.textMuted }]}>{item.rest}</Text>
-                      ) : null}
-                    </View>
-                    {item.exercises.map((ex, j) => (
-                      <ExerciseRow
-                        key={ex.id}
-                        ex={ex}
-                        isFirst={i === 0 && j === 0}
-                        isGrouped
-                        colors={colors}
-                        styleColor={styleColor}
-                      />
-                    ))}
-                  </View>
-                );
-              }
-              return (
-                <ExerciseRow
-                  key={item.exercise.id}
-                  ex={item.exercise}
-                  isFirst={i === 0}
-                  isGrouped={false}
-                  colors={colors}
-                  styleColor={styleColor}
-                />
-              );
-            })}
-          </View>
+          <>
+            <SectionHeader label="EXERCISE LIST" color={colors.textSecondary} />
+            {(() => {
+              let globalIdx = 0;
+              return groupedExercises.map((item) => {
+                if (item.type === 'group') {
+                  const startIdx = globalIdx;
+                  globalIdx += item.exercises.length;
+                  return renderGroup(item.exercises, startIdx);
+                }
+                const idx = globalIdx;
+                globalIdx += 1;
+                return renderExercise(item.exercise, idx);
+              });
+            })()}
+          </>
         )}
 
         {/* ── Start CTA ───────────────────────────────────── */}
@@ -357,7 +405,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
           activeOpacity={0.85}
         >
           <Text style={styles.startBtnText}>Start This Workout</Text>
-          <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+          <ChevronRight size={16} color="#fff" />
         </TouchableOpacity>
 
         <View style={{ height: 20 }} />
@@ -366,64 +414,24 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
   );
 }
 
-// ── Exercise row sub-component ────────────────────────────────────────────────
-
-function ExerciseRow({
-  ex, isFirst, isGrouped, colors, styleColor,
-}: {
-  ex: WorkoutExercise;
-  isFirst: boolean;
-  isGrouped: boolean;
-  colors: any;
-  styleColor: string;
-}) {
-  return (
-    <View style={[
-      styles.exerciseRow,
-      !isFirst && { borderTopWidth: 0.5, borderTopColor: colors.border },
-      isGrouped && styles.exerciseRowGrouped,
-    ]}>
-      <View style={styles.exerciseLeft}>
-        <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={1}>
-          {ex.name}
-        </Text>
-        <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-          {ex.sets}×{ex.reps}
-          {ex.rest ? `  ·  ${ex.rest}` : ''}
-          {ex.muscleGroup ? `  ·  ${ex.muscleGroup}` : ''}
-        </Text>
-      </View>
-      {ex.suggestedWeight && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '' && (
-        <Text style={[styles.exerciseWeight, { color: colors.textMuted }]}>
-          {ex.suggestedWeight}
-        </Text>
-      )}
-    </View>
-  );
-}
-
 // ── Group builder ─────────────────────────────────────────────────────────────
 
 type ExerciseGroupItem =
   | { type: 'solo'; exercise: WorkoutExercise }
-  | { type: 'group'; groupType: string; rest: string; exercises: WorkoutExercise[] };
+  | { type: 'group'; exercises: WorkoutExercise[] };
 
 function buildExerciseGroups(exercises: WorkoutExercise[]): ExerciseGroupItem[] {
   const result: ExerciseGroupItem[] = [];
   const seen = new Set<string>();
 
   for (const ex of exercises) {
-    if (ex.groupId && !seen.has(ex.groupId)) {
+    if (seen.has(ex.id)) continue;
+    if (ex.groupId) {
       seen.add(ex.groupId);
       const members = exercises.filter(e => e.groupId === ex.groupId);
       members.forEach(e => seen.add(e.id));
-      result.push({
-        type: 'group',
-        groupType: ex.groupType ?? 'superset',
-        rest: members[members.length - 1]?.rest ?? '',
-        exercises: members,
-      });
-    } else if (!ex.groupId && !seen.has(ex.id)) {
+      result.push({ type: 'group', exercises: members });
+    } else {
       seen.add(ex.id);
       result.push({ type: 'solo', exercise: ex });
     }
@@ -435,56 +443,35 @@ function buildExerciseGroups(exercises: WorkoutExercise[]): ExerciseGroupItem[] 
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  headerLabel: { fontSize: 11, fontFamily: 'Outfit_700Bold', letterSpacing: 1 },
-  closeBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(128,128,128,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
 
-  content: { paddingHorizontal: 16, gap: 14, paddingBottom: 8 },
+  content: { paddingHorizontal: 22, gap: 14, paddingBottom: 8 },
 
-  sessionTop: { gap: 10 },
-  sessionTitle: { fontSize: 26, fontFamily: 'Outfit_800ExtraBold', letterSpacing: -0.5 },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  metaChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 20, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5,
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  styleDot: { width: 6, height: 6, borderRadius: 3 },
+  eyebrowText: { fontSize: 11, fontFamily: 'Outfit_700Bold', letterSpacing: 1 },
+  eyebrowSep: { fontSize: 11 },
+
+  sessionTitle: {
+    fontSize: 26, fontFamily: 'Outfit_800ExtraBold', letterSpacing: -0.5,
+    marginTop: 2,
   },
-  metaChipText: { fontSize: 11, fontFamily: 'Outfit_600SemiBold' },
+  sessionSubtitle: { fontSize: 13, fontFamily: 'Outfit_400Regular', marginTop: -6 },
+
+  statsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  statPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 9,
+  },
+  statText: { fontSize: 12, fontFamily: 'Outfit_600SemiBold' },
 
   notesCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10,
   },
   notesText: { fontSize: 12, fontFamily: 'Outfit_400Regular', flex: 1, lineHeight: 17 },
-
-  exerciseCard: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
-  cardLabelRow: { paddingHorizontal: 14, paddingVertical: 10 },
-  cardLabel: { fontSize: 10, fontFamily: 'Outfit_700Bold', letterSpacing: 0.8 },
-  cardLabelSkeleton: { height: 10, width: 80, borderRadius: 5 },
-
-  exerciseRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 13,
-  },
-  exerciseRowGrouped: { paddingLeft: 20 },
-  exerciseLeft: { flex: 1, gap: 4 },
-  exerciseName: { fontSize: 14, fontFamily: 'Outfit_700Bold' },
-  exerciseMeta: { fontSize: 12, fontFamily: 'Outfit_400Regular' },
-  exerciseWeight: { fontSize: 12, fontFamily: 'Outfit_500Medium', marginLeft: 12 },
-
-  groupHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderTopWidth: 0.5,
-  },
-  groupHeaderText: { fontSize: 11, fontFamily: 'Outfit_600SemiBold', flex: 1 },
-  groupRest: { fontSize: 11, fontFamily: 'Outfit_400Regular' },
 
   readinessWarn: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
@@ -498,12 +485,45 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 12, fontFamily: 'Outfit_400Regular', color: '#ef4444', flex: 1 },
 
+  sectionHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: 4, marginTop: 2,
+  },
+  sectionLabel: { fontSize: 11, fontFamily: 'Outfit_700Bold', letterSpacing: 1 },
+  sectionDivider: { flex: 1, height: 1 },
+
+  exerciseBlock: {
+    borderBottomWidth: 1, paddingBottom: 14, marginBottom: 14,
+  },
+  exerciseBlockGrouped: { paddingBottom: 10, marginBottom: 10 },
+  exerciseHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  exerciseIndex: { width: 20, fontSize: 12, fontFamily: 'Outfit_600SemiBold', lineHeight: 20 },
+  exerciseTitleWrap: { flex: 1, gap: 4 },
+  exerciseName: { fontSize: 15, fontFamily: 'Outfit_700Bold' },
+  exerciseMetaText: { fontSize: 12, fontFamily: 'Outfit_400Regular', lineHeight: 18 },
+  exerciseSetsLabel: {
+    fontSize: 13, fontFamily: 'Outfit_600SemiBold', flexShrink: 0, paddingTop: 2,
+  },
+
+  groupBlock: {
+    borderRadius: 16, borderWidth: 1, marginBottom: 12,
+    overflow: 'hidden', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2,
+  },
+  groupBlockHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10,
+  },
+  groupTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5,
+  },
+  groupTagText: { fontSize: 10, fontFamily: 'Outfit_700Bold', letterSpacing: 0.8 },
+  groupBlockCount: { fontSize: 11, fontFamily: 'Outfit_400Regular' },
+
   startBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 16, paddingVertical: 15, marginTop: 4,
+    borderRadius: 16, paddingVertical: 16, marginTop: 4,
   },
   startBtnText: {
-    fontSize: 15, fontFamily: 'Outfit_700Bold', color: '#fff',
-    flex: 1, textAlign: 'center', letterSpacing: -0.2,
+    fontSize: 16, fontFamily: 'Outfit_700Bold', color: '#fff',
   },
 });

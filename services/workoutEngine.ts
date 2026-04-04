@@ -2853,3 +2853,80 @@ export function buildWarmupCooldownRecovery(
   return { warmup, cooldown, recovery };
 }
 
+// ─── Core Finisher (Engine-Based) ────────────────────────────────────────────
+// Replaces the previous AI-based generateCoreFinisher. Selects 4 core exercises
+// from the exercise DB synchronously — reliable, instant, equipment-aware.
+
+const CORE_FINISHER_MUSCLES = new Set(['core', 'obliques', 'transverse_abdominis']);
+
+export function generateCoreFinisherFromEngine(params: {
+  fitnessLevel: string;
+  availableEquipment: Record<string, number>;
+}): WorkoutExercise[] {
+  const db = getZealExerciseDatabase();
+  const seed = getDaySeed();
+  const rng = seededRandom(seed);
+
+  // Filter to core-primary exercises
+  const corePool = db.filter(ex =>
+    ex.primary_muscles.some(m => CORE_FINISHER_MUSCLES.has(m as string))
+  );
+
+  // Filter by available equipment (allow if bodyweight-only OR all required gear is available)
+  const equipFiltered = corePool.filter(ex =>
+    ex.equipment_required.length === 0 ||
+    ex.equipment_required.every(e => e === 'bodyweight' || (params.availableEquipment[e as string] ?? 0) > 0)
+  );
+
+  // Exclude advanced exercises for beginners
+  const byDifficulty = params.fitnessLevel === 'beginner'
+    ? equipFiltered.filter(ex => ex.difficulty_tier !== 'advanced')
+    : equipFiltered;
+
+  const pool = byDifficulty.length >= 2 ? byDifficulty : (equipFiltered.length >= 2 ? equipFiltered : corePool);
+  const selected = shuffleArray(pool, rng).slice(0, 4);
+
+  const isAdvanced = params.fitnessLevel === 'advanced';
+  const isIntermediate = params.fitnessLevel === 'intermediate';
+  const sets = params.fitnessLevel === 'beginner' ? 2 : 3;
+
+  return selected.map((ex, i) => {
+    // Hold-style exercises (plank, side plank, hollow body hold) have rep_range_ceiling <= 3
+    const isTimeBased = ex.movement_pattern === 'isolation' && ex.rep_range_ceiling <= 3;
+    const reps = isTimeBased
+      ? (isAdvanced ? '60s' : isIntermediate ? '45s' : '30s')
+      : String(
+          isAdvanced ? ex.rep_range_ceiling
+          : isIntermediate ? Math.round((ex.rep_range_floor + ex.rep_range_ceiling) / 2)
+          : ex.rep_range_floor
+        );
+
+    const externalGear = ex.equipment_required.filter(e => e !== 'bodyweight');
+    const equipDisplay = externalGear.length > 0
+      ? (externalGear[0] as string).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : 'Bodyweight';
+
+    return {
+      id: `core_finisher_${i}_${seed}`,
+      name: ex.name,
+      sets,
+      reps,
+      rest: '30s',
+      muscleGroup: 'Core',
+      equipment: equipDisplay,
+      notes: '',
+      type: 'Core',
+      movementType: ex.movement_pattern as string,
+      groupType: null as null,
+      groupId: null as null,
+      suggestedWeight: externalGear.length > 0 ? '' : 'BW',
+      lastSessionWeight: '',
+      lastSessionReps: '',
+      exerciseRef: {
+        movement_pattern: ex.movement_pattern as string,
+        equipment_required: ex.equipment_required as string[],
+      },
+    };
+  });
+}
+

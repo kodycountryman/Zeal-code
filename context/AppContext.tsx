@@ -6,7 +6,8 @@ import { healthService } from '@/services/healthService';
 import type { WorkoutExercise, GenerateWorkoutParams } from '@/services/workoutEngine';
 import { Colors, WORKOUT_STYLE_COLORS, ZEAL_ACCENT_COLORS } from '@/constants/colors';
 import type { GeneratedPlanSchedule, DayPrescription, WeekSchedule } from '@/services/planEngine';
-import { generateWorkoutAsync, generateCoreFinisher } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
+import { generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import type { PlanGoal, PlanLength, ExperienceLevel as PlanExperienceLevel } from '@/services/planConstants';
 import { ALL_EQUIPMENT_IDS, HOME_EQUIPMENT_PRESET, CROSSFIT_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
 import { type FitnessLevel } from '@/constants/fitnessLevel';
@@ -658,20 +659,12 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
         const result = await generateWorkoutAsync(params, d);
 
         // Attach core finisher if enabled and not a deload week
-        // Always generate core finisher — user toggle controls visibility at render time
         const suppressCore = (d.volume_modifier ?? 1.0) < 0.75;
-        if (!suppressCore) {
-          try {
-            const coreExercises = await Promise.race([
-              generateCoreFinisher({
-                fitnessLevel: params.fitnessLevel,
-                sex: params.sex,
-                availableEquipment: params.availableEquipment,
-              }),
-              new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
-            ]);
-            if (coreExercises) result.coreFinisher = coreExercises;
-          } catch { /* core finisher is optional */ }
+        if (coreFinisher && !suppressCore) {
+          result.coreFinisher = generateCoreFinisherFromEngine({
+            fitnessLevel: params.fitnessLevel,
+            availableEquipment: params.availableEquipment,
+          });
         }
 
         await AsyncStorage.setItem(

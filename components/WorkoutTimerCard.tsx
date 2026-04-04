@@ -8,6 +8,7 @@ import {
   Platform,
   UIManager,
   Animated as RNAnimated,
+  Switch,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -192,6 +193,11 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
     tracking.pauseWorkout();
   }, [tracking]);
 
+  const handleAutoRestToggle = useCallback((value: boolean) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    tracking.setAutoRestTimer(value);
+  }, [tracking]);
+
   const countdownColor = isUrgent ? '#ef4444' : colors.text;
 
   return (
@@ -246,8 +252,21 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
           activeOpacity={0.95}
           style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 0 }}
         >
-          {/* REST label + countdown */}
-          <Text style={[styles.restLabel, { color: colors.textMuted }]}>REST</Text>
+          {/* REST label + Auto Rest toggle */}
+          <View style={styles.restLabelRow}>
+            <Text style={[styles.restLabel, { color: colors.textMuted }]}>REST</Text>
+            <View style={styles.autoRestRow}>
+              <Text style={[styles.autoRestLabel, { color: colors.textMuted }]}>Auto Rest</Text>
+              <Switch
+                value={tracking.autoRestTimer}
+                onValueChange={handleAutoRestToggle}
+                trackColor={{ false: isDark ? '#3a3a3a' : '#d1d1d6', true: 'rgba(248,113,22,0.4)' }}
+                thumbColor={'#ffffff'}
+                ios_backgroundColor={isDark ? '#3a3a3a' : '#d1d1d6'}
+                style={styles.autoRestSwitch}
+              />
+            </View>
+          </View>
           <RNAnimated.Text
             style={[
               styles.countdown,
@@ -275,14 +294,26 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
         </TouchableOpacity>
       )}
 
-      {/* ── Minimized: centered time + chevron — normal flow ── */}
+      {/* ── Minimized: centered time + chevron, cancel right-aligned ── */}
       {isActive && isMinimized && (
-        <TouchableOpacity onPress={handleToggle} activeOpacity={0.7} style={styles.minimizedRow}>
-          <Text style={[styles.minimizedTime, { color: colors.textSecondary }]}>
-            {formatTime(tracking.restTimeRemaining)}
-          </Text>
-          <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.5} />
-        </TouchableOpacity>
+        <View style={styles.minimizedRow}>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={handleToggle} activeOpacity={0.7} style={styles.minimizedInner}>
+            <Text style={[styles.minimizedTime, { color: colors.textSecondary }]}>
+              {formatTime(tracking.restTimeRemaining)}
+            </Text>
+            <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.5} />
+          </TouchableOpacity>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <TouchableOpacity
+              onPress={handleCancel}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       {/* ── Progress bar — always shown when active ── */}
@@ -321,9 +352,13 @@ const styles = StyleSheet.create({
   minimizedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    paddingHorizontal: 16,
     paddingBottom: 10,
+  },
+  minimizedInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   minimizedTime: {
     fontSize: 12,
@@ -337,11 +372,29 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 10,
   },
+  restLabelRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    marginBottom: 2,
+  },
+  autoRestRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+  },
+  autoRestLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.2,
+  },
+  autoRestSwitch: {
+    transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }],
+  },
   restLabel: {
     fontSize: 10,
     fontFamily: 'Outfit_600SemiBold',
     letterSpacing: 2,
-    marginBottom: 2,
   },
   countdown: {
     fontSize: 44,

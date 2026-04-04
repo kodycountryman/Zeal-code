@@ -75,7 +75,8 @@ import {
   type SeventyFiveHardSession,
 } from '@/services/workoutEngine';
 import type { MovementType } from '@/mocks/exerciseDatabase';
-import { generateWorkoutAsync, generateCoreFinisher, enhanceCrossFitMetCon } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync, enhanceCrossFitMetCon } from '@/services/aiWorkoutGenerator';
+import { generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 import ModifyWorkoutDrawer from '@/components/drawers/ModifyWorkoutDrawer';
 import AddToWorkoutSheet, { type AddMode } from '@/components/AddToWorkoutSheet';
@@ -187,6 +188,23 @@ interface ExerciseTrackingType {
   isWeightDistance: boolean;
 }
 
+// All equipment IDs in the exercise DB that require a numeric weight to be logged.
+// Checked against exerciseRef.equipment_required for reliable detection regardless
+// of how the display string gets formatted.
+const WEIGHTED_EQUIPMENT_IDS = new Set([
+  // Bars
+  'barbell', 'ez_curl_bar', 'trap_bar',
+  // Handheld
+  'dumbbell', 'kettlebell', 'medicine_ball', 'slam_ball', 'weight_plates',
+  // Cable / smith
+  'cable_machine', 'smith_machine',
+  // Plate-loaded & selectorized machines
+  'lat_pulldown_machine', 'leg_press_machine', 'leg_curl_machine',
+  'leg_extension_machine', 'pec_deck_machine', 'chest_press_machine',
+  'hack_squat_machine', 'lateral_raise_machine', 'seated_row_machine',
+  'shoulder_press_machine',
+]);
+
 function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
   const name = (ex.name ?? '').toLowerCase();
   const equipment = (ex.equipment ?? '').toLowerCase();
@@ -218,13 +236,17 @@ function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
   const prescribedCals = /\bcal\b/i.test(repsStr);
   const prescribedDistance = /\bm$/.test(repsStr.toLowerCase());
 
-  // Equipment presence
+  // Equipment presence — primary check via exact equipment_required IDs, with
+  // display-string patterns as fallback for exercises where exerciseRef is absent.
   const hasExternalLoad =
+    req.some(r => WEIGHTED_EQUIPMENT_IDS.has(r)) ||
     equipment.includes('barbell') || equipment.includes('dumbbell') ||
     equipment.includes('kettlebell') || equipment.includes('machine') ||
     equipment.includes('cable') || equipment.includes('ez') ||
-    req.some(r => ['barbell','dumbbell','kettlebell','cable_machine','smith_machine',
-      'leg_press','lat_pulldown','ez_curl_bar','trap_bar'].includes(r));
+    equipment.includes('trap bar') || equipment.includes('smith') ||
+    name.includes('barbell') || name.includes('dumbbell') ||
+    name.includes('kettlebell') || name.includes('cable') ||
+    name.includes('ez bar') || name.includes('ez curl');
 
   const isBodyweightEquipment =
     equipment === 'bodyweight' || equipment.includes('body weight') ||
@@ -1244,18 +1266,13 @@ export default function WorkoutScreen() {
       }).catch(() => { /* rule engine format stands */ });
     }
 
-    // Core finisher — still uses AI for variety, runs async in background
+    // Core finisher — synchronous engine selection, instant and reliable
     const suppressCoreFinisher = (params.volumeModifier ?? 1.0) < 0.75;
-    if (!suppressCoreFinisher) {
-      generateCoreFinisher({
+    if (ctx.coreFinisher && !suppressCoreFinisher) {
+      result.coreFinisher = generateCoreFinisherFromEngine({
         fitnessLevel: ctx.fitnessLevel,
-        sex: ctx.sex,
         availableEquipment: effectiveEquipment,
-      }).then(coreExercises => {
-        if (coreExercises?.length) {
-          setWorkout(prev => prev ? { ...prev, coreFinisher: coreExercises } : prev);
-        }
-      }).catch(() => {});
+      });
     }
 
     const finalWorkout = result;
@@ -4070,99 +4087,20 @@ export default function WorkoutScreen() {
           </View>
 
           <View
-            style={{ paddingTop: 4, gap: 12, paddingBottom: 0 }}
+            style={{ paddingTop: 0, gap: 12, paddingBottom: 0 }}
           >
           {/* Pre-Workout Panel */}
-          {activePanel === 0 && (
-          <TabContentSpring>
-          <View style={styles.tabContentOuter}>
-            <View style={styles.tabContent}>
-              {ctx.warmUp && !warmupHidden && (workout?.warmup?.length ?? 0) > 0 ? (
-                <View style={[styles.checklistCard, {
-                  backgroundColor: isDark ? 'rgba(248,113,22,0.06)' : 'rgba(248,113,22,0.05)',
-                  borderColor: isDark ? 'rgba(248,113,22,0.18)' : 'rgba(248,113,22,0.15)',
-                }]}>
-                  <View style={styles.checklistSectionHeader}>
-                    <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(248,113,22,0.15)' }]}>
-                      <Flame size={13} color="#f87116" />
-                    </View>
-                    <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Warm-Up</Text>
-                    <View style={{ flex: 1 }} />
-                    {warmupChecked.size === (workout?.warmup?.length ?? 0) && warmupChecked.size > 0 ? (
-                      <View style={styles.checklistProgressPillDone}>
-                        <Check size={11} color="#fff" />
-                      </View>
-                    ) : (
-                      <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-                        <Text style={[styles.checklistProgressText, { color: colors.textSecondary }]}>
-                          {warmupChecked.size}/{workout?.warmup?.length ?? 0}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  {workout?.warmup.map((item, idx) => {
-                    const isChecked = warmupChecked.has(idx);
-                    const isLast = idx === (workout?.warmup?.length ?? 1) - 1;
-                    return (
-                      <TouchableOpacity
-                        key={idx}
-                        style={[styles.checklistRow, !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
-                        onPress={() => {
-                          handleToggleWarmupItem(idx);
-                          if (Platform.OS !== 'web') Haptics.selectionAsync();
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[
-                          styles.checklistCheckbox,
-                          { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
-                          isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
-                        ]}>
-                          {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
-                        </View>
-                        <View style={styles.checklistRowInfo}>
-                          <Text style={[
-                            styles.checklistRowName,
-                            { color: isChecked ? colors.textMuted : colors.text },
-                            isChecked && { textDecorationLine: 'line-through' as const },
-                          ]}>{item.name}</Text>
-                          <Text style={[styles.checklistRowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
-                            {item.description}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#f87116', type: 'warmup' })}
-                          activeOpacity={0.7}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Info size={15} color={colors.textMuted} />
-                        </TouchableOpacity>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View style={styles.emptyPanelCard}>
-                  <View style={[styles.emptyPanelIconWrap, { backgroundColor: 'rgba(248,113,22,0.1)' }]}>
-                    <Flame size={30} color="#f87116" strokeWidth={1.5} />
-                  </View>
-                  <Text style={[styles.emptyPanelTitle, { color: colors.text }]}>No warm-up added</Text>
-                  <Text style={[styles.emptyPanelSub, { color: colors.textSecondary }]}>Enable warm-up in settings to add a pre-workout routine</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          </TabContentSpring>
-        )}
+          {activePanel === 0 && null}
 
         {activePanel === 1 && (
           <TabContentSpring>
           <View style={styles.tabContentOuter}>
             <View style={styles.tabContent}>
               <View style={[styles.workoutSection, {
-                backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
-                borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                backgroundColor: 'transparent',
+                borderWidth: 0,
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: 0,
               }]}>
                 <View
                   ref={(ref) => { exercisesSectionRef.current = ref; }}
@@ -4177,351 +4115,392 @@ export default function WorkoutScreen() {
                 </View>
               </View>
 
-              {ctx.coreFinisher && workout?.coreFinisher && workout.coreFinisher.length > 0 && (
-                <View style={[
-                  styles.coreFinisherCard,
-                  {
-                    backgroundColor: 'rgba(34,197,94,0.06)',
-                    borderColor: 'rgba(34,197,94,0.2)',
-                  },
-                ]}>
-                  <TouchableOpacity
-                    style={styles.coreFinisherHeader}
-                    onPress={() => setInfoLabel('CORE FINISHER')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.coreFinisherIconBadge, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
-                      <Target size={13} color="rgba(34,197,94,0.7)" />
-                    </View>
-                    <Text style={[styles.coreFinisherLabel, { color: 'rgba(255,255,255,0.9)' }]}>Core Finisher</Text>
-                  </TouchableOpacity>
-                  {workout.coreFinisher.slice(0, 1).map((ex, idx) => {
-                    const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
-                    const isExpanded = expandedTrack === ex.id;
-                    const isLast = idx === workout.coreFinisher!.length - 1;
-                    return (
-                      <View
-                        key={ex.id}
-                        onLayout={(e) => {
-                          rowLayoutsRef.current.set(ex.id, {
-                            y: e.nativeEvent.layout.y,
-                            height: e.nativeEvent.layout.height,
-                          });
-                        }}
-                      >
-                        <SwipeableExerciseRow
-                          id={ex.id}
-                          isOpen={swipeOpenId === ex.id}
-                          onOpen={setSwipeOpenId}
-                          onInfo={() => handleExerciseTap(ex)}
-                          onSwap={() => handleSwapExercise(ex)}
-                          onDelete={() => handleDeleteExercise(ex.id)}
-                          rowBg={colors.card}
-                
-                          enabled={activeDragId === null}
-                        >
-                          <TouchableOpacity
-                            style={[styles.exerciseRow, { borderBottomColor: isLast ? 'transparent' : `${colors.border}40` }]}
-                            onPress={() => handleToggleTrackPanel(ex.id, ex)}
-                            onLongPress={() => handleExerciseLongPress(ex)}
-                            delayLongPress={350}
-                            activeOpacity={1}
-                          >
-                            <View style={styles.exerciseInfo}>
-                              <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
-                                <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>
-                                  {ex.name}
-                                </Text>
-                              </TouchableOpacity>
-                              {!isCompleted && (
-                                <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                                  {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
-                                </Text>
-                              )}
-                            </View>
-                            {renderTrackButton(ex)}
-                          </TouchableOpacity>
-                        </SwipeableExerciseRow>
-                        {!isLast && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
-                        <ExpandingPanel visible={isExpanded}>
-                          {renderTrackingPanel(ex)}
-                        </ExpandingPanel>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              {hasCardio && (
-                <View style={[
-                  styles.cardioStandaloneCard,
-                  {
-                    backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
-                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                    marginHorizontal: -12,
-                  },
-                ]}>
-                  <View style={styles.cardioStandaloneHeader}>
-                    <View style={[styles.cardioStandaloneIconBadge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
-                      <Activity size={13} color="#8b5cf6" />
-                    </View>
-                    <TouchableOpacity onPress={() => setInfoLabel('Cardio')} activeOpacity={0.7}>
-                      <Text style={[styles.cardioStandaloneLabel, { color: colors.text }]}>Cardio</Text>
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }} />
-                    {workout!.cardio[0]?.format ? (
-                      <Text style={[styles.cardioFormat, { color: colors.textSecondary }]}>
-                        {workout!.cardio[0].format}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {workout!.cardio.map((c, idx) => {
-                    const isLast = idx === workout!.cardio.length - 1;
-                    const cardioEx: WorkoutExercise = {
-                      id: `cardio-${idx}`,
-                      name: c.name,
-                      sets: 1,
-                      reps: c.duration,
-                      rest: c.rpe ? `RPE ${c.rpe}` : 'None',
-                      muscleGroup: 'Cardio',
-                      equipment: 'None',
-                      notes: c.notes ?? '',
-                      type: 'cardio',
-                      movementType: 'cardio',
-                      groupType: null,
-                      groupId: null,
-                      suggestedWeight: 'BW',
-                      lastSessionWeight: '',
-                      lastSessionReps: '',
-                      exerciseRef: null,
-                    };
-                    const isExpanded = expandedTrack === cardioEx.id;
-                    const isCompleted = tracking.exerciseLogs[cardioEx.id]?.completed === true;
-                    return (
-                      <View key={idx}>
-                        <SwipeableExerciseRow
-                          id={cardioEx.id}
-                          isOpen={swipeOpenId === cardioEx.id}
-                          onOpen={setSwipeOpenId}
-                          onInfo={() => handleExerciseTap(cardioEx)}
-                          onSwap={() => {}}
-                          onDelete={() => {
-                            if (!workout) return;
-                            setWorkout({ ...workout, cardio: workout.cardio.filter((_, i) => i !== idx) });
-                          }}
-                          rowBg={colors.card}
-                          enabled={activeDragId === null}
-                        >
-                          <Pressable
-                            style={[styles.exerciseRow, isLast && !isExpanded && { borderBottomColor: 'transparent' }]}
-                            onPress={() => handleToggleTrackPanel(cardioEx.id, cardioEx)}
-                            activeOpacity={1}
-                          >
-                            <View style={styles.exerciseInfo}>
-                              <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(cardioEx)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
-                                <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>{c.name}</Text>
-                              </TouchableOpacity>
-                              {!isCompleted && (
-                                <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                                  {c.duration}{c.rpe ? ` · RPE ${c.rpe}` : ''}
-                                </Text>
-                              )}
-                              {c.notes ? (
-                                <Text style={[styles.cardioNotes, { color: colors.textMuted }]} numberOfLines={1}>&quot;{c.notes}&quot;</Text>
-                              ) : null}
-                            </View>
-                            {renderTrackButton(cardioEx)}
-                          </Pressable>
-                        </SwipeableExerciseRow>
-                        {!isLast && !isExpanded && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
-                        <ExpandingPanel visible={isExpanded}>
-                          {renderTrackingPanel(cardioEx)}
-                        </ExpandingPanel>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
             </View>
           </View>
           </TabContentSpring>
         )}
 
-        {activePanel === 2 && (
-          <TabContentSpring>
-          <View style={styles.tabContentOuter}>
-            <View style={styles.tabContent}>
-              {hasPostContent ? (
-                <View style={{ gap: 10 }}>
-                  {ctx.coolDown && workout && workout.cooldown.length > 0 && (
-                    <View style={[styles.checklistCard, {
-                      backgroundColor: isDark ? 'rgba(6,182,212,0.06)' : 'rgba(6,182,212,0.05)',
-                      borderColor: isDark ? 'rgba(6,182,212,0.18)' : 'rgba(6,182,212,0.15)',
-                    }]}>
-                      <View style={styles.checklistSectionHeader}>
-                        <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(6,182,212,0.15)' }]}>
-                          <Snowflake size={13} color="#06b6d4" />
-                        </View>
-                        <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Cool-Down</Text>
-                        <View style={{ flex: 1 }} />
-                        {cooldownChecked.size === workout.cooldown.length && cooldownChecked.size > 0 ? (
-                          <View style={styles.checklistProgressPillDone}>
-                            <Check size={11} color="#fff" />
-                          </View>
-                        ) : (
-                          <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-                            <Text style={[styles.checklistProgressText, { color: colors.textSecondary }]}>
-                              {cooldownChecked.size}/{workout.cooldown.length}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      {workout.cooldown.map((item, idx) => {
-                        const isChecked = cooldownChecked.has(idx);
-                        const isLast = idx === workout.cooldown.length - 1;
-                        return (
-                          <TouchableOpacity
-                            key={idx}
-                            style={[styles.checklistRow, !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
-                            onPress={() => {
-                              const next = new Set(cooldownChecked);
-                              if (next.has(idx)) next.delete(idx); else next.add(idx);
-                              setCooldownChecked(next);
-                              if (next.size === workout.cooldown.length) setCooldownComplete(true);
-                              if (Platform.OS !== 'web') Haptics.selectionAsync();
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <View style={[
-                              styles.checklistCheckbox,
-                              { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
-                              isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
-                            ]}>
-                              {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
-                            </View>
-                            <View style={styles.checklistRowInfo}>
-                              <Text style={[
-                                styles.checklistRowName,
-                                { color: isChecked ? colors.textMuted : colors.text },
-                                isChecked && { textDecorationLine: 'line-through' as const },
-                              ]}>{item.name}</Text>
-                              <Text style={[styles.checklistRowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {item.description}
-                              </Text>
-                            </View>
-                            <TouchableOpacity
-                              onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#06b6d4', type: 'cooldown' })}
-                              activeOpacity={0.7}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <Info size={15} color={colors.textMuted} />
-                            </TouchableOpacity>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                  {ctx.recovery && workout && workout.recovery.length > 0 && (
-                    <View style={[styles.checklistCard, {
-                      backgroundColor: isDark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.05)',
-                      borderColor: isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.15)',
-                    }]}>
-                      <View style={styles.checklistSectionHeader}>
-                        <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                          <Heart size={13} color="#ef4444" />
-                        </View>
-                        <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Recovery</Text>
-                        <View style={{ flex: 1 }} />
-                        {recoveryChecked.size === workout.recovery.length && recoveryChecked.size > 0 ? (
-                          <View style={styles.checklistProgressPillDone}>
-                            <Check size={11} color="#fff" />
-                          </View>
-                        ) : (
-                          <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-                            <Text style={[styles.checklistProgressText, { color: colors.textSecondary }]}>
-                              {recoveryChecked.size}/{workout.recovery.length}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      {workout.recovery.map((item, idx) => {
-                        const isChecked = recoveryChecked.has(idx);
-                        const isLast = idx === workout.recovery.length - 1;
-                        return (
-                          <TouchableOpacity
-                            key={idx}
-                            style={[styles.checklistRow, !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
-                            onPress={() => {
-                              const next = new Set(recoveryChecked);
-                              if (next.has(idx)) next.delete(idx); else next.add(idx);
-                              setRecoveryChecked(next);
-                              if (Platform.OS !== 'web') Haptics.selectionAsync();
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <View style={[
-                              styles.checklistCheckbox,
-                              { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
-                              isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
-                            ]}>
-                              {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
-                            </View>
-                            <View style={styles.checklistRowInfo}>
-                              <Text style={[
-                                styles.checklistRowName,
-                                { color: isChecked ? colors.textMuted : colors.text },
-                                isChecked && { textDecorationLine: 'line-through' as const },
-                              ]}>{item.name}</Text>
-                              <Text style={[styles.checklistRowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {item.description}
-                              </Text>
-                            </View>
-                            <TouchableOpacity
-                              onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#ef4444', benefit: item.benefit, type: 'recovery' })}
-                              activeOpacity={0.7}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <Info size={15} color={colors.textMuted} />
-                            </TouchableOpacity>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.emptyPanelCard}>
-                  <View style={[styles.emptyPanelIconWrap, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
-                    <Heart size={30} color="#ef4444" strokeWidth={1.5} />
-                  </View>
-                  <Text style={[styles.emptyPanelTitle, { color: colors.text }]}>No recovery added</Text>
-                  <Text style={[styles.emptyPanelSub, { color: colors.textSecondary }]}>Enable cool-down or recovery in settings to add post-workout content</Text>
-                </View>
-              )}
-              {tracking.isWorkoutActive && (
-                <View style={styles.tabCompleteWrap}>
-                  <Animated.View style={completeWorkoutAnimStyle}>
-                    <TouchableOpacity
-                      style={[styles.completeBtn, { backgroundColor: currentAccent }]}
-                      onPress={handleCompleteWorkout}
-                      onPressIn={() => { completeWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
-                      onPressOut={() => { completeWorkoutScale.value = withSpring(1, SPRING_BTN); }}
-                      activeOpacity={1}
-                      testID="complete-workout-post"
-                    >
-                      <Check size={18} color={getContrastTextColor(currentAccent)} />
-                      <Text style={[styles.completeBtnText, { color: getContrastTextColor(currentAccent) }]}>Finish Workout</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                </View>
-              )}
-            </View>
-          </View>
-          </TabContentSpring>
-        )}
+        {activePanel === 2 && null}
 
           </View>
         </View>}
+
+        {/* ── Warm-Up — standalone card below unified tab card ── */}
+        {activePanel === 0 && (!hasCompletedToday || postWorkoutDismissed) && !isPlanRestDay && ctx.warmUp && !warmupHidden && (workout?.warmup?.length ?? 0) > 0 && (
+          <View style={[styles.checklistCard, {
+            marginHorizontal: 16,
+            marginTop: 10,
+            backgroundColor: isDark ? 'rgba(248,113,22,0.06)' : 'rgba(248,113,22,0.05)',
+            borderColor: isDark ? 'rgba(248,113,22,0.18)' : 'rgba(248,113,22,0.15)',
+          }]}>
+            <View style={styles.checklistSectionHeader}>
+              <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(248,113,22,0.15)' }]}>
+                <Flame size={13} color="#f87116" />
+              </View>
+              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Warm-Up</Text>
+              <View style={{ flex: 1 }} />
+              {warmupChecked.size === (workout?.warmup?.length ?? 0) && warmupChecked.size > 0 ? (
+                <View style={styles.checklistProgressPillDone}>
+                  <Check size={11} color="#fff" />
+                </View>
+              ) : (
+                <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                  <Text style={[styles.checklistProgressText, { color: colors.textSecondary }]}>
+                    {warmupChecked.size}/{workout?.warmup?.length ?? 0}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {workout?.warmup.map((item, idx) => {
+              const isChecked = warmupChecked.has(idx);
+              const isLast = idx === (workout?.warmup?.length ?? 1) - 1;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.checklistRow, !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
+                  onPress={() => {
+                    handleToggleWarmupItem(idx);
+                    if (Platform.OS !== 'web') Haptics.selectionAsync();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.checklistCheckbox,
+                    { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
+                    isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
+                  ]}>
+                    {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
+                  </View>
+                  <View style={styles.checklistRowInfo}>
+                    <Text style={[
+                      styles.checklistRowName,
+                      { color: isChecked ? colors.textMuted : colors.text },
+                      isChecked && { textDecorationLine: 'line-through' as const },
+                    ]}>{item.name}</Text>
+                    <Text style={[styles.checklistRowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#f87116', type: 'warmup' })}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Info size={15} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Core Finisher — standalone card below unified tab card ── */}
+        {activePanel === 1 && (!hasCompletedToday || postWorkoutDismissed) && !isPlanRestDay && ctx.coreFinisher && workout?.coreFinisher && workout.coreFinisher.length > 0 && (
+          <View style={[
+            styles.coreFinisherCard,
+            {
+              marginHorizontal: 16,
+              marginTop: 10,
+              backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+            },
+          ]}>
+            <TouchableOpacity
+              style={styles.coreFinisherHeader}
+              onPress={() => setInfoLabel('CORE FINISHER')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.coreFinisherIconBadge, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
+                <Target size={13} color="rgba(34,197,94,0.7)" />
+              </View>
+              <Text style={[styles.coreFinisherLabel, { color: 'rgba(255,255,255,0.9)' }]}>Core Finisher</Text>
+            </TouchableOpacity>
+            {workout.coreFinisher.slice(0, 1).map((ex, idx) => {
+              const isCompleted = tracking.exerciseLogs[ex.id]?.completed === true;
+              const isExpanded = expandedTrack === ex.id;
+              const isLast = idx === workout.coreFinisher!.length - 1;
+              return (
+                <View
+                  key={ex.id}
+                  onLayout={(e) => {
+                    rowLayoutsRef.current.set(ex.id, {
+                      y: e.nativeEvent.layout.y,
+                      height: e.nativeEvent.layout.height,
+                    });
+                  }}
+                >
+                  <SwipeableExerciseRow
+                    id={ex.id}
+                    isOpen={swipeOpenId === ex.id}
+                    onOpen={setSwipeOpenId}
+                    onInfo={() => handleExerciseTap(ex)}
+                    onSwap={() => handleSwapExercise(ex)}
+                    onDelete={() => handleDeleteExercise(ex.id)}
+                    rowBg={colors.card}
+                    enabled={activeDragId === null}
+                  >
+                    <TouchableOpacity
+                      style={[styles.exerciseRow, { borderBottomColor: isLast ? 'transparent' : `${colors.border}40` }]}
+                      onPress={() => handleToggleTrackPanel(ex.id, ex)}
+                      onLongPress={() => handleExerciseLongPress(ex)}
+                      delayLongPress={350}
+                      activeOpacity={1}
+                    >
+                      <View style={styles.exerciseInfo}>
+                        <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
+                          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>
+                            {ex.name}
+                          </Text>
+                        </TouchableOpacity>
+                        {!isCompleted && (
+                          <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
+                            {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
+                          </Text>
+                        )}
+                      </View>
+                      {renderTrackButton(ex)}
+                    </TouchableOpacity>
+                  </SwipeableExerciseRow>
+                  {!isLast && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
+                  <ExpandingPanel visible={isExpanded}>
+                    {renderTrackingPanel(ex)}
+                  </ExpandingPanel>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Cardio — standalone card below unified tab card ── */}
+        {activePanel === 1 && (!hasCompletedToday || postWorkoutDismissed) && !isPlanRestDay && hasCardio && (
+          <View style={[
+            styles.cardioStandaloneCard,
+            {
+              marginHorizontal: 16,
+              marginTop: 10,
+              backgroundColor: isDark ? 'rgba(34,34,34,0.98)' : 'rgba(235,235,235,0.98)',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+            },
+          ]}>
+            <View style={[styles.cardioStandaloneHeader, { borderBottomWidth: 1, borderBottomColor: 'rgba(139,92,246,0.2)' }]}>
+              <View style={[styles.cardioStandaloneIconBadge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
+                <Activity size={13} color="#8b5cf6" />
+              </View>
+              <TouchableOpacity onPress={() => setInfoLabel('Cardio')} activeOpacity={0.7}>
+                <Text style={[styles.cardioStandaloneLabel, { color: colors.text }]}>Cardio</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+            </View>
+            {workout!.cardio.map((c, idx) => {
+              const isLast = idx === workout!.cardio.length - 1;
+              const cardioEx: WorkoutExercise = {
+                id: `cardio-${idx}`,
+                name: c.name,
+                sets: 1,
+                reps: c.duration,
+                rest: c.rpe ? `RPE ${c.rpe}` : 'None',
+                muscleGroup: 'Cardio',
+                equipment: 'None',
+                notes: c.notes ?? '',
+                type: 'cardio',
+                movementType: 'cardio',
+                groupType: null,
+                groupId: null,
+                suggestedWeight: 'BW',
+                lastSessionWeight: '',
+                lastSessionReps: '',
+                exerciseRef: null,
+              };
+              const isExpanded = expandedTrack === cardioEx.id;
+              const isCompleted = tracking.exerciseLogs[cardioEx.id]?.completed === true;
+              return (
+                <View key={idx}>
+                  <SwipeableExerciseRow
+                    id={cardioEx.id}
+                    isOpen={swipeOpenId === cardioEx.id}
+                    onOpen={setSwipeOpenId}
+                    onInfo={() => handleExerciseTap(cardioEx)}
+                    onSwap={() => {}}
+                    onDelete={() => {
+                      if (!workout) return;
+                      setWorkout({ ...workout, cardio: workout.cardio.filter((_, i) => i !== idx) });
+                    }}
+                    rowBg={colors.card}
+                    enabled={activeDragId === null}
+                  >
+                    <Pressable
+                      style={[styles.exerciseRow, isLast && !isExpanded && { borderBottomColor: 'transparent' }]}
+                      onPress={() => handleToggleTrackPanel(cardioEx.id, cardioEx)}
+                      activeOpacity={1}
+                    >
+                      <View style={styles.exerciseInfo}>
+                        <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(cardioEx)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
+                          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>{c.name}</Text>
+                        </TouchableOpacity>
+                        {!isCompleted && (
+                          <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
+                            {c.duration}{c.rpe ? ` · RPE ${c.rpe}` : ''}
+                          </Text>
+                        )}
+                        {c.notes ? (
+                          <Text style={[styles.cardioNotes, { color: colors.textMuted }]} numberOfLines={1}>&quot;{c.notes}&quot;</Text>
+                        ) : null}
+                      </View>
+                      {renderTrackButton(cardioEx)}
+                    </Pressable>
+                  </SwipeableExerciseRow>
+                  {!isLast && !isExpanded && <View style={[styles.exerciseRowSeparator, { backgroundColor: `${colors.border}40` }]} />}
+                  <ExpandingPanel visible={isExpanded}>
+                    {renderTrackingPanel(cardioEx)}
+                  </ExpandingPanel>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Cool-Down — standalone card below unified tab card ── */}
+        {activePanel === 2 && (!hasCompletedToday || postWorkoutDismissed) && !isPlanRestDay && ctx.coolDown && workout && workout.cooldown.length > 0 && (
+          <View style={[styles.checklistCard, {
+            marginHorizontal: 16,
+            marginTop: 10,
+            backgroundColor: isDark ? 'rgba(6,182,212,0.06)' : 'rgba(6,182,212,0.05)',
+            borderColor: isDark ? 'rgba(6,182,212,0.18)' : 'rgba(6,182,212,0.15)',
+          }]}>
+            <View style={styles.checklistSectionHeader}>
+              <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(6,182,212,0.15)' }]}>
+                <Snowflake size={13} color="#06b6d4" />
+              </View>
+              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Cool-Down</Text>
+              <View style={{ flex: 1 }} />
+              {cooldownChecked.size === workout.cooldown.length && cooldownChecked.size > 0 ? (
+                <View style={styles.checklistProgressPillDone}>
+                  <Check size={11} color="#fff" />
+                </View>
+              ) : (
+                <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                  <Text style={[styles.checklistProgressText, { color: colors.textSecondary }]}>
+                    {cooldownChecked.size}/{workout.cooldown.length}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {workout.cooldown.map((item, idx) => {
+              const isChecked = cooldownChecked.has(idx);
+              const isLast = idx === workout.cooldown.length - 1;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.checklistRow, !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
+                  onPress={() => {
+                    const next = new Set(cooldownChecked);
+                    if (next.has(idx)) next.delete(idx); else next.add(idx);
+                    setCooldownChecked(next);
+                    if (next.size === workout.cooldown.length) setCooldownComplete(true);
+                    if (Platform.OS !== 'web') Haptics.selectionAsync();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.checklistCheckbox,
+                    { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
+                    isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
+                  ]}>
+                    {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
+                  </View>
+                  <View style={styles.checklistRowInfo}>
+                    <Text style={[
+                      styles.checklistRowName,
+                      { color: isChecked ? colors.textMuted : colors.text },
+                      isChecked && { textDecorationLine: 'line-through' as const },
+                    ]}>{item.name}</Text>
+                    <Text style={[styles.checklistRowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#06b6d4', type: 'cooldown' })}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Info size={15} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Recovery — standalone card below unified tab card ── */}
+        {activePanel === 2 && (!hasCompletedToday || postWorkoutDismissed) && !isPlanRestDay && ctx.recovery && workout && workout.recovery.length > 0 && (
+          <View style={[styles.checklistCard, {
+            marginHorizontal: 16,
+            marginTop: 10,
+            backgroundColor: isDark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.05)',
+            borderColor: isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.15)',
+          }]}>
+            <View style={styles.checklistSectionHeader}>
+              <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                <Heart size={13} color="#ef4444" />
+              </View>
+              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Recovery</Text>
+              <View style={{ flex: 1 }} />
+              {recoveryChecked.size === workout.recovery.length && recoveryChecked.size > 0 ? (
+                <View style={styles.checklistProgressPillDone}>
+                  <Check size={11} color="#fff" />
+                </View>
+              ) : (
+                <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                  <Text style={[styles.checklistProgressText, { color: colors.textSecondary }]}>
+                    {recoveryChecked.size}/{workout.recovery.length}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {workout.recovery.map((item, idx) => {
+              const isChecked = recoveryChecked.has(idx);
+              const isLast = idx === workout.recovery.length - 1;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.checklistRow, !isLast && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
+                  onPress={() => {
+                    const next = new Set(recoveryChecked);
+                    if (next.has(idx)) next.delete(idx); else next.add(idx);
+                    setRecoveryChecked(next);
+                    if (Platform.OS !== 'web') Haptics.selectionAsync();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.checklistCheckbox,
+                    { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
+                    isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
+                  ]}>
+                    {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
+                  </View>
+                  <View style={styles.checklistRowInfo}>
+                    <Text style={[
+                      styles.checklistRowName,
+                      { color: isChecked ? colors.textMuted : colors.text },
+                      isChecked && { textDecorationLine: 'line-through' as const },
+                    ]}>{item.name}</Text>
+                    <Text style={[styles.checklistRowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#ef4444', benefit: item.benefit, type: 'recovery' })}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Info size={15} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Add / Finish button — outside the card, workout tab only */}
         {!hasCompletedToday && activePanel === 1 && (
@@ -5977,11 +5956,10 @@ const styles = StyleSheet.create({
   cardioStandaloneCard: {
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderBottomWidth: 0,
-    overflow: 'hidden',
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   cardioStandaloneHeader: {
     flexDirection: 'row' as const,
@@ -6056,7 +6034,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   tabPanel: {
-    borderRadius: 36,
+    borderRadius: 28,
     overflow: 'hidden',
   },
   tabHeaderCard: {
@@ -6072,9 +6050,9 @@ const styles = StyleSheet.create({
     height: 50,
     paddingVertical: 6,
     paddingHorizontal: 6,
-    marginHorizontal: 10,
-    marginTop: 10,
-    marginBottom: 6,
+    marginHorizontal: 5,
+    marginTop: 5,
+    marginBottom: 5,
     position: 'relative' as const,
     overflow: 'hidden' as const,
     backgroundColor: 'rgba(20,20,20,0.98)',
@@ -6778,11 +6756,9 @@ const styles = StyleSheet.create({
   coreFinisherCard: {
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderBottomWidth: 0,
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
     borderWidth: 1,
-    marginHorizontal: -12,
     overflow: 'hidden' as const,
   },
   coreFinisherHeader: {
