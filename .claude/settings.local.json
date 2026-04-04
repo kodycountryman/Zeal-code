@@ -31,7 +31,9 @@
       "Bash(python3 -c \":*)",
       "Bash(python3:*)",
       "Bash(node -e \":*)",
-      "Bash(jq \".exercises[] | select\\(.eligible_styles[] | select\\(. == \"\"hyrox\"\"\\)\\) | {id: .id, name: .name, movement_pattern: .movement_pattern}\" /Users/kodycountryman/Desktop/zeal+ Code/mocks/exerciseSchema.json)"
+      "Bash(jq \".exercises[] | select\\(.eligible_styles[] | select\\(. == \"\"hyrox\"\"\\)\\) | {id: .id, name: .name, movement_pattern: .movement_pattern}\" /Users/kodycountryman/Desktop/zeal+ Code/mocks/exerciseSchema.json)",
+      "Bash(find \"/Users/kodycountryman/Desktop/zeal+ Code/app/\\(tabs\\)\" -name \"*.tsx\" -type f)",
+      "Bash(grep -rn RestTimerBar '/Users/kodycountryman/Desktop/zeal+ Code' --include=*.tsx --include=*.ts)"
     ]
   },
   "hooks": {

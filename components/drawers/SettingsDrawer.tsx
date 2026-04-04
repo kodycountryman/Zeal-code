@@ -344,6 +344,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
     c.setAddCardio(localCardio);
     c.setCoreFinisher(localCoreFinisher);
     c.clearWorkoutOverride();
+    c.clearLastModifyState();
     c.saveSettingsToStorage({
       workoutStyle: localStyle,
       trainingSplit: localSplit,

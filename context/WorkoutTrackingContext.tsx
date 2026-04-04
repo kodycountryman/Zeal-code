@@ -296,6 +296,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const [isRestActive, setIsRestActive] = useState<boolean>(false);
   const [showRestTimer, setShowRestTimer] = useState<boolean>(false);
   const [isTimerMinimized, setIsTimerMinimized] = useState<boolean>(false);
+  const [autoRestTimer, setAutoRestTimer] = useState<boolean>(true);
+  const autoRestTimerRef = useRef<boolean>(true);
 
   const [exerciseLogs, setExerciseLogs] = useState<Record<string, ExerciseLog>>({});
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
@@ -884,6 +886,11 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     // Notification is only scheduled when app goes to background (AppState listener)
   }, []);
 
+  const handleSetAutoRestTimer = useCallback((value: boolean) => {
+    autoRestTimerRef.current = value;
+    setAutoRestTimer(value);
+  }, []);
+
   const adjustRestTimer = useCallback((delta: number) => {
     // Shift the end timestamp by delta — stays accurate even after backgrounding
     restEndWallRef.current = Math.max(Date.now(), restEndWallRef.current + delta * 1000);
@@ -1023,7 +1030,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       return { ...prev, [exerciseId]: { ...log, sets: newSets, prHit: log.prHit || newSets[setIndex].done } };
     });
 
-    if (willBeMarkedDone && restSeconds > 0) {
+    if (willBeMarkedDone && restSeconds > 0 && autoRestTimerRef.current) {
       console.log('[Tracking] Auto-starting rest timer after set done:', restSeconds, 's');
       startRestTimer(restSeconds);
     }
@@ -1073,7 +1080,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       return { ...prev, [exerciseId]: { ...log, completed: true } };
     });
     setExpandedExercise(null);
-    if (restSeconds && restSeconds > 0) {
+    if (restSeconds && restSeconds > 0 && autoRestTimerRef.current) {
       startRestTimer(restSeconds);
     }
   }, [startRestTimer]);
@@ -1631,6 +1638,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     showRestTimer,
     isTimerMinimized,
     setIsTimerMinimized,
+    autoRestTimer,
+    setAutoRestTimer: handleSetAutoRestTimer,
     exerciseLogs,
     expandedExercise,
     setExpandedExercise,
@@ -1718,7 +1727,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     resetTrackingData,
   }), [
     isWorkoutActive, workoutElapsed, isPaused, isRestActive, restTimeRemaining,
-    restTimeTotal, showRestTimer, isTimerMinimized, setIsTimerMinimized, exerciseLogs, expandedExercise,
+    restTimeTotal, showRestTimer, isTimerMinimized, setIsTimerMinimized, autoRestTimer, handleSetAutoRestTimer, exerciseLogs, expandedExercise,
     postWorkoutStep, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell,
     sessionScoreBreakdown, sessionPRs, confirmedPRs, workoutHistory, prHistory, activeWorkout,
     logPreviousVisible, calendarModalVisible, workoutLogDetailVisible,

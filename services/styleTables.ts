@@ -23,18 +23,18 @@ export interface RestPeriodEntry {
 
 export const REST_PERIOD_MATRIX: Record<string, Record<string, RestPeriodEntry>> = {
   strength: {
-    heavy_compound:    { floor: 120, ceiling: 300, base: 180 },
-    moderate_compound: { floor: 90,  ceiling: 210, base: 120 },
-    isolation:         { floor: 45,  ceiling: 150, base: 75  },
-    core:              { floor: 30,  ceiling: 120, base: 45  },
+    heavy_compound:    { floor: 120, ceiling: 300, base: 180 },  // Guide: 3:00-5:00, default 3:00
+    moderate_compound: { floor: 90,  ceiling: 210, base: 150 },  // Guide: 2:00-3:30, default 2:30
+    isolation:         { floor: 90,  ceiling: 150, base: 105 },  // Guide: 1:30-2:30, default 1:45
+    core:              { floor: 60,  ceiling: 90,  base: 60  },  // Guide: 1:00-1:30, default 1:00
     quick_bodyweight:  { floor: 20,  ceiling: 90,  base: 30  },
   },
   bodybuilding: {
-    heavy_compound:    { floor: 90,  ceiling: 240, base: 150 },
-    moderate_compound: { floor: 60,  ceiling: 180, base: 90  },
-    isolation:         { floor: 30,  ceiling: 120, base: 60  },
-    core:              { floor: 30,  ceiling: 90,  base: 45  },
-    quick_bodyweight:  { floor: 20,  ceiling: 75,  base: 30  },
+    heavy_compound:    { floor: 90,  ceiling: 150, base: 120 },  // Guide: 1:30-2:30, default 2:00
+    moderate_compound: { floor: 60,  ceiling: 120, base: 90  },
+    isolation:         { floor: 60,  ceiling: 90,  base: 60  },  // Guide: 1:00-1:30, default 1:00
+    core:              { floor: 30,  ceiling: 60,  base: 45  },
+    quick_bodyweight:  { floor: 20,  ceiling: 45,  base: 30  },
   },
   crossfit: {
     heavy_compound:    { floor: 90,  ceiling: 240, base: 150 },
@@ -158,21 +158,21 @@ export const PROGRESSION_SPEED: Record<string, Record<FitnessLevel, {
 };
 
 export const EXERCISE_COUNT_RANGES: Record<string, { min: number; max: number }> = {
-  strength:     { min: 4,  max: 8  },
-  bodybuilding: { min: 5,  max: 10 },
-  crossfit:     { min: 5,  max: 10 },
-  hiit:         { min: 4,  max: 8  },
-  hyrox:        { min: 6,  max: 16 },
-  cardio:       { min: 2,  max: 5  },
-  pilates:      { min: 5,  max: 10 },
-  mobility:     { min: 5,  max: 10 },
-  low_impact:   { min: 5,  max: 8  },
-  hybrid:       { min: 5,  max: 9  },
+  strength:     { min: 3,  max: 7  },   // Guide: 3-4 (30min) to 5-6 (60min) + core
+  bodybuilding: { min: 4,  max: 9  },   // Guide: 4-5 (30min) to 7-9 (60min)
+  crossfit:     { min: 2,  max: 8  },   // Guide: 2-4 (30min) to 4-6 (60min) + A/C
+  hiit:         { min: 4,  max: 10 },   // Guide: 4-6 (30min) to 8-10 (60min)
+  hyrox:        { min: 2,  max: 16 },
+  cardio:       { min: 1,  max: 4  },   // Guide: 1-2 (30min) to 2-4 (60min)
+  pilates:      { min: 12, max: 34 },   // Guide: 12-15 (30min) to 28-34 (60min)
+  mobility:     { min: 10, max: 25 },   // Guide: 10-12 (20min) to 20-25 (45min)
+  low_impact:   { min: 3,  max: 8  },
+  hybrid:       { min: 4,  max: 10 },
 };
 
 export const REP_RANGE_BY_STYLE: Record<string, { min: number; max: number }> = {
   strength:     { min: 1,  max: 6  },
-  bodybuilding: { min: 8,  max: 15 },
+  bodybuilding: { min: 6,  max: 12 },  // Guide: 6-12 (isolation: 10-20 handled by role clamping)
   crossfit:     { min: 3,  max: 15 },
   hiit:         { min: 10, max: 20 },
   hyrox:        { min: 8,  max: 20 },
@@ -242,6 +242,19 @@ export const WORK_REST_RATIOS: Record<string, { work: number; rest: number }> = 
   circuit:          { work: 40, rest: 20 },
   emom:             { work: 40, rest: 20 },
   interval_repeats: { work: 30, rest: 30 },
+};
+
+/**
+ * HIIT work:rest ratios scaled by fitness level.
+ * - Beginner: 1:2 or 1:3 (more recovery time)
+ * - Intermediate: 1:1 (equal work and rest)
+ * - Advanced: 2:1 or 3:1 (minimal rest, higher intensity)
+ * Each level provides an array of presets the engine can select from.
+ */
+export const HIIT_WORK_REST_BY_LEVEL: Record<string, { work: number; rest: number }[]> = {
+  beginner:     [{ work: 20, rest: 40 }, { work: 20, rest: 60 }, { work: 30, rest: 60 }],
+  intermediate: [{ work: 30, rest: 30 }, { work: 40, rest: 40 }, { work: 45, rest: 45 }],
+  advanced:     [{ work: 40, rest: 20 }, { work: 45, rest: 15 }, { work: 60, rest: 30 }],
 };
 
 export const TRANSITION_BUFFER_BY_STYLE: Record<string, number> = {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, PanResponder, Switch } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -59,6 +59,11 @@ export default function RestTimerBar() {
   const handleAdjust = useCallback((delta: number) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     tracking.adjustRestTimer(delta);
+  }, [tracking]);
+
+  const handleAutoRestToggle = useCallback((value: boolean) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    tracking.setAutoRestTimer(value);
   }, [tracking]);
 
   const panResponder = useRef(
@@ -180,24 +185,36 @@ export default function RestTimerBar() {
       <View style={styles.topRow}>
         <Text style={[styles.restLabel, { color: isDark ? '#888' : '#777' }]}>REST TIMER</Text>
         <View style={styles.topRowRight}>
-          {isActive && isMinimized && (
-            <TouchableOpacity
-              onPress={handleCancel}
-              activeOpacity={0.7}
-              style={[styles.cancelPillSmall, { backgroundColor: isDark ? '#333' : '#ddd' }]}
-            >
-              <Text style={[styles.cancelPillSmallText, { color: isDark ? '#aaa' : '#555' }]}>Cancel</Text>
-            </TouchableOpacity>
-          )}
-          {isActive && isMinimized && (
-            <TouchableOpacity
-              onPress={handleToggle}
-              activeOpacity={0.6}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={styles.expandChevronBtn}
-            >
-              <ChevronUp size={20} color={chevronColor2} strokeWidth={3} />
-            </TouchableOpacity>
+          {isActive && isMinimized ? (
+            <>
+              <TouchableOpacity
+                onPress={handleCancel}
+                activeOpacity={0.7}
+                style={[styles.cancelPillSmall, { backgroundColor: isDark ? '#333' : '#ddd' }]}
+              >
+                <Text style={[styles.cancelPillSmallText, { color: isDark ? '#aaa' : '#555' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleToggle}
+                activeOpacity={0.6}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={styles.expandChevronBtn}
+              >
+                <ChevronUp size={20} color={chevronColor2} strokeWidth={3} />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.autoRestRow}>
+              <Text style={[styles.autoRestLabel, { color: isDark ? '#888' : '#777' }]}>Auto Rest</Text>
+              <Switch
+                value={tracking.autoRestTimer}
+                onValueChange={handleAutoRestToggle}
+                trackColor={{ false: isDark ? '#3a3a3a' : '#d1d1d6', true: 'rgba(248,113,22,0.4)' }}
+                thumbColor={tracking.autoRestTimer ? '#f87116' : (isDark ? '#888' : '#aaa')}
+                ios_backgroundColor={isDark ? '#3a3a3a' : '#d1d1d6'}
+                style={styles.autoRestSwitch}
+              />
+            </View>
           )}
         </View>
       </View>
@@ -389,5 +406,18 @@ const styles = StyleSheet.create({
   },
   expandChevronBtn: {
     padding: 4,
+  },
+  autoRestRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+  autoRestLabel: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    letterSpacing: 0.3,
+  },
+  autoRestSwitch: {
+    transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }],
   },
 });

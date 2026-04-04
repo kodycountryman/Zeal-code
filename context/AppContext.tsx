@@ -492,6 +492,11 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     );
   }, []);
 
+  const clearLastModifyState = useCallback(() => {
+    setLastModifyState(null);
+    AsyncStorage.removeItem(LAST_MODIFY_KEY).catch(() => {});
+  }, []);
+
   const saveSettingsToStorage = useCallback((settings: {
     workoutStyle: string;
     trainingSplit: string;
@@ -1239,6 +1244,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       setLoadedWorkout,
       lastModifyState,
       saveLastModifyState,
+      clearLastModifyState,
       plannedWorkouts,
       savePlannedWorkout,
       deletePlannedWorkout,
@@ -1277,7 +1283,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       healthSyncEnabled, setHealthSyncEnabled, healthConnected, setHealthConnected,
       notifPrefs, saveNotifPrefs,
       loadedWorkout, setLoadedWorkout,
-      lastModifyState, saveLastModifyState,
+      lastModifyState, saveLastModifyState, clearLastModifyState,
       plannedWorkouts, savePlannedWorkout, deletePlannedWorkout, getPlannedWorkoutForDate,
       showPlusSpotlight, setShowPlusSpotlight,
       googlePrefill, setGooglePrefill, deleteAccount, resetForNewUser, saveOnboardingProfile, newUserResetToken,

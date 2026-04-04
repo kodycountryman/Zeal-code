@@ -130,6 +130,9 @@ import {
   COOLDOWN_EXERCISE_COUNT,
   SPLIT_TO_MUSCLES,
   UPPER_BODY_MUSCLES,
+  MAX_EXERCISES_PER_VARIATION_FAMILY,
+  getMuscleSizeTier,
+  getExerciseCountForDuration,
   mapLegacyStyleToEngine,
   mapEngineStyleToDisplay,
   getDifficultyKey,
@@ -742,6 +745,17 @@ function applyArchitecturePhaseSelection(
     candidates.sort((a, b) => b.score - a.score);
 
     const picked = candidates.slice(0, count);
+
+    // Within each phase, re-sort by muscle group size tier (descending):
+    // large muscles (chest/lats/quads) first, medium (delts/traps) middle,
+    // small muscles (biceps/triceps) last. Tiebreak by score within same tier.
+    picked.sort((a, b) => {
+      const tierA = getMuscleSizeTier(a.exercise.primary_muscles);
+      const tierB = getMuscleSizeTier(b.exercise.primary_muscles);
+      if (tierA !== tierB) return tierB - tierA;  // larger muscles first
+      return b.score - a.score;  // tiebreak by score
+    });
+
     for (const p of picked) {
       selected.push(p);
       usedIds.add(p.exercise.id);
@@ -750,10 +764,19 @@ function applyArchitecturePhaseSelection(
     console.log('[EngineV2] Phase', phase.name, ':', picked.length, '/', count, 'exercises');
   }
 
-  for (const s of scored) {
-    if (!usedIds.has(s.exercise.id)) {
+  // Append remaining exercises not claimed by any phase.
+  // For compound-first styles, maintain compound-before-isolation in overflow.
+  const remaining = scored.filter(s => !usedIds.has(s.exercise.id));
+  const config = STYLE_ENGINE_CONFIGS[style];
+  if (config?.compounds_first) {
+    const overflowCompounds = remaining.filter(s => s.exercise.is_compound);
+    const overflowIsolations = remaining.filter(s => !s.exercise.is_compound);
+    for (const s of [...overflowCompounds, ...overflowIsolations]) {
       selected.push(s);
-      usedIds.add(s.exercise.id);
+    }
+  } else {
+    for (const s of remaining) {
+      selected.push(s);
     }
   }
 
@@ -775,11 +798,10 @@ function stage4Scoring(
 
   const config = STYLE_ENGINE_CONFIGS[style];
   const styleRules = getStyleRules(style);
-  const usedPatterns = new Set<string>();
   const usedFamilies = new Set<string>();
   const now = Date.now();
 
-  const scored: ScoredExercise[] = pool.map(ex => {
+  let scored: ScoredExercise[] = pool.map(ex => {
     let score = 0;
 
     const primaryMatch = ex.primary_muscles.some(m => targetMuscles.includes(m));
@@ -820,10 +842,6 @@ function stage4Scoring(
       score += SCORING_WEIGHTS.difficulty_match * 0.5;
     }
 
-    if (config && !usedPatterns.has(ex.movement_pattern)) {
-      score += SCORING_WEIGHTS.pattern_diversity;
-    }
-
     if (usedFamilies.has(ex.variation_family) && ex.variation_family) {
       score += SCORING_WEIGHTS.variation_family_penalty;
     }
@@ -838,11 +856,14 @@ function stage4Scoring(
     const stylePopularity = (ex as any).style_popularity?.[style] ?? 0;
     score += stylePopularity * SCORING_WEIGHTS.style_popularity_scale;
 
-    score += rng() * 20;
+    // Compounds get less noise so their relative ordering is more stable;
+    // isolations keep full noise for variety in accessory selection.
+    const noiseScale = ex.is_compound ? 10 : 20;
+    score += rng() * noiseScale;
 
     let role: ExerciseRole = 'accessory';
     if (primaryMatch && ex.is_compound) role = 'primary';
-    else if (primaryMatch || (secondaryMatch && ex.is_compound)) role = 'secondary';
+    else if (ex.is_compound && (primaryMatch || secondaryMatch)) role = 'secondary';
 
     const restTier = determineRestTier(ex, role);
 
@@ -850,6 +871,29 @@ function stage4Scoring(
   });
 
   scored.sort((a, b) => b.score - a.score);
+
+  // Apply pattern diversity as a post-sort penalty: duplicate movement patterns
+  // within the top candidates get penalized so the engine spreads across patterns.
+  const seenPatterns = new Set<string>();
+  for (const s of scored) {
+    if (seenPatterns.has(s.exercise.movement_pattern)) {
+      s.score -= SCORING_WEIGHTS.pattern_diversity;
+    }
+    seenPatterns.add(s.exercise.movement_pattern);
+  }
+  scored.sort((a, b) => b.score - a.score);
+
+  // Hard cap: max N exercises per variation family (e.g., max 2 bench press variants).
+  // Prevents over-representation like 6 chest presses in one workout.
+  const familyCountMap = new Map<string, number>();
+  scored = scored.filter(s => {
+    const family = s.exercise.variation_family ?? s.exercise.id;
+    if (!family) return true;
+    const count = familyCountMap.get(family) ?? 0;
+    if (count >= MAX_EXERCISES_PER_VARIATION_FAMILY) return false;
+    familyCountMap.set(family, count + 1);
+    return true;
+  });
 
   if (isStylePositionOrdered(style)) {
     const posOrdered = applyPositionOrdering(scored, style);
@@ -871,7 +915,6 @@ function stage4Scoring(
         if (match) {
           patternOrdered.push(match);
           used.add(match.exercise.id);
-          usedPatterns.add(match.exercise.movement_pattern);
           if (match.exercise.variation_family) usedFamilies.add(match.exercise.variation_family);
         }
       }
@@ -1013,9 +1056,15 @@ function stage6TimeValidation(
 
   const distractionFactor = DISTRACTION_FACTOR_BY_STYLE[style] ?? DISTRACTION_BUFFER_FACTOR;
   const usableTarget = targetMinutes * 60 * distractionFactor;
+
   const isStrengthStyle = style === 'strength' || style === 'bodybuilding';
-  const minExercises = isStrengthStyle ? 6 : (MIN_EXERCISES_PER_STYLE[style] ?? 4);
-  const maxExercises = MAX_EXERCISES_PER_STYLE[style] ?? 10;
+
+  // Duration-scaled exercise counts: use guide-specified ranges per duration,
+  // fall back to flat MIN/MAX if no duration bucket matches.
+  const durationRange = getExerciseCountForDuration(style, targetMinutes);
+  const minExercises = durationRange?.min ?? (MIN_EXERCISES_PER_STYLE[style] ?? 4);
+  const maxExercises = durationRange?.max ?? (MAX_EXERCISES_PER_STYLE[style] ?? 10);
+  console.log('[EngineV2] Exercise count range for', style, '@', targetMinutes, 'min:', minExercises, '-', maxExercises);
 
   let current = selected.slice(0, maxExercises);
 
@@ -2012,6 +2061,17 @@ export function runEngine(params: EngineParams): EngineResult {
     groupType: null,
     groupId: null,
   }));
+
+  // Final compound-before-isolation reorder: Stage 6 may have added overflow
+  // exercises at the end of the list (to fill the time budget), placing compounds
+  // after the architecture's isolation phases. Re-sort so all compounds lead.
+  if (STYLE_ENGINE_CONFIGS[s1.effectiveStyle]?.compounds_first) {
+    const compounds = workoutExercises.filter(e => e.exerciseRef.is_compound);
+    const isolations = workoutExercises.filter(e => !e.exerciseRef.is_compound);
+    workoutExercises.length = 0;
+    workoutExercises.push(...compounds, ...isolations);
+    console.log('[EngineV2] Post-Stage6 reorder: compounds first (' + compounds.length + 'C, ' + isolations.length + 'I)');
+  }
 
   const isCoreExercise = (ex: EngineWorkoutExercise): boolean =>
     ex.exerciseRef.primary_muscles.some(m => m === 'core' || m === 'obliques' || m === 'transverse_abdominis');

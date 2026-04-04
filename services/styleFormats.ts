@@ -26,7 +26,9 @@ export type WorkoutFormatId =
   | 'hold_sequence'
   | 'zone_steady'
   | 'tempo_intervals'
-  | 'interval_repeats';
+  | 'interval_repeats'
+  | 'top_set_backoff'
+  | 'pre_exhaust';
 
 export interface FormatRepScheme {
   min_reps: number;
@@ -441,6 +443,37 @@ export const FORMAT_DEFINITIONS: Record<WorkoutFormatId, WorkoutFormat> = {
     exercises_per_group: { min: 3, max: 6 },
     weight_progression: 'none',
   },
+
+  top_set_backoff: {
+    id: 'top_set_backoff',
+    name: 'Top Set + Back-Off',
+    description: 'Work up to one heavy top set, then reduce weight 10-20% for back-off volume sets at higher reps.',
+    rep_scheme: { min_reps: 1, max_reps: 8 },
+    set_scheme: { min_sets: 4, max_sets: 6 },
+    rest_scheme: { between_sets_seconds: 180, between_exercises_seconds: 180 },
+    time_cap: { has_time_cap: false },
+    supports_load: true,
+    supports_rounds: false,
+    group_type: null,
+    exercises_per_group: { min: 1, max: 1 },
+    weight_progression: 'descending',
+    drop_percentage: { min: 10, max: 20 },
+  },
+
+  pre_exhaust: {
+    id: 'pre_exhaust',
+    name: 'Pre-Exhaustion',
+    description: 'Isolation exercise immediately before a compound targeting the same muscle group. Fatigues the target muscle to ensure it is the limiting factor in the compound.',
+    rep_scheme: { min_reps: 10, max_reps: 15 },
+    set_scheme: { min_sets: 3, max_sets: 4 },
+    rest_scheme: { between_sets_seconds: 0, between_exercises_seconds: 90 },
+    time_cap: { has_time_cap: false },
+    supports_load: true,
+    supports_rounds: false,
+    group_type: 'superset',
+    exercises_per_group: { min: 2, max: 2 },
+    weight_progression: 'constant',
+  },
 };
 
 export type SessionPhaseId =
@@ -484,6 +517,10 @@ export interface SessionPhase {
   position_filter?: string[];
   is_compound_only?: boolean;
   is_isolation_only?: boolean;
+  /** When true, phase cannot be skipped even if time budget is tight.
+   *  Required phases always get their minimum exercise count before
+   *  optional phases can expand beyond their minimums. */
+  is_required?: boolean;
 }
 
 export interface SessionArchitecture {
@@ -498,7 +535,7 @@ export const STRENGTH_ARCHITECTURE: SessionArchitecture = {
       name: 'Primary Compound',
       exercise_count: { min: 1, max: 2 },
       role_filter: ['primary'],
-      preferred_formats: ['straight_sets', 'wave_loading', 'cluster_sets', 'ascending_sets'],
+      preferred_formats: ['straight_sets', 'wave_loading', 'cluster_sets', 'ascending_sets', 'top_set_backoff'],
       time_budget_fraction: 0.35,
       is_compound_only: true,
     },
@@ -507,7 +544,7 @@ export const STRENGTH_ARCHITECTURE: SessionArchitecture = {
       name: 'Secondary Compound',
       exercise_count: { min: 1, max: 2 },
       role_filter: ['secondary'],
-      preferred_formats: ['straight_sets', 'ascending_sets'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'top_set_backoff'],
       time_budget_fraction: 0.25,
       is_compound_only: true,
     },
@@ -522,12 +559,13 @@ export const STRENGTH_ARCHITECTURE: SessionArchitecture = {
     },
     {
       id: 'core',
-      name: 'Core',
-      exercise_count: { min: 1, max: 2 },
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
       role_filter: ['accessory'],
       preferred_formats: ['straight_sets', 'supersets'],
-      time_budget_fraction: 0.15,
-      muscle_filter: ['core', 'obliques', 'transverse_abdominis'],
+      time_budget_fraction: 0.10,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
     },
   ],
   total_phase_fraction: 1.0,
@@ -540,7 +578,7 @@ export const BODYBUILDING_ARCHITECTURE: SessionArchitecture = {
       name: 'Primary Compound',
       exercise_count: { min: 1, max: 2 },
       role_filter: ['primary'],
-      preferred_formats: ['straight_sets', 'ascending_sets'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'pre_exhaust'],
       time_budget_fraction: 0.25,
       is_compound_only: true,
     },
@@ -551,13 +589,14 @@ export const BODYBUILDING_ARCHITECTURE: SessionArchitecture = {
       role_filter: ['secondary'],
       preferred_formats: ['straight_sets', 'supersets'],
       time_budget_fraction: 0.20,
+      is_compound_only: true,
     },
     {
       id: 'accessories',
       name: 'Isolation Work',
       exercise_count: { min: 2, max: 4 },
       role_filter: ['accessory'],
-      preferred_formats: ['supersets', 'drop_sets', 'tri_sets', 'giant_sets'],
+      preferred_formats: ['supersets', 'drop_sets', 'tri_sets', 'giant_sets', 'pre_exhaust'],
       time_budget_fraction: 0.35,
       is_isolation_only: true,
     },
@@ -568,15 +607,17 @@ export const BODYBUILDING_ARCHITECTURE: SessionArchitecture = {
       role_filter: ['accessory'],
       preferred_formats: ['drop_sets', 'rest_pause', 'supersets'],
       time_budget_fraction: 0.10,
+      is_isolation_only: true,
     },
     {
       id: 'core',
-      name: 'Core',
-      exercise_count: { min: 1, max: 2 },
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
       role_filter: ['accessory'],
       preferred_formats: ['supersets', 'straight_sets'],
-      time_budget_fraction: 0.10,
-      muscle_filter: ['core', 'obliques', 'transverse_abdominis'],
+      time_budget_fraction: 0.08,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
     },
   ],
   total_phase_fraction: 1.0,
@@ -1135,18 +1176,409 @@ export const STRENGTH_CORE_CARDIO_ARCHITECTURE: SessionArchitecture = {
   total_phase_fraction: 1.0,
 };
 
+// ── Bodybuilding Split-Specific Architectures ─────────────────────────
+// Mirror the movement_filter / muscle_filter gates from strength, but with
+// BB-tuned format preferences (supersets, drop_sets, tri_sets, pre_exhaust)
+// and a heavier accessory/finisher volume distribution.
+
+export const BODYBUILDING_PUSH_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Press',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'pre_exhaust'],
+      time_budget_fraction: 0.22,
+      is_compound_only: true,
+      movement_filter: ['push'],
+      muscle_filter: ['chest', 'upper_chest', 'lower_chest'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Secondary Press (OHP / Incline)',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.18,
+      is_compound_only: true,
+      movement_filter: ['push'],
+      muscle_filter: ['front_delt', 'side_delt', 'upper_chest'],
+    },
+    {
+      id: 'accessories',
+      name: 'Chest + Shoulder Isolation',
+      exercise_count: { min: 2, max: 3 },
+      role_filter: ['accessory', 'secondary'],
+      preferred_formats: ['supersets', 'drop_sets', 'tri_sets', 'pre_exhaust'],
+      time_budget_fraction: 0.32,
+      is_isolation_only: true,
+      muscle_filter: ['chest', 'upper_chest', 'lower_chest', 'front_delt', 'side_delt'],
+    },
+    {
+      id: 'finisher',
+      name: 'Tricep Finisher',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['accessory'],
+      preferred_formats: ['drop_sets', 'rest_pause', 'supersets'],
+      time_budget_fraction: 0.20,
+      is_isolation_only: true,
+      muscle_filter: ['triceps'],
+    },
+    {
+      id: 'core',
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.08,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
+    },
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const BODYBUILDING_PULL_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Heavy Row / Pulldown',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.22,
+      is_compound_only: true,
+      movement_filter: ['pull', 'hinge'],
+      muscle_filter: ['lats', 'upper_back'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Secondary Pull (Vertical/Horizontal)',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.18,
+      is_compound_only: true,
+      movement_filter: ['pull'],
+      muscle_filter: ['lats', 'upper_back', 'rhomboids', 'traps'],
+    },
+    {
+      id: 'accessories',
+      name: 'Back + Rear Delt Isolation',
+      exercise_count: { min: 2, max: 3 },
+      role_filter: ['accessory', 'secondary'],
+      preferred_formats: ['supersets', 'drop_sets', 'tri_sets', 'pre_exhaust'],
+      time_budget_fraction: 0.32,
+      is_isolation_only: true,
+      muscle_filter: ['upper_back', 'rear_delt', 'traps', 'rhomboids', 'lower_back'],
+    },
+    {
+      id: 'finisher',
+      name: 'Bicep Finisher',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['accessory'],
+      preferred_formats: ['drop_sets', 'rest_pause', 'supersets'],
+      time_budget_fraction: 0.20,
+      is_isolation_only: true,
+      muscle_filter: ['biceps', 'forearms'],
+    },
+    {
+      id: 'core',
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.08,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
+    },
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const BODYBUILDING_LEGS_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Squat / Leg Press',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.22,
+      is_compound_only: true,
+      movement_filter: ['squat'],
+      muscle_filter: ['quads', 'glutes'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Hip Hinge (RDL / Stiff-Leg)',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.18,
+      is_compound_only: true,
+      movement_filter: ['hinge'],
+      muscle_filter: ['hamstrings', 'glutes'],
+    },
+    {
+      id: 'accessories',
+      name: 'Quad + Hamstring Isolation',
+      exercise_count: { min: 2, max: 3 },
+      role_filter: ['accessory', 'secondary'],
+      preferred_formats: ['supersets', 'drop_sets', 'tri_sets'],
+      time_budget_fraction: 0.32,
+      is_isolation_only: true,
+      muscle_filter: ['quads', 'hamstrings', 'glutes', 'adductors', 'abductors'],
+    },
+    {
+      id: 'finisher',
+      name: 'Calves Finisher',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['accessory'],
+      preferred_formats: ['drop_sets', 'rest_pause', 'straight_sets'],
+      time_budget_fraction: 0.20,
+      is_isolation_only: true,
+      muscle_filter: ['calves', 'glutes'],
+    },
+    {
+      id: 'core',
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.08,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
+    },
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const BODYBUILDING_UPPER_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Push (Bench / OHP)',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'pre_exhaust'],
+      time_budget_fraction: 0.18,
+      is_compound_only: true,
+      movement_filter: ['push'],
+      muscle_filter: ['chest', 'upper_chest', 'lower_chest'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Main Pull (Row / Pulldown)',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.16,
+      is_compound_only: true,
+      movement_filter: ['pull'],
+      muscle_filter: ['lats', 'upper_back'],
+    },
+    {
+      id: 'accessories',
+      name: 'Shoulder + Back Isolation',
+      exercise_count: { min: 2, max: 3 },
+      role_filter: ['accessory', 'secondary'],
+      preferred_formats: ['supersets', 'drop_sets', 'tri_sets', 'pre_exhaust'],
+      time_budget_fraction: 0.32,
+      is_isolation_only: true,
+      muscle_filter: ['front_delt', 'side_delt', 'rear_delt', 'upper_back', 'traps', 'chest'],
+    },
+    {
+      id: 'finisher',
+      name: 'Arms Finisher',
+      exercise_count: { min: 2, max: 2 },
+      role_filter: ['accessory'],
+      preferred_formats: ['supersets', 'drop_sets', 'rest_pause'],
+      time_budget_fraction: 0.26,
+      is_isolation_only: true,
+      muscle_filter: ['biceps', 'triceps', 'forearms'],
+    },
+    {
+      id: 'core',
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.08,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
+    },
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const BODYBUILDING_LOWER_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Squat / Press',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.22,
+      is_compound_only: true,
+      movement_filter: ['squat'],
+      muscle_filter: ['quads', 'glutes'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Hinge (RDL / SLDL)',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.18,
+      is_compound_only: true,
+      movement_filter: ['hinge'],
+      muscle_filter: ['hamstrings', 'glutes'],
+    },
+    {
+      id: 'accessories',
+      name: 'Leg Isolation (Extensions + Curls)',
+      exercise_count: { min: 2, max: 3 },
+      role_filter: ['accessory', 'secondary'],
+      preferred_formats: ['supersets', 'drop_sets', 'tri_sets'],
+      time_budget_fraction: 0.32,
+      is_isolation_only: true,
+      muscle_filter: ['quads', 'hamstrings', 'glutes', 'adductors', 'abductors'],
+    },
+    {
+      id: 'finisher',
+      name: 'Calves + Glute Finisher',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['accessory'],
+      preferred_formats: ['drop_sets', 'rest_pause', 'straight_sets'],
+      time_budget_fraction: 0.20,
+      is_isolation_only: true,
+      muscle_filter: ['calves', 'glutes'],
+    },
+    {
+      id: 'core',
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.08,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
+    },
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const BODYBUILDING_FULL_BODY_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Compound (Squat / Bench)',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.18,
+      is_compound_only: true,
+      movement_filter: ['squat', 'push'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Secondary Compound (Row / Press)',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.20,
+      is_compound_only: true,
+      movement_filter: ['pull', 'push', 'hinge'],
+    },
+    {
+      id: 'accessories',
+      name: 'Isolation Supersets',
+      exercise_count: { min: 2, max: 4 },
+      role_filter: ['accessory'],
+      preferred_formats: ['supersets', 'tri_sets', 'giant_sets', 'drop_sets'],
+      time_budget_fraction: 0.37,
+      is_isolation_only: true,
+    },
+    {
+      id: 'finisher',
+      name: 'Finisher',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['drop_sets', 'rest_pause'],
+      time_budget_fraction: 0.17,
+      is_isolation_only: true,
+    },
+    {
+      id: 'core',
+      name: 'Core Finisher',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['accessory'],
+      preferred_formats: ['straight_sets', 'supersets'],
+      time_budget_fraction: 0.08,
+      muscle_filter: ['core', 'obliques', 'transverse_abdominis', 'hip_flexors'],
+      is_required: true,
+    },
+  ],
+  total_phase_fraction: 1.0,
+};
+
+const SPLIT_TO_BODYBUILDING_ARCHITECTURE: Record<string, SessionArchitecture> = {
+  // PPL variants
+  push: BODYBUILDING_PUSH_ARCHITECTURE,
+  'push day': BODYBUILDING_PUSH_ARCHITECTURE,
+  pull: BODYBUILDING_PULL_ARCHITECTURE,
+  'pull day': BODYBUILDING_PULL_ARCHITECTURE,
+  legs: BODYBUILDING_LEGS_ARCHITECTURE,
+  'leg day': BODYBUILDING_LEGS_ARCHITECTURE,
+  // Upper / Lower
+  upper: BODYBUILDING_UPPER_ARCHITECTURE,
+  'upper body': BODYBUILDING_UPPER_ARCHITECTURE,
+  lower: BODYBUILDING_LOWER_ARCHITECTURE,
+  'lower body': BODYBUILDING_LOWER_ARCHITECTURE,
+  // Full Body
+  'full body': BODYBUILDING_FULL_BODY_ARCHITECTURE,
+  // Body Part Split day names
+  chest: BODYBUILDING_PUSH_ARCHITECTURE,
+  'chest day': BODYBUILDING_PUSH_ARCHITECTURE,
+  back: BODYBUILDING_PULL_ARCHITECTURE,
+  'back day': BODYBUILDING_PULL_ARCHITECTURE,
+  shoulders: BODYBUILDING_PUSH_ARCHITECTURE,
+  'shoulders day': BODYBUILDING_PUSH_ARCHITECTURE,
+  arms: BODYBUILDING_UPPER_ARCHITECTURE,
+  'arms day': BODYBUILDING_UPPER_ARCHITECTURE,
+};
+
 const SPLIT_TO_STRENGTH_ARCHITECTURE: Record<string, SessionArchitecture> = {
+  // PPL variants
   push: STRENGTH_PUSH_ARCHITECTURE,
   'push day': STRENGTH_PUSH_ARCHITECTURE,
   pull: STRENGTH_PULL_ARCHITECTURE,
   'pull day': STRENGTH_PULL_ARCHITECTURE,
   legs: STRENGTH_LEGS_ARCHITECTURE,
   'leg day': STRENGTH_LEGS_ARCHITECTURE,
+  // Upper / Lower
   upper: STRENGTH_UPPER_ARCHITECTURE,
+  'upper body': STRENGTH_UPPER_ARCHITECTURE,
   lower: STRENGTH_LOWER_ARCHITECTURE,
+  'lower body': STRENGTH_LOWER_ARCHITECTURE,
+  // Full Body
   'full body': STRENGTH_FULL_BODY_ARCHITECTURE,
+  // Core + Cardio
   'core + cardio': STRENGTH_CORE_CARDIO_ARCHITECTURE,
   'core+cardio': STRENGTH_CORE_CARDIO_ARCHITECTURE,
+  'core blast': STRENGTH_CORE_CARDIO_ARCHITECTURE,
+  // Body Part Split day names (from planEngine SPLIT_NAME_TO_ROTATION)
+  chest: STRENGTH_PUSH_ARCHITECTURE,
+  'chest day': STRENGTH_PUSH_ARCHITECTURE,
+  back: STRENGTH_PULL_ARCHITECTURE,
+  'back day': STRENGTH_PULL_ARCHITECTURE,
+  shoulders: STRENGTH_PUSH_ARCHITECTURE,
+  'shoulders day': STRENGTH_PUSH_ARCHITECTURE,
+  arms: STRENGTH_UPPER_ARCHITECTURE,
+  'arms day': STRENGTH_UPPER_ARCHITECTURE,
 };
 
 // Hybrid: strength compounds followed by a conditioning circuit finisher
@@ -1185,30 +1617,37 @@ export const HYBRID_ARCHITECTURE: SessionArchitecture = {
 };
 
 export function getArchitectureForStyle(style: string, split?: string): SessionArchitecture {
-  if ((style === 'strength' || style === 'bodybuilding') && split) {
+  if ((style === 'strength' || style === 'bodybuilding' || style === 'hybrid') && split) {
     const normalizedSplit = split.toLowerCase().trim();
-    const splitArch = SPLIT_TO_STRENGTH_ARCHITECTURE[normalizedSplit];
+
+    // Use style-specific mapping: BB gets BB architectures, strength/hybrid get strength architectures
+    const lookupTable = style === 'bodybuilding'
+      ? SPLIT_TO_BODYBUILDING_ARCHITECTURE
+      : SPLIT_TO_STRENGTH_ARCHITECTURE;
+    const splitArch = lookupTable[normalizedSplit];
     if (splitArch) {
       console.log('[StyleFormats] Using split-specific architecture for', style, '/', split);
       return splitArch;
     }
+
+    // Fuzzy fallbacks — also style-aware
     if (normalizedSplit.includes('push') && !normalizedSplit.includes('pull') && !normalizedSplit.includes('legs')) {
-      return STRENGTH_PUSH_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_PUSH_ARCHITECTURE : STRENGTH_PUSH_ARCHITECTURE;
     }
     if (normalizedSplit.includes('pull') && !normalizedSplit.includes('push') && !normalizedSplit.includes('legs')) {
-      return STRENGTH_PULL_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_PULL_ARCHITECTURE : STRENGTH_PULL_ARCHITECTURE;
     }
     if (normalizedSplit.includes('legs') || normalizedSplit.startsWith('leg ')) {
-      return STRENGTH_LEGS_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_LEGS_ARCHITECTURE : STRENGTH_LEGS_ARCHITECTURE;
     }
     if (normalizedSplit === 'upper' || normalizedSplit.includes('upper body')) {
-      return STRENGTH_UPPER_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_UPPER_ARCHITECTURE : STRENGTH_UPPER_ARCHITECTURE;
     }
     if (normalizedSplit === 'lower' || normalizedSplit.includes('lower body')) {
-      return STRENGTH_LOWER_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_LOWER_ARCHITECTURE : STRENGTH_LOWER_ARCHITECTURE;
     }
     if (normalizedSplit.includes('full body') || normalizedSplit.includes('full_body')) {
-      return STRENGTH_FULL_BODY_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_FULL_BODY_ARCHITECTURE : STRENGTH_FULL_BODY_ARCHITECTURE;
     }
     if (normalizedSplit.includes('core')) {
       return STRENGTH_CORE_CARDIO_ARCHITECTURE;

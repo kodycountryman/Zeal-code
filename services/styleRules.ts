@@ -32,34 +32,22 @@ export interface SupersetRule {
   allowed_pairing_types: ('antagonist' | 'compound_set' | 'pre_exhaust' | 'post_exhaust')[];
 }
 
+export interface ProgressionLevelConfig {
+  rep_increase_per_week: number;
+  load_increase_percent_per_week: number;
+  set_increase_frequency_weeks: number;
+  max_load_increase_lbs_upper: number;
+  max_load_increase_lbs_lower: number;
+  deload_frequency_weeks: number;
+  deload_volume_reduction: number;
+  /** For duration-based styles (cardio, mobility). Signals plan engine to increase session length. */
+  duration_increase_percent_per_week?: number;
+}
+
 export interface ProgressionModel {
-  beginner: {
-    rep_increase_per_week: number;
-    load_increase_percent_per_week: number;
-    set_increase_frequency_weeks: number;
-    max_load_increase_lbs_upper: number;
-    max_load_increase_lbs_lower: number;
-    deload_frequency_weeks: number;
-    deload_volume_reduction: number;
-  };
-  intermediate: {
-    rep_increase_per_week: number;
-    load_increase_percent_per_week: number;
-    set_increase_frequency_weeks: number;
-    max_load_increase_lbs_upper: number;
-    max_load_increase_lbs_lower: number;
-    deload_frequency_weeks: number;
-    deload_volume_reduction: number;
-  };
-  advanced: {
-    rep_increase_per_week: number;
-    load_increase_percent_per_week: number;
-    set_increase_frequency_weeks: number;
-    max_load_increase_lbs_upper: number;
-    max_load_increase_lbs_lower: number;
-    deload_frequency_weeks: number;
-    deload_volume_reduction: number;
-  };
+  beginner: ProgressionLevelConfig;
+  intermediate: ProgressionLevelConfig;
+  advanced: ProgressionLevelConfig;
 }
 
 export interface TimeMathConfig {
@@ -103,6 +91,12 @@ export interface StyleGenerationRules {
   pattern_priority: string[];
   exercise_count: { min: number; max: number };
   special_rules: string[];
+  /** Tempo spec for controlled-movement styles (Pilates, Mobility). */
+  tempo_spec?: {
+    eccentric_seconds: number;
+    concentric_seconds: number;
+    pause_seconds: number;
+  };
 }
 
 export const STRENGTH_RULES: StyleGenerationRules = {
@@ -120,10 +114,10 @@ export const STRENGTH_RULES: StyleGenerationRules = {
   ],
   session_architecture_id: 'strength',
   rest_overrides: {
-    heavy_compound:    { floor: 120, ceiling: 300, base: 180 },
-    moderate_compound: { floor: 90,  ceiling: 210, base: 120 },
-    isolation:         { floor: 45,  ceiling: 150, base: 75  },
-    core:              { floor: 30,  ceiling: 120, base: 45  },
+    heavy_compound:    { floor: 120, ceiling: 300, base: 180 },  // Guide: 3:00-5:00, default 3:00
+    moderate_compound: { floor: 90,  ceiling: 210, base: 150 },  // Guide: 2:00-3:30, default 2:30
+    isolation:         { floor: 90,  ceiling: 150, base: 105 },  // Guide: 1:30-2:30, default 1:45
+    core:              { floor: 60,  ceiling: 90,  base: 60  },  // Guide: 1:00-1:30, default 1:00
     quick_bodyweight:  { floor: 20,  ceiling: 90,  base: 30  },
   },
   superset_rules: {
@@ -137,7 +131,7 @@ export const STRENGTH_RULES: StyleGenerationRules = {
   },
   progression: {
     beginner: {
-      rep_increase_per_week: 1,
+      rep_increase_per_week: 0,  // Rippetoe: fix reps, progress load only
       load_increase_percent_per_week: 2.5,
       set_increase_frequency_weeks: 4,
       max_load_increase_lbs_upper: 5,
@@ -199,16 +193,16 @@ export const BODYBUILDING_RULES: StyleGenerationRules = {
   ],
   session_architecture_id: 'bodybuilding',
   rest_overrides: {
-    heavy_compound:    { floor: 90,  ceiling: 240, base: 150 },
-    moderate_compound: { floor: 60,  ceiling: 180, base: 90  },
-    isolation:         { floor: 30,  ceiling: 120, base: 60  },
-    core:              { floor: 30,  ceiling: 90,  base: 45  },
-    quick_bodyweight:  { floor: 20,  ceiling: 75,  base: 30  },
+    heavy_compound:    { floor: 90,  ceiling: 150, base: 120 },  // Guide: 1:30-2:30, default 2:00
+    moderate_compound: { floor: 60,  ceiling: 120, base: 90  },  // Guide: moderate compound range
+    isolation:         { floor: 60,  ceiling: 90,  base: 60  },  // Guide: 1:00-1:30, default 1:00
+    core:              { floor: 30,  ceiling: 60,  base: 45  },
+    quick_bodyweight:  { floor: 20,  ceiling: 45,  base: 30  },
   },
   superset_rules: {
     enabled: true,
     default_for_isolation: true,
-    never_superset_primaries: true,
+    never_superset_primaries: false,  // Guide v1.1: BB primaries CAN superset with non-competing movements
     never_superset_heavy_compounds: true,
     min_supersets: 1,
     max_supersets: 3,
@@ -334,7 +328,7 @@ export const CROSSFIT_RULES: StyleGenerationRules = {
     available_formats: ['amrap', 'emom', 'rft', 'chipper', 'ladder'],
     default_time_cap_minutes: 12,
     min_exercises: 3,
-    max_exercises: 6,
+    max_exercises: 8,
     format_selection: [
       { format: 'amrap', weight: 30 },
       { format: 'emom', weight: 25 },
@@ -351,7 +345,7 @@ export const CROSSFIT_RULES: StyleGenerationRules = {
   special_rules: [
     'NO_TRADITIONAL_SUPERSETS',
     'STRENGTH_BLOCK_BEFORE_METCON',
-    'CHIPPER_MIN_6_EXERCISES',
+    'CHIPPER_MIN_4_EXERCISES',
     'EMOM_ALTERNATING_MOVEMENTS',
     'LADDER_ASCENDING_OR_DESCENDING',
   ],
@@ -397,19 +391,19 @@ export const HIIT_RULES: StyleGenerationRules = {
     },
     intermediate: {
       rep_increase_per_week: 0,
-      load_increase_percent_per_week: 0,
+      load_increase_percent_per_week: 0.5,  // Gibala: resistance HIIT benefits from load increases
       set_increase_frequency_weeks: 2,
-      max_load_increase_lbs_upper: 0,
-      max_load_increase_lbs_lower: 0,
+      max_load_increase_lbs_upper: 2.5,
+      max_load_increase_lbs_lower: 5,
       deload_frequency_weeks: 5,
       deload_volume_reduction: 0.30,
     },
     advanced: {
       rep_increase_per_week: 0,
-      load_increase_percent_per_week: 0,
+      load_increase_percent_per_week: 1.0,
       set_increase_frequency_weeks: 2,
-      max_load_increase_lbs_upper: 0,
-      max_load_increase_lbs_lower: 0,
+      max_load_increase_lbs_upper: 2.5,
+      max_load_increase_lbs_lower: 5,
       deload_frequency_weeks: 4,
       deload_volume_reduction: 0.25,
     },
@@ -547,8 +541,9 @@ export const CARDIO_RULES: StyleGenerationRules = {
       set_increase_frequency_weeks: 0,
       max_load_increase_lbs_upper: 0,
       max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 8,
-      deload_volume_reduction: 0.20,
+      deload_frequency_weeks: 6,  // Attia: recovery cycles for aerobic base
+      deload_volume_reduction: 0.25,
+      duration_increase_percent_per_week: 5,  // Maffetone: add 5% duration/week
     },
     intermediate: {
       rep_increase_per_week: 0,
@@ -556,8 +551,9 @@ export const CARDIO_RULES: StyleGenerationRules = {
       set_increase_frequency_weeks: 0,
       max_load_increase_lbs_upper: 0,
       max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 6,
+      deload_frequency_weeks: 5,
       deload_volume_reduction: 0.20,
+      duration_increase_percent_per_week: 3,
     },
     advanced: {
       rep_increase_per_week: 0,
@@ -565,8 +561,9 @@ export const CARDIO_RULES: StyleGenerationRules = {
       set_increase_frequency_weeks: 0,
       max_load_increase_lbs_upper: 0,
       max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 5,
+      deload_frequency_weeks: 4,
       deload_volume_reduction: 0.15,
+      duration_increase_percent_per_week: 2,
     },
   },
   time_math: {
@@ -663,6 +660,11 @@ export const PILATES_RULES: StyleGenerationRules = {
     'MINIMAL_REST_BETWEEN_EXERCISES',
     'CONTROLLED_TEMPO_REQUIRED',
   ],
+  tempo_spec: {
+    eccentric_seconds: 4,   // Kryzanowska classical Pilates: slow eccentric
+    concentric_seconds: 2,
+    pause_seconds: 1,
+  },
 };
 
 export const MOBILITY_RULES: StyleGenerationRules = {
@@ -694,22 +696,22 @@ export const MOBILITY_RULES: StyleGenerationRules = {
   },
   progression: {
     beginner: {
-      rep_increase_per_week: 0,
+      rep_increase_per_week: 1,  // Starrett/Spina FRC: increase hold times
       load_increase_percent_per_week: 0,
       set_increase_frequency_weeks: 4,
       max_load_increase_lbs_upper: 0,
       max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 0,
-      deload_volume_reduction: 0,
+      deload_frequency_weeks: 8,
+      deload_volume_reduction: 0.20,
     },
     intermediate: {
-      rep_increase_per_week: 0,
+      rep_increase_per_week: 1,
       load_increase_percent_per_week: 0,
       set_increase_frequency_weeks: 3,
       max_load_increase_lbs_upper: 0,
       max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 0,
-      deload_volume_reduction: 0,
+      deload_frequency_weeks: 6,
+      deload_volume_reduction: 0.20,
     },
     advanced: {
       rep_increase_per_week: 0,
@@ -717,8 +719,8 @@ export const MOBILITY_RULES: StyleGenerationRules = {
       set_increase_frequency_weeks: 2,
       max_load_increase_lbs_upper: 0,
       max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 0,
-      deload_volume_reduction: 0,
+      deload_frequency_weeks: 5,
+      deload_volume_reduction: 0.20,
     },
   },
   time_math: {

@@ -11,6 +11,9 @@ export interface RestTierConfig {
   base_rest_seconds: number;
 }
 
+// Generic fallback rest values — only used by legacy calculateRest() export.
+// The main generateWorkout() pipeline uses REST_PERIOD_MATRIX from styleTables.ts
+// which provides per-style overrides (e.g. strength heavy_compound = 180s base).
 export const REST_TIERS: Record<RestTier, RestTierConfig> = {
   heavy_compound:    { floor_seconds: 90,  ceiling_seconds: 300, base_rest_seconds: 150 },
   moderate_compound: { floor_seconds: 60,  ceiling_seconds: 210, base_rest_seconds: 105 },
@@ -35,40 +38,113 @@ export const SCORING_WEIGHTS = {
   recency_window_days: 5,
   difficulty_match: 10,
   pattern_diversity: 15,
-  variation_family_penalty: -8,
+  variation_family_penalty: -20,  // Increased from -8: prevents 6 bench press variants in one workout
   style_popularity_scale: 0.5, // Scales -100..100 → -50..+50 effective score range
 };
+
+// Max exercises allowed from the same variation family (e.g., bench press variants).
+// Prevents over-representation of one movement pattern (e.g., 6 chest presses).
+export const MAX_EXERCISES_PER_VARIATION_FAMILY = 2;
+
+// Muscle Group Size Tier — deterministic ordering within architecture phases.
+// Larger muscles sort earlier so big-muscle accessories precede small-muscle
+// accessories (e.g., rear delt work before bicep curls on Pull Day).
+// This is a SEPARATE ordering layer from compound/isolation and score.
+export const MUSCLE_GROUP_SIZE_TIER: Record<string, number> = {
+  // Tier 3 — Large muscles (sort first within phase)
+  chest: 3, upper_chest: 3, lower_chest: 3,
+  lats: 3, quads: 3, hamstrings: 3, glutes: 3,
+
+  // Tier 2 — Medium muscles (sort middle)
+  upper_back: 2, lower_back: 2,
+  front_delt: 2, side_delt: 2, rear_delt: 2,
+  traps: 2, rhomboids: 2,
+  hip_flexors: 2, adductors: 2, abductors: 2,
+
+  // Tier 1 — Small muscles (sort last within phase)
+  biceps: 1, triceps: 1,
+  forearms: 1, calves: 1, neck: 1,
+
+  // Core (typically handled by mandatory finisher phase)
+  core: 1, obliques: 1, transverse_abdominis: 1,
+};
+
+/** Returns the highest muscle size tier among an exercise's primary muscles. */
+export function getMuscleSizeTier(primaryMuscles: string[]): number {
+  if (!primaryMuscles || primaryMuscles.length === 0) return 1;
+  let max = 1;
+  for (const m of primaryMuscles) {
+    const tier = MUSCLE_GROUP_SIZE_TIER[m] ?? 1;
+    if (tier > max) max = tier;
+  }
+  return max;
+}
 
 // POPULAR_EXERCISES_BY_STYLE removed in v1.5 — popularity is now per-exercise
 // in the style_popularity field of each ZealExercise in exerciseSchema.json.
 
+// Aligned with architecture phase sums (styleFormats.ts).
+// MIN = sum of phase minimums, MAX = sum of phase maximums.
 export const MIN_EXERCISES_PER_STYLE: Record<string, number> = {
-  strength: 6,
+  strength: 4,
   bodybuilding: 6,
   crossfit: 5,
-  hyrox: 6,
-  hiit: 6,
+  hyrox: 4,
+  hiit: 7,
   cardio: 1,
-  mobility: 5,
-  pilates: 5,
+  mobility: 7,
+  pilates: 7,
   '75_hard': 5,
   low_impact: 5,
   hybrid: 6,
 };
 
 export const MAX_EXERCISES_PER_STYLE: Record<string, number> = {
-  strength: 8,
-  bodybuilding: 9,
-  crossfit: 10,
+  strength: 7,      // Guide: max 5-6 at 60 min + 1 core finisher
+  bodybuilding: 9,  // Guide: max 7-9 at 60 min (was 12 — caused 12-exercise workouts)
+  crossfit: 8,      // Guide: max 4-6 WOD exercises + Part A/C
   hyrox: 16,
-  hiit: 12,
-  cardio: 3,
-  mobility: 10,
-  pilates: 10,
+  hiit: 10,         // Guide: max 8-10 at 60 min
+  cardio: 4,
+  mobility: 25,     // Guide: up to 20-25 at 45 min
+  pilates: 34,      // Guide: full classical order = 34 exercises at 60 min
   '75_hard': 8,
   low_impact: 8,
   hybrid: 11,
 };
+
+// Duration-scaled exercise counts (from Workout Style Guide v1.1).
+// Maps (style, duration bucket) → { min, max } exercise count.
+// The engine uses the closest bucket ≤ target duration.
+export const EXERCISE_COUNT_BY_DURATION: Record<string, Record<number, { min: number; max: number }>> = {
+  strength:     { 30: { min: 3, max: 4 }, 45: { min: 4, max: 5 }, 60: { min: 5, max: 6 } },
+  bodybuilding: { 30: { min: 4, max: 5 }, 45: { min: 5, max: 7 }, 60: { min: 7, max: 9 } },
+  crossfit:     { 30: { min: 2, max: 4 }, 45: { min: 3, max: 5 }, 60: { min: 4, max: 6 } },
+  hiit:         { 30: { min: 4, max: 6 }, 45: { min: 6, max: 8 }, 60: { min: 8, max: 10 } },
+  hyrox:        { 30: { min: 2, max: 3 }, 45: { min: 3, max: 4 }, 60: { min: 4, max: 8 } },
+  cardio:       { 30: { min: 1, max: 2 }, 45: { min: 1, max: 3 }, 60: { min: 2, max: 4 } },
+  pilates:      { 30: { min: 12, max: 15 }, 45: { min: 18, max: 22 }, 60: { min: 28, max: 34 } },
+  mobility:     { 30: { min: 12, max: 15 }, 45: { min: 15, max: 18 }, 60: { min: 20, max: 25 } },
+  low_impact:   { 30: { min: 3, max: 5 }, 45: { min: 5, max: 7 }, 60: { min: 6, max: 8 } },
+  hybrid:       { 30: { min: 4, max: 6 }, 45: { min: 5, max: 8 }, 60: { min: 6, max: 10 } },
+};
+
+/** Look up exercise count range for a style at a given target duration.
+ *  Picks the closest bucket ≤ targetMinutes, falls back to flat MIN/MAX. */
+export function getExerciseCountForDuration(
+  style: string,
+  targetMinutes: number,
+): { min: number; max: number } | null {
+  const buckets = EXERCISE_COUNT_BY_DURATION[style];
+  if (!buckets) return null;
+  const thresholds = Object.keys(buckets).map(Number).sort((a, b) => b - a);
+  for (const t of thresholds) {
+    if (targetMinutes >= t) return buckets[t];
+  }
+  // Below the lowest bucket — return the smallest
+  const smallest = thresholds[thresholds.length - 1];
+  return buckets[smallest] ?? null;
+}
 
 export interface StyleEngineConfig {
   rep_range_override?: { min: number; max: number };
@@ -84,16 +160,16 @@ export interface StyleEngineConfig {
 
 export const STYLE_ENGINE_CONFIGS: Record<string, StyleEngineConfig> = {
   strength: {
-    rep_range_override: { min: 4, max: 10 },
+    rep_range_override: { min: 3, max: 6 },
     set_range_override: { min: 3, max: 5 },
     allow_supersets: true,
     superset_min: 1,
-    superset_max: 3,
+    superset_max: 2,
     compounds_first: true,
     pattern_priority: ['squat', 'hinge', 'push', 'pull', 'isolation'],
   },
   bodybuilding: {
-    rep_range_override: { min: 8, max: 15 },
+    rep_range_override: { min: 8, max: 12 },
     set_range_override: { min: 3, max: 4 },
     allow_supersets: true,
     superset_min: 1,
@@ -175,7 +251,7 @@ export const STYLE_ENGINE_CONFIGS: Record<string, StyleEngineConfig> = {
 };
 
 export const STYLE_DURATION_OVERRIDES: Record<string, { max_working_minutes?: number; fixed_minutes?: number }> = {
-  hiit: { max_working_minutes: 50 },
+  hiit: { max_working_minutes: 30 },
   '75_hard': { fixed_minutes: 45 },
   mobility: { max_working_minutes: 45 },
   pilates: { max_working_minutes: 50 },
