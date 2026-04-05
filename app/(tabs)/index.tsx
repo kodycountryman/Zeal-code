@@ -230,9 +230,9 @@ export default function HomeScreen() {
       setHealthCalories(data.activeCalories);
       setHealthSteps(data.steps);
       setHealthHeartRate(data.restingHeartRate);
-      console.log('[Home] Health metrics loaded:', data);
+      __DEV__ && console.log('[Home] Health metrics loaded:', data);
     }).catch((e) => {
-      if (!cancelled) console.log('[Home] Health metrics error:', e);
+      if (!cancelled) __DEV__ && console.log('[Home] Health metrics error:', e);
     });
     return () => { cancelled = true; };
   }, [ctx.healthConnected, ctx.healthSyncEnabled]);
@@ -399,7 +399,7 @@ export default function HomeScreen() {
 
 
   const handleLoadSavedWorkout = useCallback((workout: { id: string; name: string; exercises: { exerciseId: string; name: string }[]; defaultFocus: string; createdAt: string; lastUsed: string }) => {
-    console.log('[Home] Loading saved workout:', workout.name, 'with', workout.exercises.length, 'exercises');
+    __DEV__ && console.log('[Home] Loading saved workout:', workout.name, 'with', workout.exercises.length, 'exercises');
     ctx.setLoadedWorkout(workout);
     ctx.setCurrentWorkoutTitle(workout.name);
     ctx.saveState();
@@ -752,7 +752,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 4,
+    paddingBottom: 10,
   },
   topBarLeft: {
     flexDirection: 'row',

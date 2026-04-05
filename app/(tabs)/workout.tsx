@@ -62,7 +62,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { useZealTheme, useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { useWorkoutTracking, type ExerciseLog } from '@/context/WorkoutTrackingContext';
+import { useWorkoutTracking, useWorkoutElapsed, type ExerciseLog } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS, getContrastTextColor } from '@/constants/colors';
 import {
   generateWorkoutFromSavedExercises,
@@ -163,7 +163,7 @@ function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | '
   const pushScore = avg(['Chest', 'Shoulders', 'Triceps']);
   const pullScore = avg(['Back', 'Biceps']);
   const legsScore = avg(['Quads', 'Hamstrings', 'Glutes', 'Calves']);
-  console.log(`[WorkoutScreen] PPL resolve: Push=${pushScore.toFixed(1)} Pull=${pullScore.toFixed(1)} Legs=${legsScore.toFixed(1)}`);
+  __DEV__ && console.log(`[WorkoutScreen] PPL resolve: Push=${pushScore.toFixed(1)} Pull=${pullScore.toFixed(1)} Legs=${legsScore.toFixed(1)}`);
   if (pushScore >= pullScore && pushScore >= legsScore) return 'Push';
   if (pullScore > pushScore && pullScore >= legsScore) return 'Pull';
   return 'Legs';
@@ -810,6 +810,7 @@ export default function WorkoutScreen() {
   const currentWorkoutTitleRef = useRef(ctx.currentWorkoutTitle);
   currentWorkoutTitleRef.current = ctx.currentWorkoutTitle;
   const tracking = useWorkoutTracking();
+  const workoutElapsed = useWorkoutElapsed();
   const { hasPro, openPaywall } = useSubscription();
 
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
@@ -1208,15 +1209,15 @@ export default function WorkoutScreen() {
     const effectiveMuscles = muscles ?? ov?.muscles ?? (hasPlan ? [] : (lm?.muscles ?? []));
 
     if (!hasPro && PRO_STYLES_SET.has(effectiveStyle)) {
-      console.log(`[WorkoutScreen] Core user has Pro style "${effectiveStyle}", falling back to Strength`);
+      __DEV__ && console.log(`[WorkoutScreen] Core user has Pro style "${effectiveStyle}", falling back to Strength`);
       effectiveStyle = 'Strength';
     }
 
     if (hasPlan && todayPrescription && !ov && !style) {
-      console.log(`[WorkoutScreen] Plan prescription active: phase=${todayPrescription.phase} style=${todayPrescription.style} session=${todayPrescription.session_type} vol=${todayPrescription.volume_modifier} int=${todayPrescription.intensity_modifier}`);
+      __DEV__ && console.log(`[WorkoutScreen] Plan prescription active: phase=${todayPrescription.phase} style=${todayPrescription.style} session=${todayPrescription.session_type} vol=${todayPrescription.volume_modifier} int=${todayPrescription.intensity_modifier}`);
     }
 
-    console.log(`[WorkoutScreen] doGenerate: style=${effectiveStyle} split=${effectiveSplit} duration=${effectiveDuration} rest=${effectiveRest} muscles=${effectiveMuscles.join(',')} override=${!!ov} hasPlan=${hasPlan} usedModify=${!hasPlan && !!lm} seedOffset=${seedOffset ?? 0}`);
+    __DEV__ && console.log(`[WorkoutScreen] doGenerate: style=${effectiveStyle} split=${effectiveSplit} duration=${effectiveDuration} rest=${effectiveRest} muscles=${effectiveMuscles.join(',')} override=${!!ov} hasPlan=${hasPlan} usedModify=${!hasPlan && !!lm} seedOffset=${seedOffset ?? 0}`);
 
     const prescription = (!ov && !style && hasPlan) ? todayPrescription : null;
 
@@ -1313,7 +1314,7 @@ export default function WorkoutScreen() {
     useCallback(() => {
       if (!workout && !tracking.isWorkoutActive) {
         if (tracking.currentGeneratedWorkout) {
-          console.log('[WorkoutScreen] Using pre-generated workout (from preview trigger)');
+          __DEV__ && console.log('[WorkoutScreen] Using pre-generated workout (from preview trigger)');
           setIsGenerating(false);
           setGeneratingIsAI(false);
           setGeneratingElapsed(0);
@@ -1349,29 +1350,29 @@ export default function WorkoutScreen() {
     if (ctx.newUserResetToken !== 0 && ctx.newUserResetToken !== lastResetToken.current) {
       lastResetToken.current = ctx.newUserResetToken;
       walkthroughChecked.current = false;
-      console.log('[WorkoutScreen] New user reset detected — will re-check walkthrough');
+      __DEV__ && console.log('[WorkoutScreen] New user reset detected — will re-check walkthrough');
     }
   }, [ctx.newUserResetToken]);
 
   useEffect(() => {
     if (workout && !walkthroughChecked.current) {
       walkthroughChecked.current = true;
-      console.log('[WorkoutScreen] Workout ready, checking walkthrough status...');
+      __DEV__ && console.log('[WorkoutScreen] Workout ready, checking walkthrough status...');
       AsyncStorage.getItem(WALKTHROUGH_KEY).then((val) => {
         if (val !== 'true') {
-          console.log('[WorkoutScreen] First visit — launching workout walkthrough');
+          __DEV__ && console.log('[WorkoutScreen] First visit — launching workout walkthrough');
           setTimeout(() => {
             setShowWalkthrough(true);
           }, 1200);
         } else {
-          console.log('[WorkoutScreen] Walkthrough already seen');
+          __DEV__ && console.log('[WorkoutScreen] Walkthrough already seen');
         }
       });
     }
   }, [workout]);
 
   const handleWalkthroughDismiss = useCallback(() => {
-    console.log('[WorkoutScreen] Walkthrough dismissed');
+    __DEV__ && console.log('[WorkoutScreen] Walkthrough dismissed');
     setShowWalkthrough(false);
     AsyncStorage.setItem(WALKTHROUGH_KEY, 'true').catch(() => {});
   }, []);
@@ -1410,7 +1411,7 @@ export default function WorkoutScreen() {
 
   useEffect(() => {
     if (ctx.workoutOverride) {
-      console.log('[WorkoutScreen] Workout override detected, regenerating with override params:', ctx.workoutOverride);
+      __DEV__ && console.log('[WorkoutScreen] Workout override detected, regenerating with override params:', ctx.workoutOverride);
       doGenerate(
         ctx.workoutOverride.style,
         ctx.workoutOverride.split,
@@ -1425,7 +1426,7 @@ export default function WorkoutScreen() {
 
   useEffect(() => {
     if (ctx.settingsSaveVersion > 0 && workout) {
-      console.log('[WorkoutScreen] Settings saved (version', ctx.settingsSaveVersion, '), regenerating workout with new settings');
+      __DEV__ && console.log('[WorkoutScreen] Settings saved (version', ctx.settingsSaveVersion, '), regenerating workout with new settings');
       doGenerate();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1441,7 +1442,7 @@ export default function WorkoutScreen() {
 
   useEffect(() => {
     if (ctx.loadedWorkout) {
-      console.log('[WorkoutScreen] Loaded saved workout detected:', ctx.loadedWorkout.name, 'with', ctx.loadedWorkout.exercises.length, 'exercises');
+      __DEV__ && console.log('[WorkoutScreen] Loaded saved workout detected:', ctx.loadedWorkout.name, 'with', ctx.loadedWorkout.exercises.length, 'exercises');
       setGeneratingIsAI(false);
       setGeneratingElapsed(0);
       setIsGenerating(true);
@@ -1495,7 +1496,7 @@ export default function WorkoutScreen() {
           onPress: () => {
             const next = regenCounter + 1;
             setRegenCounter(next);
-            console.log(`[WorkoutScreen] Regenerate pressed, seedOffset=${next}`);
+            __DEV__ && console.log(`[WorkoutScreen] Regenerate pressed, seedOffset=${next}`);
             doGenerate(undefined, undefined, undefined, undefined, undefined, next);
           },
         },
@@ -1520,7 +1521,7 @@ export default function WorkoutScreen() {
             setIsRefreshing(true);
             const next = regenCounter + 1;
             setRegenCounter(next);
-            console.log(`[WorkoutScreen] Pull-to-refresh, seedOffset=${next}`);
+            __DEV__ && console.log(`[WorkoutScreen] Pull-to-refresh, seedOffset=${next}`);
             doGenerate(undefined, undefined, undefined, undefined, undefined, next);
             setTimeout(() => setIsRefreshing(false), 600);
           },
@@ -1659,9 +1660,9 @@ export default function WorkoutScreen() {
         isLastInGroup = groupExercises[groupExercises.length - 1]?.id === exId;
         if (!isLastInGroup) {
           effectiveRestSec = 0;
-          console.log('[WorkoutScreen] Superset mid-exercise, skipping rest timer for:', exercise.name);
+          __DEV__ && console.log('[WorkoutScreen] Superset mid-exercise, skipping rest timer for:', exercise.name);
         } else {
-          console.log('[WorkoutScreen] Superset final exercise, rest timer will start for:', exercise.name);
+          __DEV__ && console.log('[WorkoutScreen] Superset final exercise, rest timer will start for:', exercise.name);
         }
       }
       requestAnimationFrame(() => {
@@ -1674,19 +1675,19 @@ export default function WorkoutScreen() {
           setTimeout(() => handleMarkExerciseDone(exId, exercise), 400);
         }
         // Superset auto-advance
-        console.log('[AutoAdvance] Check:', { isMarkingDone, groupId: exercise.groupId, groupType: exercise.groupType, isLastInGroup, allDone });
+        __DEV__ && console.log('[AutoAdvance] Check:', { isMarkingDone, groupId: exercise.groupId, groupType: exercise.groupType, isLastInGroup, allDone });
         if (isMarkingDone && exercise.groupId && ADVANCE_GROUP_TYPES.has(exercise.groupType ?? '')) {
           if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
           if (!isLastInGroup) {
             // Advance to next exercise in group
             const delay = allDone ? 450 : 300;
-            console.log('[AutoAdvance] Mid-group → scheduling open next in', delay, 'ms');
+            __DEV__ && console.log('[AutoAdvance] Mid-group → scheduling open next in', delay, 'ms');
             autoAdvanceTimeoutRef.current = setTimeout(() => {
               autoAdvanceTimeoutRef.current = null;
               const w = workoutRef.current;
-              if (!w) { console.log('[AutoAdvance] No workout ref'); return; }
+              if (!w) { __DEV__ && console.log('[AutoAdvance] No workout ref'); return; }
               const nextEx = getNextGroupExercise(w, exId, exercise.groupId!, trackedExercisesRef.current);
-              console.log('[AutoAdvance] Next exercise:', nextEx?.name ?? 'null', 'tracked:', [...trackedExercisesRef.current]);
+              __DEV__ && console.log('[AutoAdvance] Next exercise:', nextEx?.name ?? 'null', 'tracked:', [...trackedExercisesRef.current]);
               if (nextEx) {
                 advanceToExercise(nextEx.id);
               }
@@ -1695,13 +1696,13 @@ export default function WorkoutScreen() {
             // Last in group — immediately open first exercise for next round (rest timer runs in bg)
             pendingGroupRestRef.current = { groupId: exercise.groupId! };
             const openDelay = allDone ? 500 : 300;
-            console.log('[AutoAdvance] Last in group → scheduling open first in', openDelay, 'ms');
+            __DEV__ && console.log('[AutoAdvance] Last in group → scheduling open first in', openDelay, 'ms');
             autoAdvanceTimeoutRef.current = setTimeout(() => {
               autoAdvanceTimeoutRef.current = null;
               const w = workoutRef.current;
-              if (!w) { console.log('[AutoAdvance] No workout ref'); return; }
+              if (!w) { __DEV__ && console.log('[AutoAdvance] No workout ref'); return; }
               const firstEx = getFirstRemainingGroupExercise(w, exercise.groupId!, exerciseLogsRef.current);
-              console.log('[AutoAdvance] First remaining:', firstEx?.name ?? 'null (all done)');
+              __DEV__ && console.log('[AutoAdvance] First remaining:', firstEx?.name ?? 'null (all done)');
               if (firstEx) {
                 advanceToExercise(firstEx.id);
               } else {
@@ -1710,7 +1711,7 @@ export default function WorkoutScreen() {
             }, openDelay);
           }
         } else {
-          console.log('[AutoAdvance] Skipped:', { isMarkingDone, groupId: exercise.groupId, groupType: exercise.groupType, hasType: ADVANCE_GROUP_TYPES.has(exercise.groupType ?? '') });
+          __DEV__ && console.log('[AutoAdvance] Skipped:', { isMarkingDone, groupId: exercise.groupId, groupType: exercise.groupType, hasType: ADVANCE_GROUP_TYPES.has(exercise.groupType ?? '') });
         }
       });
     }
@@ -1755,7 +1756,7 @@ export default function WorkoutScreen() {
   const handleAddExercises = useCallback((exercises: WorkoutExercise[]) => {
     if (!workout) return;
     if (swapTargetExercise !== null && exercises.length === 1) {
-      console.log('[WorkoutScreen] Swapping exercise:', swapTargetExercise.name, '->', exercises[0].name);
+      __DEV__ && console.log('[WorkoutScreen] Swapping exercise:', swapTargetExercise.name, '->', exercises[0].name);
       const inCoreFinisher = workout.coreFinisher?.some(ex => ex.id === swapTargetExercise.id);
       let updated: GeneratedWorkout;
       if (inCoreFinisher) {
@@ -1777,7 +1778,7 @@ export default function WorkoutScreen() {
       tracking.setCurrentGeneratedWorkout(updated);
       setSwapTargetExercise(null);
     } else {
-      console.log('[WorkoutScreen] Adding', exercises.length, 'exercise(s) to workout');
+      __DEV__ && console.log('[WorkoutScreen] Adding', exercises.length, 'exercise(s) to workout');
       const updated = { ...workout, workout: [...workout.workout, ...exercises] };
       setWorkout(updated);
       tracking.setCurrentGeneratedWorkout(updated);
@@ -1817,14 +1818,14 @@ export default function WorkoutScreen() {
     setWorkout(updated);
     tracking.setCurrentGeneratedWorkout(updated);
     setSwipeOpenId(null);
-    console.log('[WorkoutScreen] Deleted exercise:', exId);
+    __DEV__ && console.log('[WorkoutScreen] Deleted exercise:', exId);
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   }, [workout, tracking]);
 
   const handleSwapExercise = useCallback((ex: WorkoutExercise) => {
-    console.log('[WorkoutScreen] Initiating swap for:', ex.name);
+    __DEV__ && console.log('[WorkoutScreen] Initiating swap for:', ex.name);
     setSwapTargetExercise(ex);
     const firstMuscle = ex.muscleGroup.split(',')[0].trim().toLowerCase();
     setAddSheetMuscleFilter(firstMuscle);
@@ -1964,7 +1965,7 @@ export default function WorkoutScreen() {
 
   const hasCardio = ctx.addCardio && (workout?.cardio.length ?? 0) > 0;
   if (workout) {
-    console.log('[WorkoutScreen] Component visibility:', {
+    __DEV__ && console.log('[WorkoutScreen] Component visibility:', {
       hasCardio,
       addCardioToggle: ctx.addCardio,
       cardioCount: workout.cardio?.length ?? 0,
@@ -2098,10 +2099,10 @@ export default function WorkoutScreen() {
         {...pr.panHandlers}
         style={[styles.gripDots, isMoving && { opacity: 0.25 }]}
       >
-        <View style={{ gap: 3 }}>
-          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
-          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
-          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+        <View style={styles.menuIconContainer}>
+          <View style={[styles.hamburgerLine, { backgroundColor: colors.textMuted }]} />
+          <View style={[styles.hamburgerLine, { backgroundColor: colors.textMuted }]} />
+          <View style={[styles.hamburgerLine, { backgroundColor: colors.textMuted }]} />
         </View>
       </View>
     );
@@ -2118,10 +2119,10 @@ export default function WorkoutScreen() {
         {...pr.panHandlers}
         style={[styles.gripDots, isMoving && { opacity: 0.25 }]}
       >
-        <View style={{ gap: 3 }}>
-          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
-          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
-          <View style={{ width: 14, height: 1.5, borderRadius: 1, backgroundColor: colors.textMuted }} />
+        <View style={styles.menuIconContainer}>
+          <View style={[styles.hamburgerLine, { backgroundColor: colors.textMuted }]} />
+          <View style={[styles.hamburgerLine, { backgroundColor: colors.textMuted }]} />
+          <View style={[styles.hamburgerLine, { backgroundColor: colors.textMuted }]} />
         </View>
       </View>
     );
@@ -3585,7 +3586,7 @@ export default function WorkoutScreen() {
                 );
               }}
             >
-              <TopBarElapsedTimer elapsed={tracking.workoutElapsed} isPaused={tracking.isPaused} />
+              <TopBarElapsedTimer elapsed={workoutElapsed} isPaused={tracking.isPaused} />
               <RotateCcw size={16} color="rgba(255,255,255,0.55)" strokeWidth={2} />
             </TouchableOpacity>
           )}
@@ -5284,13 +5285,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 4,
+    paddingBottom: 10,
     gap: 10,
   },
   wordmark: {
     fontSize: 22,
     fontFamily: 'Outfit_800ExtraBold',
     letterSpacing: -1.2,
+  },
+  hamburgerLine: {
+    width: 14,
+    height: 1.5,
+    borderRadius: 1,
+  },
+  menuIconContainer: {
+    gap: 3,
   },
   loadingText: {
     fontSize: 16,

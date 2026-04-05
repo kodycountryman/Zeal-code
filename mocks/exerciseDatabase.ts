@@ -1,4 +1,4 @@
-console.log('[ExerciseDatabase] Module evaluated — exercise schema will load lazily on first access');
+__DEV__ && console.log('[ExerciseDatabase] Module evaluated — exercise schema will load lazily on first access');
 
 // ============================================================
 // ENUM TYPES — match _enum_definitions in exerciseSchema.json
@@ -152,8 +152,8 @@ function _ensureDb() {
   _zealDb = rawSchema.exercises as ZealExercise[];
   _enumDefs = rawSchema._enum_definitions;
   _legacyDb = _zealDb.map(zealToLegacy);
-  console.log(`[ExerciseDatabase] Lazy-loaded ${_zealDb.length} exercises from schema v1.5`);
-  console.log(`[ExerciseDatabase] Legacy EXERCISE_DATABASE mapped: ${_legacyDb.length} exercises`);
+  __DEV__ && console.log(`[ExerciseDatabase] Lazy-loaded ${_zealDb.length} exercises from schema v1.5`);
+  __DEV__ && console.log(`[ExerciseDatabase] Legacy EXERCISE_DATABASE mapped: ${_legacyDb.length} exercises`);
 }
 
 export function getZealExerciseDatabase(): ZealExercise[] {

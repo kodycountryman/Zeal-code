@@ -29,7 +29,6 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
 
   const ring1 = useRef(new Animated.Value(0)).current;
   const ring2 = useRef(new Animated.Value(0)).current;
-  const ring3 = useRef(new Animated.Value(0)).current;
   const cardSlide = useRef(new Animated.Value(30)).current;
   const cardFade = useRef(new Animated.Value(0)).current;
   const overlayFade = useRef(new Animated.Value(0)).current;
@@ -61,7 +60,6 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
     if (!visible) {
       ring1.setValue(0);
       ring2.setValue(0);
-      ring3.setValue(0);
       cardSlide.setValue(30);
       cardFade.setValue(0);
       overlayFade.setValue(0);
@@ -99,16 +97,13 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
     ).start();
 
     const r1 = pulseRing(ring1, 0);
-    const r2 = pulseRing(ring2, 500);
-    const r3 = pulseRing(ring3, 1000);
+    const r2 = pulseRing(ring2, 600);
     r1.start();
     r2.start();
-    r3.start();
 
     return () => {
       r1.stop();
       r2.stop();
-      r3.stop();
     };
   }, [visible]);
 
@@ -154,7 +149,6 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
         >
           <Animated.View style={ringStyle(ring1)} />
           <Animated.View style={ringStyle(ring2)} />
-          <Animated.View style={ringStyle(ring3)} />
 
           <Animated.View style={{ transform: [{ scale: plusPulse }] }}>
             <View

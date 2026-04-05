@@ -44,19 +44,19 @@ function getRCApiKey(): string {
 
 try {
   const key = getRCApiKey();
-  console.log('[subscription] RC configure attempt', {
+  __DEV__ && console.log('[subscription] RC configure attempt', {
     hasKey: Boolean(key),
     platform: Platform.OS,
     isDev: __DEV__,
   });
   if (key) {
     PurchasesWrapper.configure({ apiKey: key });
-    console.log('[subscription] RevenueCat configured');
+    __DEV__ && console.log('[subscription] RevenueCat configured');
   } else {
-    console.warn('[subscription] RevenueCat API key is empty; skipping RC.configure');
+    __DEV__ && console.warn('[subscription] RevenueCat API key is empty; skipping RC.configure');
   }
 } catch (e) {
-  console.warn('[subscription] RC configure failed:', e);
+  __DEV__ && console.warn('[subscription] RC configure failed:', e);
 }
 
 export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
@@ -80,7 +80,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
           setPersisted({ ...DEFAULT_PERSISTED, ...parsed });
         }
       } catch (e) {
-        console.warn('[subscription] Failed to load persisted state:', e);
+        __DEV__ && console.warn('[subscription] Failed to load persisted state:', e);
       }
       setPersistedLoaded(true);
     })();
@@ -92,7 +92,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
-      console.warn('[subscription] Failed to save state:', e);
+      __DEV__ && console.warn('[subscription] Failed to save state:', e);
     }
   }, []);
 
@@ -123,7 +123,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     if (customerInfoQuery.isSuccess && hasPro && persistedLoaded) {
       const p = persistedRef.current;
       if (!p.hasEverStarted) {
-        console.log('[subscription] Syncing hasEverStarted from RC');
+        __DEV__ && console.log('[subscription] Syncing hasEverStarted from RC');
         savePersisted({ ...p, hasEverStarted: true });
       }
     }
@@ -157,7 +157,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     const next: PersistedState = { ...p, appOpenCount: newCount };
 
     const state = deriveState(next, hp);
-    console.log('[subscription] App open #', newCount, '| state:', state);
+    __DEV__ && console.log('[subscription] App open #', newCount, '| state:', state);
 
     if (state === 'active') {
       await savePersisted(next);
@@ -182,22 +182,22 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   }, [persistedLoaded, savePersisted, deriveState]);
 
   const openPaywall = useCallback(() => {
-    console.log('[subscription] Manual paywall open');
+    __DEV__ && console.log('[subscription] Manual paywall open');
     setPaywallOpen(true);
   }, []);
 
   const closePaywall = useCallback(() => {
-    console.log('[subscription] Paywall closed');
+    __DEV__ && console.log('[subscription] Paywall closed');
     setPaywallOpen(false);
   }, []);
 
   const purchaseMutation = useMutation({
     mutationFn: async () => {
-      console.log('[subscription] Fetching offerings live before purchase...');
+      __DEV__ && console.log('[subscription] Fetching offerings live before purchase...');
       let offerings = offeringsQuery.data;
       if (!offerings?.current) {
         offerings = await PurchasesWrapper.getOfferings();
-        console.log('[subscription] Live offerings fetch — current:', offerings?.current?.identifier ?? 'none');
+        __DEV__ && console.log('[subscription] Live offerings fetch — current:', offerings?.current?.identifier ?? 'none');
         queryClient.setQueryData(['rc_offerings'], offerings);
       }
       const pkg =
@@ -205,15 +205,15 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         offerings?.current?.availablePackages?.[0] ??
         null;
       if (!pkg) {
-        console.warn('[subscription] No package found. availablePackages:', offerings?.current?.availablePackages?.length ?? 0);
+        __DEV__ && console.warn('[subscription] No package found. availablePackages:', offerings?.current?.availablePackages?.length ?? 0);
         throw new Error('No packages found in this offering. Please check your RevenueCat dashboard configuration.');
       }
-      console.log('[subscription] Purchasing package:', pkg.identifier);
+      __DEV__ && console.log('[subscription] Purchasing package:', pkg.identifier);
       return PurchasesWrapper.purchasePackage(pkg);
     },
     onSuccess: async (result) => {
       const isActive = Boolean(result.customerInfo.entitlements.active['pro']);
-      console.log('[subscription] Purchase result — hasPro:', isActive);
+      __DEV__ && console.log('[subscription] Purchase result — hasPro:', isActive);
       const p = persistedRef.current;
       await savePersisted({ ...p, hasEverStarted: true });
       await queryClient.invalidateQueries({ queryKey: ['rc_customer_info'] });
@@ -222,7 +222,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
       }
     },
     onError: (e) => {
-      console.warn('[subscription] Purchase error:', e);
+      __DEV__ && console.warn('[subscription] Purchase error:', e);
     },
   });
 
@@ -230,7 +230,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     mutationFn: () => PurchasesWrapper.restorePurchases(),
     onSuccess: async (customerInfo) => {
       const isActive = Boolean(customerInfo.entitlements.active['pro']);
-      console.log('[subscription] Restore result — hasPro:', isActive);
+      __DEV__ && console.log('[subscription] Restore result — hasPro:', isActive);
       if (isActive) {
         const p = persistedRef.current;
         await savePersisted({ ...p, hasEverStarted: true });
@@ -239,7 +239,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
       }
     },
     onError: (e) => {
-      console.warn('[subscription] Restore error:', e);
+      __DEV__ && console.warn('[subscription] Restore error:', e);
     },
   });
 

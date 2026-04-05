@@ -20,7 +20,7 @@ function TabsWithPaywall() {
   useEffect(() => {
     if (loaded && !triggered.current) {
       triggered.current = true;
-      console.log('[tabs] Triggering app open for subscription check');
+      __DEV__ && console.log('[tabs] Triggering app open for subscription check');
       triggerAppOpen();
     }
   }, [loaded]);

@@ -24,7 +24,7 @@ async function getNotificationsModule() {
     const mod = await import('expo-notifications');
     return mod;
   } catch (e) {
-    console.log('[NotifService] Failed to load expo-notifications:', e);
+    __DEV__ && console.log('[NotifService] Failed to load expo-notifications:', e);
     return null;
   }
 }
@@ -64,9 +64,9 @@ async function setupNotificationCategories(): Promise<void> {
         options: { isDestructive: false, isAuthenticationRequired: false },
       },
     ]);
-    console.log('[NotifService] Categories registered');
+    __DEV__ && console.log('[NotifService] Categories registered');
   } catch (e) {
-    console.log('[NotifService] Category setup error:', e);
+    __DEV__ && console.log('[NotifService] Category setup error:', e);
   }
 }
 
@@ -84,9 +84,9 @@ export async function initNotificationService(): Promise<void> {
       }),
     });
     await setupNotificationCategories();
-    console.log('[NotifService] Initialized');
+    __DEV__ && console.log('[NotifService] Initialized');
   } catch (e) {
-    console.log('[NotifService] Init error:', e);
+    __DEV__ && console.log('[NotifService] Init error:', e);
   }
 }
 
@@ -98,10 +98,10 @@ export async function requestNotificationPermissions(): Promise<NotifPermissionS
     if (existing === 'granted') return 'granted';
     if (existing === 'denied') return 'denied';
     const { status } = await Notifications.requestPermissionsAsync();
-    console.log('[NotifService] Permission result:', status);
+    __DEV__ && console.log('[NotifService] Permission result:', status);
     return status as NotifPermissionStatus;
   } catch (e) {
-    console.log('[NotifService] Permission error:', e);
+    __DEV__ && console.log('[NotifService] Permission error:', e);
     return 'denied';
   }
 }
@@ -142,7 +142,7 @@ export async function showRestTimerNotification(remaining: number, total: number
       trigger: null,
     });
   } catch (e) {
-    console.log('[NotifService] showRestTimerNotification error:', e);
+    __DEV__ && console.log('[NotifService] showRestTimerNotification error:', e);
   }
 }
 
@@ -152,7 +152,7 @@ export async function dismissRestTimerNotification(): Promise<void> {
   try {
     await Notifications.dismissNotificationAsync(NOTIF_ID_REST_TIMER);
   } catch (e) {
-    console.log('[NotifService] dismissRestTimerNotification error:', e);
+    __DEV__ && console.log('[NotifService] dismissRestTimerNotification error:', e);
   }
 }
 
@@ -175,9 +175,9 @@ export async function scheduleRestCompleteNotification(secondsFromNow: number): 
         seconds: secondsFromNow,
       },
     });
-    console.log('[NotifService] Rest complete scheduled in', secondsFromNow, 's');
+    __DEV__ && console.log('[NotifService] Rest complete scheduled in', secondsFromNow, 's');
   } catch (e) {
-    console.log('[NotifService] scheduleRestCompleteNotification error:', e);
+    __DEV__ && console.log('[NotifService] scheduleRestCompleteNotification error:', e);
   }
 }
 
@@ -188,7 +188,7 @@ export async function cancelRestCompleteNotification(): Promise<void> {
     await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_REST_COMPLETE).catch(() => {});
     await Notifications.dismissNotificationAsync(NOTIF_ID_REST_COMPLETE).catch(() => {});
   } catch (e) {
-    console.log('[NotifService] cancelRestCompleteNotification error:', e);
+    __DEV__ && console.log('[NotifService] cancelRestCompleteNotification error:', e);
   }
 }
 
@@ -211,9 +211,9 @@ export async function scheduleDailyReminder(hour: number, minute: number): Promi
         minute,
       },
     });
-    console.log('[NotifService] Daily reminder set for', hour, ':', minute);
+    __DEV__ && console.log('[NotifService] Daily reminder set for', hour, ':', minute);
   } catch (e) {
-    console.log('[NotifService] scheduleDailyReminder error:', e);
+    __DEV__ && console.log('[NotifService] scheduleDailyReminder error:', e);
   }
 }
 
@@ -223,7 +223,7 @@ export async function cancelDailyReminder(): Promise<void> {
   try {
     await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_DAILY_REMINDER).catch(() => {});
   } catch (e) {
-    console.log('[NotifService] cancelDailyReminder error:', e);
+    __DEV__ && console.log('[NotifService] cancelDailyReminder error:', e);
   }
 }
 
@@ -246,9 +246,9 @@ export async function scheduleStreakReminder(hour: number, minute: number): Prom
         minute,
       },
     });
-    console.log('[NotifService] Streak reminder set for', hour, ':', minute);
+    __DEV__ && console.log('[NotifService] Streak reminder set for', hour, ':', minute);
   } catch (e) {
-    console.log('[NotifService] scheduleStreakReminder error:', e);
+    __DEV__ && console.log('[NotifService] scheduleStreakReminder error:', e);
   }
 }
 
@@ -258,7 +258,7 @@ export async function cancelStreakReminder(): Promise<void> {
   try {
     await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_STREAK_REMINDER).catch(() => {});
   } catch (e) {
-    console.log('[NotifService] cancelStreakReminder error:', e);
+    __DEV__ && console.log('[NotifService] cancelStreakReminder error:', e);
   }
 }
 
@@ -300,9 +300,9 @@ export async function scheduleWeeklySummary(stats: {
         seconds: secondsUntil,
       },
     });
-    console.log('[NotifService] Weekly summary scheduled in', secondsUntil, 's');
+    __DEV__ && console.log('[NotifService] Weekly summary scheduled in', secondsUntil, 's');
   } catch (e) {
-    console.log('[NotifService] scheduleWeeklySummary error:', e);
+    __DEV__ && console.log('[NotifService] scheduleWeeklySummary error:', e);
   }
 }
 
@@ -312,6 +312,6 @@ export async function cancelWeeklySummary(): Promise<void> {
   try {
     await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_WEEKLY_SUMMARY).catch(() => {});
   } catch (e) {
-    console.log('[NotifService] cancelWeeklySummary error:', e);
+    __DEV__ && console.log('[NotifService] cancelWeeklySummary error:', e);
   }
 }

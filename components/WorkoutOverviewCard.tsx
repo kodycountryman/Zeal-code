@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { memo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -52,7 +52,7 @@ interface Props {
   completedLog?: WorkoutLog | null;
 }
 
-export default function WorkoutOverviewCard({
+function WorkoutOverviewCard({
   title,
   style: workoutStyle,
   duration,
@@ -235,6 +235,8 @@ export default function WorkoutOverviewCard({
     </GlassCard>
   );
 }
+
+export default memo(WorkoutOverviewCard);
 
 const styles = StyleSheet.create({
   card: {

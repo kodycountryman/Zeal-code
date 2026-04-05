@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { Pause, Play, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
-import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { useWorkoutTracking, useRestTimeRemaining } from '@/context/WorkoutTrackingContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -41,22 +41,23 @@ const PRESETS = [
   { label: '2m', seconds: 120 },
 ] as const;
 
-export default function WorkoutTimerCard({ accent }: { accent: string }) {
+function WorkoutTimerCard({ accent }: { accent: string }) {
   const { colors, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
+  const restTimeRemaining = useRestTimeRemaining();
 
   const [isMinimized, setIsMinimized] = useState(false);
   // Persists user's preferred state across timer sessions within a workout
   const preferMinimized = useRef(false);
   const prevIsActive = useRef(false);
 
-  const isActive = tracking.isRestActive && tracking.restTimeRemaining > 0;
-  const isUrgent = tracking.restTimeRemaining <= 15 && tracking.restTimeRemaining > 0;
+  const isActive = tracking.isRestActive && restTimeRemaining > 0;
+  const isUrgent = restTimeRemaining <= 15 && restTimeRemaining > 0;
 
   const progressShared = useSharedValue(1);
   const pulseAnim = useRef(new RNAnimated.Value(1)).current;
   const flashAnim = useRef(new RNAnimated.Value(1)).current;
-  const prevRemaining = useRef(tracking.restTimeRemaining);
+  const prevRemaining = useRef(restTimeRemaining);
 
   const chipBg = colors.cardSecondary;
   const dividerColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
@@ -66,8 +67,8 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
   // --- Progress bar animation ---
   useEffect(() => {
     if (isActive && tracking.restTimeTotal > 0) {
-      const ratio = tracking.restTimeRemaining / tracking.restTimeTotal;
-      const targetRatio = Math.max(0, (tracking.restTimeRemaining - 1) / tracking.restTimeTotal);
+      const ratio = restTimeRemaining / tracking.restTimeTotal;
+      const targetRatio = Math.max(0, (restTimeRemaining - 1) / tracking.restTimeTotal);
       cancelAnimation(progressShared);
       progressShared.value = ratio;
       progressShared.value = withTiming(targetRatio, { duration: 1000, easing: Easing.linear });
@@ -76,7 +77,7 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
       progressShared.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tracking.restTimeRemaining, isActive, tracking.restTimeTotal]);
+  }, [restTimeRemaining, isActive, tracking.restTimeTotal]);
 
   // --- Urgent pulse ---
   useEffect(() => {
@@ -97,7 +98,7 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
 
   // --- Completion: 3 flashes then auto-collapse ---
   useEffect(() => {
-    if (prevRemaining.current > 0 && tracking.restTimeRemaining === 0 && tracking.showRestTimer) {
+    if (prevRemaining.current > 0 && restTimeRemaining === 0 && tracking.showRestTimer) {
       RNAnimated.sequence([
         RNAnimated.timing(flashAnim, { toValue: 0.15, duration: 80, useNativeDriver: true }),
         RNAnimated.timing(flashAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
@@ -113,9 +114,9 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
         }, 1500);
       });
     }
-    prevRemaining.current = tracking.restTimeRemaining;
+    prevRemaining.current = restTimeRemaining;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tracking.restTimeRemaining]);
+  }, [restTimeRemaining]);
 
   // --- Reset preference when workout ends ---
   useEffect(() => {
@@ -274,7 +275,7 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
               { fontVariant: ['tabular-nums'] as any },
             ]}
           >
-            {formatTime(tracking.restTimeRemaining)}
+            {formatTime(restTimeRemaining)}
           </RNAnimated.Text>
 
           {/* Chevron (centered) + Cancel (right-aligned) */}
@@ -300,7 +301,7 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
           <View style={{ flex: 1 }} />
           <TouchableOpacity onPress={handleToggle} activeOpacity={0.7} style={styles.minimizedInner}>
             <Text style={[styles.minimizedTime, { color: colors.textSecondary }]}>
-              {formatTime(tracking.restTimeRemaining)}
+              {formatTime(restTimeRemaining)}
             </Text>
             <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.5} />
           </TouchableOpacity>
@@ -325,6 +326,8 @@ export default function WorkoutTimerCard({ accent }: { accent: string }) {
     </View>
   );
 }
+
+export default memo(WorkoutTimerCard);
 
 const styles = StyleSheet.create({
   presetsRow: {

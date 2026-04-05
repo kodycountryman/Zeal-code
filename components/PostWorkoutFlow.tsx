@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { memo, useState, useRef, useCallback, useMemo } from 'react';
 
 import {
   View,
@@ -14,7 +14,7 @@ import {
 import { useSheetAnimation } from '@/hooks/useSheetAnimation';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext, type SavedWorkout } from '@/context/AppContext';
-import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { useWorkoutTracking, useWorkoutElapsed } from '@/context/WorkoutTrackingContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SLIDER_WIDTH = SCREEN_WIDTH - 88;
@@ -151,9 +151,10 @@ const rpeStyles = StyleSheet.create({
   labelText: { fontSize: 11, fontWeight: '500' as const },
 });
 
-export default function PostWorkoutFlow() {
+function PostWorkoutFlow() {
   const { colors, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
+  const workoutElapsed = useWorkoutElapsed();
 
   const [starRating, setStarRating] = useState<number>(3);
   const [rpe, setRpe] = useState<number>(6);
@@ -337,7 +338,7 @@ export default function PostWorkoutFlow() {
                 <View style={[styles.saveStat, { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }]}>
                   <PlatformIcon name="clock" size={14} color={colors.textSecondary} />
                   <Text style={[styles.saveStatValue, { color: colors.text }]}>
-                    {formatDuration(tracking.workoutElapsed)}
+                    {formatDuration(workoutElapsed)}
                   </Text>
                   <Text style={[styles.saveStatLabel, { color: colors.textSecondary }]}>Duration</Text>
                 </View>
@@ -414,6 +415,8 @@ export default function PostWorkoutFlow() {
     </Modal>
   );
 }
+
+export default memo(PostWorkoutFlow);
 
 const styles = StyleSheet.create({
   backdrop: {

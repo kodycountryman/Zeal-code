@@ -39,13 +39,13 @@ export default function BaseDrawer({
 }: BaseDrawerProps) {
   const { colors } = useZealTheme();
   const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 0) + 16;
+  const topOffset = Math.max(insets.top, 0) + 32;
   const internalRef = useRef<BottomSheetModal>(null);
   const ref = sheetRef ?? internalRef;
   const dismissingRef = useRef(false);
   const [headerHeight, setHeaderHeight] = useState(0);
 
-  const maxContentSize = maxHeight ?? SCREEN_HEIGHT * 0.92;
+  const maxContentSize = maxHeight ?? SCREEN_HEIGHT * 0.88;
 
   useEffect(() => {
     if (visible) {

@@ -49,7 +49,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (Platform.OS === 'web') {
-      console.log('[Login] Google auth not supported on web preview');
+      __DEV__ && console.log('[Login] Google auth not supported on web preview');
       return;
     }
     let cancelled = false;
@@ -57,9 +57,9 @@ export default function LoginScreen() {
       try {
         const WebBrowser = await import('expo-web-browser');
         WebBrowser.maybeCompleteAuthSession();
-        console.log('[Login] Google auth modules loaded');
+        __DEV__ && console.log('[Login] Google auth modules loaded');
       } catch (err) {
-        console.log('[Login] Google auth module not available:', err);
+        __DEV__ && console.log('[Login] Google auth module not available:', err);
       }
     })();
     return () => { cancelled = true; };
@@ -70,11 +70,11 @@ export default function LoginScreen() {
     if (resp?.type === 'success') {
       const accessToken = resp.authentication?.accessToken ?? resp.params?.access_token;
       if (!accessToken) {
-        console.log('[Login] Google success but no access token');
+        __DEV__ && console.log('[Login] Google success but no access token');
         setGoogleLoading(false);
         return;
       }
-      console.log('[Login] Google auth success, fetching user info...');
+      __DEV__ && console.log('[Login] Google auth success, fetching user info...');
       fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
@@ -82,13 +82,13 @@ export default function LoginScreen() {
         .then((userInfo: { name?: string; given_name?: string; picture?: string }) => {
           const name = userInfo.name ?? userInfo.given_name ?? '';
           const photoUri = userInfo.picture ?? null;
-          console.log('[Login] Google user:', name, photoUri ? 'has photo' : 'no photo');
+          __DEV__ && console.log('[Login] Google user:', name, photoUri ? 'has photo' : 'no photo');
           setGooglePrefill({ name, photoUri });
           setGoogleLoading(false);
           router.push('/onboarding');
         })
         .catch(err => {
-          console.log('[Login] Failed to fetch Google user info:', err);
+          __DEV__ && console.log('[Login] Failed to fetch Google user info:', err);
           setGoogleLoading(false);
         });
     } else if (resp?.type === 'error' || resp?.type === 'dismiss' || resp?.type === 'cancel') {

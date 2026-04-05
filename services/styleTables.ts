@@ -1,7 +1,7 @@
 import type { WorkoutFormatId } from '@/services/styleFormats';
 import type { FitnessLevel } from '@/services/styleRules';
 
-console.log('[StyleTables] Cross-style reference tables loaded');
+__DEV__ && console.log('[StyleTables] Cross-style reference tables loaded');
 
 export const FORMAT_AVAILABILITY: Record<string, WorkoutFormatId[]> = {
   strength:     ['straight_sets', 'wave_loading', 'cluster_sets', 'ascending_sets', 'descending_sets', 'pyramid', 'supersets'],

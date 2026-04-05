@@ -21,6 +21,7 @@ export interface WorkoutExercise {
   exerciseRef: { movement_pattern?: string; equipment_required?: string[] } | null;
   trackingMetric?: string;    // "reps" | "distance_meters" | "calories" | "time_seconds"
   executionLogic?: string;    // "bilateral" | "alternating" | "per_side"
+  mediaUrl?: string;
 }
 
 export interface CardioItem {
@@ -176,7 +177,7 @@ import {
   DISTRACTION_FACTOR_BY_STYLE,
 } from '@/services/styleTables';
 
-console.log('[WorkoutEngineV2] Master Rules Engine v1.3 + Style System loaded');
+__DEV__ && console.log('[WorkoutEngineV2] Master Rules Engine v1.3 + Style System loaded');
 
 export interface ScoredExercise {
   exercise: ZealExercise;
@@ -416,21 +417,21 @@ function stage1PlanCheck(params: EngineParams): {
   intensityModifier: number;
   planApplied: boolean;
 } {
-  console.log('[EngineV2] Stage 1: Plan Check');
+  __DEV__ && console.log('[EngineV2] Stage 1: Plan Check');
 
   const plan = params.planPrescription;
   if (plan) {
-    console.log('[EngineV2] Active plan found:', plan.style, plan.split, plan.targetDurationMinutes, 'min');
+    __DEV__ && console.log('[EngineV2] Active plan found:', plan.style, plan.split, plan.targetDurationMinutes, 'min');
     const engineStyle = mapLegacyStyleToEngine(plan.style);
 
     const durationOverride = STYLE_DURATION_OVERRIDES[engineStyle];
     let effectiveDuration = plan.targetDurationMinutes;
     if (durationOverride?.fixed_minutes) {
       effectiveDuration = durationOverride.fixed_minutes;
-      console.log('[EngineV2] Plan duration overridden by style fixed:', effectiveDuration);
+      __DEV__ && console.log('[EngineV2] Plan duration overridden by style fixed:', effectiveDuration);
     } else if (durationOverride?.max_working_minutes && effectiveDuration > durationOverride.max_working_minutes) {
       effectiveDuration = durationOverride.max_working_minutes;
-      console.log('[EngineV2] Plan duration capped by style max:', effectiveDuration);
+      __DEV__ && console.log('[EngineV2] Plan duration capped by style max:', effectiveDuration);
     }
 
     return {
@@ -454,11 +455,11 @@ function stage1PlanCheck(params: EngineParams): {
     effectiveDuration = durationOverride.max_working_minutes;
   }
 
-  console.log('[EngineV2] No plan active. style=', engineStyle, 'duration=', effectiveDuration);
+  __DEV__ && console.log('[EngineV2] No plan active. style=', engineStyle, 'duration=', effectiveDuration);
   const level = (params.fitnessLevel as FitnessLevel) || 'intermediate';
   const resolvedSplit = resolveAutoSplitForStyle(engineStyle, params.split, effectiveDuration, level);
   if (resolvedSplit !== params.split) {
-    console.log('[EngineV2] Auto split resolved:', params.split, '→', resolvedSplit, 'for style', engineStyle);
+    __DEV__ && console.log('[EngineV2] Auto split resolved:', params.split, '→', resolvedSplit, 'for style', engineStyle);
   }
   return {
     effectiveStyle: engineStyle,
@@ -471,21 +472,21 @@ function stage1PlanCheck(params: EngineParams): {
 }
 
 function stage2SplitResolution(split: string, specificMuscles: string[]): string[] {
-  console.log('[EngineV2] Stage 2: Split Resolution, split=', split, 'specificMuscles=', specificMuscles.length);
+  __DEV__ && console.log('[EngineV2] Stage 2: Split Resolution, split=', split, 'specificMuscles=', specificMuscles.length);
 
   if (specificMuscles.length > 0) {
     const lowered = specificMuscles.map(m => m.toLowerCase().replace(/\s+/g, '_'));
-    console.log('[EngineV2] Using specific muscles:', lowered);
+    __DEV__ && console.log('[EngineV2] Using specific muscles:', lowered);
     return lowered;
   }
 
   const muscles = SPLIT_TO_MUSCLES[split];
   if (muscles && muscles.length > 0) {
-    console.log('[EngineV2] Split resolved to:', muscles);
+    __DEV__ && console.log('[EngineV2] Split resolved to:', muscles);
     return muscles;
   }
 
-  console.log('[EngineV2] No split mapping found, defaulting to full body');
+  __DEV__ && console.log('[EngineV2] No split mapping found, defaulting to full body');
   return SPLIT_TO_MUSCLES['Full Body'] ?? ['chest', 'lats', 'quads', 'core'];
 }
 
@@ -544,12 +545,12 @@ function normalizeEquipmentIds(rawEquipment: Record<string, number>): Record<str
   const hasAny = Object.values(rawEquipment).some(v => v > 0);
 
   if (!hasKeys) {
-    console.log('[EngineV2] Equipment never configured (first launch) — defaulting to commercial gym');
+    __DEV__ && console.log('[EngineV2] Equipment never configured (first launch) — defaulting to commercial gym');
     return { ...COMMERCIAL_GYM_DEFAULTS, bodyweight: 1 };
   }
 
   if (!hasAny) {
-    console.log('[EngineV2] No equipment selected — restricting to bodyweight only');
+    __DEV__ && console.log('[EngineV2] No equipment selected — restricting to bodyweight only');
     return { bodyweight: 1 };
   }
 
@@ -559,7 +560,7 @@ function normalizeEquipmentIds(rawEquipment: Record<string, number>): Record<str
     const schemaId = DRAWER_TO_SCHEMA_EQUIPMENT[id] ?? id;
     normalized[schemaId] = Math.max(normalized[schemaId] ?? 0, qty);
   }
-  console.log('[EngineV2] Normalized equipment IDs:', Object.keys(normalized));
+  __DEV__ && console.log('[EngineV2] Normalized equipment IDs:', Object.keys(normalized));
   return normalized;
 }
 
@@ -570,7 +571,7 @@ function stage3PoolFiltering(
   specialLifeCase: string,
   specialLifeCaseDetail: string,
 ): ZealExercise[] {
-  console.log('[EngineV2] Stage 3: Exercise Pool Filtering');
+  __DEV__ && console.log('[EngineV2] Stage 3: Exercise Pool Filtering');
   let pool = [...getZealExerciseDatabase()];
   const startCount = pool.length;
 
@@ -583,10 +584,10 @@ function stage3PoolFiltering(
     pool = pool.filter(ex => ex.difficulty_tier === 'beginner' || ex.difficulty_tier === 'intermediate');
     pool = pool.filter(ex => !(ex.movement_pattern as string === 'cardio'));
     pool = pool.filter(ex => !(ex.movement_pattern as string === 'plyometric'));
-    console.log('[EngineV2] After low_impact style gate:', pool.length, '/', startCount);
+    __DEV__ && console.log('[EngineV2] After low_impact style gate:', pool.length, '/', startCount);
   } else {
     pool = pool.filter(ex => ex.eligible_styles.includes(style as never));
-    console.log('[EngineV2] After style gate:', pool.length, '/', startCount);
+    __DEV__ && console.log('[EngineV2] After style gate:', pool.length, '/', startCount);
   }
 
   const normalizedEquipment = normalizeEquipmentIds(availableEquipment);
@@ -600,18 +601,18 @@ function stage3PoolFiltering(
       if (required.length === 0) return true;
       return required.every(eq => availIds.has(eq));
     });
-    console.log('[EngineV2] After equipment gate:', pool.length);
+    __DEV__ && console.log('[EngineV2] After equipment gate:', pool.length);
   }
 
   if (specialLifeCase === 'pregnant') {
     const trimesterTags = ['pregnancy_t1', 'pregnancy_t2', 'pregnancy_t3'];
     pool = pool.filter(ex => !ex.contraindication_tags.some(t => trimesterTags.includes(t)));
     pool = pool.filter(ex => ex.spinal_load !== 'heavy');
-    console.log('[EngineV2] After pregnancy contraindication gate:', pool.length);
+    __DEV__ && console.log('[EngineV2] After pregnancy contraindication gate:', pool.length);
   } else if (specialLifeCase === 'postpartum') {
     pool = pool.filter(ex => !ex.contraindication_tags.includes('diastasis_recti' as never));
     pool = pool.filter(ex => ex.spinal_load !== 'heavy');
-    console.log('[EngineV2] After postpartum gate:', pool.length);
+    __DEV__ && console.log('[EngineV2] After postpartum gate:', pool.length);
   } else if (specialLifeCase === 'injury' && specialLifeCaseDetail) {
     const injuryArea = specialLifeCaseDetail.toLowerCase();
     const injuryTags = [
@@ -634,7 +635,7 @@ function stage3PoolFiltering(
         return !allMuscles.some(m => injuryMuscles.includes(m));
       });
     }
-    console.log('[EngineV2] After injury contraindication gate:', pool.length);
+    __DEV__ && console.log('[EngineV2] After injury contraindication gate:', pool.length);
   }
 
   if (style === 'low_impact') {
@@ -645,7 +646,7 @@ function stage3PoolFiltering(
       'clean_and_jerk', 'snatch', 'dumbbell_snatch',
     ]);
     pool = pool.filter(ex => !LOW_IMPACT_EXCLUDED_IDS.has(ex.id));
-    console.log('[EngineV2] After low_impact heavy exercise exclusion gate:', pool.length);
+    __DEV__ && console.log('[EngineV2] After low_impact heavy exercise exclusion gate:', pool.length);
   }
 
   if (style === 'strength' || style === 'bodybuilding') {
@@ -657,7 +658,7 @@ function stage3PoolFiltering(
       if ((ex.movement_pattern as string) === 'plyometric') return false;
       return true;
     });
-    console.log('[EngineV2] After conditioning/sled gate for', style, ':', pool.length, '/', beforeConditioningFilter);
+    __DEV__ && console.log('[EngineV2] After conditioning/sled gate for', style, ':', pool.length, '/', beforeConditioningFilter);
   }
 
   if (targetMuscles.length > 0) {
@@ -669,12 +670,12 @@ function stage3PoolFiltering(
     if (muscleFiltered.length > 0) {
       pool = muscleFiltered;
     } else {
-      console.log('[EngineV2] Muscle filter returned 0 results, keeping full pool');
+      __DEV__ && console.log('[EngineV2] Muscle filter returned 0 results, keeping full pool');
     }
-    console.log('[EngineV2] After muscle group gate:', pool.length);
+    __DEV__ && console.log('[EngineV2] After muscle group gate:', pool.length);
   }
 
-  console.log('[EngineV2] Pool filtering complete:', pool.length, 'exercises remain');
+  __DEV__ && console.log('[EngineV2] Pool filtering complete:', pool.length, 'exercises remain');
   return pool;
 }
 
@@ -700,7 +701,7 @@ function applyPositionOrdering(
     return b.score - a.score;
   });
 
-  console.log('[EngineV2] Applied position ordering for', style, ':', sorted.slice(0, 5).map(s => `${s.exercise.name}(${s.exercise.position})`).join(', '));
+  __DEV__ && console.log('[EngineV2] Applied position ordering for', style, ':', sorted.slice(0, 5).map(s => `${s.exercise.name}(${s.exercise.position})`).join(', '));
   return sorted;
 }
 
@@ -715,7 +716,7 @@ function applyArchitecturePhaseSelection(
   const architecture = getArchitectureForStyle(style, split);
   if (!architecture || architecture.phases.length === 0) return scored;
 
-  console.log('[EngineV2] Applying session architecture for', style, ':', architecture.phases.length, 'phases');
+  __DEV__ && console.log('[EngineV2] Applying session architecture for', style, ':', architecture.phases.length, 'phases');
 
   const selected: ScoredExercise[] = [];
   const usedIds = new Set<string>();
@@ -761,7 +762,7 @@ function applyArchitecturePhaseSelection(
       usedIds.add(p.exercise.id);
     }
 
-    console.log('[EngineV2] Phase', phase.name, ':', picked.length, '/', count, 'exercises');
+    __DEV__ && console.log('[EngineV2] Phase', phase.name, ':', picked.length, '/', count, 'exercises');
   }
 
   // Append remaining exercises not claimed by any phase.
@@ -794,7 +795,7 @@ function stage4Scoring(
   trainingLog: TrainingLogEntry[],
   rng: () => number,
 ): ScoredExercise[] {
-  console.log('[EngineV2] Stage 4: Exercise Selection & Scoring (Style-Aware)');
+  __DEV__ && console.log('[EngineV2] Stage 4: Exercise Selection & Scoring (Style-Aware)');
 
   const config = STYLE_ENGINE_CONFIGS[style];
   const styleRules = getStyleRules(style);
@@ -898,7 +899,7 @@ function stage4Scoring(
   if (isStylePositionOrdered(style)) {
     const posOrdered = applyPositionOrdering(scored, style);
     const archOrdered = applyArchitecturePhaseSelection(posOrdered, style, split, fitnessLevel, targetMuscles, rng);
-    console.log('[EngineV2] Position-ordered & architecture-selected:', archOrdered.length, 'exercises');
+    __DEV__ && console.log('[EngineV2] Position-ordered & architecture-selected:', archOrdered.length, 'exercises');
     return archOrdered;
   }
 
@@ -926,12 +927,12 @@ function stage4Scoring(
       }
     }
     const archOrdered = applyArchitecturePhaseSelection(patternOrdered, style, split, fitnessLevel, targetMuscles, rng);
-    console.log('[EngineV2] Scored & architecture-ordered:', archOrdered.length, 'exercises, top 5:', archOrdered.slice(0, 5).map(s => `${s.exercise.name}(${s.score.toFixed(1)})`).join(', '));
+    __DEV__ && console.log('[EngineV2] Scored & architecture-ordered:', archOrdered.length, 'exercises, top 5:', archOrdered.slice(0, 5).map(s => `${s.exercise.name}(${s.score.toFixed(1)})`).join(', '));
     return archOrdered;
   }
 
   const archOrdered = applyArchitecturePhaseSelection(scored, style, split, fitnessLevel, targetMuscles, rng);
-  console.log('[EngineV2] Scored:', archOrdered.length, 'exercises');
+  __DEV__ && console.log('[EngineV2] Scored:', archOrdered.length, 'exercises');
   return archOrdered;
 }
 
@@ -946,7 +947,7 @@ function stage5LoadAndReps(
   intensityModifier: number,
   rng: () => number,
 ): SelectedExercise[] {
-  console.log('[EngineV2] Stage 5: Load & Rep Assignment');
+  __DEV__ && console.log('[EngineV2] Stage 5: Load & Rep Assignment');
 
   const config = STYLE_ENGINE_CONFIGS[style];
 
@@ -1015,7 +1016,7 @@ function stage5LoadAndReps(
       const increment = isUpper ? PROGRESSIVE_OVERLOAD.upper_body_increment_lbs : PROGRESSIVE_OVERLOAD.lower_body_increment_lbs;
       if (lastLog.repsCompleted >= reps + PROGRESSIVE_OVERLOAD.reps_exceed_threshold) {
         loadLbs = lastLog.weightUsed + increment;
-        console.log('[EngineV2] Progressive overload for', ex.name, ':', lastLog.weightUsed, '->', loadLbs);
+        __DEV__ && console.log('[EngineV2] Progressive overload for', ex.name, ':', lastLog.weightUsed, '->', loadLbs);
       } else {
         loadLbs = lastLog.weightUsed;
       }
@@ -1052,7 +1053,7 @@ function stage6TimeValidation(
   targetMinutes: number,
   style: string,
 ): SelectedExercise[] {
-  console.log('[EngineV2] Stage 6: Time Validation');
+  __DEV__ && console.log('[EngineV2] Stage 6: Time Validation');
 
   const distractionFactor = DISTRACTION_FACTOR_BY_STYLE[style] ?? DISTRACTION_BUFFER_FACTOR;
   const usableTarget = targetMinutes * 60 * distractionFactor;
@@ -1064,7 +1065,7 @@ function stage6TimeValidation(
   const durationRange = getExerciseCountForDuration(style, targetMinutes);
   const minExercises = durationRange?.min ?? (MIN_EXERCISES_PER_STYLE[style] ?? 4);
   const maxExercises = durationRange?.max ?? (MAX_EXERCISES_PER_STYLE[style] ?? 10);
-  console.log('[EngineV2] Exercise count range for', style, '@', targetMinutes, 'min:', minExercises, '-', maxExercises);
+  __DEV__ && console.log('[EngineV2] Exercise count range for', style, '@', targetMinutes, 'min:', minExercises, '-', maxExercises);
 
   let current = selected.slice(0, maxExercises);
 
@@ -1108,17 +1109,17 @@ function stage6TimeValidation(
       const withSupersets = current.map((ex, i) => {
         if (pairedFirstIndices.has(i)) {
           const newTime = ex.setDurationSeconds * ex.sets + ex.exercise.setup_time_seconds + 30;
-          console.log('[EngineV2] Superset time-save:', ex.exercise.name, Math.round(ex.exerciseTotalSeconds), 's ->', Math.round(newTime), 's');
+          __DEV__ && console.log('[EngineV2] Superset time-save:', ex.exercise.name, Math.round(ex.exerciseTotalSeconds), 's ->', Math.round(newTime), 's');
           return { ...ex, restSeconds: 0, exerciseTotalSeconds: newTime };
         }
         return ex;
       });
       const timeWithSupersets = getTotalTime(withSupersets);
-      console.log('[EngineV2] Time with supersets:', Math.round(timeWithSupersets), 's / target:', Math.round(usableTarget), 's');
+      __DEV__ && console.log('[EngineV2] Time with supersets:', Math.round(timeWithSupersets), 's / target:', Math.round(usableTarget), 's');
       if (timeWithSupersets <= usableTarget * 1.1) {
         current = withSupersets;
         totalTime = timeWithSupersets;
-        console.log('[EngineV2] Superset strategy applied, keeping all', current.length, 'exercises');
+        __DEV__ && console.log('[EngineV2] Superset strategy applied, keeping all', current.length, 'exercises');
       }
     }
   }
@@ -1147,7 +1148,7 @@ function stage6TimeValidation(
   // PHASE 4: Only remove exercises above minimum
   while (totalTime > usableTarget && current.length > minExercises && iterations < maxIterations) {
     const removed = current[current.length - 1];
-    console.log('[EngineV2] Over budget (', Math.round(totalTime), 's >', Math.round(usableTarget), 's). Removing:', removed.exercise.name);
+    __DEV__ && console.log('[EngineV2] Over budget (', Math.round(totalTime), 's >', Math.round(usableTarget), 's). Removing:', removed.exercise.name);
     current = current.slice(0, -1);
     totalTime = getTotalTime(current);
     iterations++;
@@ -1158,7 +1159,7 @@ function stage6TimeValidation(
     let addIdx = current.length;
     while (totalTime < usableTarget * 0.9 && addIdx < selected.length && addIdx < maxExercises && iterations < maxIterations) {
       const toAdd = selected[addIdx];
-      console.log('[EngineV2] Under budget. Adding:', toAdd.exercise.name);
+      __DEV__ && console.log('[EngineV2] Under budget. Adding:', toAdd.exercise.name);
       current.push(toAdd);
       totalTime = getTotalTime(current);
       addIdx++;
@@ -1182,7 +1183,7 @@ function stage6TimeValidation(
     }
   }
 
-  console.log('[EngineV2] Time validation result:', current.length, 'exercises,', Math.round(totalTime), 's /', Math.round(usableTarget), 's target (', Math.round(totalTime / usableTarget * 100), '%)');
+  __DEV__ && console.log('[EngineV2] Time validation result:', current.length, 'exercises,', Math.round(totalTime), 's /', Math.round(usableTarget), 's target (', Math.round(totalTime / usableTarget * 100), '%)');
   return current;
 }
 
@@ -1284,7 +1285,7 @@ function buildMobilityFirstWarmup(
   const mobilityCount = warmup.filter(w =>
     db.find(ex => ex.name === w.name)?.movement_pattern === 'mobility'
   ).length;
-  console.log(`[WarmupBuilder] ${warmup.length} exercises — ${mobilityCount} mobility/stretch (${Math.round(mobilityCount / warmup.length * 100)}%), targeted muscles: ${Array.from(allMuscles).join(', ')}`);
+  __DEV__ && console.log(`[WarmupBuilder] ${warmup.length} exercises — ${mobilityCount} mobility/stretch (${Math.round(mobilityCount / warmup.length * 100)}%), targeted muscles: ${Array.from(allMuscles).join(', ')}`);
   return warmup;
 }
 
@@ -1300,7 +1301,7 @@ function stage7WarmupCooldown(
   cooldown: EngineCooldownItem[];
   recovery: { name: string; description: string; benefit: string }[];
 } {
-  console.log('[EngineV2] Stage 7: Warmup/Cooldown Generation');
+  __DEV__ && console.log('[EngineV2] Stage 7: Warmup/Cooldown Generation');
 
   const warmup: EngineWarmupItem[] = [];
   if (warmUp) {
@@ -1308,7 +1309,7 @@ function stage7WarmupCooldown(
     const count = WARMUP_EXERCISE_COUNT.min + Math.floor(rng() * (WARMUP_EXERCISE_COUNT.max - WARMUP_EXERCISE_COUNT.min + 1));
     const built = buildMobilityFirstWarmup(workedMuscles, targetMuscles, count, rng);
     warmup.push(...built);
-    console.log('[EngineV2] Warmup:', warmup.length, 'exercises (80%+ mobility/stretching targeted)');
+    __DEV__ && console.log('[EngineV2] Warmup:', warmup.length, 'exercises (80%+ mobility/stretching targeted)');
   }
 
   const cooldown: EngineCooldownItem[] = [];
@@ -1346,7 +1347,7 @@ function stage7WarmupCooldown(
         }
       }
     }
-    console.log('[EngineV2] Cooldown:', cooldown.length, 'exercises');
+    __DEV__ && console.log('[EngineV2] Cooldown:', cooldown.length, 'exercises');
   }
 
   const recovery: { name: string; description: string; benefit: string }[] = [];
@@ -1364,17 +1365,17 @@ function stage8FeedbackAdjustment(
   feedbackData: FeedbackData | undefined,
   planApplied: boolean,
 ): { adjusted: SelectedExercise[]; applied: boolean } {
-  console.log('[EngineV2] Stage 8: Feedback Adjustment Layer');
+  __DEV__ && console.log('[EngineV2] Stage 8: Feedback Adjustment Layer');
 
   if (!feedbackData || feedbackData.recentSessions.length === 0) {
-    console.log('[EngineV2] No feedback data available, skipping adjustment');
+    __DEV__ && console.log('[EngineV2] No feedback data available, skipping adjustment');
     return { adjusted: exercises, applied: false };
   }
 
   const recent = feedbackData.recentSessions.slice(-FEEDBACK_ADJUSTMENT.trailing_window_sessions);
   const avgRpe = recent.reduce((sum, s) => sum + s.rpe, 0) / recent.length;
 
-  console.log('[EngineV2] Trailing RPE average:', avgRpe.toFixed(1), 'from', recent.length, 'sessions');
+  __DEV__ && console.log('[EngineV2] Trailing RPE average:', avgRpe.toFixed(1), 'from', recent.length, 'sessions');
 
   let volumeFactor = 1.0;
   let intensityFactor = 1.0;
@@ -1382,20 +1383,20 @@ function stage8FeedbackAdjustment(
   if (avgRpe <= FEEDBACK_ADJUSTMENT.rpe_too_easy_threshold) {
     volumeFactor = FEEDBACK_ADJUSTMENT.volume_increase_factor;
     intensityFactor = FEEDBACK_ADJUSTMENT.intensity_increase_factor;
-    console.log('[EngineV2] RPE too easy, increasing volume by', (volumeFactor - 1) * 100, '% and intensity by', (intensityFactor - 1) * 100, '%');
+    __DEV__ && console.log('[EngineV2] RPE too easy, increasing volume by', (volumeFactor - 1) * 100, '% and intensity by', (intensityFactor - 1) * 100, '%');
   } else if (avgRpe >= FEEDBACK_ADJUSTMENT.rpe_too_hard_threshold) {
     volumeFactor = FEEDBACK_ADJUSTMENT.volume_reduction_factor;
     intensityFactor = FEEDBACK_ADJUSTMENT.intensity_reduction_factor;
-    console.log('[EngineV2] RPE too hard, reducing volume by', (1 - volumeFactor) * 100, '% and intensity by', (1 - intensityFactor) * 100, '%');
+    __DEV__ && console.log('[EngineV2] RPE too hard, reducing volume by', (1 - volumeFactor) * 100, '% and intensity by', (1 - intensityFactor) * 100, '%');
   } else {
-    console.log('[EngineV2] RPE in target range, no adjustment needed');
+    __DEV__ && console.log('[EngineV2] RPE in target range, no adjustment needed');
     return { adjusted: exercises, applied: false };
   }
 
   if (planApplied) {
     volumeFactor = clamp(volumeFactor, 0.85, 1.15);
     intensityFactor = clamp(intensityFactor, 0.90, 1.10);
-    console.log('[EngineV2] Plan active — clamping feedback adjustments');
+    __DEV__ && console.log('[EngineV2] Plan active — clamping feedback adjustments');
   }
 
   const adjusted = exercises.map(ex => {
@@ -1424,7 +1425,7 @@ function applyStyleAwareSupersets(
   const supersetRules = styleRules.superset_rules;
 
   if (!supersetRules.enabled) {
-    console.log('[EngineV2] Supersets disabled for style:', style);
+    __DEV__ && console.log('[EngineV2] Supersets disabled for style:', style);
     return;
   }
 
@@ -1490,12 +1491,12 @@ function applyStyleAwareSupersets(
   tryPair(2, exercises.length - 1);
 
   if (created < supersetRules.min_supersets && exercises.length >= 3) {
-    console.log('[EngineV2] Min supersets not met (' + created + '/' + supersetRules.min_supersets + '), trying fallback from index 1');
+    __DEV__ && console.log('[EngineV2] Min supersets not met (' + created + '/' + supersetRules.min_supersets + '), trying fallback from index 1');
     tryPair(1, exercises.length - 1);
   }
 
   if (created < supersetRules.min_supersets && exercises.length >= 2) {
-    console.log('[EngineV2] Still not met, forcing last eligible pair');
+    __DEV__ && console.log('[EngineV2] Still not met, forcing last eligible pair');
     for (let i = exercises.length - 2; i >= 0; i--) {
       const a = exercises[i];
       const b = exercises[i + 1];
@@ -1518,7 +1519,7 @@ function applyStyleAwareSupersets(
     }
   }
 
-  console.log('[EngineV2] Applied', created, 'style-aware supersets for', style, '(target:', targetCount, ', min:', supersetRules.min_supersets + ')');
+  __DEV__ && console.log('[EngineV2] Applied', created, 'style-aware supersets for', style, '(target:', targetCount, ', min:', supersetRules.min_supersets + ')');
 }
 
 function applyCircuitGrouping(exercises: EngineWorkoutExercise[]): void {
@@ -1528,7 +1529,7 @@ function applyCircuitGrouping(exercises: EngineWorkoutExercise[]): void {
     ex.groupType = 'circuit';
     ex.groupId = gid;
   }
-  console.log('[EngineV2] Grouped', exercises.length, 'exercises as circuit');
+  __DEV__ && console.log('[EngineV2] Grouped', exercises.length, 'exercises as circuit');
 }
 
 // Map the user-facing CrossFit split label to the internal WorkoutFormatId.
@@ -1694,7 +1695,7 @@ function applyStyleAwareGrouping(
         ex.sets = 1;
         ex.restSeconds = 0;
       }
-      console.log('[EngineV2] EMOM structure:', adjustedMinutes, 'min with', emomExerciseCount, 'exercise(s),', adjustedMinutes / emomExerciseCount, 'rounds');
+      __DEV__ && console.log('[EngineV2] EMOM structure:', adjustedMinutes, 'min with', emomExerciseCount, 'exercise(s),', adjustedMinutes / emomExerciseCount, 'rounds');
     } else if (formatId === 'rft') {
       const maxRftExercises = sessionDuration >= 55 ? 5 : 4;
       metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxRftExercises, metconCandidates.length)));
@@ -1808,13 +1809,13 @@ function applyStyleAwareGrouping(
       }
     }
 
-    console.log('[EngineV2] CrossFit format selected:', formatName, 'metconBudget:', metconBudgetMin, 'min → timeCap:', timeCap, 'rounds:', rounds);
+    __DEV__ && console.log('[EngineV2] CrossFit format selected:', formatName, 'metconBudget:', metconBudgetMin, 'min → timeCap:', timeCap, 'rounds:', rounds);
     return { format: formatName, timeCap, rounds };
   }
 
   if (isStyleCircuitBased(style)) {
     const selectedFormat = selectFormatForStyle(style, level, rng);
-    console.log('[EngineV2] Circuit-based style', style, 'using format:', selectedFormat);
+    __DEV__ && console.log('[EngineV2] Circuit-based style', style, 'using format:', selectedFormat);
 
     if (selectedFormat === 'tabata') {
       const params = getTabataParams();
@@ -1834,7 +1835,7 @@ function applyStyleAwareGrouping(
 }
 
 function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineResult {
-  console.log('[EngineV2] Hyrox', fullRace ? 'Full' : 'Half', 'Simulation — generating official race structure');
+  __DEV__ && console.log('[EngineV2] Hyrox', fullRace ? 'Full' : 'Half', 'Simulation — generating official race structure');
   const stationCount = fullRace ? 8 : 4;
 
   // Official Hyrox race order: 8 × (1 km run → station). Race ends on the final station — no trailing run.
@@ -1856,7 +1857,7 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
   const isBackHalf = !fullRace && daySeedRng() >= 0.5;
   const startStationIndex = fullRace ? 0 : (isBackHalf ? 4 : 0);
   const stations = HYROX_RACE_STATIONS.slice(startStationIndex, startStationIndex + stationCount);
-  console.log('[EngineV2] Hyrox Half Simulation selection:', fullRace ? 'full' : (isBackHalf ? 'back half' : 'front half'));
+  __DEV__ && console.log('[EngineV2] Hyrox Half Simulation selection:', fullRace ? 'full' : (isBackHalf ? 'back half' : 'front half'));
   const workoutExercises: EngineWorkoutExercise[] = [];
 
   const makeExerciseRef = (id: string, name: string, variationFamily: string): ZealExercise => ({
@@ -1936,7 +1937,7 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
 }
 
 export function runEngine(params: EngineParams): EngineResult {
-  console.log('[EngineV2] === ENGINE START ===');
+  __DEV__ && console.log('[EngineV2] === ENGINE START ===');
 
   // ═══════════════════════════════════════════════════════
   // HYROX SIMULATION OVERRIDE
@@ -1980,7 +1981,7 @@ export function runEngine(params: EngineParams): EngineResult {
     ? pool.filter(ex => !dislikedSet.has(ex.id))
     : pool;
   if (dislikedSet.size > 0) {
-    console.log('[EngineV2] Hard-blocked', pool.length - hardFilteredPool.length, 'disliked exercises from pool');
+    __DEV__ && console.log('[EngineV2] Hard-blocked', pool.length - hardFilteredPool.length, 'disliked exercises from pool');
   }
 
   const rawScored = stage4Scoring(
@@ -2014,13 +2015,13 @@ export function runEngine(params: EngineParams): EngineResult {
       if (isCoreEx) {
         coreCount++;
         if (coreCount > maxCoreExercises) {
-          console.log('[EngineV2] Core cap: removing', s.exercise.name, '(core count', coreCount, ', max:', maxCoreExercises, ')');
+          __DEV__ && console.log('[EngineV2] Core cap: removing', s.exercise.name, '(core count', coreCount, ', max:', maxCoreExercises, ')');
           return false;
         }
       }
       return true;
     });
-    console.log('[EngineV2] Core cap applied:', rawScored.length - scored.length, 'exercises removed, maxCore:', maxCoreExercises);
+    __DEV__ && console.log('[EngineV2] Core cap applied:', rawScored.length - scored.length, 'exercises removed, maxCore:', maxCoreExercises);
   }
 
   const sliderMultiplier = resolveSliderMultiplier(params.restSlider);
@@ -2070,7 +2071,7 @@ export function runEngine(params: EngineParams): EngineResult {
     const isolations = workoutExercises.filter(e => !e.exerciseRef.is_compound);
     workoutExercises.length = 0;
     workoutExercises.push(...compounds, ...isolations);
-    console.log('[EngineV2] Post-Stage6 reorder: compounds first (' + compounds.length + 'C, ' + isolations.length + 'I)');
+    __DEV__ && console.log('[EngineV2] Post-Stage6 reorder: compounds first (' + compounds.length + 'C, ' + isolations.length + 'I)');
   }
 
   const isCoreExercise = (ex: EngineWorkoutExercise): boolean =>
@@ -2086,7 +2087,7 @@ export function runEngine(params: EngineParams): EngineResult {
       ce.groupType = null;
       ce.groupId = null;
     }
-    console.log('[EngineV2] Core finisher: moved', keepCore.length, 'core exercise(s) to end as individual movement');
+    __DEV__ && console.log('[EngineV2] Core finisher: moved', keepCore.length, 'core exercise(s) to end as individual movement');
   }
 
   const styleConfig = STYLE_ENGINE_CONFIGS[s1.effectiveStyle];
@@ -2122,13 +2123,13 @@ export function runEngine(params: EngineParams): EngineResult {
 
   const architecture = getArchitectureForStyle(s1.effectiveStyle, s1.effectiveSplit);
 
-  console.log('[EngineV2] === ENGINE COMPLETE (Style System v1.1) ===');
-  console.log('[EngineV2] Style:', s1.effectiveStyle, '| Format:', selectedFormat ?? 'straight_sets');
-  console.log('[EngineV2] Architecture:', architecture.phases.length, 'phases');
-  console.log('[EngineV2] Exercises:', workoutExercises.length);
-  console.log('[EngineV2] Working time:', Math.round(estimatedWorkingSeconds / 60), 'min');
-  console.log('[EngineV2] Warmup:', warmup.length, 'Cooldown:', cooldown.length, 'Recovery:', recovery.length);
-  console.log('[EngineV2] Feedback applied:', feedbackApplied, 'Plan applied:', s1.planApplied);
+  __DEV__ && console.log('[EngineV2] === ENGINE COMPLETE (Style System v1.1) ===');
+  __DEV__ && console.log('[EngineV2] Style:', s1.effectiveStyle, '| Format:', selectedFormat ?? 'straight_sets');
+  __DEV__ && console.log('[EngineV2] Architecture:', architecture.phases.length, 'phases');
+  __DEV__ && console.log('[EngineV2] Exercises:', workoutExercises.length);
+  __DEV__ && console.log('[EngineV2] Working time:', Math.round(estimatedWorkingSeconds / 60), 'min');
+  __DEV__ && console.log('[EngineV2] Warmup:', warmup.length, 'Cooldown:', cooldown.length, 'Recovery:', recovery.length);
+  __DEV__ && console.log('[EngineV2] Feedback applied:', feedbackApplied, 'Plan applied:', s1.planApplied);
 
   return {
     exercises: workoutExercises,
@@ -2421,6 +2422,7 @@ function convertEngineExerciseToLegacy(
     lastSessionReps: '',
     trackingMetric,
     executionLogic,
+    mediaUrl: z.media_url || '',
     exerciseRef: legacyEx ?? {
       id: z.id,
       name: z.name,
@@ -2623,11 +2625,11 @@ export function generateWorkoutFromSavedExercises(
   coolDown: boolean,
   recovery: boolean,
 ): GeneratedWorkout {
-  console.log('[WorkoutEngine] generateWorkoutFromSavedExercises:', exercises.length, 'exercises');
+  __DEV__ && console.log('[WorkoutEngine] generateWorkoutFromSavedExercises:', exercises.length, 'exercises');
   const rng = seededRandom(getDaySeed() + exercises.length * 7);
 
   const workedMuscles = extractWorkedMusclesFromLegacy(exercises);
-  console.log('[WorkoutEngine] Saved workout worked muscles:', Array.from(workedMuscles).join(', '));
+  __DEV__ && console.log('[WorkoutEngine] Saved workout worked muscles:', Array.from(workedMuscles).join(', '));
 
   const warmupItems: WarmupItem[] = [];
   if (warmUp) {
@@ -2636,7 +2638,7 @@ export function generateWorkoutFromSavedExercises(
     for (const item of built) {
       warmupItems.push({ name: item.name, description: item.description, swappable: item.swappable });
     }
-    console.log('[WorkoutEngine] Saved warmup:', warmupItems.length, 'items (80%+ mobility/stretching targeted)');
+    __DEV__ && console.log('[WorkoutEngine] Saved warmup:', warmupItems.length, 'items (80%+ mobility/stretching targeted)');
   }
 
   const cooldownItems: CooldownItem[] = [];
@@ -2662,7 +2664,7 @@ export function generateWorkoutFromSavedExercises(
         }
       }
     }
-    console.log('[WorkoutEngine] Saved cooldown:', cooldownItems.length, 'items (', cooldownEligible.length, 'eligible from DB)');
+    __DEV__ && console.log('[WorkoutEngine] Saved cooldown:', cooldownItems.length, 'items (', cooldownEligible.length, 'eligible from DB)');
   }
 
   const recoveryItems: RecoveryItem[] = recovery
@@ -2737,7 +2739,7 @@ export function generateWorkout(params: GenerateWorkoutParams, prescription?: Da
 
   const estimatedMin = Math.round(result.estimatedWorkingSeconds / 60);
 
-  console.log('[WorkoutEngine] generateWorkout complete:', workoutExercises.length, 'exercises,', estimatedMin, 'min');
+  __DEV__ && console.log('[WorkoutEngine] generateWorkout complete:', workoutExercises.length, 'exercises,', estimatedMin, 'min');
 
   return {
     warmup: warmupItems,

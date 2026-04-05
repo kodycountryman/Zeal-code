@@ -80,7 +80,7 @@ interface Props {
 
 const DANGER_ZONE_HEIGHT = 100;
 
-export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq }: Props) {
+export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const router = useRouter();
@@ -136,7 +136,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
   });
 
   const handleSignOut = useCallback(() => {
-    console.log('[Settings] Signing out...');
+    __DEV__ && console.log('[Settings] Signing out...');
     ctx.logout();
     onClose();
     setTimeout(() => {
@@ -155,9 +155,9 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('[Settings] Deleting all account data...');
+              __DEV__ && console.log('[Settings] Deleting all account data...');
               await ctx.deleteAccount();
-              console.log('[Settings] Account fully deleted. Navigating to login.');
+              __DEV__ && console.log('[Settings] Account fully deleted. Navigating to login.');
               onClose();
               setTimeout(() => {
                 router.replace('/login');
@@ -356,7 +356,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
       addCardio: localCardio,
       coreFinisher: localCoreFinisher,
     });
-    console.log('[SettingsDrawer] Saved settings permanently:', localStyle, localSplit);
+    __DEV__ && console.log('[SettingsDrawer] Saved settings permanently:', localStyle, localSplit);
     setTimeout(() => {
       c.bumpSettingsSaveVersion();
     }, 50);
@@ -578,13 +578,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onO
               locked: !hasPro,
               testID: 'settings-subscription',
             },
-            {
-              iconComponent: <Palette size={18} color={colors.textSecondary} />,
-              label: 'Color Theme',
-              sub: appThemeLabel,
-              onPress: onOpenColorTheme,
-              testID: 'settings-color-theme',
-            },
+            // COLOR THEME ROW — temporarily hidden (ColorThemeDrawer.tsx preserved, re-add this block to restore)
+            // { iconComponent: <Palette size={18} color={colors.textSecondary} />, label: 'Color Theme', sub: appThemeLabel, onPress: onOpenColorTheme, testID: 'settings-color-theme' },
             {
               iconComponent: hasPro
                 ? <Dumbbell size={18} color={colors.textSecondary} />

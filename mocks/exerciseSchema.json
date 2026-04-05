@@ -329,7 +329,7 @@
         "male_pro_lbs": 275,
         "female_pro_lbs": 185
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/barbell_back_squat.gif"
     },
     {
       "id": "goblet_squat",
@@ -437,7 +437,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/goblet_squat.gif"
     },
     {
       "id": "barbell_bench_press",
@@ -540,7 +540,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/barbell_bench_press.gif"
     },
     {
       "id": "dumbbell_bench_press",
@@ -642,7 +642,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_bench_press.gif"
     },
     {
       "id": "incline_dumbbell_bench",
@@ -741,7 +741,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/incline_dumbbell_bench.gif"
     },
     {
       "id": "conventional_deadlift",
@@ -854,7 +854,7 @@
         "male_pro_lbs": 315,
         "female_pro_lbs": 225
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/conventional_deadlift.gif"
     },
     {
       "id": "romanian_deadlift",
@@ -954,7 +954,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/romanian_deadlift.gif"
     },
     {
       "id": "single_leg_rdl",
@@ -1058,7 +1058,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/single_leg_rdl.gif"
     },
     {
       "id": "pull_up",
@@ -1167,7 +1167,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/pull_up.gif"
     },
     {
       "id": "lat_pulldown",
@@ -1266,7 +1266,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/lat_pulldown.gif"
     },
     {
       "id": "bulgarian_split_squat",
@@ -1373,7 +1373,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/bulgarian_split_squat.gif"
     },
     {
       "id": "dumbbell_lateral_raise",
@@ -1467,7 +1467,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_lateral_raise.gif"
     },
     {
       "id": "barbell_curl",
@@ -1561,7 +1561,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/barbell_curl.gif"
     },
     {
       "id": "kettlebell_swing",
@@ -1676,7 +1676,7 @@
         "male_pro_lbs": 70,
         "female_pro_lbs": 53
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/kettlebell_swing.gif"
     },
     {
       "id": "push_up",
@@ -1789,7 +1789,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/push_up.gif"
     },
     {
       "id": "standing_overhead_press",
@@ -1907,7 +1907,7 @@
         "male_pro_lbs": 135,
         "female_pro_lbs": 95
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/standing_overhead_press.gif"
     },
     {
       "id": "plank",
@@ -2019,7 +2019,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/plank.gif"
     },
     {
       "id": "foam_roll_quads",
@@ -2205,7 +2205,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/hip_90_90_stretch.gif"
     },
     {
       "id": "box_jump",
@@ -2308,7 +2308,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/box_jump.gif"
     },
     {
       "id": "farmers_carry",
@@ -2417,7 +2417,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/farmers_carry.gif"
     },
     {
       "id": "treadmill_run",
@@ -2870,7 +2870,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/jump_rope_intervals.gif"
     },
     {
       "id": "pilates_hundred",
@@ -3456,7 +3456,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/decline_barbell_bench.gif"
     },
     {
       "id": "cable_chest_fly",
@@ -3546,7 +3546,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_chest_fly.gif"
     },
     {
       "id": "pec_deck_fly",
@@ -3730,7 +3730,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_chest_fly.gif"
     },
     {
       "id": "cable_crossover",
@@ -3821,7 +3821,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_crossover.gif"
     },
     {
       "id": "machine_chest_press",
@@ -3915,7 +3915,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/machine_chest_press.gif"
     },
     {
       "id": "incline_barbell_bench",
@@ -4014,7 +4014,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/incline_barbell_bench.gif"
     },
     {
       "id": "dip",
@@ -4115,7 +4115,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dip.gif"
     },
     {
       "id": "diamond_push_up",
@@ -4216,7 +4216,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/diamond_push_up.gif"
     },
     {
       "id": "incline_push_up",
@@ -4323,7 +4323,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/incline_push_up.gif"
     },
     {
       "id": "seated_dumbbell_shoulder_press",
@@ -4421,7 +4421,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/seated_dumbbell_shoulder_press.gif"
     },
     {
       "id": "arnold_press",
@@ -4516,7 +4516,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/arnold_press.gif"
     },
     {
       "id": "machine_shoulder_press",
@@ -4610,7 +4610,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/machine_shoulder_press.gif"
     },
     {
       "id": "dumbbell_front_raise",
@@ -4700,7 +4700,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_front_raise.gif"
     },
     {
       "id": "cable_lateral_raise",
@@ -4789,7 +4789,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_lateral_raise.gif"
     },
     {
       "id": "landmine_press",
@@ -4883,7 +4883,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/landmine_press.gif"
     },
     {
       "id": "cable_tricep_pushdown",
@@ -4977,7 +4977,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_tricep_pushdown.gif"
     },
     {
       "id": "skull_crusher",
@@ -5076,7 +5076,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/skull_crusher.gif"
     },
     {
       "id": "overhead_tricep_extension",
@@ -5167,7 +5167,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/overhead_tricep_extension.gif"
     },
     {
       "id": "close_grip_bench_press",
@@ -5266,7 +5266,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/close_grip_bench_press.gif"
     },
     {
       "id": "tricep_kickback",
@@ -5353,7 +5353,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/tricep_kickback.gif"
     },
     {
       "id": "barbell_bent_over_row",
@@ -5455,7 +5455,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/barbell_bent_over_row.gif"
     },
     {
       "id": "dumbbell_row",
@@ -5553,7 +5553,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_row.gif"
     },
     {
       "id": "cable_seated_row",
@@ -5647,7 +5647,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_seated_row.gif"
     },
     {
       "id": "seated_row_machine",
@@ -5741,7 +5741,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/seated_row_machine.gif"
     },
     {
       "id": "t_bar_row",
@@ -5837,7 +5837,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/t_bar_row.gif"
     },
     {
       "id": "inverted_row",
@@ -5945,7 +5945,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/inverted_row.gif"
     },
     {
       "id": "face_pull",
@@ -6044,7 +6044,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/face_pull.gif"
     },
     {
       "id": "rear_delt_fly",
@@ -6137,7 +6137,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/rear_delt_fly.gif"
     },
     {
       "id": "resistance_band_pull_apart",
@@ -6236,7 +6236,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/resistance_band_pull_apart.gif"
     },
     {
       "id": "straight_arm_pulldown",
@@ -6326,7 +6326,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/straight_arm_pulldown.gif"
     },
     {
       "id": "assisted_pull_up",
@@ -6426,7 +6426,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/assisted_pull_up.gif"
     },
     {
       "id": "dumbbell_curl",
@@ -6518,7 +6518,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_curl.gif"
     },
     {
       "id": "hammer_curl",
@@ -6607,7 +6607,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/hammer_curl.gif"
     },
     {
       "id": "cable_curl",
@@ -6697,7 +6697,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_curl.gif"
     },
     {
       "id": "ez_bar_curl",
@@ -6788,7 +6788,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/ez_bar_curl.gif"
     },
     {
       "id": "preacher_curl",
@@ -6879,7 +6879,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/preacher_curl.gif"
     },
     {
       "id": "dumbbell_shrug",
@@ -6971,7 +6971,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_shrug.gif"
     },
     {
       "id": "sumo_deadlift",
@@ -7070,7 +7070,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 150,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/sumo_deadlift.gif"
     },
     {
       "id": "trap_bar_deadlift",
@@ -7169,7 +7169,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/trap_bar_deadlift.gif"
     },
     {
       "id": "hip_thrust",
@@ -7264,7 +7264,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/hip_thrust.gif"
     },
     {
       "id": "glute_bridge",
@@ -7364,7 +7364,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/glute_bridge.gif"
     },
     {
       "id": "cable_pull_through",
@@ -7456,7 +7456,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_pull_through.gif"
     },
     {
       "id": "good_morning",
@@ -7550,7 +7550,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 150,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/good_morning.gif"
     },
     {
       "id": "back_extension",
@@ -7648,7 +7648,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/back_extension.gif"
     },
     {
       "id": "kettlebell_deadlift",
@@ -7845,7 +7845,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_rdl.gif"
     },
     {
       "id": "front_squat",
@@ -7943,7 +7943,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 150,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/front_squat.gif"
     },
     {
       "id": "hack_squat",
@@ -8034,7 +8034,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/hack_squat.gif"
     },
     {
       "id": "leg_press",
@@ -8129,7 +8129,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/leg_press.gif"
     },
     {
       "id": "bodyweight_squat",
@@ -8235,7 +8235,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/bodyweight_squat.gif"
     },
     {
       "id": "smith_machine_squat",
@@ -8324,7 +8324,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/smith_machine_squat.gif"
     },
     {
       "id": "wall_sit",
@@ -8419,7 +8419,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/wall_sit.gif"
     },
     {
       "id": "reverse_lunge",
@@ -8632,7 +8632,7 @@
       "execution_logic": "alternating",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/walking_lunge.gif"
     },
     {
       "id": "step_up",
@@ -8736,7 +8736,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/step_up.gif"
     },
     {
       "id": "lateral_lunge",
@@ -8843,7 +8843,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/lateral_lunge.gif"
     },
     {
       "id": "curtsy_lunge",
@@ -9027,7 +9027,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/leg_extension.gif"
     },
     {
       "id": "leg_curl",
@@ -9117,7 +9117,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/leg_curl.gif"
     },
     {
       "id": "standing_calf_raise",
@@ -9208,7 +9208,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/standing_calf_raise.gif"
     },
     {
       "id": "seated_calf_raise",
@@ -9293,7 +9293,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/seated_calf_raise.gif"
     },
     {
       "id": "hip_adduction_machine",
@@ -9380,7 +9380,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/hip_adduction_machine.gif"
     },
     {
       "id": "cable_kickback",
@@ -9469,7 +9469,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_kickback.gif"
     },
     {
       "id": "cable_woodchop",
@@ -9665,7 +9665,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/russian_twist.gif"
     },
     {
       "id": "hanging_leg_raise",
@@ -9765,7 +9765,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/hanging_leg_raise.gif"
     },
     {
       "id": "ab_wheel_rollout",
@@ -9865,7 +9865,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/ab_wheel_rollout.gif"
     },
     {
       "id": "dead_bug",
@@ -9959,7 +9959,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dead_bug.gif"
     },
     {
       "id": "bird_dog",
@@ -10164,7 +10164,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/mountain_climber.gif"
     },
     {
       "id": "bicycle_crunch",
@@ -10260,7 +10260,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/bicycle_crunch.gif"
     },
     {
       "id": "side_plank",
@@ -10363,7 +10363,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/side_plank.gif"
     },
     {
       "id": "pallof_press",
@@ -10461,7 +10461,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/pallof_press.gif"
     },
     {
       "id": "hollow_body_hold",
@@ -10654,7 +10654,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/superman_hold.gif"
     },
     {
       "id": "suitcase_carry",
@@ -10854,7 +10854,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/overhead_carry.gif"
     },
     {
       "id": "jump_squat",
@@ -10958,7 +10958,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/jump_squat.gif"
     },
     {
       "id": "burpee",
@@ -11068,7 +11068,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/burpee.gif"
     },
     {
       "id": "broad_jump",
@@ -11268,7 +11268,7 @@
       "execution_logic": "alternating",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/skater_jump.gif"
     },
     {
       "id": "lunge_jump",
@@ -11371,7 +11371,7 @@
       "execution_logic": "alternating",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/lunge_jump.gif"
     },
     {
       "id": "battle_rope_slams",
@@ -11674,7 +11674,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/stationary_bike_intervals.gif"
     },
     {
       "id": "sled_push",
@@ -11891,7 +11891,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/high_knees.gif"
     },
     {
       "id": "cat_cow",
@@ -12173,7 +12173,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/worlds_greatest_stretch.gif"
     },
     {
       "id": "downward_dog",
@@ -12548,7 +12548,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/standing_hamstring_stretch.gif"
     },
     {
       "id": "standing_calf_stretch",
@@ -12633,7 +12633,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/standing_calf_stretch.gif"
     },
     {
       "id": "shoulder_pass_through",
@@ -12823,7 +12823,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/chest_doorway_stretch.gif"
     },
     {
       "id": "neck_stretch",
@@ -12908,7 +12908,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/neck_stretch.gif"
     },
     {
       "id": "seated_figure_four",
@@ -12998,7 +12998,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/seated_figure_four.gif"
     },
     {
       "id": "pilates_bridge",
@@ -13654,7 +13654,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/muscle_up.gif"
     },
     {
       "id": "pistol_squat",
@@ -13752,7 +13752,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/pistol_squat.gif"
     },
     {
       "id": "handstand_push_up",
@@ -13853,7 +13853,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/handstand_push_up.gif"
     },
     {
       "id": "tuck_jump",
@@ -14256,7 +14256,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_squat.gif"
     },
     {
       "id": "concentration_curl",
@@ -14342,7 +14342,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/concentration_curl.gif"
     },
     {
       "id": "pike_push_up",
@@ -14441,7 +14441,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/pike_push_up.gif"
     },
     {
       "id": "medicine_ball_slam",
@@ -14544,7 +14544,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/medicine_ball_slam.gif"
     },
     {
       "id": "single_leg_hip_thrust",
@@ -14838,7 +14838,7 @@
         "male_pro_lbs": 185,
         "female_pro_lbs": 135
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/power_clean.gif"
     },
     {
       "id": "hang_clean",
@@ -14948,7 +14948,7 @@
         "male_pro_lbs": 155,
         "female_pro_lbs": 105
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/hang_clean.gif"
     },
     {
       "id": "clean_and_jerk",
@@ -15064,7 +15064,7 @@
         "male_pro_lbs": 185,
         "female_pro_lbs": 135
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/clean_and_jerk.gif"
     },
     {
       "id": "snatch",
@@ -15173,7 +15173,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 150,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/snatch.gif"
     },
     {
       "id": "dumbbell_snatch",
@@ -15284,7 +15284,7 @@
         "male_pro_lbs": 70,
         "female_pro_lbs": 50
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_snatch.gif"
     },
     {
       "id": "kettlebell_snatch",
@@ -15386,7 +15386,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/kettlebell_snatch.gif"
     },
     {
       "id": "thruster",
@@ -15500,7 +15500,7 @@
         "male_pro_lbs": 135,
         "female_pro_lbs": 95
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/thruster.gif"
     },
     {
       "id": "dumbbell_thruster",
@@ -15812,7 +15812,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 45,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/toes_to_bar.gif"
     },
     {
       "id": "knees_to_elbow",
@@ -16010,7 +16010,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/kettlebell_clean.gif"
     },
     {
       "id": "dumbbell_power_clean",
@@ -16111,7 +16111,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_power_clean.gif"
     },
     {
       "id": "double_under",
@@ -16212,7 +16212,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/double_under.gif"
     },
     {
       "id": "rope_climb",
@@ -16309,7 +16309,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/rope_climb.gif"
     },
     {
       "id": "ring_dip",
@@ -16404,7 +16404,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/ring_dip.gif"
     },
     {
       "id": "sled_pull",
@@ -16913,7 +16913,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/bear_crawl.gif"
     },
     {
       "id": "pilates_spine_stretch",
@@ -17007,7 +17007,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 20,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/pilates_spine_stretch.gif"
     },
     {
       "id": "pilates_criss_cross",
@@ -17749,7 +17749,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/ankle_circles.gif"
     },
     {
       "id": "inchworm",
@@ -17857,7 +17857,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/inchworm.gif"
     },
     {
       "id": "a_skip",
@@ -18140,7 +18140,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/wrist_circles.gif"
     },
     {
       "id": "banded_lateral_walk",
@@ -18242,7 +18242,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/banded_lateral_walk.gif"
     },
     {
       "id": "tricep_stretch",
@@ -18329,7 +18329,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/tricep_stretch.gif"
     },
     {
       "id": "cross_body_shoulder_stretch",
@@ -18509,7 +18509,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/quad_stretch_standing.gif"
     },
     {
       "id": "couch_stretch",
@@ -18774,7 +18774,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/foam_roll_upper_back.gif"
     },
     {
       "id": "foam_roll_calves",
@@ -19123,7 +19123,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 15,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/seated_spinal_twist.gif"
     },
     {
       "id": "plyo_push_up",
@@ -19220,7 +19220,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/plyo_push_up.gif"
     },
     {
       "id": "renegade_row",
@@ -19321,7 +19321,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/renegade_row.gif"
     },
     {
       "id": "kettlebell_goblet_squat_to_press",
@@ -19423,7 +19423,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/kettlebell_goblet_squat_to_press.gif"
     },
     {
       "id": "dumbbell_clean_and_press",
@@ -19527,7 +19527,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_clean_and_press.gif"
     },
     {
       "id": "star_jump",
@@ -19631,7 +19631,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/star_jump.gif"
     },
     {
       "id": "speed_skater",
@@ -19730,7 +19730,7 @@
       "execution_logic": "alternating",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/speed_skater.gif"
     },
     {
       "id": "superman_to_hollow",
@@ -20027,7 +20027,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/kettlebell_push_press.gif"
     },
     {
       "id": "trx_chest_press",
@@ -20124,7 +20124,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/trx_chest_press.gif"
     },
     {
       "id": "kettlebell_windmill",
@@ -20222,7 +20222,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/kettlebell_windmill.gif"
     },
     {
       "id": "kettlebell_high_pull",
@@ -20522,7 +20522,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/inchworm_to_push_up.gif"
     },
     {
       "id": "pilates_push_up",
@@ -20798,7 +20798,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 20,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/pilates_back_extension.gif"
     },
     {
       "id": "pilates_chest_expansion",
@@ -21085,7 +21085,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/sumo_deadlift_high_pull.gif"
     },
     {
       "id": "chest_press_machine",
@@ -21177,7 +21177,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/chest_press_machine.gif"
     },
     {
       "id": "cable_lat_pulldown",
@@ -21263,7 +21263,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_lat_pulldown.gif"
     },
     {
       "id": "machine_lateral_raise",
@@ -21345,7 +21345,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/machine_lateral_raise.gif"
     },
     {
       "id": "resistance_band_lateral_raise",
@@ -21433,7 +21433,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/resistance_band_lateral_raise.gif"
     },
     {
       "id": "shoulder_press_machine",
@@ -21518,7 +21518,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/shoulder_press_machine.gif"
     },
     {
       "id": "trap_bar_carry",
@@ -21608,7 +21608,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/trap_bar_carry.gif"
     },
     {
       "id": "cable_front_raise",
@@ -21689,7 +21689,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_front_raise.gif"
     },
     {
       "id": "plate_front_raise",
@@ -21773,7 +21773,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/plate_front_raise.gif"
     },
     {
       "id": "cable_rear_delt_fly",
@@ -21858,7 +21858,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_rear_delt_fly.gif"
     },
     {
       "id": "barbell_shrug",
@@ -21945,7 +21945,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/barbell_shrug.gif"
     },
     {
       "id": "cable_shrug",
@@ -22027,7 +22027,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/cable_shrug.gif"
     },
     {
       "id": "hang_snatch",
@@ -22395,7 +22395,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/band_overhead_tricep_extension.gif"
     },
     {
       "id": "band_bicep_curl",
@@ -22490,7 +22490,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/band_bicep_curl.gif"
     },
     {
       "id": "band_face_pull",
@@ -22590,7 +22590,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/band_face_pull.gif"
     },
     {
       "id": "band_seated_row",
@@ -22684,7 +22684,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/band_seated_row.gif"
     },
     {
       "id": "band_overhead_press",
@@ -22780,7 +22780,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/band_overhead_press.gif"
     },
     {
       "id": "band_glute_kickback",
@@ -22978,7 +22978,7 @@
       "execution_logic": "per_side",
       "default_rest_sec": 60,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/band_hip_abduction.gif"
     },
     {
       "id": "band_external_rotation",
@@ -23178,7 +23178,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/band_good_morning.gif"
     },
     {
       "id": "chest_to_bar_pull_up",
@@ -23376,7 +23376,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 90,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/handstand_walk.gif"
     },
     {
       "id": "split_jerk",
@@ -23605,7 +23605,7 @@
         "male_pro_lbs": 70,
         "female_pro_lbs": 50
       },
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/dumbbell_hang_clean_and_jerk.gif"
     },
     {
       "id": "outdoor_run",
@@ -24352,7 +24352,7 @@
       "execution_logic": "bilateral",
       "default_rest_sec": 30,
       "standard_rx_weight": null,
-      "media_url": ""
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/scapular_pull_up.gif"
     },
     {
       "id": "scapular_push_up",

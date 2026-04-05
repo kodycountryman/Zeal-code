@@ -75,7 +75,7 @@ function NotificationHandler() {
           }
         });
       } catch (e) {
-        console.log('[NotifHandler] Notification error:', e);
+        __DEV__ && console.log('[NotifHandler] Notification error:', e);
       }
     })();
 

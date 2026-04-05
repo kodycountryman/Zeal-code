@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { memo, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -42,7 +42,7 @@ interface Props {
 }
 
 
-export default function TrainingScoreCard({
+function TrainingScoreCard({
   score,
   tier,
   readiness,
@@ -263,6 +263,8 @@ export default function TrainingScoreCard({
     </>
   );
 }
+
+export default memo(TrainingScoreCard);
 
 const styles = StyleSheet.create({
   card: {

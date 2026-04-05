@@ -230,7 +230,7 @@ function getSuggestedWeight(
   if (best1RM > 0) {
     const targetWeight = weightAtReps(best1RM, targetReps);
     const progressive = Math.round((targetWeight + increment) / roundTo) * roundTo;
-    console.log(`[Suggest] ${exercise.name}: 1RM=${Math.round(best1RM)}, @${targetReps}reps=${Math.round(targetWeight)}, +${increment}→${progressive}`);
+    __DEV__ && console.log(`[Suggest] ${exercise.name}: 1RM=${Math.round(best1RM)}, @${targetReps}reps=${Math.round(targetWeight)}, +${increment}→${progressive}`);
     return { suggestedWeight: progressive, lastWeight, lastReps, oneRepMax: Math.round(best1RM) };
   }
 
@@ -244,14 +244,14 @@ function getSuggestedWeight(
     const oneRM = epley1RM(lastWeightPR.value, prReps);
     const targetWeight = weightAtReps(oneRM, targetReps);
     const progressive = Math.round((targetWeight + increment) / roundTo) * roundTo;
-    console.log(`[Suggest] ${exercise.name} (PR fallback): 1RM=${Math.round(oneRM)}, +${increment}→${progressive}`);
+    __DEV__ && console.log(`[Suggest] ${exercise.name} (PR fallback): 1RM=${Math.round(oneRM)}, +${increment}→${progressive}`);
     return { suggestedWeight: progressive, lastWeight: lastWeightPR.value, lastReps: prReps, oneRepMax: Math.round(oneRM) };
   }
 
   // Tier 3: AI/engine suggested weight string
   const engineWeight = parseEngineSuggestedWeight(exercise.suggestedWeight);
   if (engineWeight > 0) {
-    console.log(`[Suggest] ${exercise.name} (no data, engine): engineLoad=${engineWeight}`);
+    __DEV__ && console.log(`[Suggest] ${exercise.name} (no data, engine): engineLoad=${engineWeight}`);
     return { suggestedWeight: engineWeight, lastWeight: 0, lastReps: 0, oneRepMax: 0 };
   }
 
@@ -276,7 +276,7 @@ function getSuggestedWeight(
   const sexMul = sex === 'female' ? 0.6 : 1.0;
   const levelMul = fitnessLevel === 'beginner' ? 0.6 : fitnessLevel === 'advanced' ? 1.4 : 1.0;
   const suggested = Math.max(5, Math.round(bw * multiplier * sexMul * levelMul / roundTo) * roundTo);
-  console.log(`[Suggest] ${exercise.name} (no data, BW-scaled): BW=${bw}, mul=${multiplier}, suggested=${suggested}`);
+  __DEV__ && console.log(`[Suggest] ${exercise.name} (no data, BW-scaled): BW=${bw}, mul=${multiplier}, suggested=${suggested}`);
   return { suggestedWeight: suggested, lastWeight: 0, lastReps: 0, oneRepMax: 0 };
 }
 
@@ -288,10 +288,11 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
   const [isWorkoutActive, setIsWorkoutActive] = useState<boolean>(false);
   const [_workoutStartTime, setWorkoutStartTime] = useState<number>(0);
-  const [workoutElapsed, setWorkoutElapsed] = useState<number>(0);
+  // workoutElapsed and restTimeRemaining are tracked via refs only (workoutElapsedRef, restRemainingRef)
+  // to avoid re-rendering the entire context tree every 500ms.
+  // Components that need live values use useWorkoutElapsed() or useRestTimeRemaining() hooks.
   const [isPaused, setIsPaused] = useState<boolean>(false);
 
-  const [restTimeRemaining, setRestTimeRemaining] = useState<number>(0);
   const [restTimeTotal, setRestTimeTotal] = useState<number>(0);
   const [isRestActive, setIsRestActive] = useState<boolean>(false);
   const [showRestTimer, setShowRestTimer] = useState<boolean>(false);
@@ -488,12 +489,12 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
             ]);
             w = { ...w, coreFinisher: coreExercises };
           } catch (err) {
-            console.log('[WorkoutTracking] Core finisher failed, skipping:', err);
+            __DEV__ && console.log('[WorkoutTracking] Core finisher failed, skipping:', err);
           }
         }
         return w;
       } catch (err) {
-        console.log('[WorkoutTracking] Generation failed, falling back:', err);
+        __DEV__ && console.log('[WorkoutTracking] Generation failed, falling back:', err);
         return generateWorkout(params, prescription);
       }
     })();
@@ -520,7 +521,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         );
       })
       .catch((err) => {
-        console.log('[WorkoutTracking] ensureTodayWorkoutGenerated error:', err);
+        __DEV__ && console.log('[WorkoutTracking] ensureTodayWorkoutGenerated error:', err);
       })
       .finally(() => {
         if (generationReqIdRef.current !== reqId) return;
@@ -568,7 +569,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   // Wall-clock anchors — used to stay accurate across background/foreground cycles
   const workoutStartWallRef = useRef<number>(0);   // Date.now() when workout started (adjusted for elapsed on resume)
   const restEndWallRef = useRef<number>(0);          // Date.now() when rest timer should reach zero
-  const workoutElapsedRef = useRef<number>(0);       // mirror of workoutElapsed for use inside effects
+  const workoutElapsedRef = useRef<number>(0);
 
   useEffect(() => {
     void Promise.all([
@@ -579,7 +580,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     ]).then(([historyRaw, prRaw, hoursRaw, dailyRaw]) => {
       let loadedHistory: WorkoutLog[] = [];
       if (historyRaw) {
-        try { loadedHistory = JSON.parse(historyRaw); setWorkoutHistory(loadedHistory); } catch (e) { console.log('[Tracking] history parse error', e); }
+        try { loadedHistory = JSON.parse(historyRaw); setWorkoutHistory(loadedHistory); } catch (e) { __DEV__ && console.log('[Tracking] history parse error', e); }
       }
       // If no workout history, ensure muscle readiness is fully reset
       if (loadedHistory.length === 0) {
@@ -588,11 +589,11 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
           const fresh = ctx.muscleReadiness.map(m => ({ ...m, status: 'ready' as const, value: 100, lastWorked: 'Never' }));
           ctx.setMuscleReadiness(fresh);
           ctx.saveState();
-          console.log('[Tracking] Reset stale muscle readiness — no workout history');
+          __DEV__ && console.log('[Tracking] Reset stale muscle readiness — no workout history');
         }
       }
       if (prRaw) {
-        try { setPrHistory(JSON.parse(prRaw)); } catch (e) { console.log('[Tracking] PR parse error', e); }
+        try { setPrHistory(JSON.parse(prRaw)); } catch (e) { __DEV__ && console.log('[Tracking] PR parse error', e); }
       }
       if (hoursRaw) {
         try {
@@ -600,7 +601,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
           if (data.weekStart === getWeekStart()) {
             setWeeklyHoursMin(data.minutes);
           }
-        } catch (e) { console.log('[Tracking] hours parse error', e); }
+        } catch (e) { __DEV__ && console.log('[Tracking] hours parse error', e); }
       }
 
       const todayStr = getTodayStr();
@@ -626,7 +627,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
             void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
           }
         } catch (e) {
-          console.log('[Tracking] daily snapshot parse error', e);
+          __DEV__ && console.log('[Tracking] daily snapshot parse error', e);
           void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
         }
       }
@@ -634,7 +635,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       snapshotHydratedRef.current = true;
       setDailySnapshotReady(true);
       setHistoryLoaded(true);
-      console.log('[Tracking] Loaded history, PRs, hours, daily snapshot');
+      __DEV__ && console.log('[Tracking] Loaded history, PRs, hours, daily snapshot');
 
       if (pendingEnsureAfterHydrateRef.current) {
         pendingEnsureAfterHydrateRef.current = false;
@@ -658,7 +659,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, [dailySnapshotReady, currentGeneratedWorkout, ctx.currentWorkoutTitle]);
 
   const resetTrackingData = useCallback(async () => {
-    console.log('[Tracking] Resetting all tracking data for new user');
+    __DEV__ && console.log('[Tracking] Resetting all tracking data for new user');
     setWorkoutHistory([]);
     setPrHistory([]);
     setWeeklyHoursMin(0);
@@ -675,7 +676,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY),
       ]);
     } catch (e) {
-      console.log('[Tracking] error clearing tracking storage', e);
+      __DEV__ && console.log('[Tracking] error clearing tracking storage', e);
     }
     setHistoryLoaded(true);
   }, []);
@@ -695,13 +696,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     if (hasScanedHealthRef.current) return;
     hasScanedHealthRef.current = true;
 
-    console.log('[HealthImport] Starting initial health scan...');
+    __DEV__ && console.log('[HealthImport] Starting initial health scan...');
 
     void AsyncStorage.getItem(SEEN_HEALTH_IMPORTS_KEY).then(seenRaw => {
       const seen = new Set<string>(seenRaw ? (JSON.parse(seenRaw) as string[]) : []);
 
       healthService.getRecentWorkouts(7).then(sessions => {
-        console.log('[HealthImport] Found', sessions.length, 'health sessions');
+        __DEV__ && console.log('[HealthImport] Found', sessions.length, 'health sessions');
         const newImports: HealthImportItem[] = [];
         const newDups: DuplicateCandidate[] = [];
 
@@ -744,20 +745,19 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
         setPendingHealthImports(newImports);
         setDuplicateCandidates(newDups);
-        console.log('[HealthImport] Pending imports:', newImports.length, 'Duplicates:', newDups.length);
-      }).catch(e => console.log('[HealthImport] getRecentWorkouts error:', e));
-    }).catch(e => console.log('[HealthImport] AsyncStorage error:', e));
+        __DEV__ && console.log('[HealthImport] Pending imports:', newImports.length, 'Duplicates:', newDups.length);
+      }).catch(e => __DEV__ && console.log('[HealthImport] getRecentWorkouts error:', e));
+    }).catch(e => __DEV__ && console.log('[HealthImport] AsyncStorage error:', e));
   }, [historyLoaded, ctx.healthConnected, ctx.healthSyncEnabled]);
 
-  // Keep a ref mirror of workoutElapsed so the timer effect can read it without re-subscribing
-  useEffect(() => { workoutElapsedRef.current = workoutElapsed; }, [workoutElapsed]);
+  // (workoutElapsed is now ref-only — no state sync needed)
 
   useEffect(() => {
     if (isWorkoutActive && !isPaused) {
       // Anchor to wall clock — preserves accumulated elapsed across pause/resume and background
       workoutStartWallRef.current = Date.now() - workoutElapsedRef.current * 1000;
       workoutTimerRef.current = setInterval(() => {
-        setWorkoutElapsed(Math.floor((Date.now() - workoutStartWallRef.current) / 1000));
+        workoutElapsedRef.current = Math.floor((Date.now() - workoutStartWallRef.current) / 1000);
       }, 500);
     } else {
       if (workoutTimerRef.current) {
@@ -775,7 +775,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       restTimerRef.current = setInterval(() => {
         const remaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
         restRemainingRef.current = remaining;
-        setRestTimeRemaining(remaining);
         if (remaining <= 0) {
           setIsRestActive(false);
           if (Platform.OS !== 'web') {
@@ -820,12 +819,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         if (isWorkoutActive && !isPaused) {
           const corrected = Math.floor((Date.now() - workoutStartWallRef.current) / 1000);
           workoutElapsedRef.current = corrected;
-          setWorkoutElapsed(corrected);
         }
         if (isRestActive) {
           const remaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
           restRemainingRef.current = remaining;
-          setRestTimeRemaining(remaining);
           if (remaining <= 0) {
             setIsRestActive(false);
           }
@@ -837,13 +834,12 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, [isWorkoutActive, isPaused, isRestActive]);
 
   const startWorkout = useCallback((workout: GeneratedWorkout, preserveLogs = false) => {
-    console.log('[Tracking] Starting workout:', workout.split, 'preserveLogs:', preserveLogs);
+    __DEV__ && console.log('[Tracking] Starting workout:', workout.split, 'preserveLogs:', preserveLogs);
     setActiveWorkout(workout);
     setIsWorkoutActive(true);
     setWorkoutStartTime(Date.now());
     workoutStartWallRef.current = Date.now();
     workoutElapsedRef.current = 0;
-    setWorkoutElapsed(0);
     setIsPaused(false);
     if (!preserveLogs) {
       setExerciseLogs({});
@@ -859,15 +855,15 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, []);
 
   const resetWorkout = useCallback(() => {
-    console.log('[Tracking] Resetting workout');
+    __DEV__ && console.log('[Tracking] Resetting workout');
     setIsWorkoutActive(false);
-    setWorkoutElapsed(0);
+    workoutElapsedRef.current = 0;
     setIsPaused(false);
     setExerciseLogs({});
     setExpandedExercise(null);
     setShowRestTimer(false);
     setIsRestActive(false);
-    setRestTimeRemaining(0);
+    restRemainingRef.current = 0;
     setActiveWorkout(null);
     setSessionPRs([]);
     setConfirmedPRs([]);
@@ -875,11 +871,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, []);
 
   const startRestTimer = useCallback((seconds: number) => {
-    console.log('[Tracking] Starting rest timer:', seconds, 's');
+    __DEV__ && console.log('[Tracking] Starting rest timer:', seconds, 's');
     restTotalRef.current = seconds;
     restRemainingRef.current = seconds;
     restEndWallRef.current = Date.now() + seconds * 1000;
-    setRestTimeRemaining(seconds);
     setRestTimeTotal(seconds);
     setIsRestActive(true);
     setShowRestTimer(true);
@@ -896,7 +891,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     restEndWallRef.current = Math.max(Date.now(), restEndWallRef.current + delta * 1000);
     const newRemaining = Math.max(0, Math.ceil((restEndWallRef.current - Date.now()) / 1000));
     restRemainingRef.current = newRemaining;
-    setRestTimeRemaining(newRemaining);
     // Notification rescheduled automatically if app is backgrounded (AppState listener)
     if (!isRestActive && newRemaining > 0) {
       setIsRestActive(true);
@@ -907,7 +901,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     restTotalRef.current = seconds;
     restRemainingRef.current = seconds;
     restEndWallRef.current = Date.now() + seconds * 1000;
-    setRestTimeRemaining(seconds);
     setRestTimeTotal(seconds);
     setIsRestActive(true);
     setShowRestTimer(true);
@@ -917,7 +910,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const cancelRestTimer = useCallback(() => {
     setIsRestActive(false);
     restRemainingRef.current = 0;
-    setRestTimeRemaining(0);
     setIsTimerMinimized(false);
     if (Platform.OS !== 'web') {
       void cancelRestCompleteNotification();
@@ -948,7 +940,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     };
 
     setExerciseLogs(prev => ({ ...prev, [exercise.id]: log }));
-    console.log('[Tracking] Initialized exercise log:', exercise.name, 'suggested:', weightData.suggestedWeight, 'last:', weightData.lastWeight);
+    __DEV__ && console.log('[Tracking] Initialized exercise log:', exercise.name, 'suggested:', weightData.suggestedWeight, 'last:', weightData.lastWeight);
   }, [exerciseLogs, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight]);
 
   const updateSetLog = useCallback((exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => {
@@ -1023,7 +1015,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
           if (Platform.OS !== 'web') {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
-          console.log('[Tracking] PR detected (beaten existing record)!', newPRs);
+          __DEV__ && console.log('[Tracking] PR detected (beaten existing record)!', newPRs);
         }
       }
 
@@ -1031,7 +1023,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     });
 
     if (willBeMarkedDone && restSeconds > 0 && autoRestTimerRef.current) {
-      console.log('[Tracking] Auto-starting rest timer after set done:', restSeconds, 's');
+      __DEV__ && console.log('[Tracking] Auto-starting rest timer after set done:', restSeconds, 's');
       startRestTimer(restSeconds);
     }
   }, [exerciseLogs, prHistory, startRestTimer]);
@@ -1058,13 +1050,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       const newSets = log.sets
         .filter((_, i) => i !== setIndex)
         .map((s, i) => ({ ...s, setNumber: i + 1 }));
-      console.log('[Tracking] removeSet:', exerciseId, 'setIndex:', setIndex);
+      __DEV__ && console.log('[Tracking] removeSet:', exerciseId, 'setIndex:', setIndex);
       return { ...prev, [exerciseId]: { ...log, sets: newSets } };
     });
   }, []);
 
   const unmarkExerciseComplete = useCallback((exerciseId: string) => {
-    console.log('[Tracking] unmarkExerciseComplete:', exerciseId);
+    __DEV__ && console.log('[Tracking] unmarkExerciseComplete:', exerciseId);
     setExerciseLogs(prev => {
       const log = prev[exerciseId];
       if (!log) return prev;
@@ -1073,7 +1065,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, []);
 
   const markExerciseComplete = useCallback((exerciseId: string, restSeconds?: number) => {
-    console.log('[Tracking] markExerciseComplete:', exerciseId, 'restSeconds:', restSeconds);
+    __DEV__ && console.log('[Tracking] markExerciseComplete:', exerciseId, 'restSeconds:', restSeconds);
     setExerciseLogs(prev => {
       const log = prev[exerciseId];
       if (!log) return prev;
@@ -1094,7 +1086,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, []);
 
   const calculateScore = useCallback((starRating: number, prsForBonus: PersonalRecord[]): TrainingScoreBreakdown => {
-    const basePoints = Math.floor(workoutElapsed / 300);
+    const elapsed = workoutElapsedRef.current;
+    const basePoints = Math.floor(elapsed / 300);
     const totalSets = Object.values(exerciseLogs).reduce((acc, log) => acc + log.sets.filter(s => s.done).length, 0);
     const volumePoints = Math.floor(totalSets / 20);
     const totalVolume = Object.values(exerciseLogs).reduce((acc, log) =>
@@ -1105,13 +1098,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
     const multiplier = STAR_MULTIPLIERS[starRating] ?? 1.0;
     const raw = basePoints + volumePoints + intensityPoints + prBonus;
-    const hasWork = totalSets > 0 || workoutElapsed > 120;
+    const hasWork = totalSets > 0 || elapsed > 120;
     const finalScore = Math.min(50, Math.max(hasWork ? 1 : 0, Math.round(raw * multiplier)));
 
-    console.log('[Tracking] Score calc: base=', basePoints, 'vol=', volumePoints, 'int=', intensityPoints, 'pr=', prBonus, 'mul=', multiplier, 'raw=', raw, 'final=', finalScore);
+    __DEV__ && console.log('[Tracking] Score calc: base=', basePoints, 'vol=', volumePoints, 'int=', intensityPoints, 'pr=', prBonus, 'mul=', multiplier, 'raw=', raw, 'final=', finalScore);
 
     return { basePoints, volumePoints, intensityPoints, prBonus, difficultyMultiplier: multiplier, finalScore };
-  }, [workoutElapsed, exerciseLogs]);
+  }, [exerciseLogs]);
 
   const calculateTrainingScore = useCallback((difficulty: DifficultyLevel): TrainingScoreBreakdown => {
     const starMap: Record<DifficultyLevel, number> = { easy: 1, moderate: 3, hard: 4, brutal: 5 };
@@ -1119,19 +1112,19 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, [calculateScore, sessionPRs]);
 
   const beginPostWorkout = useCallback(() => {
-    console.log('[Tracking] Beginning post-workout flow');
+    __DEV__ && console.log('[Tracking] Beginning post-workout flow');
 
     const realPRs = sessionPRs.filter(pr => {
       const existing = prHistory.find(p => p.exerciseName === pr.exerciseName && p.type === pr.type);
       return existing && pr.value > existing.value;
     });
     setConfirmedPRs(realPRs);
-    console.log('[Tracking] Confirmed PRs (beaten records):', realPRs.length, 'of', sessionPRs.length, 'total');
+    __DEV__ && console.log('[Tracking] Confirmed PRs (beaten records):', realPRs.length, 'of', sessionPRs.length, 'total');
 
     setIsWorkoutActive(false);
     setShowRestTimer(false);
     setIsRestActive(false);
-    setRestTimeRemaining(0);
+    restRemainingRef.current = 0;
 
     if (realPRs.length > 0) {
       setPostWorkoutStep('prs');
@@ -1162,10 +1155,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, [calculateScore, confirmedPRs]);
 
   const saveWorkout = useCallback(() => {
-    console.log('[Tracking] Saving workout');
+    __DEV__ && console.log('[Tracking] Saving workout');
     const score = sessionScoreBreakdown;
     if (!score) {
-      console.log('[Tracking] No score breakdown, cannot save');
+      __DEV__ && console.log('[Tracking] No score breakdown, cannot save');
       return;
     }
 
@@ -1175,7 +1168,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     );
 
     const sessionId = generateId();
-    const sessionStartISO = new Date(Date.now() - workoutElapsed * 1000).toISOString();
+    const sessionStartISO = new Date(Date.now() - workoutElapsedRef.current * 1000).toISOString();
     saveTimeRef.current = Date.now();
     const logEntry: WorkoutLog = {
       id: sessionId,
@@ -1183,7 +1176,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       workoutName: activeWorkout?.split ?? 'Workout',
       workoutStyle: activeWorkout?.style ?? 'Strength',
       split: activeWorkout?.split ?? '',
-      duration: Math.round(workoutElapsed / 60),
+      duration: Math.round(workoutElapsedRef.current / 60),
       exercises: Object.values(exerciseLogs),
       totalSets,
       totalVolume,
@@ -1228,22 +1221,22 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
       if (!hasW && maxW > 0) {
         updatedPRs.push({ exerciseName: log.exerciseName, type: 'weight', value: maxW, date: getTodayStr(), sessionId });
-        console.log('[Tracking] Baseline PR:', log.exerciseName, 'weight', maxW);
+        __DEV__ && console.log('[Tracking] Baseline PR:', log.exerciseName, 'weight', maxW);
       }
       if (!hasR && maxR > 0) {
         updatedPRs.push({ exerciseName: log.exerciseName, type: 'reps', value: maxR, date: getTodayStr(), sessionId });
-        console.log('[Tracking] Baseline PR:', log.exerciseName, 'reps', maxR);
+        __DEV__ && console.log('[Tracking] Baseline PR:', log.exerciseName, 'reps', maxR);
       }
       if (!hasV && maxV > 0) {
         updatedPRs.push({ exerciseName: log.exerciseName, type: 'volume', value: maxV, date: getTodayStr(), sessionId });
-        console.log('[Tracking] Baseline PR:', log.exerciseName, 'volume', maxV);
+        __DEV__ && console.log('[Tracking] Baseline PR:', log.exerciseName, 'volume', maxV);
       }
     }
 
     setPrHistory(updatedPRs);
     AsyncStorage.setItem(PR_KEY, JSON.stringify(updatedPRs)).catch(console.warn);
 
-    const newMinutes = weeklyHoursMin + Math.round(workoutElapsed / 60);
+    const newMinutes = weeklyHoursMin + Math.round(workoutElapsedRef.current / 60);
     setWeeklyHoursMin(newMinutes);
     AsyncStorage.setItem(WEEKLY_HOURS_KEY, JSON.stringify({ weekStart: getWeekStart(), minutes: newMinutes })).catch(console.warn);
 
@@ -1282,7 +1275,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     }
 
     if (ctx.healthSyncEnabled && ctx.healthConnected && Platform.OS !== 'web') {
-      const durationSec = workoutElapsed;
+      const durationSec = workoutElapsedRef.current;
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - durationSec * 1000);
       const estimatedCalories = Math.round(durationSec / 60 * 7);
@@ -1293,14 +1286,14 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         calories: estimatedCalories,
         duration: Math.round(durationSec / 60),
       }).then((success) => {
-        console.log('[Tracking] Health write result:', success);
+        __DEV__ && console.log('[Tracking] Health write result:', success);
       }).catch((e) => {
-        console.log('[Tracking] Health write error:', e);
+        __DEV__ && console.log('[Tracking] Health write error:', e);
       });
     }
 
-    console.log('[Tracking] Workout auto-saved. Score:', score?.finalScore ?? 0, 'PRs:', confirmedPRs.length);
-  }, [sessionScoreBreakdown, exerciseLogs, confirmedPRs, sessionPRs, activeWorkout, workoutHistory, prHistory, weeklyHoursMin, workoutElapsed, ctx, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell]);
+    __DEV__ && console.log('[Tracking] Workout auto-saved. Score:', score?.finalScore ?? 0, 'PRs:', confirmedPRs.length);
+  }, [sessionScoreBreakdown, exerciseLogs, confirmedPRs, sessionPRs, activeWorkout, workoutHistory, prHistory, weeklyHoursMin, ctx, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell]);
 
   // Stable ref so prepareSaveStep can call saveWorkout after state commits
   const saveWorkoutRef = useRef<() => void>();
@@ -1308,7 +1301,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
   // Dismiss the post-workout modal and clean up state
   const dismissPostWorkout = useCallback(() => {
-    console.log('[Tracking] Dismissing post-workout flow');
+    __DEV__ && console.log('[Tracking] Dismissing post-workout flow');
     setPostWorkoutStep(null);
     setSessionScoreBreakdown(null);
     setSessionPRs([]);
@@ -1317,7 +1310,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, []);
 
   const discardWorkout = useCallback(() => {
-    console.log('[Tracking] Discarding workout');
+    __DEV__ && console.log('[Tracking] Discarding workout');
     setPostWorkoutStep(null);
     setSessionScoreBreakdown(null);
     setSessionPRs([]);
@@ -1379,7 +1372,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       ctx.saveState();
     }
 
-    console.log('[Tracking] Logged previous workout:', data);
+    __DEV__ && console.log('[Tracking] Logged previous workout:', data);
   }, [workoutHistory, weeklyHoursMin, ctx]);
 
   const markImportSeen = useCallback((importId: string) => {
@@ -1419,13 +1412,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
     markImportSeen(importItem.id);
     setPendingHealthImports(prev => prev.filter(i => i.id !== importItem.id));
-    console.log('[HealthImport] Accepted:', importItem.id, style, muscleGroups);
+    __DEV__ && console.log('[HealthImport] Accepted:', importItem.id, style, muscleGroups);
   }, [workoutHistory, markImportSeen]);
 
   const dismissHealthImport = useCallback((importId: string) => {
     markImportSeen(importId);
     setPendingHealthImports(prev => prev.filter(i => i.id !== importId));
-    console.log('[HealthImport] Dismissed:', importId);
+    __DEV__ && console.log('[HealthImport] Dismissed:', importId);
   }, [markImportSeen]);
 
   const mergeDuplicate = useCallback((dupId: string) => {
@@ -1434,7 +1427,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (dup) markImportSeen(dup.healthImport.id);
       return prev.filter(d => d.id !== dupId);
     });
-    console.log('[HealthImport] Merged (same workout):', dupId);
+    __DEV__ && console.log('[HealthImport] Merged (same workout):', dupId);
   }, [markImportSeen]);
 
   const keepBothDuplicate = useCallback((dupId: string) => {
@@ -1472,7 +1465,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       }
       return prev.filter(d => d.id !== dupId);
     });
-    console.log('[HealthImport] Keep both:', dupId);
+    __DEV__ && console.log('[HealthImport] Keep both:', dupId);
   }, [markImportSeen]);
 
   const dismissDuplicate = useCallback((dupId: string) => {
@@ -1481,7 +1474,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (dup) markImportSeen(dup.healthImport.id);
       return prev.filter(d => d.id !== dupId);
     });
-    console.log('[HealthImport] Dismissed duplicate:', dupId);
+    __DEV__ && console.log('[HealthImport] Dismissed duplicate:', dupId);
   }, [markImportSeen]);
 
   const removeWorkoutLog = useCallback((logId: string) => {
@@ -1515,15 +1508,15 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
                 d.hoursTrainedToday = hv >= 1 ? `${hv}h` : newMinutes > 0 ? `${newMinutes}m` : '0h';
               }
               AsyncStorage.setItem('@zeal_app_state_v3', JSON.stringify(d)).catch(console.warn);
-              console.log('[Tracking] Persisted score after removal: score=', newScore, 'targetDone=', newTargetDone);
+              __DEV__ && console.log('[Tracking] Persisted score after removal: score=', newScore, 'targetDone=', newTargetDone);
             } catch (e) {
-              console.log('[Tracking] Failed to persist score after removal:', e);
+              __DEV__ && console.log('[Tracking] Failed to persist score after removal:', e);
             }
           }
         }).catch(console.warn);
       });
 
-      console.log('[Tracking] Removed log, subtracted score:', sessionScore, 'new total:', newScore);
+      __DEV__ && console.log('[Tracking] Removed log, subtracted score:', sessionScore, 'new total:', newScore);
     }
 
     const newHistory = workoutHistory.filter(l => l.id !== logId);
@@ -1570,7 +1563,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const recalculated = Array.from(muscleMap.values());
     ctx.setMuscleReadiness(recalculated);
     ctx.saveState();
-    console.log('[Tracking] Recalculated muscle readiness after deletion');
+    __DEV__ && console.log('[Tracking] Recalculated muscle readiness after deletion');
   }, [workoutHistory, ctx, weeklyHoursMin]);
 
   const getLogForDate = useCallback((date: string): WorkoutLog | undefined => {
@@ -1599,7 +1592,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   }, [exerciseLogs]);
 
   const liveTrainingScore = useMemo(() => {
-    const basePoints = Math.floor(workoutElapsed / 300);
+    const basePoints = Math.floor(workoutElapsedRef.current / 300);
     const totalSets = Object.values(exerciseLogs).reduce((acc, log) => acc + log.sets.filter(s => s.done).length, 0);
     const volumePoints = Math.floor(totalSets / 20);
     const totalVolume = Object.values(exerciseLogs).reduce((acc, log) =>
@@ -1608,7 +1601,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const intensityPoints = Math.floor(totalVolume / 1000);
     const prBonus = sessionPRs.length * 3;
     return Math.min(50, basePoints + volumePoints + intensityPoints + prBonus);
-  }, [workoutElapsed, exerciseLogs, sessionPRs]);
+  }, [exerciseLogs, sessionPRs]);
 
   const selectedLog = useMemo(() => {
     if (!selectedLogId) return null;
@@ -1630,10 +1623,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
   return useMemo(() => ({
     isWorkoutActive,
-    workoutElapsed,
+    workoutElapsedRef,
     isPaused,
     isRestActive,
-    restTimeRemaining,
+    restTimeRemainingRef: restRemainingRef,
     restTimeTotal,
     showRestTimer,
     isTimerMinimized,
@@ -1726,7 +1719,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     dismissDuplicate,
     resetTrackingData,
   }), [
-    isWorkoutActive, workoutElapsed, isPaused, isRestActive, restTimeRemaining,
+    isWorkoutActive, isPaused, isRestActive,
     restTimeTotal, showRestTimer, isTimerMinimized, setIsTimerMinimized, autoRestTimer, handleSetAutoRestTimer, exerciseLogs, expandedExercise,
     postWorkoutStep, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell,
     sessionScoreBreakdown, sessionPRs, confirmedPRs, workoutHistory, prHistory, activeWorkout,
@@ -1748,3 +1741,41 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     resetTrackingData,
   ]);
 });
+
+/**
+ * Subscribe to workout elapsed time at 500ms resolution.
+ * Only components that display the live timer should use this hook —
+ * it re-renders the consumer every 500ms during an active workout.
+ */
+export function useWorkoutElapsed(): number {
+  const { workoutElapsedRef, isWorkoutActive, isPaused } = useWorkoutTracking();
+  const [elapsed, setElapsed] = useState(workoutElapsedRef.current);
+
+  useEffect(() => {
+    // Sync immediately on mount or when workout starts/pauses
+    setElapsed(workoutElapsedRef.current);
+    if (!isWorkoutActive || isPaused) return;
+    const id = setInterval(() => setElapsed(workoutElapsedRef.current), 500);
+    return () => clearInterval(id);
+  }, [isWorkoutActive, isPaused, workoutElapsedRef]);
+
+  return elapsed;
+}
+
+/**
+ * Subscribe to rest timer remaining at 500ms resolution.
+ * Only components that display the rest countdown should use this hook.
+ */
+export function useRestTimeRemaining(): number {
+  const { restTimeRemainingRef, isRestActive } = useWorkoutTracking();
+  const [remaining, setRemaining] = useState(restTimeRemainingRef.current);
+
+  useEffect(() => {
+    setRemaining(restTimeRemainingRef.current);
+    if (!isRestActive) return;
+    const id = setInterval(() => setRemaining(restTimeRemainingRef.current), 500);
+    return () => clearInterval(id);
+  }, [isRestActive, restTimeRemainingRef]);
+
+  return remaining;
+}

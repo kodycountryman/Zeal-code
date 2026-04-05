@@ -1,4 +1,4 @@
-console.log('[WorkoutConfig] Loading Phase 4 shared workout configuration');
+__DEV__ && console.log('[WorkoutConfig] Loading Phase 4 shared workout configuration');
 
 export interface StyleControlConfig {
   slot_label: string;

@@ -199,7 +199,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
   }, [fadeAnim]);
 
   const doGenerate = useCallback((seedOff: number) => {
-    console.log('[PlanWorkoutSheet] Generating workout — style:', selectedStyle, 'split:', selectedSplit || recommendedSplit, 'seed:', seedOff);
+    __DEV__ && console.log('[PlanWorkoutSheet] Generating workout — style:', selectedStyle, 'split:', selectedSplit || recommendedSplit, 'seed:', seedOff);
     setIsGenerating(true);
     setIsGenError(false);
     setSwapTargetId(null);
@@ -226,9 +226,9 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
         seedOffset: seedOff,
       }, undefined, hasPro);
       setGenExercises(result.workout);
-      console.log('[PlanWorkoutSheet] Generated', result.workout.length, 'exercises');
+      __DEV__ && console.log('[PlanWorkoutSheet] Generated', result.workout.length, 'exercises');
     } catch (e) {
-      console.log('[PlanWorkoutSheet] Generation error:', e);
+      __DEV__ && console.log('[PlanWorkoutSheet] Generation error:', e);
       setGenExercises([]);
       setIsGenError(true);
     } finally {
@@ -282,7 +282,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       createdAt: new Date().toISOString(),
       exercises: genExercises.length > 0 ? genExercises : undefined,
     };
-    console.log('[PlanWorkoutSheet] Saving planned workout with', genExercises.length, 'exercises');
+    __DEV__ && console.log('[PlanWorkoutSheet] Saving planned workout with', genExercises.length, 'exercises');
     ctx.savePlannedWorkout(workout);
     onClose();
   }, [targetDate, selectedStyle, selectedSplit, recommendedSplit, topMuscles, genExercises, ctx, onClose]);

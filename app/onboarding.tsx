@@ -235,12 +235,12 @@ export default function OnboardingScreen() {
         const status = await requestNotificationPermissions();
         if (status === 'granted') {
           ctx.saveNotifPrefs({ dailyEnabled: true, dailyHour: 8, dailyMinute: 0 });
-          console.log('[Onboarding] Notification permission granted, daily reminder enabled');
+          __DEV__ && console.log('[Onboarding] Notification permission granted, daily reminder enabled');
         } else {
-          console.log('[Onboarding] Notification permission not granted:', status);
+          __DEV__ && console.log('[Onboarding] Notification permission not granted:', status);
         }
       } catch (e) {
-        console.log('[Onboarding] Error requesting notification permissions:', e);
+        __DEV__ && console.log('[Onboarding] Error requesting notification permissions:', e);
       }
     }
     slideDir.current = 1;
@@ -251,17 +251,17 @@ export default function OnboardingScreen() {
     try {
       if (healthService.isAvailable()) {
         const result = await healthService.requestPermissions();
-        console.log('[Onboarding] Health permission:', result);
+        __DEV__ && console.log('[Onboarding] Health permission:', result);
         if (result.granted) {
           ctx.setHealthSyncEnabled(true);
           ctx.setHealthConnected(true);
-          console.log('[Onboarding] Health connected and saved to context');
+          __DEV__ && console.log('[Onboarding] Health connected and saved to context');
         }
       } else {
-        console.log('[Onboarding] Health not available in this build, skipping');
+        __DEV__ && console.log('[Onboarding] Health not available in this build, skipping');
       }
     } catch (e) {
-      console.log('[Onboarding] Health error:', e);
+      __DEV__ && console.log('[Onboarding] Health error:', e);
     }
     setWalkthroughVisible(true);
   }, [ctx]);

@@ -15,6 +15,7 @@ import { showProGate } from '@/services/proGate';
 import { useWorkoutTracking, type WorkoutLog } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import type { WorkoutExercise } from '@/services/workoutEngine';
+import { getZealExerciseDatabase } from '@/mocks/exerciseDatabase';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -397,6 +398,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
       <View style={styles.content}>
         {/* ── Animation ── */}
         <ExerciseAnimationView
+          mediaUrl={exercise.mediaUrl || getZealExerciseDatabase().find(z => exercise.id.startsWith(z.id))?.media_url || ''}
           exerciseName={exercise.name}
           cardBg={colors.card}
         />

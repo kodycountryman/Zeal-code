@@ -81,7 +81,7 @@ function buildWeeklyTemplate(
   goal: PlanGoal,
   trainingSplit?: string,
 ): WeeklyTemplate[] {
-  console.log('[PlanEngine] Building weekly template: days=', daysPerWeek, 'style=', style, 'split=', trainingSplit);
+  __DEV__ && console.log('[PlanEngine] Building weekly template: days=', daysPerWeek, 'style=', style, 'split=', trainingSplit);
 
   const template: WeeklyTemplate[] = [];
   const totalDays = 7;
@@ -245,34 +245,34 @@ function validateSchedule(weeks: WeekSchedule[]): void {
   for (const week of weeks) {
     const trainingDays = week.days.filter(d => !d.is_rest);
     if (trainingDays.length > VOLUME_GUARDRAILS.max_training_days_per_week) {
-      console.warn('[PlanEngine] Week', week.week_number, 'exceeds max training days:', trainingDays.length);
+      __DEV__ && console.warn('[PlanEngine] Week', week.week_number, 'exceeds max training days:', trainingDays.length);
     }
 
     const restDays = week.days.filter(d => d.is_rest);
     if (restDays.length < VOLUME_GUARDRAILS.min_rest_days_per_week && trainingDays.length < 7) {
-      console.warn('[PlanEngine] Week', week.week_number, 'has fewer than minimum rest days:', restDays.length);
+      __DEV__ && console.warn('[PlanEngine] Week', week.week_number, 'has fewer than minimum rest days:', restDays.length);
     }
   }
-  console.log('[PlanEngine] Schedule validation complete:', weeks.length, 'weeks');
+  __DEV__ && console.log('[PlanEngine] Schedule validation complete:', weeks.length, 'weeks');
 }
 
 export function generatePlanSchedule(input: PlanGenerationInput): GeneratedPlanSchedule {
-  console.log('[PlanEngine] === PLAN GENERATION START ===');
-  console.log('[PlanEngine] Goal:', input.goal, 'Style:', input.style, 'Length:', input.planLength, 'weeks');
-  console.log('[PlanEngine] Days/week:', input.daysPerWeek, 'Duration:', input.sessionDuration, 'min');
-  console.log('[PlanEngine] Experience:', input.experienceLevel, 'Events:', input.event);
+  __DEV__ && console.log('[PlanEngine] === PLAN GENERATION START ===');
+  __DEV__ && console.log('[PlanEngine] Goal:', input.goal, 'Style:', input.style, 'Length:', input.planLength, 'weeks');
+  __DEV__ && console.log('[PlanEngine] Days/week:', input.daysPerWeek, 'Duration:', input.sessionDuration, 'min');
+  __DEV__ && console.log('[PlanEngine] Experience:', input.experienceLevel, 'Events:', input.event);
 
   let phaseWeeks = getPhaseStructure(input.planLength, input.goal);
-  console.log('[PlanEngine] Step 1: Phase structure loaded,', phaseWeeks.length, 'weeks');
+  __DEV__ && console.log('[PlanEngine] Step 1: Phase structure loaded,', phaseWeeks.length, 'weeks');
 
   phaseWeeks = applyEventModifications(phaseWeeks, input.event, input.planLength);
-  console.log('[PlanEngine] Step 2: Event modifications applied');
+  __DEV__ && console.log('[PlanEngine] Step 2: Event modifications applied');
 
   const weeklyTemplate = buildWeeklyTemplate(input.daysPerWeek, input.style, input.goal, input.trainingSplit);
-  console.log('[PlanEngine] Step 3: Weekly template built,', weeklyTemplate.length, 'days/week');
+  __DEV__ && console.log('[PlanEngine] Step 3: Weekly template built,', weeklyTemplate.length, 'days/week');
 
   phaseWeeks = applyExperienceModifiers(phaseWeeks, input.experienceLevel);
-  console.log('[PlanEngine] Step 4: Experience modifiers applied');
+  __DEV__ && console.log('[PlanEngine] Step 4: Experience modifiers applied');
 
   const weeks: WeekSchedule[] = [];
   let totalTraining = 0;
@@ -358,14 +358,14 @@ export function generatePlanSchedule(input: PlanGenerationInput): GeneratedPlanS
     });
   }
 
-  console.log('[PlanEngine] Step 5: Schedule generated,', weeks.length, 'weeks');
+  __DEV__ && console.log('[PlanEngine] Step 5: Schedule generated,', weeks.length, 'weeks');
 
   validateSchedule(weeks);
-  console.log('[PlanEngine] Step 6: Validation complete');
+  __DEV__ && console.log('[PlanEngine] Step 6: Validation complete');
 
-  console.log('[PlanEngine] Total training days:', totalTraining, 'rest days:', totalRest);
-  console.log('[PlanEngine] Phases used:', [...phasesUsed].join(', '));
-  console.log('[PlanEngine] === PLAN GENERATION COMPLETE ===');
+  __DEV__ && console.log('[PlanEngine] Total training days:', totalTraining, 'rest days:', totalRest);
+  __DEV__ && console.log('[PlanEngine] Phases used:', [...phasesUsed].join(', '));
+  __DEV__ && console.log('[PlanEngine] === PLAN GENERATION COMPLETE ===');
 
   return {
     weeks,

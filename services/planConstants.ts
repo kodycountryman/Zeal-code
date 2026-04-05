@@ -1,4 +1,4 @@
-console.log('[PlanConstants] Loading Phase 5 plan generation constants');
+__DEV__ && console.log('[PlanConstants] Loading Phase 5 plan generation constants');
 
 export type PlanGoal =
   | 'build_strength'

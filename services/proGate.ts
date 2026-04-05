@@ -72,7 +72,7 @@ export function showProGate(
     message: 'This feature is available with Zeal Pro.',
   };
 
-  console.log('[proGate] Showing gate for:', featureKey);
+  __DEV__ && console.log('[proGate] Showing gate for:', featureKey);
 
   Alert.alert(
     info.title,

@@ -31,25 +31,25 @@ export interface PurchasesOfferings {
 
 const webStub = {
   setLogLevel: (_level: unknown) => {
-    console.log('[purchases-web] setLogLevel (no-op on web)');
+    __DEV__ && console.log('[purchases-web] setLogLevel (no-op on web)');
   },
   configure: ({ apiKey }: { apiKey: string }) => {
-    console.log('[purchases-web] configure (no-op on web), key provided:', !!apiKey);
+    __DEV__ && console.log('[purchases-web] configure (no-op on web), key provided:', !!apiKey);
   },
   getCustomerInfo: async (): Promise<CustomerInfo> => {
-    console.log('[purchases-web] getCustomerInfo — returning empty entitlements');
+    __DEV__ && console.log('[purchases-web] getCustomerInfo — returning empty entitlements');
     return { entitlements: { active: {}, all: {} } };
   },
   getOfferings: async (): Promise<PurchasesOfferings> => {
-    console.log('[purchases-web] getOfferings — returning null');
+    __DEV__ && console.log('[purchases-web] getOfferings — returning null');
     return { current: null };
   },
   purchasePackage: async (_pkg: PurchasesPackage): Promise<{ customerInfo: CustomerInfo }> => {
-    console.warn('[purchases-web] purchasePackage — not available on web');
+    __DEV__ && console.warn('[purchases-web] purchasePackage — not available on web');
     throw new Error('In-app purchases are not available in the web preview.');
   },
   restorePurchases: async (): Promise<CustomerInfo> => {
-    console.warn('[purchases-web] restorePurchases — not available on web');
+    __DEV__ && console.warn('[purchases-web] restorePurchases — not available on web');
     return { entitlements: { active: {}, all: {} } };
   },
 };
@@ -74,47 +74,47 @@ if (Platform.OS !== 'web') {
             VERBOSE: RCLogLevel.VERBOSE,
           };
           RC.setLogLevel(map[String(level)] ?? RCLogLevel.ERROR);
-          console.log('[purchases-rc] setLogLevel:', level);
+          __DEV__ && console.log('[purchases-rc] setLogLevel:', level);
         } catch (e) {
-          console.warn('[purchases-rc] setLogLevel failed:', e);
+          __DEV__ && console.warn('[purchases-rc] setLogLevel failed:', e);
         }
       },
 
       configure: ({ apiKey }: { apiKey: string }) => {
-        console.log('[purchases-rc] configure, key provided:', !!apiKey);
+        __DEV__ && console.log('[purchases-rc] configure, key provided:', !!apiKey);
         RC.configure({ apiKey });
       },
 
       getCustomerInfo: async (): Promise<CustomerInfo> => {
-        console.log('[purchases-rc] getCustomerInfo');
+        __DEV__ && console.log('[purchases-rc] getCustomerInfo');
         const info = await RC.getCustomerInfo();
-        console.log('[purchases-rc] active entitlements:', Object.keys(info.entitlements.active));
+        __DEV__ && console.log('[purchases-rc] active entitlements:', Object.keys(info.entitlements.active));
         return info as CustomerInfo;
       },
 
       getOfferings: async (): Promise<PurchasesOfferings> => {
-        console.log('[purchases-rc] getOfferings');
+        __DEV__ && console.log('[purchases-rc] getOfferings');
         const offerings = await RC.getOfferings();
-        console.log('[purchases-rc] current offering:', offerings?.current?.identifier ?? 'none');
+        __DEV__ && console.log('[purchases-rc] current offering:', offerings?.current?.identifier ?? 'none');
         return offerings as PurchasesOfferings;
       },
 
       purchasePackage: async (pkg: PurchasesPackage): Promise<{ customerInfo: CustomerInfo }> => {
-        console.log('[purchases-rc] purchasePackage:', pkg.identifier);
+        __DEV__ && console.log('[purchases-rc] purchasePackage:', pkg.identifier);
         const result = await RC.purchasePackage(pkg);
-        console.log('[purchases-rc] purchase success, active entitlements:', Object.keys(result.customerInfo.entitlements.active));
+        __DEV__ && console.log('[purchases-rc] purchase success, active entitlements:', Object.keys(result.customerInfo.entitlements.active));
         return result as { customerInfo: CustomerInfo };
       },
 
       restorePurchases: async (): Promise<CustomerInfo> => {
-        console.log('[purchases-rc] restorePurchases');
+        __DEV__ && console.log('[purchases-rc] restorePurchases');
         const info = await RC.restorePurchases();
-        console.log('[purchases-rc] restore done, active entitlements:', Object.keys(info.entitlements.active));
+        __DEV__ && console.log('[purchases-rc] restore done, active entitlements:', Object.keys(info.entitlements.active));
         return info as CustomerInfo;
       },
     };
 
-    console.log('[purchases-rc] react-native-purchases loaded successfully');
+    __DEV__ && console.log('[purchases-rc] react-native-purchases loaded successfully');
   } catch (e) {
     console.error('[purchases-rc] Failed to load react-native-purchases, falling back to stub:', e);
   }

@@ -22,6 +22,7 @@ export type SpecialLifeCase =
   | 'injury'
   | 'disability'
   | 'chronic_pain';
+export type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active';
 export type MuscleStatus = 'recovering' | 'building' | 'ready';
 
 export interface MuscleReadinessItem {
@@ -233,6 +234,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const [trainingGoals, setTrainingGoals] = useState<string[]>(['Build Muscle']);
   const [specialLifeCase, setSpecialLifeCase] = useState<SpecialLifeCase>('none');
   const [specialLifeCaseDetail, setSpecialLifeCaseDetail] = useState<string>('');
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel>('moderately_active');
   const [muscleReadiness, setMuscleReadiness] =
     useState<MuscleReadinessItem[]>(DEFAULT_MUSCLE_READINESS);
 
@@ -246,7 +248,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const [addCardio, setAddCardio] = useState<boolean>(false);
   const [coreFinisher, setCoreFinisher] = useState<boolean>(false);
 
-  const [appTheme, setAppTheme] = useState<AppTheme>('system');
+  const [appTheme, setAppTheme] = useState<AppTheme>('dark');
   const [reflectWorkoutColor, setReflectWorkoutColor] = useState<boolean>(false);
 
   const [selectedEquipment, setSelectedEquipment] = useState<Record<string, number>>({});
@@ -312,7 +314,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       .then(([raw, overrideRaw, savedWRaw, prefRaw, planRaw, scheduleRaw, onboardingRaw, notifPrefsRaw, lastModifyRaw, plannedWorkoutsRaw, isLoggedInRaw, dailySnapshotRaw]) => {
         if (onboardingRaw === 'true') setOnboardingCompleteState(true);
         if (isLoggedInRaw === 'true') {
-          console.log('[AppContext] Restored logged in session');
+          __DEV__ && console.log('[AppContext] Restored logged in session');
           setIsLoggedIn(true);
         }
         if (raw) {
@@ -331,6 +333,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
             if (d.specialLifeCase) setSpecialLifeCase(d.specialLifeCase);
             if (d.specialLifeCaseDetail !== undefined)
               setSpecialLifeCaseDetail(d.specialLifeCaseDetail);
+            if (d.activityLevel) setActivityLevel(d.activityLevel);
             if (d.muscleReadiness) setMuscleReadiness(d.muscleReadiness);
             if (d.workoutStyle) setWorkoutStyle(d.workoutStyle);
             if (d.trainingSplit) {
@@ -358,7 +361,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
                 const all: Record<string, number> = {};
                 ALL_EQUIPMENT_IDS.forEach((id: string) => { all[id] = 1; });
                 setSelectedEquipment(all);
-                console.log('[AppContext] No equipment found in storage, defaulting to commercial');
+                __DEV__ && console.log('[AppContext] No equipment found in storage, defaulting to commercial');
               }
             }
             if (d.savedGyms) {
@@ -387,7 +390,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
                   setCurrentWorkoutTitle('');
                 }
               } catch (e) {
-                console.log('[AppContext] daily snapshot title parse error:', e);
+                __DEV__ && console.log('[AppContext] daily snapshot title parse error:', e);
               }
             }
             if (d.healthSyncEnabled !== undefined) setHealthSyncEnabled(d.healthSyncEnabled);
@@ -398,7 +401,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
               }
             }
           } catch (e) {
-            console.log('[AppContext] parse error:', e);
+            __DEV__ && console.log('[AppContext] parse error:', e);
           }
         }
         if (overrideRaw) {
@@ -406,46 +409,46 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
             const ov = JSON.parse(overrideRaw) as WorkoutOverride;
             const today = getTodayDateStr();
             if (ov.setDate === today) {
-              console.log('[AppContext] Restoring workout override from today:', ov);
+              __DEV__ && console.log('[AppContext] Restoring workout override from today:', ov);
               setWorkoutOverride(ov);
             } else {
-              console.log('[AppContext] Workout override expired (set on', ov.setDate, ', today is', today, '). Clearing.');
+              __DEV__ && console.log('[AppContext] Workout override expired (set on', ov.setDate, ', today is', today, '). Clearing.');
               AsyncStorage.removeItem(OVERRIDE_STORAGE_KEY).catch(() => {});
             }
           } catch (e) {
-            console.log('[AppContext] override parse error:', e);
+            __DEV__ && console.log('[AppContext] override parse error:', e);
           }
         }
         if (savedWRaw) {
-          try { setSavedWorkouts(JSON.parse(savedWRaw)); } catch (e) { console.log('[AppContext] saved workouts parse error:', e); }
+          try { setSavedWorkouts(JSON.parse(savedWRaw)); } catch (e) { __DEV__ && console.log('[AppContext] saved workouts parse error:', e); }
         }
         if (prefRaw) {
-          try { setExercisePreferences(JSON.parse(prefRaw)); } catch (e) { console.log('[AppContext] exercise prefs parse error:', e); }
+          try { setExercisePreferences(JSON.parse(prefRaw)); } catch (e) { __DEV__ && console.log('[AppContext] exercise prefs parse error:', e); }
         } else {
           const defaults = buildDefaultExercisePreferences();
           setExercisePreferences(defaults);
-          AsyncStorage.setItem(EXERCISE_PREFS_KEY, JSON.stringify(defaults)).catch((e) => console.warn('[AppContext] Failed to save default exercise prefs:', e));
-          console.log('[AppContext] Applied smart default exercise preferences');
+          AsyncStorage.setItem(EXERCISE_PREFS_KEY, JSON.stringify(defaults)).catch((e) => __DEV__ && console.warn('[AppContext] Failed to save default exercise prefs:', e));
+          __DEV__ && console.log('[AppContext] Applied smart default exercise preferences');
         }
         if (planRaw) {
           try {
             const plan = JSON.parse(planRaw) as WorkoutPlan;
             if (plan.active) setActivePlan(plan);
-          } catch (e) { console.log('[AppContext] plan parse error:', e); }
+          } catch (e) { __DEV__ && console.log('[AppContext] plan parse error:', e); }
         }
         if (scheduleRaw) {
           try {
             const sched = JSON.parse(scheduleRaw) as GeneratedPlanSchedule;
             setPlanSchedule(sched);
-            console.log('[AppContext] Restored plan schedule:', sched.weeks.length, 'weeks');
-          } catch (e) { console.log('[AppContext] schedule parse error:', e); }
+            __DEV__ && console.log('[AppContext] Restored plan schedule:', sched.weeks.length, 'weeks');
+          } catch (e) { __DEV__ && console.log('[AppContext] schedule parse error:', e); }
         }
         if (notifPrefsRaw) {
           try {
             const np = JSON.parse(notifPrefsRaw) as Partial<NotifPrefs>;
             setNotifPrefs(prev => ({ ...prev, ...np }));
-            console.log('[AppContext] Loaded notif prefs:', np);
-          } catch (e) { console.log('[AppContext] notif prefs parse error:', e); }
+            __DEV__ && console.log('[AppContext] Loaded notif prefs:', np);
+          } catch (e) { __DEV__ && console.log('[AppContext] notif prefs parse error:', e); }
         }
         if (plannedWorkoutsRaw) {
           try {
@@ -453,12 +456,12 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
             const today = getTodayDateStr();
             const valid = pw.filter(p => p.date >= today);
             setPlannedWorkouts(valid);
-            console.log('[AppContext] Loaded planned workouts:', valid.length);
-          } catch (e) { console.log('[AppContext] planned workouts parse error:', e); }
+            __DEV__ && console.log('[AppContext] Loaded planned workouts:', valid.length);
+          } catch (e) { __DEV__ && console.log('[AppContext] planned workouts parse error:', e); }
         }
         setLoaded(true);
         setTimeout(() => {
-          console.log('[AppContext] Fresh open: clearing lastModifyState to revert to user defaults');
+          __DEV__ && console.log('[AppContext] Fresh open: clearing lastModifyState to revert to user defaults');
           setLastModifyState(null);
           AsyncStorage.removeItem(LAST_MODIFY_KEY).catch(() => {});
         }, 500);
@@ -468,15 +471,15 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
 
   const applyWorkoutOverride = useCallback((override: WorkoutOverride) => {
     const withDate = { ...override, setDate: getTodayDateStr() };
-    console.log('[AppContext] Setting workout override:', withDate);
+    __DEV__ && console.log('[AppContext] Setting workout override:', withDate);
     setWorkoutOverride(withDate);
     AsyncStorage.setItem(OVERRIDE_STORAGE_KEY, JSON.stringify(withDate)).catch((e) =>
-      console.log('[AppContext] override save error:', e)
+      __DEV__ && console.log('[AppContext] override save error:', e)
     );
   }, []);
 
   const clearWorkoutOverride = useCallback(() => {
-    console.log('[AppContext] Clearing workout override');
+    __DEV__ && console.log('[AppContext] Clearing workout override');
     setWorkoutOverride(null);
     AsyncStorage.removeItem(OVERRIDE_STORAGE_KEY).catch(() => {});
   }, []);
@@ -486,10 +489,10 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   }, []);
 
   const saveLastModifyState = useCallback((state: LastModifyState) => {
-    console.log('[AppContext] Saving lastModifyState:', state);
+    __DEV__ && console.log('[AppContext] Saving lastModifyState:', state);
     setLastModifyState(state);
     AsyncStorage.setItem(LAST_MODIFY_KEY, JSON.stringify(state)).catch((e) =>
-      console.log('[AppContext] lastModifyState save error:', e)
+      __DEV__ && console.log('[AppContext] lastModifyState save error:', e)
     );
   }, []);
 
@@ -546,7 +549,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       healthConnected,
     };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch((e) =>
-      console.log('[AppContext] saveSettingsToStorage error:', e)
+      __DEV__ && console.log('[AppContext] saveSettingsToStorage error:', e)
     );
   }, [
     userName, userPhotoUri, dateOfBirth, heightFt, heightIn, weight, sex, bodyFat,
@@ -559,14 +562,14 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const saveSavedWorkouts = useCallback((workouts: SavedWorkout[]) => {
     setSavedWorkouts(workouts);
     AsyncStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(workouts)).catch((e) =>
-      console.log('[AppContext] saved workouts save error:', e)
+      __DEV__ && console.log('[AppContext] saved workouts save error:', e)
     );
   }, []);
 
   const saveExercisePreferences = useCallback((prefs: Record<string, ExercisePreference>) => {
     setExercisePreferences(prefs);
     AsyncStorage.setItem(EXERCISE_PREFS_KEY, JSON.stringify(prefs)).catch((e) =>
-      console.log('[AppContext] exercise prefs save error:', e)
+      __DEV__ && console.log('[AppContext] exercise prefs save error:', e)
     );
   }, []);
 
@@ -574,7 +577,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setActivePlan(plan);
     if (plan) {
       AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(plan)).catch((e) =>
-        console.log('[AppContext] plan save error:', e)
+        __DEV__ && console.log('[AppContext] plan save error:', e)
       );
     } else {
       // Cancel any in-flight background generation
@@ -598,7 +601,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       setPlanSchedule(schedule ?? null);
       if (schedule) {
         AsyncStorage.setItem(PLAN_SCHEDULE_KEY, JSON.stringify(schedule)).catch((e) =>
-          console.log('[AppContext] schedule save error:', e)
+          __DEV__ && console.log('[AppContext] schedule save error:', e)
         );
       } else {
         AsyncStorage.removeItem(PLAN_SCHEDULE_KEY).catch(() => {});
@@ -676,7 +679,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
           await AsyncStorage.setItem('@zeal_daily_generated_workout_v1', JSON.stringify(snap));
         }
       } catch (e) {
-        console.warn('[PlanGen] Failed to generate day', d.date, e);
+        __DEV__ && console.warn('[PlanGen] Failed to generate day', d.date, e);
       }
       planGenCounterRef.current++;
     };
@@ -746,31 +749,31 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setNotifPrefs(prev => {
       const updated = { ...prev, ...prefs };
       AsyncStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(updated)).catch((e) =>
-        console.log('[AppContext] notif prefs save error:', e)
+        __DEV__ && console.log('[AppContext] notif prefs save error:', e)
       );
-      console.log('[AppContext] Saved notif prefs:', updated);
+      __DEV__ && console.log('[AppContext] Saved notif prefs:', updated);
       return updated;
     });
   }, []);
 
   const savePlannedWorkout = useCallback((workout: PlannedWorkout) => {
-    console.log('[AppContext] Saving planned workout:', workout);
+    __DEV__ && console.log('[AppContext] Saving planned workout:', workout);
     setPlannedWorkouts(prev => {
       const filtered = prev.filter(p => p.date !== workout.date);
       const updated = [...filtered, workout];
       AsyncStorage.setItem(PLANNED_WORKOUTS_KEY, JSON.stringify(updated)).catch(e =>
-        console.log('[AppContext] planned workouts save error:', e)
+        __DEV__ && console.log('[AppContext] planned workouts save error:', e)
       );
       return updated;
     });
   }, []);
 
   const deletePlannedWorkout = useCallback((id: string) => {
-    console.log('[AppContext] Deleting planned workout:', id);
+    __DEV__ && console.log('[AppContext] Deleting planned workout:', id);
     setPlannedWorkouts(prev => {
       const updated = prev.filter(p => p.id !== id);
       AsyncStorage.setItem(PLANNED_WORKOUTS_KEY, JSON.stringify(updated)).catch(e =>
-        console.log('[AppContext] planned workouts delete error:', e)
+        __DEV__ && console.log('[AppContext] planned workouts delete error:', e)
       );
       return updated;
     });
@@ -781,25 +784,25 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   }, [plannedWorkouts]);
 
   const login = useCallback(() => {
-    console.log('[AppContext] Logging in — setting isLoggedIn = true');
+    __DEV__ && console.log('[AppContext] Logging in — setting isLoggedIn = true');
     setIsLoggedIn(true);
     AsyncStorage.setItem(IS_LOGGED_IN_KEY, 'true').catch((e) =>
-      console.log('[AppContext] isLoggedIn save error:', e)
+      __DEV__ && console.log('[AppContext] isLoggedIn save error:', e)
     );
   }, []);
 
   const logout = useCallback(() => {
-    console.log('[AppContext] Logging out — clearing isLoggedIn');
+    __DEV__ && console.log('[AppContext] Logging out — clearing isLoggedIn');
     setIsLoggedIn(false);
     AsyncStorage.removeItem(IS_LOGGED_IN_KEY).catch((e) =>
-      console.log('[AppContext] isLoggedIn remove error:', e)
+      __DEV__ && console.log('[AppContext] isLoggedIn remove error:', e)
     );
   }, []);
 
   const performFullReset = useCallback(async () => {
     try {
       await AsyncStorage.clear();
-      console.log('[AppContext] AsyncStorage fully cleared');
+      __DEV__ && console.log('[AppContext] AsyncStorage fully cleared');
     } catch (e) {
       console.error('[AppContext] Error clearing AsyncStorage:', e);
     }
@@ -860,16 +863,16 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setShowPlusSpotlight(false);
     setGooglePrefill(null);
     setNewUserResetToken(t => t + 1);
-    console.log('[AppContext] All in-memory state reset to defaults');
+    __DEV__ && console.log('[AppContext] All in-memory state reset to defaults');
   }, []);
 
   const deleteAccount = useCallback(async () => {
-    console.log('[AppContext] Deleting account — clearing all storage and resetting state');
+    __DEV__ && console.log('[AppContext] Deleting account — clearing all storage and resetting state');
     await performFullReset();
   }, [performFullReset]);
 
   const resetForNewUser = useCallback(async () => {
-    console.log('[AppContext] Resetting for new user — clearing all storage and state');
+    __DEV__ && console.log('[AppContext] Resetting for new user — clearing all storage and state');
     await performFullReset();
   }, [performFullReset]);
 
@@ -930,7 +933,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       recovery: profile.recovery,
       addCardio: profile.addCardio,
       coreFinisher: profile.coreFinisher,
-      appTheme: 'system',
+      appTheme: 'dark',
       reflectWorkoutColor: false,
       selectedEquipment: profile.selectedEquipment,
       savedGyms: DEFAULT_SAVED_GYMS,
@@ -944,20 +947,20 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       healthConnected: false,
     };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(e =>
-      console.log('[AppContext] saveOnboardingProfile error:', e)
+      __DEV__ && console.log('[AppContext] saveOnboardingProfile error:', e)
     );
-    console.log('[AppContext] Saved onboarding profile for', profile.userName);
+    __DEV__ && console.log('[AppContext] Saved onboarding profile for', profile.userName);
   }, []);
 
   const completeOnboarding = useCallback(() => {
-    console.log('[AppContext] Marking onboarding complete');
+    __DEV__ && console.log('[AppContext] Marking onboarding complete');
     setOnboardingCompleteState(true);
     setIsLoggedIn(true);
     AsyncStorage.setItem(ONBOARDING_KEY, 'true').catch((e) =>
-      console.log('[AppContext] onboarding save error:', e)
+      __DEV__ && console.log('[AppContext] onboarding save error:', e)
     );
     AsyncStorage.setItem(IS_LOGGED_IN_KEY, 'true').catch((e) =>
-      console.log('[AppContext] isLoggedIn save error on onboarding:', e)
+      __DEV__ && console.log('[AppContext] isLoggedIn save error on onboarding:', e)
     );
   }, []);
 
@@ -968,7 +971,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       if ((prev.missedDays ?? []).includes(dateStr)) return prev;
       const missed = [...(prev.missedDays ?? []), dateStr];
       const updated = { ...prev, missedDays: missed };
-      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) => console.warn('[AppContext] Failed to save missed day to plan:', e));
+      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) => __DEV__ && console.warn('[AppContext] Failed to save missed day to plan:', e));
       return updated;
     });
   }, []);
@@ -980,7 +983,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       if (prev.completedDays?.includes(dateStr)) return prev;
       const completed = [...(prev.completedDays ?? []), dateStr];
       const updated = { ...prev, completedDays: completed };
-      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) => console.warn('[AppContext] Failed to save completed day to plan:', e));
+      AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) => __DEV__ && console.warn('[AppContext] Failed to save completed day to plan:', e));
       return updated;
     });
   }, []);
@@ -1009,9 +1012,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       const combined = [...new Set([...(prev.missedDays ?? []), ...newMissed])];
       const updated = { ...prev, missedDays: combined };
       AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(updated)).catch((e) =>
-        console.warn('[AppContext] Failed to persist auto-detected missed days:', e)
+        __DEV__ && console.warn('[AppContext] Failed to persist auto-detected missed days:', e)
       );
-      console.log(`[AppContext] Auto-marked ${newMissed.length} missed training day(s):`, newMissed);
+      __DEV__ && console.log(`[AppContext] Auto-marked ${newMissed.length} missed training day(s):`, newMissed);
       return updated;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1042,6 +1045,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       trainingGoals,
       specialLifeCase,
       specialLifeCaseDetail,
+      activityLevel,
       muscleReadiness,
       workoutStyle,
       trainingSplit,
@@ -1066,7 +1070,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       healthConnected,
     };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch((e) =>
-      console.log('[AppContext] save error:', e)
+      __DEV__ && console.log('[AppContext] save error:', e)
     );
   }, [
     userName,
@@ -1080,6 +1084,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     trainingGoals,
     specialLifeCase,
     specialLifeCaseDetail,
+    activityLevel,
     muscleReadiness,
     workoutStyle,
     trainingSplit,
@@ -1163,6 +1168,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       setSpecialLifeCase,
       specialLifeCaseDetail,
       setSpecialLifeCaseDetail,
+      activityLevel,
+      setActivityLevel,
       muscleReadiness,
       setMuscleReadiness,
       workoutStyle,

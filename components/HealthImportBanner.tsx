@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import { ArrowDownToLine, AlertCircle, ChevronRight } from 'lucide-react-native'
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
-export default function HealthImportBanner() {
+function HealthImportBanner() {
   const { colors, accent, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
 
@@ -126,6 +126,8 @@ export default function HealthImportBanner() {
     </Animated.View>
   );
 }
+
+export default memo(HealthImportBanner);
 
 const styles = StyleSheet.create({
   container: {

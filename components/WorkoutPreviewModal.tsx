@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -60,7 +60,7 @@ function SectionHeader({ label, color }: { label: string; color: string }) {
   );
 }
 
-export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }: Props) {
+function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
 
@@ -315,6 +315,8 @@ export default function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }:
     </Modal>
   );
 }
+
+export default memo(WorkoutPreviewModal);
 
 const styles = StyleSheet.create({
   backdrop: {

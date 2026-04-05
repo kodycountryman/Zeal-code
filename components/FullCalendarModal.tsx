@@ -51,7 +51,7 @@ export default function FullCalendarModal() {
         map[log.date].push(log.workoutStyle ?? 'Strength');
       }
     } catch (e) {
-      console.log('[Calendar] Error building logsByDate:', e);
+      __DEV__ && console.log('[Calendar] Error building logsByDate:', e);
     }
     return map;
   }, [tracking.workoutHistory]);
@@ -63,7 +63,7 @@ export default function FullCalendarModal() {
         for (const st of styleList) s.add(st);
       }
     } catch (e) {
-      console.log('[Calendar] Error building usedStyles:', e);
+      __DEV__ && console.log('[Calendar] Error building usedStyles:', e);
     }
     return Array.from(s);
   }, [logsByDate]);
@@ -81,7 +81,7 @@ export default function FullCalendarModal() {
     monthName = d.toLocaleDateString('en-US', { month: 'long' });
     yearLabel = String(viewYear);
   } catch (e) {
-    console.log('[Calendar] Error computing month data:', e);
+    __DEV__ && console.log('[Calendar] Error computing month data:', e);
     monthName = 'Month';
     yearLabel = String(viewYear);
   }
@@ -101,7 +101,7 @@ export default function FullCalendarModal() {
   try {
     selectedLogs = selectedDate ? (tracking.getLogsForDate(selectedDate) ?? []) : [];
   } catch (e) {
-    console.log('[Calendar] Error getting logs for date:', e);
+    __DEV__ && console.log('[Calendar] Error getting logs for date:', e);
     selectedLogs = [];
   }
 
@@ -192,7 +192,7 @@ export default function FullCalendarModal() {
                 logsForDay = logsByDate[dateStr] ?? [];
                 isSelected = dateStr === selectedDate;
               } catch (e) {
-                console.log('[Calendar] Day cell error:', e);
+                __DEV__ && console.log('[Calendar] Day cell error:', e);
               }
 
               const hasWorkout = logsForDay.length > 0;
@@ -303,7 +303,7 @@ export default function FullCalendarModal() {
                     </View>
                   );
                 } catch (e) {
-                  console.log('[Calendar] Error rendering log preview:', e);
+                  __DEV__ && console.log('[Calendar] Error rendering log preview:', e);
                   return null;
                 }
               })}

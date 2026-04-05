@@ -1,6 +1,6 @@
 import type { ExerciseRole } from '@/services/engineConstants';
 
-console.log('[StyleFormats] Shared format definitions loaded');
+__DEV__ && console.log('[StyleFormats] Shared format definitions loaded');
 
 export type WorkoutFormatId =
   | 'straight_sets'
@@ -1626,7 +1626,7 @@ export function getArchitectureForStyle(style: string, split?: string): SessionA
       : SPLIT_TO_STRENGTH_ARCHITECTURE;
     const splitArch = lookupTable[normalizedSplit];
     if (splitArch) {
-      console.log('[StyleFormats] Using split-specific architecture for', style, '/', split);
+      __DEV__ && console.log('[StyleFormats] Using split-specific architecture for', style, '/', split);
       return splitArch;
     }
 

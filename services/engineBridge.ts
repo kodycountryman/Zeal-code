@@ -1,4 +1,4 @@
-console.log('[EngineBridge] re-exporting from workoutEngine (V2 consolidated)');
+__DEV__ && console.log('[EngineBridge] re-exporting from workoutEngine (V2 consolidated)');
 
 export {
   generateWorkout,

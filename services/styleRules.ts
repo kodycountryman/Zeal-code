@@ -2,7 +2,7 @@ import type { WorkoutFormatId } from '@/services/styleFormats';
 import type { RestTier } from '@/services/engineConstants';
 import { type FitnessLevel, FITNESS_LEVELS } from '@/constants/fitnessLevel';
 
-console.log('[StyleRules] Style-specific generation rules loaded');
+__DEV__ && console.log('[StyleRules] Style-specific generation rules loaded');
 
 export type { FitnessLevel };
 

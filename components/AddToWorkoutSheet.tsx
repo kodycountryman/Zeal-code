@@ -644,11 +644,6 @@ const styles = StyleSheet.create({
   recGroup: {
     gap: 6,
   },
-  recCard: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden' as const,
-  },
   recHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -669,9 +664,6 @@ const styles = StyleSheet.create({
   musclePillText: {
     fontSize: 11,
     fontWeight: '600' as const,
-  },
-  recList: {
-    gap: 0,
   },
   recRow: {
     flexDirection: 'row',

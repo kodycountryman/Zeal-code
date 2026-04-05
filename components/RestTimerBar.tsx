@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, PanResponder, Switch } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -13,7 +13,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
-import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { useWorkoutTracking, useRestTimeRemaining } from '@/context/WorkoutTrackingContext';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 function formatTime(seconds: number): string {
@@ -28,9 +28,10 @@ const PRESETS = [
   { label: '2m', seconds: 120 },
 ] as const;
 
-export default function RestTimerBar() {
+function RestTimerBar() {
   const { isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
+  const restTimeRemaining = useRestTimeRemaining();
 
   const progressShared = useSharedValue(1);
   const expandShared = useSharedValue(0);
@@ -38,8 +39,8 @@ export default function RestTimerBar() {
   const [isMinimized, setIsMinimized] = useState(false);
 
   const shouldRender = tracking.showRestTimer && tracking.isWorkoutActive;
-  const isActive = shouldRender && tracking.isRestActive && tracking.restTimeRemaining > 0;
-  const isUrgent = tracking.restTimeRemaining <= 15 && tracking.restTimeRemaining > 0;
+  const isActive = shouldRender && tracking.isRestActive && restTimeRemaining > 0;
+  const isUrgent = restTimeRemaining <= 15 && restTimeRemaining > 0;
 
   const handleToggle = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -85,8 +86,8 @@ export default function RestTimerBar() {
   useEffect(() => {
     if (!shouldRender) return;
     if (isActive && tracking.restTimeTotal > 0) {
-      const ratio = tracking.restTimeRemaining / tracking.restTimeTotal;
-      const targetRatio = Math.max(0, (tracking.restTimeRemaining - 1) / tracking.restTimeTotal);
+      const ratio = restTimeRemaining / tracking.restTimeTotal;
+      const targetRatio = Math.max(0, (restTimeRemaining - 1) / tracking.restTimeTotal);
       cancelAnimation(progressShared);
       progressShared.value = ratio;
       progressShared.value = withTiming(targetRatio, {
@@ -98,7 +99,7 @@ export default function RestTimerBar() {
       progressShared.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tracking.restTimeRemaining, isActive, tracking.restTimeTotal, shouldRender]);
+  }, [restTimeRemaining, isActive, tracking.restTimeTotal, shouldRender]);
 
   useEffect(() => {
     const shouldExpand = isActive && !isMinimized;
@@ -156,7 +157,7 @@ export default function RestTimerBar() {
       <Animated.View style={[styles.clockSection, clockAnimStyle]}>
         <View style={styles.clockRow}>
           <Text style={[styles.countdown, { color: countdownColor }]}>
-            {formatTime(tracking.restTimeRemaining)}
+            {formatTime(restTimeRemaining)}
           </Text>
           <View style={styles.clockSpacer} />
           <TouchableOpacity
@@ -281,6 +282,8 @@ export default function RestTimerBar() {
     </View>
   );
 }
+
+export default memo(RestTimerBar);
 
 const styles = StyleSheet.create({
   outerWrap: {
