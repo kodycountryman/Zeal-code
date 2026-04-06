@@ -1,17 +1,17 @@
 import {
   Activity, AlertCircle, AlertTriangle, ArrowDown, ArrowDownToLine, ArrowLeft,
   ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpDown, Award,
-  BarChart2, BarChart3, Bell, BellOff, BookOpen, Bookmark, Brain,
+  BarChart2, BarChart3, Bell, BellOff, Bike, BookOpen, Bookmark, Brain, Droplets,
   Building2, Calendar, CalendarPlus, CalendarRange, Camera, Check, CheckCircle2,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Circle, ClipboardList,
   Clock, Copy, Crown, Download, Dumbbell, FileText, Flag, Flame, Footprints,
   GripVertical, Hammer, Heart, HeartPulse, HelpCircle, Home, Info, Layers,
   Leaf, Lightbulb, Link2, ListChecks, Lock, LogOut, Medal, MessageCircle, Minus,
-  Moon, MousePointerClick, Move, Palette, Pause, Pencil, PersonStanding,
+  Moon, Mountain, MousePointerClick, Move, Palette, Pause, Pencil, PersonStanding,
   Play, PlayCircle, Plus, RefreshCw, Repeat2, RotateCcw, Save, Scale, Search,
   Settings, Settings2, Shield, Skull, SlidersHorizontal, Snowflake, Sparkles,
   Star, Stethoscope, Target, ThumbsDown, ThumbsUp, Timer, Trash2, TrendingDown,
-  TrendingUp, Trophy, User, Watch, Wind, X, Zap,
+  TrendingUp, Trophy, TreePine, Sun, ImageIcon, Utensils, User, Watch, Waves, Wind, X, Zap,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -19,21 +19,30 @@ export type AppIconName =
   | 'activity' | 'alert-circle' | 'alert-triangle' | 'arrow-down' | 'arrow-down-to-line'
   | 'arrow-left' | 'arrow-left-right' | 'arrow-right' | 'arrow-up' | 'arrow-up-down'
   | 'award' | 'bar-chart'
-  | 'bar-chart-3' | 'bell' | 'bell-off' | 'book-open' | 'bookmark' | 'brain' | 'building'
+  | 'bar-chart-3' | 'bell' | 'bell-off' | 'bike' | 'book-open' | 'bookmark' | 'brain' | 'building'
   | 'calendar' | 'calendar-plus' | 'calendar-range' | 'camera' | 'check' | 'check-circle'
   | 'chevron-down'
   | 'chevron-left' | 'chevron-right' | 'chevron-up' | 'circle' | 'clipboard-list'
   | 'clock' | 'copy' | 'crown' | 'download' | 'dumbbell' | 'file-text' | 'flag' | 'flame'
   | 'footprints' | 'grip-vertical' | 'hammer' | 'heart' | 'heart-pulse' | 'help-circle'
   | 'home' | 'info' | 'layers' | 'leaf' | 'lightbulb' | 'link' | 'list-checks' | 'lock'
-  | 'log-out' | 'medal' | 'message-circle' | 'minus' | 'moon' | 'mouse-pointer-click'
+  | 'log-out' | 'medal' | 'message-circle' | 'minus' | 'moon' | 'mountain' | 'mouse-pointer-click'
   | 'move' | 'palette' | 'pause' | 'pencil' | 'person-standing' | 'play' | 'play-circle'
   | 'plus' | 'refresh' | 'repeat' | 'rotate-ccw' | 'save' | 'scale' | 'search' | 'settings'
   | 'settings-2' | 'shield' | 'skull' | 'sliders-horizontal' | 'snowflake' | 'sparkles'
   | 'star' | 'stethoscope' | 'target' | 'thumbs-down' | 'thumbs-up' | 'timer' | 'trash'
-  | 'trending-down' | 'trending-up' | 'trophy' | 'user' | 'watch' | 'wind' | 'x' | 'zap';
+  | 'droplets' | 'image' | 'sun' | 'tree-pine' | 'trending-down' | 'trending-up' | 'trophy'
+  | 'user' | 'utensils' | 'watch' | 'waves' | 'wind' | 'x' | 'zap';
 
 export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
+  'bike':                   'bicycle',
+  'droplets':               'drop',
+  'image':                  'photo',
+  'mountain':               'mountain.2',
+  'sun':                    'sun.max',
+  'tree-pine':              'tree',
+  'utensils':               'fork.knife',
+  'waves':                  'water.waves',
   'activity':               'waveform',
   'alert-circle':           'exclamationmark.circle',
   'alert-triangle':         'exclamationmark.triangle',
@@ -132,6 +141,14 @@ export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
 };
 
 export const LUCIDE_MAP: Record<AppIconName, LucideIcon> = {
+  'bike':               Bike,
+  'droplets':           Droplets,
+  'image':              ImageIcon,
+  'mountain':           Mountain,
+  'sun':                Sun,
+  'tree-pine':          TreePine,
+  'utensils':           Utensils,
+  'waves':              Waves,
   'activity':           Activity,
   'alert-circle':       AlertCircle,
   'alert-triangle':     AlertTriangle,

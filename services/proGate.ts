@@ -61,6 +61,10 @@ export const PRO_FEATURE_INFO: Record<string, ProFeatureInfo> = {
     title: 'Full Workout History',
     message: 'Access your complete workout history beyond the last 7 days with Zeal Pro.',
   },
+  '75hard': {
+    title: '75 Hard Challenge',
+    message: 'Take on the ultimate mental toughness challenge with daily tracking, AI workouts, and progress photos — available with Zeal Pro.',
+  },
 };
 
 export function showProGate(

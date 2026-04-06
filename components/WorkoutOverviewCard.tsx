@@ -19,7 +19,6 @@ import type { WorkoutPlan } from '@/context/AppContext';
 import type { WorkoutLog } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import GlassCard from '@/components/GlassCard';
-import { ChevronRight } from 'lucide-react-native';
 
 const DYNAMIC_LABELS = [
   "Today's Focus",
@@ -132,7 +131,7 @@ function WorkoutOverviewCard({
               <View style={[styles.pulseDot, { backgroundColor: '#22c55e' }]} />
               <Text style={[styles.label, { color: colors.textSecondary }]}>Completed Today</Text>
             </View>
-            <ChevronRight size={15} color="rgba(255,255,255,0.28)" strokeWidth={2} />
+            <PlatformIcon name="chevron-right" size={16} color="rgba(255,255,255,0.28)" />
           </View>
 
           <Text style={[styles.workoutTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -179,7 +178,7 @@ function WorkoutOverviewCard({
           <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
         </View>
         {!isRestDay && onPress && (
-          <ChevronRight size={15} color="rgba(255,255,255,0.28)" strokeWidth={2} />
+          <PlatformIcon name="chevron-right" size={16} color="rgba(255,255,255,0.28)" />
         )}
       </View>
 

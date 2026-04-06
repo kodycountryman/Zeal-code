@@ -108,6 +108,8 @@ import GlassCard from '@/components/GlassCard';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 const WALKTHROUGH_KEY = '@zeal_workout_walkthrough_seen_v1';
+const WEIGHT_TIP_KEY = '@zeal_weight_chip_tip_seen_v1';
+
 
 const SPRING_BTN = { damping: 15, stiffness: 400, mass: 0.5 } as const;
 const CHIP_H = 44;
@@ -173,6 +175,19 @@ function snapToPreset(d: number): number {
   return (PRESET_DURATIONS as readonly number[]).reduce((prev, curr) =>
     Math.abs(curr - d) < Math.abs(prev - d) ? curr : prev
   );
+}
+
+/** Convert rest strings like "1m 30s", "2m", "60s" → plain seconds "90s", "120s", "60s" */
+function formatRestPlain(rest: string | undefined): string {
+  if (!rest || rest.toLowerCase() === 'none') return '';
+  const secOnly = rest.match(/^(\d+)\s*s$/i);
+  if (secOnly) return `${secOnly[1]}s`;
+  let totalSecs = 0;
+  const minPart = rest.match(/(\d+)\s*m/i);
+  const secPart = rest.match(/(\d+)\s*s/i);
+  if (minPart) totalSecs += parseInt(minPart[1], 10) * 60;
+  if (secPart) totalSecs += parseInt(secPart[1], 10);
+  return totalSecs > 0 ? `${totalSecs}s` : rest;
 }
 
 function formatDate(): string {
@@ -335,8 +350,9 @@ type SetCheckmarkCircleProps = {
   accent: string;
   borderColor: string;
   onPress: () => void;
+  isNextUp?: boolean;
 };
-function SetCheckmarkCircle({ done, accent, borderColor, onPress }: SetCheckmarkCircleProps) {
+function SetCheckmarkCircle({ done, accent, borderColor, onPress, isNextUp }: SetCheckmarkCircleProps) {
   const scale = useSharedValue(done ? 1 : 0);
   useEffect(() => {
     if (done) {
@@ -354,12 +370,17 @@ function SetCheckmarkCircle({ done, accent, borderColor, onPress }: SetCheckmark
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       activeOpacity={0.8}
-      style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
+      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', width: 76, height: 48, gap: 2 }}
     >
+      {isNextUp && !done ? (
+        <Text style={{ fontSize: 12, fontFamily: 'Outfit_600SemiBold', color: accent, letterSpacing: 0.2, marginRight: 2 }}>Log</Text>
+      ) : (
+        <View style={{ width: 1 }} />
+      )}
       <View style={{
         width: 32, height: 32, borderRadius: 16,
         borderWidth: done ? 0 : 2,
-        borderColor,
+        borderColor: isNextUp && !done ? accent : borderColor,
         backgroundColor: done ? accent : 'transparent',
         alignItems: 'center', justifyContent: 'center',
       }}>
@@ -852,6 +873,9 @@ export default function WorkoutScreen() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const [logEditMode, setLogEditMode] = useState(false);
+  const [weightToast, setWeightToast] = useState<{ exId: string; weight: number; count: number } | null>(null);
+  const [showWeightTip, setShowWeightTip] = useState(false);
+  const weightTipCheckedRef = useRef(false);
   const [swipeOpenSetKey, setSwipeOpenSetKey] = useState<string | null>(null);
   const [swapTargetExercise, setSwapTargetExercise] = useState<WorkoutExercise | null>(null);
   const [addSheetMuscleFilter, setAddSheetMuscleFilter] = useState<string>('');
@@ -1187,39 +1211,42 @@ export default function WorkoutScreen() {
     const lm = ctx.lastModifyState;
     const hasPlan = !!ctx.activePlan;
 
-    let effectiveStyle = style ?? ov?.style ?? (
+    // Priority: explicit param > workoutOverride > lastModifyState > plan prescription > user settings
+    // lastModifyState represents explicit user action (Modify → Apply) and overrides plan defaults.
+    let effectiveStyle = style ?? ov?.style ?? lm?.style ?? (
       hasPlan && todayPrescription?.style
         ? todayPrescription.style
-        : (lm?.style ?? ctx.workoutStyle)
+        : ctx.workoutStyle
     );
-    const rawSplit = split ?? ov?.split ?? (
+    const rawSplit = split ?? ov?.split ?? lm?.split ?? (
       hasPlan && todayPrescription?.session_type
         ? todayPrescription.session_type
-        : (lm?.split ?? ctx.trainingSplit)
+        : ctx.trainingSplit
     );
     const effectiveSplit = rawSplit === 'Push, Pull, Legs'
       ? resolvePushPullLegs(ctx.muscleReadiness)
       : rawSplit;
-    const effectiveDuration = duration ?? ov?.duration ?? (
+    const effectiveDuration = duration ?? ov?.duration ?? lm?.duration ?? (
       hasPlan && todayPrescription?.target_duration
         ? todayPrescription.target_duration
-        : (lm?.duration ?? ctx.targetDuration)
+        : ctx.targetDuration
     );
     const effectiveRest = rest ?? ov?.rest ?? (lm?.rest ?? ctx.restBetweenSets);
-    const effectiveMuscles = muscles ?? ov?.muscles ?? (hasPlan ? [] : (lm?.muscles ?? []));
+    const effectiveMuscles = muscles ?? ov?.muscles ?? lm?.muscles ?? (hasPlan ? [] : []);
 
     if (!hasPro && PRO_STYLES_SET.has(effectiveStyle)) {
       __DEV__ && console.log(`[WorkoutScreen] Core user has Pro style "${effectiveStyle}", falling back to Strength`);
       effectiveStyle = 'Strength';
     }
 
-    if (hasPlan && todayPrescription && !ov && !style) {
+    if (hasPlan && todayPrescription && !ov && !style && !lm) {
       __DEV__ && console.log(`[WorkoutScreen] Plan prescription active: phase=${todayPrescription.phase} style=${todayPrescription.style} session=${todayPrescription.session_type} vol=${todayPrescription.volume_modifier} int=${todayPrescription.intensity_modifier}`);
     }
 
-    __DEV__ && console.log(`[WorkoutScreen] doGenerate: style=${effectiveStyle} split=${effectiveSplit} duration=${effectiveDuration} rest=${effectiveRest} muscles=${effectiveMuscles.join(',')} override=${!!ov} hasPlan=${hasPlan} usedModify=${!hasPlan && !!lm} seedOffset=${seedOffset ?? 0}`);
+    __DEV__ && console.log(`[WorkoutScreen] doGenerate: style=${effectiveStyle} split=${effectiveSplit} duration=${effectiveDuration} rest=${effectiveRest} muscles=${effectiveMuscles.join(',')} override=${!!ov} hasPlan=${hasPlan} usedModify=${!!lm} seedOffset=${seedOffset ?? 0}`);
 
-    const prescription = (!ov && !style && hasPlan) ? todayPrescription : null;
+    // Only use plan prescription (phase, volume/intensity modifiers) when user hasn't manually overridden
+    const prescription = (!ov && !style && !lm && hasPlan) ? todayPrescription : null;
 
     // Use plan's stored equipment if generating a plan workout, otherwise user's global settings
     const effectiveEquipment = (prescription && hasPlan)
@@ -1339,12 +1366,46 @@ export default function WorkoutScreen() {
           setGeneratingElapsed(0);
           setIsGenerating(true);
         } else if (!isPlanRestDay && !isPlanPaused) {
-          doGenerate();
+          if (pwPlan) {
+            // Active plan: load from plan cache rather than generating from scratch
+            tracking.ensureTodayWorkoutGenerated();
+          } else {
+            doGenerate();
+          }
         }
         // On plan rest days or paused plans: skip generation entirely
       }
-    }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx, isPlanRestDay, isPlanPaused])
+    }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx, isPlanRestDay, isPlanPaused, pwPlan, tracking])
   );
+
+  // Sync local workout state when context workout changes (e.g. PlanDayPreviewDrawer
+  // or ensureTodayWorkoutGenerated sets a new plan workout via setCurrentGeneratedWorkout)
+  useEffect(() => {
+    if (
+      tracking.currentGeneratedWorkout &&
+      !tracking.isWorkoutActive &&
+      workout !== tracking.currentGeneratedWorkout
+    ) {
+      setWorkout(tracking.currentGeneratedWorkout);
+      setIsGenerating(false);
+      setGeneratingIsAI(false);
+      setGeneratingElapsed(0);
+      ctx.setCurrentWorkoutTitle(
+        buildCreativeWorkoutTitle({
+          style: tracking.currentGeneratedWorkout.style,
+          split: tracking.currentGeneratedWorkout.split,
+          metconFormat: tracking.currentGeneratedWorkout.metconFormat,
+          duration: tracking.currentGeneratedWorkout.estimatedDuration,
+          previousTitle: currentWorkoutTitleRef.current,
+        })
+      );
+      setWarmupHidden(false);
+      setTrackedExercises(new Set());
+      setDoneExercises(new Set());
+      setExpandedTrack(null);
+      setCompletedSets({});
+    }
+  }, [tracking.currentGeneratedWorkout]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (ctx.newUserResetToken !== 0 && ctx.newUserResetToken !== lastResetToken.current) {
@@ -1582,7 +1643,21 @@ export default function WorkoutScreen() {
       setActiveEditCell(null);
       chipExpandHeight.value = CHIP_H;
     }
-    setExpandedTrack((prev) => prev === exId ? null : exId);
+    setExpandedTrack((prev) => {
+      const willOpen = prev !== exId;
+      // Show weight-chip tip on first-ever expand
+      if (willOpen && !weightTipCheckedRef.current) {
+        weightTipCheckedRef.current = true;
+        AsyncStorage.getItem(WEIGHT_TIP_KEY).then(val => {
+          if (!val) {
+            setShowWeightTip(true);
+            AsyncStorage.setItem(WEIGHT_TIP_KEY, 'true').catch(() => {});
+            setTimeout(() => setShowWeightTip(false), 4000);
+          }
+        }).catch(() => {});
+      }
+      return prev === exId ? null : exId;
+    });
     setLogEditMode(false);
     setSwipeOpenSetKey(null);
   }, [tracking]);
@@ -1674,6 +1749,15 @@ export default function WorkoutScreen() {
         if (allDone) {
           setTimeout(() => handleMarkExerciseDone(exId, exercise), 400);
         }
+        // Un-complete: if a set was unchecked on a completed exercise, revert completion
+        if (!isMarkingDone && tracking.exerciseLogs[exId]?.completed) {
+          tracking.unmarkExerciseComplete(exId);
+          setTrackedExercises(prev => {
+            const n = new Set(prev);
+            n.delete(exId);
+            return n;
+          });
+        }
         // Superset auto-advance
         __DEV__ && console.log('[AutoAdvance] Check:', { isMarkingDone, groupId: exercise.groupId, groupType: exercise.groupType, isLastInGroup, allDone });
         if (isMarkingDone && exercise.groupId && ADVANCE_GROUP_TYPES.has(exercise.groupType ?? '')) {
@@ -1726,17 +1810,48 @@ export default function WorkoutScreen() {
     const exerciseCount = workout?.workout.length ?? 0;
     const isLastExercise = newTracked.size >= exerciseCount && exerciseCount > 0;
     setTrackedExercises(newTracked);
-    if (Platform.OS !== 'web') {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }
-    setExpandedTrack(null);
     const restSec = exercise
       ? calculateRest(exercise.movementType as MovementType, Math.round(ctx.restBetweenSets * 100))
       : 90;
     requestAnimationFrame(() => {
       tracking.markExerciseComplete(exId, isLastExercise ? 0 : restSec);
     });
-  }, [tracking, ctx.restBetweenSets, workout, trackedExercises]);
+
+    // Auto-collapse after 1s, then auto-expand next exercise
+    setTimeout(() => {
+      if (Platform.OS !== 'web') {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+      // Use refs for latest state (closure would be stale after 1s)
+      const w = workoutRef.current;
+      const logs = exerciseLogsRef.current;
+      const allExs = w?.workout ?? [];
+      const currentIdx = allExs.findIndex(e => e.id === exId);
+      let nextEx: WorkoutExercise | null = null;
+      for (let i = currentIdx + 1; i < allExs.length; i++) {
+        if (!logs[allExs[i].id]?.completed) {
+          nextEx = allExs[i];
+          break;
+        }
+      }
+      // Also check core finisher if no main exercises left
+      if (!nextEx && w?.coreFinisher) {
+        for (const cf of w.coreFinisher) {
+          if (!logs[cf.id]?.completed) { nextEx = cf; break; }
+        }
+      }
+
+      if (nextEx) {
+        setExpandedTrack(nextEx.id);
+        if (!logs[nextEx.id]) {
+          tracking.initExerciseLog(nextEx);
+        }
+        setTimeout(() => scrollToExercise(nextEx!.id), 200);
+      } else {
+        setExpandedTrack(null);
+      }
+    }, 1000);
+  }, [tracking, ctx.restBetweenSets, workout, trackedExercises, scrollToExercise]);
 
   const handleToggleMobilityDone = useCallback((exId: string) => {
     setDoneExercises((prev) => {
@@ -2242,93 +2357,26 @@ export default function WorkoutScreen() {
           >
             <View style={styles.trackPanelHeader}>
               <View style={styles.trackPanelTitleRow}>
-                {/* Left — Target label */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Target size={12} color={colors.textSecondary} strokeWidth={2} />
-                  <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: 'Outfit_600SemiBold' }}>Target</Text>
-                  {isRepsOnly && (
-                    <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 4 }}>
-                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '500' as const }}>Bodyweight</Text>
-                    </View>
-                  )}
-                </View>
+                <TouchableOpacity
+                  onPress={() => handleExerciseTap(ex)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
+                  <Info size={14} color={colors.textMuted} strokeWidth={2} />
+                  <Text style={{ fontSize: 11, fontFamily: 'Outfit_500Medium', color: colors.textMuted }}>Details</Text>
+                </TouchableOpacity>
+                {isRepsOnly && (
+                  <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
+                    <Text style={{ fontSize: 10, color: colors.textMuted, fontFamily: 'Outfit_500Medium' }}>Bodyweight</Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }} />
-                {/* Right — segmented dot progress + counter + Edit */}
                 {setsData.length > 0 && (
                   <SetProgressDots setsData={setsData} accent={currentAccent} borderColor={colors.border} />
                 )}
-                <TouchableOpacity
-                  onPress={() => { setLogEditMode(e => !e); setSwipeOpenSetKey(null); }}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={{ marginLeft: 12 }}
-                >
-                  <Text style={{ fontSize: 12, color: logEditMode ? currentAccent : colors.textSecondary, fontWeight: '500' as const }}>
-                    {logEditMode ? 'Done' : 'Edit'}
-                  </Text>
-                </TouchableOpacity>
               </View>
-              {!isRepsOnly && !isWeightDistance && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly && suggestion.lastWeight > 0 && (
-                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
-                  Last: {suggestion.lastWeight} lb × {suggestion.lastReps}
-                </Text>
-              )}
-              {isRepsOnly && suggestion.lastReps > 0 && (
-                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
-                  Last: {suggestion.lastReps} reps
-                </Text>
-              )}
-              {isHoldForTime && (
-                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
-                  Log hold time
-                </Text>
-              )}
-              {isCaloriesMovement && (
-                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
-                  Log calories
-                </Text>
-              )}
-              {isDistanceOnly && (
-                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
-                  Log distance (meters)
-                </Text>
-              )}
-              {isWeightDistance && (
-                <Text style={[styles.trackLastLabel, { color: colors.textSecondary }]}>
-                  Log load + distance
-                </Text>
-              )}
             </View>
-
-            {(() => {
-              const doneSets = lastSets.filter(s => s.done);
-              if (doneSets.length === 0) return null;
-              const weights = doneSets.map(s => s.weight).filter(w => w > 0);
-              const minW = weights.length > 0 ? Math.min(...weights) : 0;
-              const maxW = weights.length > 0 ? Math.max(...weights) : 0;
-              const weightStr = weights.length === 0
-                ? ''
-                : minW === maxW
-                  ? `${minW} lb × `
-                  : `${minW}–${maxW} lb × `;
-              const repsStr = doneSets.map(s => s.reps).join(', ');
-              const currentWeight = suggestion.suggestedWeight;
-              const trendUp = weights.length > 0 && currentWeight > maxW;
-              const trendDown = weights.length > 0 && currentWeight < minW;
-              return (
-                <TouchableOpacity
-                  onPress={() => setDetailExercise(ex)}
-                  activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 }}
-                >
-                  {trendUp && <TrendingUp size={11} color="#22c55e" strokeWidth={2} />}
-                  {trendDown && <TrendingDown size={11} color={colors.textMuted} strokeWidth={2} />}
-                  <Text style={{ fontSize: 11, fontFamily: 'Outfit_400Regular', color: colors.textMuted }}>
-                    Last: {weightStr}{repsStr}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()}
 
             <View style={styles.trackTableHeader}>
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -2341,23 +2389,42 @@ export default function WorkoutScreen() {
                 <Text style={[styles.trackTableCol, { color: colors.textSecondary, flex: 1, textAlign: 'center' as const }]}>
                   {isHoldForTime ? 'Time (mm:ss)' : isCaloriesMovement ? 'Cals' : (isDistanceOnly || isWeightDistance) ? 'Dist (m)' : 'Reps'}
                 </Text>
-                <View style={{ flex: 1 }} />
               </View>
-              <View style={{ width: 48 }} />
+              <View style={{ width: 76 }} />
             </View>
+
+            {/* First-time weight chip tooltip */}
+            {showWeightTip && !isRepsOnly && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                marginBottom: 4,
+                borderRadius: 10,
+                backgroundColor: `${currentAccent}18`,
+              }}>
+                <Text style={{ fontSize: 12, fontFamily: 'Outfit_500Medium', color: currentAccent }}>
+                  Tap any weight or reps to adjust
+                </Text>
+              </View>
+            )}
 
             {setsData.map((set, setIdx) => {
               const hasWeight = !isRepsOnly && !isHoldForTime && !isCaloriesMovement && !isDistanceOnly;
               const isWeightActive = activeEditCell?.exId === ex.id && activeEditCell?.setIdx === setIdx && activeEditCell?.field === 'weight';
               const isRepsActive = activeEditCell?.exId === ex.id && activeEditCell?.setIdx === setIdx && activeEditCell?.field === 'reps';
-              const isRowActive = activeEditCell?.exId === ex.id && activeEditCell?.setIdx === setIdx;
-              const activeField = isRowActive ? activeEditCell!.field : null;
               const repsPickerValues = isHoldForTime ? TIME_VALUES_SECONDS
                 : isCaloriesMovement ? CALORIES_VALUES
                 : (isDistanceOnly || isWeightDistance) ? DISTANCE_VALUES_METERS
                 : REPS_VALUES;
               const setKey = `${ex.id}_${setIdx}`;
               const chipBg = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
+              // First uncompleted set = active/"next up" row
+              const firstUndoneIdx = setsData.findIndex(s => !s.done);
+              const isNextUp = setIdx === firstUndoneIdx;
+              const chipInteractive = !set.done; // lock chips after logging
               return (
                 <SwipeableSetRow
                   key={setIdx}
@@ -2365,20 +2432,23 @@ export default function WorkoutScreen() {
                   isOpen={swipeOpenSetKey === setKey}
                   onOpen={setSwipeOpenSetKey}
                   onDelete={() => tracking.removeSet(ex.id, setIdx)}
-        
+
                 >
                   <SetRowPressable
                     done={set.done}
                     flashColor={currentAccent}
                     onPress={() => handleToggleSet(ex.id, setIdx, ex)}
-                    style={styles.trackSetRow}
+                    style={[
+                      styles.trackSetRow,
+                      isNextUp && !set.done && { borderLeftWidth: 3, borderLeftColor: currentAccent, backgroundColor: `${currentAccent}08` },
+                    ]}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, opacity: set.done ? 0.4 : 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, opacity: set.done ? 0.5 : 1 }}>
                       <Text style={[styles.trackSetNumCol, { color: colors.textMuted, fontSize: 16, fontWeight: '700' as const, textAlign: 'center' as const }]}>
                         {set.setNumber}
                       </Text>
                       {hasWeight && (
-                        isWeightActive ? (
+                        isWeightActive && chipInteractive ? (
                           <TouchableOpacity
                             onPress={closeChip}
                             activeOpacity={0.85}
@@ -2400,7 +2470,16 @@ export default function WorkoutScreen() {
                               <WheelPicker
                                 values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
                                 selectedValue={set.weight}
-                                onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
+                                onValueChange={(v) => {
+                                  tracking.updateSetLog(ex.id, setIdx, 'weight', v);
+                                  // Show propagation toast if remaining undone sets have different weight
+                                  const remaining = setsData.filter((s, i) => i > setIdx && !s.done);
+                                  if (remaining.length > 0 && remaining.some(s => s.weight !== v)) {
+                                    setWeightToast({ exId: ex.id, weight: v, count: remaining.length });
+                                  } else {
+                                    setWeightToast(null);
+                                  }
+                                }}
                                 textColor={colors.text}
                                 mutedColor={mutedWheelColor}
                                 accentColor={currentAccent}
@@ -2411,9 +2490,10 @@ export default function WorkoutScreen() {
                           </TouchableOpacity>
                         ) : (
                           <TouchableOpacity
-                            onPress={() => openChip({ exId: ex.id, setIdx, field: 'weight' })}
-                            activeOpacity={0.85}
+                            onPress={chipInteractive ? () => openChip({ exId: ex.id, setIdx, field: 'weight' }) : undefined}
+                            activeOpacity={chipInteractive ? 0.85 : 1}
                             style={{ flex: 2 }}
+                            disabled={!chipInteractive}
                           >
                             <View
                               style={{
@@ -2434,11 +2514,12 @@ export default function WorkoutScreen() {
                                 textColor={colors.text}
                                 visibleItems={1}
                               />
+                              {chipInteractive && <ChevronDown size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
                             </View>
                           </TouchableOpacity>
                         )
                       )}
-                      {isRepsActive ? (
+                      {isRepsActive && chipInteractive ? (
                         <TouchableOpacity
                           onPress={closeChip}
                           activeOpacity={0.85}
@@ -2472,9 +2553,10 @@ export default function WorkoutScreen() {
                         </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
-                          onPress={() => openChip({ exId: ex.id, setIdx, field: 'reps' })}
-                          activeOpacity={0.85}
+                          onPress={chipInteractive ? () => openChip({ exId: ex.id, setIdx, field: 'reps' }) : undefined}
+                          activeOpacity={chipInteractive ? 0.85 : 1}
                           style={{ flex: 1 }}
+                          disabled={!chipInteractive}
                         >
                           <View
                             style={{
@@ -2496,23 +2578,10 @@ export default function WorkoutScreen() {
                               visibleItems={1}
                               formatValue={isHoldForTime ? formatHoldTime : undefined}
                             />
+                            {chipInteractive && <ChevronDown size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
                           </View>
                         </TouchableOpacity>
                       )}
-                      {(() => {
-                        const prev = lastSets[setIdx];
-                        if (!prev || !prev.done) return <View style={{ flex: 1 }} />;
-                        const label = hasWeight
-                          ? `${prev.weight} × ${prev.reps}`
-                          : isHoldForTime
-                          ? formatHoldTime(prev.reps)
-                          : `${prev.reps}`;
-                        return (
-                          <Text style={{ flex: 1, fontSize: 11, color: colors.textMuted, opacity: 0.55, textAlign: 'right', paddingRight: 4, fontFamily: 'Outfit_400Regular' }} numberOfLines={1}>
-                            {label}
-                          </Text>
-                        );
-                      })()}
                     </View>
                     {logEditMode ? (
                       setsData.length > 1 ? (
@@ -2533,6 +2602,7 @@ export default function WorkoutScreen() {
                         accent={currentAccent}
                         borderColor={colors.border}
                         onPress={() => handleToggleSet(ex.id, setIdx, ex)}
+                        isNextUp={isNextUp}
                       />
                     )}
                   </SetRowPressable>
@@ -2540,12 +2610,40 @@ export default function WorkoutScreen() {
               );
             })}
 
+            {/* Weight propagation toast */}
+            {weightToast && weightToast.exId === ex.id && (
+              <TouchableOpacity
+                onPress={() => {
+                  tracking.applyWeightToAllSets(ex.id, weightToast.weight);
+                  setWeightToast(null);
+                }}
+                activeOpacity={0.75}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  marginHorizontal: 4,
+                  marginBottom: 4,
+                  borderRadius: 12,
+                  backgroundColor: `${currentAccent}15`,
+                  borderWidth: 1,
+                  borderColor: `${currentAccent}30`,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontFamily: 'Outfit_500Medium', color: currentAccent }}>
+                  Apply {weightToast.weight} lb to remaining sets?
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <View style={[styles.trackActions, { justifyContent: 'center' }]}>
               <TouchableOpacity
                 onPress={() => {
                   closeChip();
                   if (ex.groupId && workout) {
-                    // Sync set addition across all exercises in the superset/circuit
                     workout.workout
                       .filter(g => g.groupId === ex.groupId)
                       .forEach(g => tracking.addSet(g.id));
@@ -2797,13 +2895,14 @@ export default function WorkoutScreen() {
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
-        <View style={styles.exerciseInfo}>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
-            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>{ex.name}</Text>
+        <View style={[styles.exerciseInfo, isCompleted && { opacity: 0.5 }]}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {isCompleted && <Check size={14} color="#22c55e" strokeWidth={2.5} />}
+            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>{ex.name}</Text>
           </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{reps}{exSuffix}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
+              {weight ? `${weight} · ` : ''}{ex.sets}×{reps}{exSuffix}
             </Text>
           )}
         </View>
@@ -2819,13 +2918,14 @@ export default function WorkoutScreen() {
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
-        <View style={styles.exerciseInfo}>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
-            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>{ex.name}</Text>
+        <View style={[styles.exerciseInfo, isCompleted && { opacity: 0.5 }]}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {isCompleted && <Check size={14} color="#22c55e" strokeWidth={2.5} />}
+            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>{ex.name}</Text>
           </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{repRange}{exSuffix}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
+              {weight ? `${weight} · ` : ''}{ex.sets}×{repRange}{exSuffix}
             </Text>
           )}
         </View>
@@ -2840,13 +2940,14 @@ export default function WorkoutScreen() {
     const weight = ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ex.suggestedWeight : null;
     return (
       <>
-        <View style={styles.exerciseInfo}>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
-            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>{ex.name}</Text>
+        <View style={[styles.exerciseInfo, isCompleted && { opacity: 0.5 }]}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {isCompleted && <Check size={14} color="#22c55e" strokeWidth={2.5} />}
+            <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>{ex.name}</Text>
           </TouchableOpacity>
           {!isCompleted && (
             <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-              {ex.sets}×{reps}{exSuffix}{!hideRest && ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{weight ? ` · ${weight}` : ''}
+              {weight ? `${weight} · ` : ''}{ex.sets}×{reps}{exSuffix}
             </Text>
           )}
         </View>
@@ -2970,9 +3071,9 @@ export default function WorkoutScreen() {
                       activeOpacity={1}
                     >
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                          {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
+                          {ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? `${ex.suggestedWeight} · ` : ''}{ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}
                         </Text>
                       </View>
                       {renderTrackButton(ex)}
@@ -3065,7 +3166,7 @@ export default function WorkoutScreen() {
                       activeOpacity={1}
                     >
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFMetconExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCFMetconExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>{repsMeta}</Text>
                       </View>
                       {renderTrackButton(ex)}
@@ -3153,7 +3254,7 @@ export default function WorkoutScreen() {
                   activeOpacity={1}
                 >
                   <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isHyroxExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isHyroxExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold' }]}>{ex.name}</Text>
                     <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>{metaLine}</Text>
                   </View>
                   {renderTrackButton(ex)}
@@ -3260,7 +3361,7 @@ export default function WorkoutScreen() {
                       activeOpacity={1}
                     >
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCardioExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                        <Text style={[styles.exerciseName, { color: colors.text, fontFamily: isCardioExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold' }]}>{ex.name}</Text>
                         <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
                           {ex.reps} · {ex.muscleGroup}
                         </Text>
@@ -3317,7 +3418,7 @@ export default function WorkoutScreen() {
               >
                 <View style={styles.exerciseRow}>
                   <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: isDone ? colors.textMuted : colors.text, fontFamily: 'Outfit_500Medium' }]}>
+                    <Text style={[styles.exerciseName, { color: isDone ? colors.textMuted : colors.text, fontFamily: isDone ? 'Outfit_500Medium' : 'Outfit_600SemiBold' }]}>
                       {ex.name}
                     </Text>
                     <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
@@ -3384,7 +3485,7 @@ export default function WorkoutScreen() {
                   activeOpacity={1}
                 >
                   <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: expandedTrack === ex.id ? 'Outfit_600SemiBold' : 'Outfit_500Medium' }]}>{ex.name}</Text>
+                    <Text style={[styles.exerciseName, { color: colors.text, fontFamily: expandedTrack === ex.id ? 'Outfit_700Bold' : 'Outfit_600SemiBold' }]}>{ex.name}</Text>
                     <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
                       {repsDisplay}
                     </Text>
@@ -3451,12 +3552,12 @@ export default function WorkoutScreen() {
                       activeOpacity={1}
                     >
                       <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (is75HardExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>
+                        <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (is75HardExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>
                           {ex.name}
                         </Text>
                         {!isCompleted && (
                           <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                            {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
+                            {ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? `${ex.suggestedWeight} · ` : ''}{ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}
                           </Text>
                         )}
                       </View>
@@ -3506,6 +3607,7 @@ export default function WorkoutScreen() {
     return Array.from(groups).slice(0, 5);
   }, [workout]);
 
+
   const totalSets = useMemo(() => {
     if (!workout) return 0;
     return workout.workout.reduce((sum, ex) => sum + (ex.sets ?? 0), 0);
@@ -3521,6 +3623,20 @@ export default function WorkoutScreen() {
     return (ctx.coolDown && (workout?.cooldown?.length ?? 0) > 0) ||
            (ctx.recovery && (workout?.recovery?.length ?? 0) > 0);
   }, [ctx.coolDown, ctx.recovery, workout?.cooldown?.length, workout?.recovery?.length]);
+
+  // Overall exercise progress — count only what's actually rendered on screen
+  const exerciseProgress = useMemo(() => {
+    if (!workout) return { done: 0, total: 0 };
+    // Main exercises + only the first core finisher (rendering uses .slice(0,1)) + cardio items
+    const mainExs = workout.workout ?? [];
+    const renderedCF = (ctx.coreFinisher && workout.coreFinisher?.length) ? workout.coreFinisher.slice(0, 1) : [];
+    const cardioCount = (ctx.addCardio && workout.cardio?.length) ? workout.cardio.length : 0;
+    const trackable = [...mainExs, ...renderedCF];
+    const total = trackable.length + cardioCount;
+    const done = trackable.filter(ex => tracking.exerciseLogs[ex.id]?.completed === true).length;
+    // Cardio doesn't use exerciseLogs, so just count trackable completions
+    return { done, total: trackable.length };
+  }, [workout, tracking.exerciseLogs, ctx.coreFinisher, ctx.addCardio]);
 
   const handleCancelGenerate = useCallback(() => {
     if (!workout) return;
@@ -3936,6 +4052,7 @@ export default function WorkoutScreen() {
                     {totalExercises > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
                     {totalExercises > 0 && `${totalExercises} exercises`}
                   </Text>
+
                 </View>
 
                 <View style={styles.workoutInfoActions}>
@@ -4045,7 +4162,7 @@ export default function WorkoutScreen() {
                   color: activePanel === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
                   fontFamily: activePanel === 0 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
                 }]}>
-                  Pre
+                  Warm-Up
                 </Text>
               </TouchableOpacity>
             </View>
@@ -4081,11 +4198,31 @@ export default function WorkoutScreen() {
                   color: activePanel === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
                   fontFamily: activePanel === 2 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
                 }]}>
-                  Post
+                  Cool-Down
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Exercise progress — visible when workout is active */}
+          {tracking.isWorkoutActive && activePanel === 1 && exerciseProgress.total > 0 && (
+            <View style={styles.progressRow}>
+              <View style={styles.progressDots}>
+                {Array.from({ length: exerciseProgress.total }, (_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.progressDot,
+                      { backgroundColor: i < exerciseProgress.done ? currentAccent : `${colors.textMuted}40` },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.progressHint, { color: colors.textMuted }]}>
+                {exerciseProgress.done} of {exerciseProgress.total} exercises
+              </Text>
+            </View>
+          )}
 
           <View
             style={{ paddingTop: 0, gap: 12, paddingBottom: 0 }}
@@ -4134,11 +4271,12 @@ export default function WorkoutScreen() {
             backgroundColor: isDark ? 'rgba(248,113,22,0.06)' : 'rgba(248,113,22,0.05)',
             borderColor: isDark ? 'rgba(248,113,22,0.18)' : 'rgba(248,113,22,0.15)',
           }]}>
-            <View style={styles.checklistSectionHeader}>
+            <View style={[styles.checklistAccentBar, { backgroundColor: '#f87116' }]} />
+            <View style={[styles.checklistSectionHeader, warmupChecked.size === (workout?.warmup?.length ?? 0) && warmupChecked.size > 0 && { opacity: 0.5 }]}>
               <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(248,113,22,0.15)' }]}>
                 <Flame size={13} color="#f87116" />
               </View>
-              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Warm-Up</Text>
+              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>WARM-UP</Text>
               <View style={{ flex: 1 }} />
               {warmupChecked.size === (workout?.warmup?.length ?? 0) && warmupChecked.size > 0 ? (
                 <View style={styles.checklistProgressPillDone}>
@@ -4167,10 +4305,10 @@ export default function WorkoutScreen() {
                 >
                   <View style={[
                     styles.checklistCheckbox,
-                    { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
-                    isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
+                    { borderColor: isChecked ? '#f87116' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
+                    isChecked && { backgroundColor: 'rgba(248,113,22,0.15)' },
                   ]}>
-                    {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
+                    {isChecked && <Check size={11} color="#f87116" strokeWidth={3} />}
                   </View>
                   <View style={styles.checklistRowInfo}>
                     <Text style={[
@@ -4187,7 +4325,9 @@ export default function WorkoutScreen() {
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Info size={15} color={colors.textMuted} />
+                    <View style={styles.checklistInfoPill}>
+                      <Info size={13} color={colors.textMuted} />
+                    </View>
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -4249,13 +4389,13 @@ export default function WorkoutScreen() {
                     >
                       <View style={styles.exerciseInfo}>
                         <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
-                          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>
+                          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>
                             {ex.name}
                           </Text>
                         </TouchableOpacity>
                         {!isCompleted && (
                           <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                            {ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}{ex.rest && ex.rest.toLowerCase() !== 'none' ? ` · Rest ${ex.rest}` : ''}{ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? ` · ${ex.suggestedWeight}` : ''}
+                            {ex.suggestedWeight && !ex.suggestedWeight.includes('NaN') && ex.suggestedWeight !== 'BW' && ex.suggestedWeight !== '0 lb' ? `${ex.suggestedWeight} · ` : ''}{ex.sets}×{ex.reps && ex.reps !== 'NaN' ? ex.reps : '—'}{getExecutionSuffix(ex)}
                           </Text>
                         )}
                       </View>
@@ -4336,7 +4476,7 @@ export default function WorkoutScreen() {
                     >
                       <View style={styles.exerciseInfo}>
                         <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(cardioEx)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
-                          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_600SemiBold' : 'Outfit_500Medium') }]}>{c.name}</Text>
+                          <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>{c.name}</Text>
                         </TouchableOpacity>
                         {!isCompleted && (
                           <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
@@ -4368,11 +4508,12 @@ export default function WorkoutScreen() {
             backgroundColor: isDark ? 'rgba(6,182,212,0.06)' : 'rgba(6,182,212,0.05)',
             borderColor: isDark ? 'rgba(6,182,212,0.18)' : 'rgba(6,182,212,0.15)',
           }]}>
-            <View style={styles.checklistSectionHeader}>
+            <View style={[styles.checklistAccentBar, { backgroundColor: '#06b6d4' }]} />
+            <View style={[styles.checklistSectionHeader, cooldownChecked.size === workout.cooldown.length && cooldownChecked.size > 0 && { opacity: 0.5 }]}>
               <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(6,182,212,0.15)' }]}>
                 <Snowflake size={13} color="#06b6d4" />
               </View>
-              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Cool-Down</Text>
+              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>COOL-DOWN</Text>
               <View style={{ flex: 1 }} />
               {cooldownChecked.size === workout.cooldown.length && cooldownChecked.size > 0 ? (
                 <View style={styles.checklistProgressPillDone}>
@@ -4404,10 +4545,10 @@ export default function WorkoutScreen() {
                 >
                   <View style={[
                     styles.checklistCheckbox,
-                    { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
-                    isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
+                    { borderColor: isChecked ? '#06b6d4' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
+                    isChecked && { backgroundColor: 'rgba(6,182,212,0.15)' },
                   ]}>
-                    {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
+                    {isChecked && <Check size={11} color="#06b6d4" strokeWidth={3} />}
                   </View>
                   <View style={styles.checklistRowInfo}>
                     <Text style={[
@@ -4424,7 +4565,9 @@ export default function WorkoutScreen() {
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Info size={15} color={colors.textMuted} />
+                    <View style={styles.checklistInfoPill}>
+                      <Info size={13} color={colors.textMuted} />
+                    </View>
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -4437,14 +4580,15 @@ export default function WorkoutScreen() {
           <View style={[styles.checklistCard, {
             marginHorizontal: 16,
             marginTop: 10,
-            backgroundColor: isDark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.05)',
-            borderColor: isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.15)',
+            backgroundColor: isDark ? 'rgba(139,92,246,0.06)' : 'rgba(139,92,246,0.05)',
+            borderColor: isDark ? 'rgba(139,92,246,0.18)' : 'rgba(139,92,246,0.15)',
           }]}>
-            <View style={styles.checklistSectionHeader}>
-              <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                <Heart size={13} color="#ef4444" />
+            <View style={[styles.checklistAccentBar, { backgroundColor: '#8b5cf6' }]} />
+            <View style={[styles.checklistSectionHeader, recoveryChecked.size === workout.recovery.length && recoveryChecked.size > 0 && { opacity: 0.5 }]}>
+              <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
+                <Heart size={13} color="#8b5cf6" />
               </View>
-              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Recovery</Text>
+              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>RECOVERY</Text>
               <View style={{ flex: 1 }} />
               {recoveryChecked.size === workout.recovery.length && recoveryChecked.size > 0 ? (
                 <View style={styles.checklistProgressPillDone}>
@@ -4475,10 +4619,10 @@ export default function WorkoutScreen() {
                 >
                   <View style={[
                     styles.checklistCheckbox,
-                    { borderColor: isChecked ? '#22c55e' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
-                    isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
+                    { borderColor: isChecked ? '#8b5cf6' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
+                    isChecked && { backgroundColor: 'rgba(139,92,246,0.15)' },
                   ]}>
-                    {isChecked && <Check size={11} color="#22c55e" strokeWidth={3} />}
+                    {isChecked && <Check size={11} color="#8b5cf6" strokeWidth={3} />}
                   </View>
                   <View style={styles.checklistRowInfo}>
                     <Text style={[
@@ -4491,11 +4635,13 @@ export default function WorkoutScreen() {
                     </Text>
                   </View>
                   <TouchableOpacity
-                    onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#ef4444', benefit: item.benefit, type: 'recovery' })}
+                    onPress={() => setItemDetail({ name: item.name, description: item.description, color: '#8b5cf6', benefit: item.benefit, type: 'recovery' })}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Info size={15} color={colors.textMuted} />
+                    <View style={styles.checklistInfoPill}>
+                      <Info size={13} color={colors.textMuted} />
+                    </View>
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -5465,6 +5611,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Outfit_500Medium',
   },
+
   workoutInfoDivider: {
     height: 1,
   },
@@ -5683,12 +5830,12 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   exerciseName: {
-    fontSize: 15,
-    fontFamily: 'Outfit_500Medium',
+    fontSize: 17,
+    fontFamily: 'Outfit_600SemiBold',
   },
   exerciseMeta: {
     fontSize: 13,
-    fontFamily: 'Outfit_500Medium',
+    fontFamily: 'Outfit_400Regular',
   },
   exerciseLast: {
     fontSize: 10,
@@ -6099,6 +6246,28 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     includeFontPadding: false,
   },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: -4,
+  },
+  progressDots: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  progressHint: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.1,
+  },
   tabContent: {
     paddingHorizontal: 12,
     paddingBottom: 0,
@@ -6214,9 +6383,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center' as const,
   },
   checklistSectionLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.1,
+    letterSpacing: 1.5,
   },
   checklistProgressPill: {
     paddingHorizontal: 8,
@@ -6245,8 +6414,25 @@ const styles = StyleSheet.create({
   checklistCheckbox: {
     width: 20,
     height: 20,
-    borderRadius: 6,
+    borderRadius: 10,
     borderWidth: 1.5,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  checklistAccentBar: {
+    position: 'absolute' as const,
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+  },
+  checklistInfoPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.2)',
+    backgroundColor: 'rgba(128,128,128,0.06)',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },

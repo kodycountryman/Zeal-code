@@ -10,6 +10,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import { SubscriptionProvider, useSubscription } from "@/context/SubscriptionContext";
 import { WorkoutTrackingProvider, useWorkoutTracking } from "@/context/WorkoutTrackingContext";
+import { SeventyFiveHardProvider } from "@/context/SeventyFiveHardContext";
 import {
   initNotificationService,
   ACTION_SKIP,
@@ -168,11 +169,13 @@ export default function RootLayout() {
           <AppProvider>
             <SubscriptionProvider>
               <WorkoutTrackingProvider>
-                <BottomSheetModalProvider>
-                  <NotificationHandler />
-                  <AutoGenerateTodayWorkout />
-                  <RootLayoutNav />
-                </BottomSheetModalProvider>
+                <SeventyFiveHardProvider>
+                  <BottomSheetModalProvider>
+                    <NotificationHandler />
+                    <AutoGenerateTodayWorkout />
+                    <RootLayoutNav />
+                  </BottomSheetModalProvider>
+                </SeventyFiveHardProvider>
               </WorkoutTrackingProvider>
             </SubscriptionProvider>
           </AppProvider>

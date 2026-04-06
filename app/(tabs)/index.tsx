@@ -48,6 +48,11 @@ import { mockBibleVerse } from '@/mocks/homeData';
 import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PRO_STYLES_SET } from '@/services/proGate';
+import { useSeventyFiveHard } from '@/context/SeventyFiveHardContext';
+import SeventyFiveHardBanner from '@/components/SeventyFiveHardBanner';
+import OutdoorWorkoutCard from '@/components/OutdoorWorkoutCard';
+import SeventyFiveHardChecklist from '@/components/SeventyFiveHardChecklist';
+import SeventyFiveHardProgressDrawer from '@/components/drawers/SeventyFiveHardProgressDrawer';
 
 
 function getSmartCoachMessage({
@@ -139,15 +144,18 @@ export default function HomeScreen() {
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
   const { hasPro } = useSubscription();
+  const seventyFiveHard = useSeventyFiveHard();
   const router = useRouter();
+  const [hard75ProgressVisible, setHard75ProgressVisible] = useState(false);
   const glowColor: string = WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent;
-  const enterCard = useCallback((delayMs: number) => {
-    return FadeInUp
-      .delay(delayMs)
-      .springify()
-      .damping(18)
-      .stiffness(160);
-  }, []);
+  const cardAnims = useMemo(() => ({
+    d90:  FadeInUp.delay(90).springify().damping(18).stiffness(160),
+    d150: FadeInUp.delay(150).springify().damping(18).stiffness(160),
+    d210: FadeInUp.delay(210).springify().damping(18).stiffness(160),
+    d270: FadeInUp.delay(270).springify().damping(18).stiffness(160),
+    d330: FadeInUp.delay(330).springify().damping(18).stiffness(160),
+    d390: FadeInUp.delay(390).springify().damping(18).stiffness(160),
+  }), []);
 
   const firstName = ctx.userName ? ctx.userName.split(' ')[0] : '';
   const todayPrescription = ctx.getTodayPrescription();
@@ -467,131 +475,210 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         testID="home-scroll"
       >
-        <Animated.View entering={enterCard(90)}>
-          <CalendarCard
-            streak={ctx.streak}
-            onStreakPress={() => setStreakSheetVisible(true)}
-            onCalendarPress={handleCalendarPress}
-            onDayPress={handleDayPress}
-            completedDates={completedDates}
-            plannedWorkouts={allPlannedWorkouts}
-            variant={isDark ? 'glass' : 'solid'}
-          />
-        </Animated.View>
-
-        {tracking.workoutHistory.length === 0 && (
-          <Animated.View entering={enterCard(150)}>
-            {(() => {
-              const ALL_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-              const todayDow = new Date().getDay();
-              // Build 7-day window starting from today
-              const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_LABELS[(todayDow + i) % 7]);
-              return (
-                <GlassCard
-                  style={[styles.day1Card, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
-                  onPress={() => router.push('/workout')}
-                  activeOpacity={0.8}
-                  variant={isDark ? 'glass' : 'solid'}
-                >
-                  <View style={styles.day1Top}>
-                    <View>
-                      <Text style={[styles.day1Heading, { color: accent }]}>Day 1.</Text>
-                      <Text style={[styles.day1Sub, { color: colors.textSecondary }]}>
-                        {firstName ? `${firstName}, your` : 'Your'} {effectiveWorkout.style} workout is ready. Let's go.
-                      </Text>
-                    </View>
-                    <PlatformIcon name="flame" size={22} color={accent} strokeWidth={1.8} />
-                  </View>
-                  <View style={styles.streakRow}>
-                    {DAY_LABELS.map((d, i) => {
-                      const isToday = i === 0;
-                      return (
-                        <View key={i} style={styles.streakDayCol}>
-                          <View style={[
-                            styles.streakCircle,
-                            isToday
-                              ? { backgroundColor: accent, borderColor: accent }
-                              : { backgroundColor: 'transparent', borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)' },
-                          ]}>
-                            {isToday && <PlatformIcon name="zap" size={10} color="#fff" fill="#fff" />}
-                          </View>
-                          <Text style={[styles.streakDayLabel, { color: isToday ? accent : colors.textSecondary }]}>{d}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                  <Text style={[styles.day1Cta, { color: accent }]}>Go to workout →</Text>
-                </GlassCard>
-              );
-            })()}
-          </Animated.View>
-        )}
-
-        <Animated.View entering={enterCard(210)}>
-          <WorkoutOverviewCard
-            title={workoutTitle}
-            style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
-            duration={workoutDuration}
-            muscleGroups={muscleGroups}
-            exerciseCount={exerciseCount}
-            onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
-            activePlan={ctx.activePlan}
-            variant={isDark ? 'glass' : 'solid'}
-            completedLog={hasTodayWorkout ? latestTodayLog : null}
-          />
-        </Animated.View>
-
-        {tracking.workoutHistory.length > 0 && (
-          <Animated.View entering={enterCard(270)}>
-            <TrainingScoreCard
-              score={liveScore}
-              tier={tier}
-              readiness={readiness}
-              targetDone={liveDailyTarget}
-              targetTotal={12}
-              calories={healthCalories}
-              steps={healthSteps}
-              heartRate={healthHeartRate}
-              weeklyHoursMin={tracking.weeklyHoursMin}
-              lastWorkout={{
-                split: tracking.workoutHistory[0].split,
-                duration: tracking.workoutHistory[0].duration,
-              }}
-              onPress={() => setInsightsVisible(true)}
+        {/* ─── 75 Hard card stack ─────────────────────────────────────── */}
+        {seventyFiveHard.isActive ? (<>
+          <Animated.View key="75h-calendar" entering={cardAnims.d90}>
+            <CalendarCard
+              streak={ctx.streak}
+              onStreakPress={() => setStreakSheetVisible(true)}
+              onCalendarPress={handleCalendarPress}
+              onDayPress={handleDayPress}
+              completedDates={completedDates}
+              plannedWorkouts={allPlannedWorkouts}
               variant={isDark ? 'glass' : 'solid'}
             />
           </Animated.View>
-        )}
 
-
-        {tracking.workoutHistory.length > 0 && (
-          <Animated.View entering={enterCard(330)}>
-            <GlassCard style={styles.coachCard} variant={isDark ? 'glass' : 'solid'}>
-              <PlatformIcon name="brain" size={14} color={accent} />
-              <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
-                {getSmartCoachMessage({
-                  muscleReadiness: ctx.muscleReadiness,
-                  workoutTitle,
-                  workoutStyle: ctx.workoutStyle,
-                  numericDuration,
-                  streak: ctx.streak,
-                  readiness,
-                  hasTodayWorkout,
-                })}
-              </Text>
-            </GlassCard>
+          <Animated.View key="75h-banner" entering={cardAnims.d150}>
+            <SeventyFiveHardBanner
+              onPress={() => setHard75ProgressVisible(true)}
+              variant={isDark ? 'glass' : 'solid'}
+            />
           </Animated.View>
-        )}
+
+          {/* Workout 1 — AI-generated indoor workout */}
+          <Animated.View key="75h-workout1" entering={cardAnims.d210}>
+            <WorkoutOverviewCard
+              title={workoutTitle}
+              style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
+              duration={workoutDuration}
+              muscleGroups={muscleGroups}
+              exerciseCount={exerciseCount}
+              onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
+              activePlan={ctx.activePlan}
+              variant={isDark ? 'glass' : 'solid'}
+              completedLog={hasTodayWorkout ? latestTodayLog : null}
+            />
+          </Animated.View>
+
+          {/* Workout 2 — Outdoor workout */}
+          <Animated.View key="75h-outdoor" entering={cardAnims.d270}>
+            <OutdoorWorkoutCard variant={isDark ? 'glass' : 'solid'} />
+          </Animated.View>
+
+          {/* Daily checklist */}
+          <Animated.View key="75h-checklist" entering={cardAnims.d330}>
+            <SeventyFiveHardChecklist variant={isDark ? 'glass' : 'solid'} />
+          </Animated.View>
+
+          {tracking.workoutHistory.length > 0 && (
+            <Animated.View entering={cardAnims.d390}>
+              <TrainingScoreCard
+                score={liveScore}
+                tier={tier}
+                readiness={readiness}
+                targetDone={liveDailyTarget}
+                targetTotal={12}
+                calories={healthCalories}
+                steps={healthSteps}
+                heartRate={healthHeartRate}
+                weeklyHoursMin={tracking.weeklyHoursMin}
+                lastWorkout={{
+                  split: tracking.workoutHistory[0].split,
+                  duration: tracking.workoutHistory[0].duration,
+                }}
+                onPress={() => setInsightsVisible(true)}
+                variant={isDark ? 'glass' : 'solid'}
+              />
+            </Animated.View>
+          )}
+
+          <View style={styles.bibleContainer} testID="bible-verse">
+            <Text style={[styles.bibleText, { color: colors.textSecondary }]}>
+              {mockBibleVerse.text}
+            </Text>
+            <Text style={[styles.bibleRef, { color: colors.textSecondary }]}>
+              {mockBibleVerse.reference}
+            </Text>
+          </View>
+        </>) : (<>
+          {/* ─── Normal card stack ──────────────────────────────────────── */}
+          <Animated.View entering={cardAnims.d90}>
+            <CalendarCard
+              streak={ctx.streak}
+              onStreakPress={() => setStreakSheetVisible(true)}
+              onCalendarPress={handleCalendarPress}
+              onDayPress={handleDayPress}
+              completedDates={completedDates}
+              plannedWorkouts={allPlannedWorkouts}
+              variant={isDark ? 'glass' : 'solid'}
+            />
+          </Animated.View>
+
+          {tracking.workoutHistory.length === 0 && (
+            <Animated.View entering={cardAnims.d150}>
+              {(() => {
+                const ALL_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const todayDow = new Date().getDay();
+                // Build 7-day window starting from today
+                const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_LABELS[(todayDow + i) % 7]);
+                return (
+                  <GlassCard
+                    style={[styles.day1Card, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
+                    onPress={() => router.push('/workout')}
+                    activeOpacity={0.8}
+                    variant={isDark ? 'glass' : 'solid'}
+                  >
+                    <View style={styles.day1Top}>
+                      <View>
+                        <Text style={[styles.day1Heading, { color: accent }]}>Day 1.</Text>
+                        <Text style={[styles.day1Sub, { color: colors.textSecondary }]}>
+                          {firstName ? `${firstName}, your` : 'Your'} {effectiveWorkout.style} workout is ready. Let's go.
+                        </Text>
+                      </View>
+                      <PlatformIcon name="flame" size={22} color={accent} strokeWidth={1.8} />
+                    </View>
+                    <View style={styles.streakRow}>
+                      {DAY_LABELS.map((d, i) => {
+                        const isToday = i === 0;
+                        return (
+                          <View key={i} style={styles.streakDayCol}>
+                            <View style={[
+                              styles.streakCircle,
+                              isToday
+                                ? { backgroundColor: accent, borderColor: accent }
+                                : { backgroundColor: 'transparent', borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)' },
+                            ]}>
+                              {isToday && <PlatformIcon name="zap" size={10} color="#fff" fill="#fff" />}
+                            </View>
+                            <Text style={[styles.streakDayLabel, { color: isToday ? accent : colors.textSecondary }]}>{d}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <Text style={[styles.day1Cta, { color: accent }]}>Go to workout →</Text>
+                  </GlassCard>
+                );
+              })()}
+            </Animated.View>
+          )}
+
+          <Animated.View entering={cardAnims.d210}>
+            <WorkoutOverviewCard
+              title={workoutTitle}
+              style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
+              duration={workoutDuration}
+              muscleGroups={muscleGroups}
+              exerciseCount={exerciseCount}
+              onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
+              activePlan={ctx.activePlan}
+              variant={isDark ? 'glass' : 'solid'}
+              completedLog={hasTodayWorkout ? latestTodayLog : null}
+            />
+          </Animated.View>
+
+          {tracking.workoutHistory.length > 0 && (
+            <Animated.View entering={cardAnims.d270}>
+              <TrainingScoreCard
+                score={liveScore}
+                tier={tier}
+                readiness={readiness}
+                targetDone={liveDailyTarget}
+                targetTotal={12}
+                calories={healthCalories}
+                steps={healthSteps}
+                heartRate={healthHeartRate}
+                weeklyHoursMin={tracking.weeklyHoursMin}
+                lastWorkout={{
+                  split: tracking.workoutHistory[0].split,
+                  duration: tracking.workoutHistory[0].duration,
+                }}
+                onPress={() => setInsightsVisible(true)}
+                variant={isDark ? 'glass' : 'solid'}
+              />
+            </Animated.View>
+          )}
 
 
-        <View style={styles.bibleContainer} testID="bible-verse">
-          <Text style={[styles.bibleText, { color: colors.textSecondary }]}>
-            {mockBibleVerse.text}
-          </Text>
-          <Text style={[styles.bibleRef, { color: colors.textSecondary }]}>
-            {mockBibleVerse.reference}
-          </Text>
-        </View>
+          {tracking.workoutHistory.length > 0 && (
+            <Animated.View entering={cardAnims.d330}>
+              <GlassCard style={styles.coachCard} variant={isDark ? 'glass' : 'solid'}>
+                <PlatformIcon name="brain" size={14} color={accent} />
+                <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
+                  {getSmartCoachMessage({
+                    muscleReadiness: ctx.muscleReadiness,
+                    workoutTitle,
+                    workoutStyle: ctx.workoutStyle,
+                    numericDuration,
+                    streak: ctx.streak,
+                    readiness,
+                    hasTodayWorkout,
+                  })}
+                </Text>
+              </GlassCard>
+            </Animated.View>
+          )}
+
+
+          <View style={styles.bibleContainer} testID="bible-verse">
+            <Text style={[styles.bibleText, { color: colors.textSecondary }]}>
+              {mockBibleVerse.text}
+            </Text>
+            <Text style={[styles.bibleRef, { color: colors.textSecondary }]}>
+              {mockBibleVerse.reference}
+            </Text>
+          </View>
+        </>)}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -606,6 +693,11 @@ export default function HomeScreen() {
         visible={streakSheetVisible}
         streak={ctx.streak}
         onClose={() => setStreakSheetVisible(false)}
+      />
+
+      <SeventyFiveHardProgressDrawer
+        visible={hard75ProgressVisible}
+        onClose={() => setHard75ProgressVisible(false)}
       />
 
       <AthleteProfileDrawer

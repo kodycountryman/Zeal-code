@@ -88,6 +88,7 @@ export interface WorkoutPlan {
   completedDays?: string[];
   equipment?: Record<string, number>;
   pausedAt?: string;  // ISO date when plan was paused; undefined = active
+  is75Hard?: boolean; // true when this plan backs a 75 Hard challenge
 }
 
 export interface PlanGenerationProgress {
@@ -106,6 +107,7 @@ export interface LastModifyState {
   rest: number;
   muscles: string[];
   gymPreset: 'commercial' | string | null;
+  setDate?: string;  // YYYY-MM-DD — stamped automatically by saveLastModifyState, controls day-boundary clearing
 }
 
 const STORAGE_KEY = '@zeal_app_state_v4';
@@ -229,7 +231,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const [heightIn, setHeightIn] = useState<number>(10);
   const [weight, setWeight] = useState<number>(160);
   const [sex, setSex] = useState<Sex>('male');
-  const [bodyFat, setBodyFat] = useState<number>(20);
+  const [bodyFat, setBodyFat] = useState<number>(0);
   const [fitnessLevel, setFitnessLevel] = useState<FitnessLevel>('beginner');
   const [trainingGoals, setTrainingGoals] = useState<string[]>(['Build Muscle']);
   const [specialLifeCase, setSpecialLifeCase] = useState<SpecialLifeCase>('none');
@@ -459,12 +461,23 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
             __DEV__ && console.log('[AppContext] Loaded planned workouts:', valid.length);
           } catch (e) { __DEV__ && console.log('[AppContext] planned workouts parse error:', e); }
         }
+        if (lastModifyRaw) {
+          try {
+            const lm = JSON.parse(lastModifyRaw) as LastModifyState;
+            const today = getTodayDateStr();
+            if (lm.setDate === today) {
+              __DEV__ && console.log('[AppContext] Restoring lastModifyState from today:', lm);
+              setLastModifyState(lm);
+            } else {
+              __DEV__ && console.log('[AppContext] lastModifyState expired (set on', lm.setDate, ', today is', today, '). Clearing.');
+              AsyncStorage.removeItem(LAST_MODIFY_KEY).catch(() => {});
+            }
+          } catch (e) {
+            __DEV__ && console.log('[AppContext] lastModifyState parse error:', e);
+            AsyncStorage.removeItem(LAST_MODIFY_KEY).catch(() => {});
+          }
+        }
         setLoaded(true);
-        setTimeout(() => {
-          __DEV__ && console.log('[AppContext] Fresh open: clearing lastModifyState to revert to user defaults');
-          setLastModifyState(null);
-          AsyncStorage.removeItem(LAST_MODIFY_KEY).catch(() => {});
-        }, 500);
       })
       .catch(() => setLoaded(true));
   }, []);
@@ -489,9 +502,10 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   }, []);
 
   const saveLastModifyState = useCallback((state: LastModifyState) => {
-    __DEV__ && console.log('[AppContext] Saving lastModifyState:', state);
-    setLastModifyState(state);
-    AsyncStorage.setItem(LAST_MODIFY_KEY, JSON.stringify(state)).catch((e) =>
+    const withDate = { ...state, setDate: getTodayDateStr() };
+    __DEV__ && console.log('[AppContext] Saving lastModifyState:', withDate);
+    setLastModifyState(withDate);
+    AsyncStorage.setItem(LAST_MODIFY_KEY, JSON.stringify(withDate)).catch((e) =>
       __DEV__ && console.log('[AppContext] lastModifyState save error:', e)
     );
   }, []);
@@ -918,7 +932,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       heightIn: profile.heightIn,
       weight: profile.weight,
       sex: profile.sex,
-      bodyFat: 15,
+      bodyFat: 0,
       fitnessLevel: profile.fitnessLevel,
       trainingGoals: profile.trainingGoals,
       specialLifeCase: 'none',

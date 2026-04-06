@@ -60,6 +60,7 @@ export interface PlanGenerationInput {
   planLength: PlanLength;
   startDate: string;
   trainingSplit?: string;
+  is75Hard?: boolean;
 }
 
 function addDays(dateStr: string, days: number): string {
@@ -371,6 +372,112 @@ export function generatePlanSchedule(input: PlanGenerationInput): GeneratedPlanS
     weeks,
     total_training_days: totalTraining,
     total_rest_days: totalRest,
+    phases_used: [...phasesUsed],
+  };
+}
+
+/**
+ * 75 Hard — generates an 11-week, 7-day/week schedule with no rest days.
+ * Periodization: foundation (wk 1-2) → build (wk 3-5) → intensify (wk 6-8) → peak (wk 9-11)
+ * Deload baked into week 4 and week 8 (reduced volume, still training).
+ * Duration locked at 45 min per 75 Hard rules.
+ */
+export function generate75HardSchedule(input: PlanGenerationInput): GeneratedPlanSchedule {
+  __DEV__ && console.log('[PlanEngine] === 75 HARD SCHEDULE GENERATION START ===');
+
+  const TOTAL_WEEKS = 11;
+  const SESSION_DURATION = 45;
+
+  // Phase assignments by week (1-indexed)
+  const phaseByWeek: { phase: PlanPhase; volMod: number; intMod: number; isDeload: boolean; notes: string }[] = [
+    { phase: 'foundation', volMod: 0.85, intMod: 0.80, isDeload: false, notes: 'Foundation — build habits, moderate volume' },
+    { phase: 'foundation', volMod: 0.90, intMod: 0.85, isDeload: false, notes: 'Foundation — ramp up' },
+    { phase: 'build',      volMod: 1.00, intMod: 0.90, isDeload: false, notes: 'Build — increasing volume & intensity' },
+    { phase: 'deload',     volMod: 0.60, intMod: 0.70, isDeload: true,  notes: 'Deload — recovery week' },
+    { phase: 'build',      volMod: 1.05, intMod: 0.95, isDeload: false, notes: 'Build — pushing volume' },
+    { phase: 'intensify',  volMod: 1.10, intMod: 1.00, isDeload: false, notes: 'Intensify — peak training stress' },
+    { phase: 'intensify',  volMod: 1.10, intMod: 1.05, isDeload: false, notes: 'Intensify — high intensity' },
+    { phase: 'deload',     volMod: 0.60, intMod: 0.70, isDeload: true,  notes: 'Deload — mid-challenge recovery' },
+    { phase: 'peak',       volMod: 1.00, intMod: 1.10, isDeload: false, notes: 'Peak — sharpen performance' },
+    { phase: 'peak',       volMod: 1.00, intMod: 1.10, isDeload: false, notes: 'Peak — maintain intensity' },
+    { phase: 'peak',       volMod: 0.95, intMod: 1.05, isDeload: false, notes: 'Peak — final push' },
+  ];
+
+  // Build 7-day split rotation (all training, no rest)
+  const splitRotation = getSplitRotation(input.style, 7, input.goal, input.trainingSplit);
+
+  const weeks: WeekSchedule[] = [];
+  let totalTraining = 0;
+  const phasesUsed = new Set<PlanPhase>();
+  let globalDayIdx = 0;
+
+  for (let w = 0; w < TOTAL_WEEKS; w++) {
+    const pw = phaseByWeek[w];
+    phasesUsed.add(pw.phase);
+
+    const weekStartDate = addDays(input.startDate, w * 7);
+    const days: DayPrescription[] = [];
+
+    for (let d = 0; d < 7; d++) {
+      // Stop at 75 days total
+      if (globalDayIdx >= 75) {
+        break;
+      }
+
+      const dayDate = addDays(weekStartDate, d);
+      const sessionType = splitRotation[globalDayIdx % splitRotation.length];
+      const duration = pw.isDeload ? Math.round(SESSION_DURATION * 0.7) : SESSION_DURATION;
+
+      days.push({
+        day_of_week: d,
+        week_number: w + 1,
+        date: dayDate,
+        phase: pw.phase,
+        style: input.style,
+        session_type: sessionType,
+        target_duration: duration,
+        volume_modifier: pw.volMod,
+        intensity_modifier: pw.intMod,
+        is_rest: false,
+        rest_suggestion: '',
+        notes: pw.notes,
+        is_deload_week: pw.isDeload,
+      });
+
+      totalTraining++;
+      globalDayIdx++;
+    }
+
+    if (days.length === 0) break;
+
+    const phaseWeek: PhaseWeek = {
+      week_number: w + 1,
+      phase: pw.phase,
+      volume_level: pw.isDeload ? 'deload' : pw.volMod >= 1.1 ? 'very_high' : pw.volMod >= 1.0 ? 'high' : 'moderate',
+      intensity_rpe: pw.isDeload ? 5 : pw.intMod >= 1.05 ? 9 : pw.intMod >= 0.95 ? 8 : 7,
+      volume_modifier: pw.volMod,
+      intensity_modifier: pw.intMod,
+      is_deload: pw.isDeload,
+      notes: pw.notes,
+    };
+
+    weeks.push({
+      week_number: w + 1,
+      phase: pw.phase,
+      phase_week: phaseWeek,
+      days,
+      is_deload: pw.isDeload,
+      notes: pw.notes,
+    });
+  }
+
+  __DEV__ && console.log('[PlanEngine] 75 Hard schedule: ', totalTraining, 'training days across', weeks.length, 'weeks');
+  __DEV__ && console.log('[PlanEngine] === 75 HARD SCHEDULE GENERATION COMPLETE ===');
+
+  return {
+    weeks,
+    total_training_days: totalTraining,
+    total_rest_days: 0,
     phases_used: [...phasesUsed],
   };
 }

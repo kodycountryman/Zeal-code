@@ -37,6 +37,8 @@ import {
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
+import { MILESTONES, computeMilestoneProgress } from '@/services/milestonesData';
+import AchievementModal, { type Achievement } from '@/components/drawers/AchievementModal';
 import { healthService } from '@/services/healthService';
 import { useWorkoutTracking, type WorkoutLog, type PersonalRecord } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -88,29 +90,7 @@ interface Props {
   onClose: () => void;
 }
 
-// ─── Milestones ─────────────────────────────────────────────
-
-interface Milestone {
-  id: string;
-  name: string;
-  description: string;
-  target: number;
-  type: 'workouts' | 'prs' | 'streak';
-  icon: string;
-}
-
-const MILESTONES: Milestone[] = [
-  { id: 'first5', name: 'First 5', description: 'Complete 5 workouts', target: 5, type: 'workouts', icon: 'zap' },
-  { id: 'pr_machine', name: 'PR Machine', description: 'Set 5 personal records', target: 5, type: 'prs', icon: 'trophy' },
-  { id: 'first10', name: 'First 10', description: 'Complete 10 workouts', target: 10, type: 'workouts', icon: 'flame' },
-  { id: '7day_streak', name: '7-Day Streak', description: 'Keep a 7-day streak', target: 7, type: 'streak', icon: 'flame' },
-  { id: 'record_breaker', name: 'Record Breaker', description: 'Set 15 personal records', target: 15, type: 'prs', icon: 'award' },
-  { id: 'quarter_century', name: 'Quarter Century', description: 'Complete 25 workouts', target: 25, type: 'workouts', icon: 'medal' },
-  { id: 'half_century', name: 'Half Century', description: 'Complete 50 workouts', target: 50, type: 'workouts', icon: 'crown' },
-  { id: '30day_streak', name: '30-Day Streak', description: 'Keep a 30-day streak', target: 30, type: 'streak', icon: 'shield' },
-  { id: 'century', name: 'Century', description: 'Complete 100 workouts', target: 100, type: 'workouts', icon: 'medal' },
-  { id: 'iron_will', name: 'Iron Will', description: 'Train 365 total days', target: 365, type: 'workouts', icon: 'shield' },
-];
+// ─── Milestones — imported from services/milestonesData ─────
 
 function getMilestoneIcon(iconName: string, color: string, size: number) {
   const map: Record<string, React.ReactNode> = {
@@ -249,7 +229,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   const [tipAxis, setTipAxis] = useState<RadarCategory | null>(null);
   const tipAnim = useRef(new Animated.Value(0)).current;
   const [prShowAll, setPrShowAll] = useState(false);
+  const [prTimelineShowAll, setPrTimelineShowAll] = useState(false);
   const [trackerVisible, setTrackerVisible] = useState(false);
+  const [detailItem, setDetailItem] = useState<Achievement | null>(null);
 
   // ─── Tab bar state ──────────────────────────────────────
   type InsightsTab = 'insights' | 'achievements' | 'stats';
@@ -367,16 +349,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
   // S9: Milestones
   const milestoneProgress = useMemo(() => {
-    const totalWorkouts = displayHistory.length;
-    const totalPRs = tracking.prHistory.length;
-    return MILESTONES.map(m => {
-      let current = 0;
-      if (m.type === 'workouts') current = totalWorkouts;
-      else if (m.type === 'prs') current = totalPRs;
-      else if (m.type === 'streak') current = currentStreak;
-      const clamped = Math.min(current, m.target);
-      return { ...m, current: clamped, completed: clamped >= m.target };
-    });
+    return computeMilestoneProgress(displayHistory.length, tracking.prHistory.length, currentStreak);
   }, [displayHistory.length, tracking.prHistory.length, currentStreak]);
 
   // Stats for Nerds
@@ -436,7 +409,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
       <View style={styles.header}>
         <View>
           <Text style={[styles.headerLabel, { color: mutedLabel }]}>YOUR PROGRESS</Text>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Insights</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {activeInsightsTab === 'insights' ? 'Insights' : activeInsightsTab === 'achievements' ? 'Achievements' : 'Stats for Nerds'}
+          </Text>
         </View>
         <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn}>
           <X size={22} color={colors.textSecondary} />
@@ -1055,7 +1030,12 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                 const ringColor = m.completed ? '#eab308' : `${accent}88`;
 
                 return (
-                  <View key={m.id} style={styles.milestoneBadge}>
+                  <TouchableOpacity
+                    key={m.id}
+                    style={styles.milestoneBadge}
+                    onPress={() => setDetailItem({ id: m.id, iconName: m.icon, label: m.name, description: m.description, unlocked: m.completed, current: m.current, target: m.target })}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.milestoneRingContainer}>
                       <Svg width={56} height={56} viewBox="0 0 56 56">
                         <SvgCircle cx={28} cy={28} r={22} fill="none" stroke={colors.border} strokeWidth={3} />
@@ -1082,7 +1062,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                     <Text style={[styles.milestoneCount, { color: m.completed ? '#eab308' : colors.textMuted }]}>
                       {m.current}/{m.target}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -1111,7 +1091,12 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                         const circumference = 2 * Math.PI * 18;
                         const offset = circumference * (1 - Math.min(progress, 1));
                         return (
-                          <View key={b.id} style={styles.badgeItem}>
+                          <TouchableOpacity
+                            key={b.id}
+                            style={styles.badgeItem}
+                            onPress={() => setDetailItem({ id: b.id, iconName: b.icon, label: b.name, description: b.description, unlocked: b.earned, current: b.current, target: b.target })}
+                            activeOpacity={0.7}
+                          >
                             <View style={styles.badgeRing}>
                               <Svg width={44} height={44} viewBox="0 0 44 44">
                                 <SvgCircle cx={22} cy={22} r={18} fill="none" stroke={colors.border} strokeWidth={2.5} />
@@ -1125,7 +1110,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                             <Text style={[styles.badgeProgress, { color: b.earned ? '#eab308' : colors.textMuted }]}>
                               {b.earned ? 'Earned' : `${b.current}/${b.target}`}
                             </Text>
-                          </View>
+                          </TouchableOpacity>
                         );
                       })}
                     </View>
@@ -1143,309 +1128,56 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {/* ═══════════════════════════════════════════════ */}
         {activeInsightsTab === 'stats' && <>
 
-        {/* ═══ Style Tracker Button ═══ */}
-        <TouchableOpacity
-          style={[styles.trackerBtn, { borderColor: `${WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent}40` }]}
-          onPress={() => setTrackerVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.trackerBtnDot, { backgroundColor: WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent }]} />
-          <Text style={[styles.trackerBtnText, { color: colors.text }]}>
-            {ctx.workoutStyle} Deep Dive
-          </Text>
-          <Text style={[styles.trackerBtnArrow, { color: colors.textMuted }]}>→</Text>
-        </TouchableOpacity>
-
-        {/* ═══ S10: Stats for Nerds ═══ */}
+        {/* ═══ 1: Lifetime Totals ═══ */}
         <GlassCard>
-          <View style={styles.nerdsContent}>
-
-              {/* ── Lifetime Totals ── */}
-              <View style={styles.nerdsGroup}>
-                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>LIFETIME TOTALS</Text>
-                <View style={styles.nerdsStatGrid}>
-                  <View style={styles.nerdsStat}>
-                    <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalVolumeLbs.toLocaleString()}</Text>
-                    <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>Total lbs moved</Text>
-                  </View>
-                  <View style={styles.nerdsStat}>
-                    <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalHours}h</Text>
-                    <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>Training time</Text>
-                  </View>
-                  <View style={styles.nerdsStat}>
-                    <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalSets.toLocaleString()}</Text>
-                    <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>Total sets</Text>
-                  </View>
-                  <View style={styles.nerdsStat}>
-                    <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.trainingAgeDays}d</Text>
-                    <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>Training age</Text>
-                  </View>
-                </View>
-                {lifetimeTotals.totalVolumeLbs > 0 && (
-                  <Text style={[styles.funEquivalent, { color: accent }]}>
-                    That's {lifetimeTotals.funEquivalent}
-                  </Text>
-                )}
+          <View style={styles.sectionInner}>
+            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>LIFETIME TOTALS</Text>
+            <View style={styles.nerdsStatGrid}>
+              <View style={styles.nerdsStat}>
+                <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalVolumeLbs.toLocaleString()}</Text>
+                <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>lbs moved</Text>
               </View>
-
-              {/* ── Strength Ratios ── */}
-              {strengthRatios.lifts.length > 0 && (
-                <View style={styles.nerdsGroup}>
-                  <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>STRENGTH RATIOS</Text>
-                  {strengthRatios.lifts.map((lift) => (
-                    <View key={lift.name} style={[styles.ratioRow, { borderBottomColor: colors.border }]}>
-                      <Text style={[styles.ratioName, { color: colors.text }]}>{lift.name}</Text>
-                      <View style={styles.ratioRight}>
-                        <Text style={[styles.ratioE1rm, { color: colors.textSecondary }]}>{lift.e1rm} lb</Text>
-                        <Text style={[styles.ratioBW, { color: accent }]}>{lift.bwMultiplier}x BW</Text>
-                      </View>
-                    </View>
-                  ))}
-                  {strengthRatios.dotsScore !== null && (
-                    <View style={[styles.dotsRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                      <Text style={[styles.dotsLabel, { color: colors.textSecondary }]}>DOTS Score (SBD Total)</Text>
-                      <Text style={[styles.dotsValue, { color: accent }]}>{strengthRatios.dotsScore}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* ── Progressive Overload ── */}
-              {overload.weeklyVolumeChange !== null && (
-                <View style={styles.nerdsGroup}>
-                  <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>PROGRESSIVE OVERLOAD</Text>
-                  <View style={styles.overloadRow}>
-                    <Text style={[styles.overloadValue, { color: overload.isProgressing ? '#22c55e' : '#ef4444' }]}>
-                      {overload.weeklyVolumeChange > 0 ? '+' : ''}{overload.weeklyVolumeChange}%
-                    </Text>
-                    <Text style={[styles.overloadDesc, { color: colors.textSecondary }]}>
-                      volume vs 4 weeks ago
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* ── Patterns ── */}
-              <View style={styles.nerdsGroup}>
-                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>TRAINING PATTERNS</Text>
-
-                {patterns.bestDay && (
-                  <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Best day</Text>
-                    <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.bestDay.day} (avg score {patterns.bestDay.avgScore})</Text>
-                  </View>
-                )}
-
-                {patterns.preferredTime && (
-                  <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Preferred time</Text>
-                    <View style={styles.timeBreakdown}>
-                      {patterns.preferredTime.filter(t => t.pct > 0).map((t) => (
-                        <Text key={t.label} style={[styles.timeBreakdownItem, { color: colors.text }]}>
-                          {t.label} {t.pct}%
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Exercise variety (4 wk)</Text>
-                  <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.exerciseVariety} unique</Text>
-                </View>
-
-                {patterns.mostTrainedExercise && (
-                  <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Most trained</Text>
-                    <Text style={[styles.patternValue, { color: colors.text }]} numberOfLines={1}>{patterns.mostTrainedExercise.name} ({patterns.mostTrainedExercise.count}x)</Text>
-                  </View>
-                )}
-
-                {patterns.mostTrainedMuscle && (
-                  <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Top muscle</Text>
-                    <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.mostTrainedMuscle.name} ({patterns.mostTrainedMuscle.sets} sets)</Text>
-                  </View>
-                )}
-
-                {patterns.leastTrainedMuscle && (
-                  <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Neglected muscle</Text>
-                    <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.leastTrainedMuscle.name} ({patterns.leastTrainedMuscle.sets} sets)</Text>
-                  </View>
-                )}
-
-                {patterns.mostImprovedExercise && (
-                  <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Most improved</Text>
-                    <Text style={[styles.patternValue, { color: '#22c55e' }]}>
-                      {patterns.mostImprovedExercise.name} (+{patterns.mostImprovedExercise.pctGain}%)
-                    </Text>
-                  </View>
-                )}
-
-                {patterns.avgRPETrend && (
-                  <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Avg RPE trend</Text>
-                    <Text style={[styles.patternValue, { color: colors.text }]}>
-                      {patterns.avgRPETrend.current} {patterns.avgRPETrend.current < patterns.avgRPETrend.previous ? '↓' : patterns.avgRPETrend.current > patterns.avgRPETrend.previous ? '↑' : '→'} (was {patterns.avgRPETrend.previous})
-                    </Text>
-                  </View>
-                )}
-
-                {/* Difficulty Distribution */}
-                {(patterns.difficultyDistribution.easy + patterns.difficultyDistribution.moderate + patterns.difficultyDistribution.hard + patterns.difficultyDistribution.brutal) > 0 && (
-                  <View style={styles.difficultyRow}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Difficulty spread (4 wk)</Text>
-                    <View style={styles.difficultyBars}>
-                      {([
-                        { key: 'easy', label: 'Easy', color: '#22c55e', count: patterns.difficultyDistribution.easy },
-                        { key: 'moderate', label: 'Mod', color: '#f59e0b', count: patterns.difficultyDistribution.moderate },
-                        { key: 'hard', label: 'Hard', color: '#f87116', count: patterns.difficultyDistribution.hard },
-                        { key: 'brutal', label: 'Brutal', color: '#ef4444', count: patterns.difficultyDistribution.brutal },
-                      ] as const).filter(d => d.count > 0).map((d) => (
-                        <View key={d.key} style={styles.difficultyItem}>
-                          <View style={[styles.difficultyDot, { backgroundColor: d.color }]} />
-                          <Text style={[styles.difficultyText, { color: colors.textSecondary }]}>{d.label} {d.count}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-                {/* What went well tags */}
-                {patterns.topWentWellTags.length > 0 && (
-                  <View style={styles.tagsRow}>
-                    <Text style={[styles.patternLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Top vibes</Text>
-                    <View style={styles.tagsWrap}>
-                      {patterns.topWentWellTags.map((t) => (
-                        <View key={t.tag} style={[styles.tagChip, { backgroundColor: `${accent}15`, borderColor: `${accent}30` }]}>
-                          <Text style={[styles.tagText, { color: accent }]}>{t.tag} ({t.count})</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
+              <View style={styles.nerdsStat}>
+                <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalHours}h</Text>
+                <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>training time</Text>
               </View>
-
-              {/* ── Projections ── */}
-              {(projections.monthPace || projections.strengthProjection) && (
-                <View style={styles.nerdsGroup}>
-                  <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>PROJECTIONS</Text>
-
-                  {projections.monthPace && (
-                    <View style={[styles.projectionCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                      <Text style={[styles.projectionText, { color: colors.text }]}>
-                        On pace for <Text style={{ color: accent, fontWeight: '800' }}>{projections.monthPace.projected}</Text> workouts this month
-                      </Text>
-                      <Text style={[styles.projectionSub, { color: colors.textMuted }]}>
-                        {projections.monthPace.current} so far · last month: {projections.monthPace.lastMonth}
-                      </Text>
-                    </View>
-                  )}
-
-                  {projections.strengthProjection && (
-                    <View style={[styles.projectionCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                      <Text style={[styles.projectionText, { color: colors.text }]}>
-                        {projections.strengthProjection.exercise}: {projections.strengthProjection.target} in ~<Text style={{ color: accent, fontWeight: '800' }}>{projections.strengthProjection.weeksAway}</Text> weeks
-                      </Text>
-                      <Text style={[styles.projectionSub, { color: colors.textMuted }]}>
-                        Based on your current rate of progression
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* ── Self Comparison ── */}
-              <View style={styles.nerdsGroup}>
-                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>COMPARE TO YOURSELF</Text>
-
-                {selfComparison.thisWeekVsFirst && (
-                  <View style={[styles.comparisonCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                    <Text style={[styles.comparisonTitle, { color: colors.text }]}>This week vs your first week</Text>
-                    <View style={styles.comparisonRow}>
-                      <View style={styles.comparisonItem}>
-                        <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{selfComparison.thisWeekVsFirst.thisWeekVolume.toLocaleString()}</Text>
-                        <Text style={[styles.comparisonItemLabel, { color: colors.textMuted }]}>Volume now</Text>
-                      </View>
-                      <Text style={[styles.comparisonVs, { color: colors.textMuted }]}>vs</Text>
-                      <View style={styles.comparisonItem}>
-                        <Text style={[styles.comparisonItemValue, { color: colors.textMuted }]}>{selfComparison.thisWeekVsFirst.firstWeekVolume.toLocaleString()}</Text>
-                        <Text style={[styles.comparisonItemLabel, { color: colors.textMuted }]}>Week 1</Text>
-                      </View>
-                    </View>
-                    {selfComparison.thisWeekVsFirst.volumeChange !== null && (
-                      <Text style={[styles.comparisonDelta, { color: selfComparison.thisWeekVsFirst.volumeChange >= 0 ? '#22c55e' : '#ef4444' }]}>
-                        {selfComparison.thisWeekVsFirst.volumeChange >= 0 ? '+' : ''}{selfComparison.thisWeekVsFirst.volumeChange}% volume
-                      </Text>
-                    )}
-                  </View>
-                )}
-
-                {selfComparison.thisMonthVsLast && (
-                  <View style={[styles.comparisonCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', marginTop: 8 }]}>
-                    <Text style={[styles.comparisonTitle, { color: colors.text }]}>This month vs last month</Text>
-                    <View style={styles.comparisonGrid}>
-                      {[
-                        { label: 'Workouts', now: selfComparison.thisMonthVsLast.thisMonthWorkouts, prev: selfComparison.thisMonthVsLast.lastMonthWorkouts },
-                        { label: 'Volume', now: selfComparison.thisMonthVsLast.thisMonthVolume, prev: selfComparison.thisMonthVsLast.lastMonthVolume },
-                        { label: 'PRs', now: selfComparison.thisMonthVsLast.thisMonthPRs, prev: selfComparison.thisMonthVsLast.lastMonthPRs },
-                      ].map((item) => {
-                        const delta = item.prev > 0 ? Math.round(((item.now - item.prev) / item.prev) * 100) : null;
-                        return (
-                          <View key={item.label} style={styles.comparisonGridItem}>
-                            <Text style={[styles.comparisonGridValue, { color: colors.text }]}>
-                              {typeof item.now === 'number' && item.now > 999 ? `${(item.now / 1000).toFixed(1)}k` : item.now}
-                            </Text>
-                            <Text style={[styles.comparisonGridLabel, { color: colors.textMuted }]}>{item.label}</Text>
-                            {delta !== null && (
-                              <Text style={[styles.comparisonGridDelta, { color: delta >= 0 ? '#22c55e' : '#ef4444' }]}>
-                                {delta >= 0 ? '+' : ''}{delta}%
-                              </Text>
-                            )}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
+              <View style={styles.nerdsStat}>
+                <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalSets.toLocaleString()}</Text>
+                <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>total sets</Text>
               </View>
-
+              <View style={styles.nerdsStat}>
+                <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.trainingAgeDays}d</Text>
+                <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>training age</Text>
+              </View>
+            </View>
+            {lifetimeTotals.totalVolumeLbs > 0 && (
+              <Text style={[styles.funEquivalent, { color: accent }]}>
+                That's {lifetimeTotals.funEquivalent}
+              </Text>
+            )}
           </View>
         </GlassCard>
 
-        {/* ═══ Warmup Compliance ═══ */}
-        {warmupCompliance.totalSessions > 0 && (
+        {/* ═══ 2: All-Time Records ═══ */}
+        {recordsBoard.bestSession && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>WARM-UP COMPLIANCE</Text>
-              <View style={styles.complianceRow}>
-                <Text style={[styles.compliancePct, { color: warmupCompliance.pct >= 50 ? '#22c55e' : '#ef4444' }]}>{warmupCompliance.pct}%</Text>
-                <Text style={[styles.complianceDesc, { color: colors.textSecondary }]}>of sessions this month included warm-up ({warmupCompliance.withWarmup}/{warmupCompliance.totalSessions})</Text>
-              </View>
+              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>ALL-TIME RECORDS</Text>
+              {recordsBoard.bestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Best session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.bestSession.score} pts</Text></View>}
+              {recordsBoard.longestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Longest session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.longestSession.duration} min</Text></View>}
+              {recordsBoard.heaviestLift && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Heaviest lift</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.heaviestLift.weight} lb ({recordsBoard.heaviestLift.exercise})</Text></View>}
+              {recordsBoard.mostVolume && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most volume</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostVolume.volume.toLocaleString()} lb</Text></View>}
+              {recordsBoard.mostPRs && recordsBoard.mostPRs.count > 0 && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most PRs (one session)</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostPRs.count}</Text></View>}
+              {recordsBoard.mostExercises && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most exercises</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostExercises.count}</Text></View>}
             </View>
           </GlassCard>
         )}
 
-        {/* ═══ Rest Day Patterns ═══ */}
-        {restDays.avgRestDays > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>REST PATTERNS (4 WK)</Text>
-              <View style={styles.restRow}>
-                <View style={styles.restItem}><Text style={[styles.restValue, { color: colors.text }]}>{restDays.avgRestDays}</Text><Text style={[styles.restLabel, { color: colors.textMuted }]}>Avg rest days</Text></View>
-                <View style={styles.restItem}><Text style={[styles.restValue, { color: colors.text }]}>{restDays.longestGap}</Text><Text style={[styles.restLabel, { color: colors.textMuted }]}>Longest gap</Text></View>
-              </View>
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ Exercise Frequency ═══ */}
+        {/* ═══ 3: Most Popular Exercises ═══ */}
         {exerciseFreq.top.length > 0 && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>MOST PERFORMED EXERCISES</Text>
+              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>MOST POPULAR</Text>
               {exerciseFreq.top.slice(0, 7).map((ex, i) => (
                 <View key={ex.name} style={[styles.freqRow, { borderBottomColor: colors.border }]}>
                   <Text style={[styles.freqRank, { color: colors.textMuted }]}>{i + 1}</Text>
@@ -1457,7 +1189,34 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </GlassCard>
         )}
 
-        {/* ═══ Equipment Usage ═══ */}
+        {/* ═══ 4: PR Timeline (5 shown, expandable) ═══ */}
+        {prTimeline.entries.length > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>PR TIMELINE</Text>
+              {prTimeline.entries.slice(0, prTimelineShowAll ? prTimeline.entries.length : 5).map((pr, i) => (
+                <View key={`${pr.exerciseName}-${pr.date}-${i}`} style={[styles.timelineRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.timelineDate, { color: colors.textMuted }]}>{formatDate(pr.date)}</Text>
+                  <Text style={[styles.timelineName, { color: colors.text }]} numberOfLines={1}>{pr.exerciseName}</Text>
+                  <Text style={[styles.timelineValue, { color: accent }]}>{pr.value} lb</Text>
+                </View>
+              ))}
+              {prTimeline.entries.length > 5 && (
+                <TouchableOpacity
+                  onPress={() => setPrTimelineShowAll(v => !v)}
+                  activeOpacity={0.7}
+                  style={styles.showMoreBtn}
+                >
+                  <Text style={[styles.showMoreText, { color: accent }]}>
+                    {prTimelineShowAll ? 'Show less' : `Show all ${prTimeline.entries.length}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 5: Equipment Usage ═══ */}
         {equipmentUsage.items.length > 0 && (
           <GlassCard>
             <View style={styles.sectionInner}>
@@ -1472,7 +1231,253 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </GlassCard>
         )}
 
-        {/* ═══ Muscle Balance Score ═══ */}
+        {/* ═══ 6: Warmup Compliance ═══ */}
+        {warmupCompliance.totalSessions > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>WARM-UP COMPLIANCE</Text>
+              <View style={styles.complianceRow}>
+                <Text style={[styles.compliancePct, { color: warmupCompliance.pct >= 50 ? '#22c55e' : '#ef4444' }]}>{warmupCompliance.pct}%</Text>
+                <Text style={[styles.complianceDesc, { color: colors.textSecondary }]}>of sessions this month included warm-up ({warmupCompliance.withWarmup}/{warmupCompliance.totalSessions})</Text>
+              </View>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 7: Style Deep Dive ═══ */}
+        <TouchableOpacity
+          style={[styles.trackerBtn, { borderColor: `${WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent}40` }]}
+          onPress={() => setTrackerVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.trackerBtnDot, { backgroundColor: WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent }]} />
+          <Text style={[styles.trackerBtnText, { color: colors.text }]}>
+            {ctx.workoutStyle} Deep Dive
+          </Text>
+          <Text style={[styles.trackerBtnArrow, { color: colors.textMuted }]}>→</Text>
+        </TouchableOpacity>
+
+        {/* ═══ More Stats ═══ */}
+        <GlassCard>
+          <View style={styles.nerdsContent}>
+
+            {/* ── Strength Ratios ── */}
+            {strengthRatios.lifts.length > 0 && (
+              <View style={styles.nerdsGroup}>
+                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>STRENGTH RATIOS</Text>
+                {strengthRatios.lifts.map((lift) => (
+                  <View key={lift.name} style={[styles.ratioRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.ratioName, { color: colors.text }]}>{lift.name}</Text>
+                    <View style={styles.ratioRight}>
+                      <Text style={[styles.ratioE1rm, { color: colors.textSecondary }]}>{lift.e1rm} lb</Text>
+                      <Text style={[styles.ratioBW, { color: accent }]}>{lift.bwMultiplier}x BW</Text>
+                    </View>
+                  </View>
+                ))}
+                {strengthRatios.dotsScore !== null && (
+                  <View style={[styles.dotsRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+                    <Text style={[styles.dotsLabel, { color: colors.textSecondary }]}>DOTS Score (SBD Total)</Text>
+                    <Text style={[styles.dotsValue, { color: accent }]}>{strengthRatios.dotsScore}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* ── Progressive Overload ── */}
+            {overload.weeklyVolumeChange !== null && (
+              <View style={styles.nerdsGroup}>
+                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>PROGRESSIVE OVERLOAD</Text>
+                <View style={styles.overloadRow}>
+                  <Text style={[styles.overloadValue, { color: overload.isProgressing ? '#22c55e' : '#ef4444' }]}>
+                    {overload.weeklyVolumeChange > 0 ? '+' : ''}{overload.weeklyVolumeChange}%
+                  </Text>
+                  <Text style={[styles.overloadDesc, { color: colors.textSecondary }]}>
+                    volume vs 4 weeks ago
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* ── Patterns ── */}
+            <View style={styles.nerdsGroup}>
+              <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>TRAINING PATTERNS</Text>
+              {patterns.bestDay && (
+                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Best day</Text>
+                  <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.bestDay.day} (avg score {patterns.bestDay.avgScore})</Text>
+                </View>
+              )}
+              {patterns.preferredTime && (
+                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Preferred time</Text>
+                  <View style={styles.timeBreakdown}>
+                    {patterns.preferredTime.filter(t => t.pct > 0).map((t) => (
+                      <Text key={t.label} style={[styles.timeBreakdownItem, { color: colors.text }]}>{t.label} {t.pct}%</Text>
+                    ))}
+                  </View>
+                </View>
+              )}
+              <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Exercise variety (4 wk)</Text>
+                <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.exerciseVariety} unique</Text>
+              </View>
+              {patterns.mostTrainedExercise && (
+                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Most trained</Text>
+                  <Text style={[styles.patternValue, { color: colors.text }]} numberOfLines={1}>{patterns.mostTrainedExercise.name} ({patterns.mostTrainedExercise.count}x)</Text>
+                </View>
+              )}
+              {patterns.mostTrainedMuscle && (
+                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Top muscle</Text>
+                  <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.mostTrainedMuscle.name} ({patterns.mostTrainedMuscle.sets} sets)</Text>
+                </View>
+              )}
+              {patterns.leastTrainedMuscle && (
+                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Neglected muscle</Text>
+                  <Text style={[styles.patternValue, { color: colors.text }]}>{patterns.leastTrainedMuscle.name} ({patterns.leastTrainedMuscle.sets} sets)</Text>
+                </View>
+              )}
+              {patterns.mostImprovedExercise && (
+                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Most improved</Text>
+                  <Text style={[styles.patternValue, { color: '#22c55e' }]}>{patterns.mostImprovedExercise.name} (+{patterns.mostImprovedExercise.pctGain}%)</Text>
+                </View>
+              )}
+              {patterns.avgRPETrend && (
+                <View style={[styles.patternRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary }]}>Avg RPE trend</Text>
+                  <Text style={[styles.patternValue, { color: colors.text }]}>
+                    {patterns.avgRPETrend.current} {patterns.avgRPETrend.current < patterns.avgRPETrend.previous ? '↓' : patterns.avgRPETrend.current > patterns.avgRPETrend.previous ? '↑' : '→'} (was {patterns.avgRPETrend.previous})
+                  </Text>
+                </View>
+              )}
+              {(patterns.difficultyDistribution.easy + patterns.difficultyDistribution.moderate + patterns.difficultyDistribution.hard + patterns.difficultyDistribution.brutal) > 0 && (
+                <View style={styles.difficultyRow}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Difficulty spread (4 wk)</Text>
+                  <View style={styles.difficultyBars}>
+                    {([
+                      { key: 'easy', label: 'Easy', color: '#22c55e', count: patterns.difficultyDistribution.easy },
+                      { key: 'moderate', label: 'Mod', color: '#f59e0b', count: patterns.difficultyDistribution.moderate },
+                      { key: 'hard', label: 'Hard', color: '#f87116', count: patterns.difficultyDistribution.hard },
+                      { key: 'brutal', label: 'Brutal', color: '#ef4444', count: patterns.difficultyDistribution.brutal },
+                    ] as const).filter(d => d.count > 0).map((d) => (
+                      <View key={d.key} style={styles.difficultyItem}>
+                        <View style={[styles.difficultyDot, { backgroundColor: d.color }]} />
+                        <Text style={[styles.difficultyText, { color: colors.textSecondary }]}>{d.label} {d.count}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+              {patterns.topWentWellTags.length > 0 && (
+                <View style={styles.tagsRow}>
+                  <Text style={[styles.patternLabel, { color: colors.textSecondary, marginBottom: 6 }]}>Top vibes</Text>
+                  <View style={styles.tagsWrap}>
+                    {patterns.topWentWellTags.map((t) => (
+                      <View key={t.tag} style={[styles.tagChip, { backgroundColor: `${accent}15`, borderColor: `${accent}30` }]}>
+                        <Text style={[styles.tagText, { color: accent }]}>{t.tag} ({t.count})</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* ── Projections ── */}
+            {(projections.monthPace || projections.strengthProjection) && (
+              <View style={styles.nerdsGroup}>
+                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>PROJECTIONS</Text>
+                {projections.monthPace && (
+                  <View style={[styles.projectionCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+                    <Text style={[styles.projectionText, { color: colors.text }]}>
+                      On pace for <Text style={{ color: accent, fontWeight: '800' }}>{projections.monthPace.projected}</Text> workouts this month
+                    </Text>
+                    <Text style={[styles.projectionSub, { color: colors.textMuted }]}>
+                      {projections.monthPace.current} so far · last month: {projections.monthPace.lastMonth}
+                    </Text>
+                  </View>
+                )}
+                {projections.strengthProjection && (
+                  <View style={[styles.projectionCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+                    <Text style={[styles.projectionText, { color: colors.text }]}>
+                      {projections.strengthProjection.exercise}: {projections.strengthProjection.target} in ~<Text style={{ color: accent, fontWeight: '800' }}>{projections.strengthProjection.weeksAway}</Text> weeks
+                    </Text>
+                    <Text style={[styles.projectionSub, { color: colors.textMuted }]}>Based on your current rate of progression</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* ── Self Comparison ── */}
+            <View style={styles.nerdsGroup}>
+              <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>COMPARE TO YOURSELF</Text>
+              {selfComparison.thisWeekVsFirst && (
+                <View style={[styles.comparisonCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+                  <Text style={[styles.comparisonTitle, { color: colors.text }]}>This week vs your first week</Text>
+                  <View style={styles.comparisonRow}>
+                    <View style={styles.comparisonItem}>
+                      <Text style={[styles.comparisonItemValue, { color: colors.text }]}>{selfComparison.thisWeekVsFirst.thisWeekVolume.toLocaleString()}</Text>
+                      <Text style={[styles.comparisonItemLabel, { color: colors.textMuted }]}>Volume now</Text>
+                    </View>
+                    <Text style={[styles.comparisonVs, { color: colors.textMuted }]}>vs</Text>
+                    <View style={styles.comparisonItem}>
+                      <Text style={[styles.comparisonItemValue, { color: colors.textMuted }]}>{selfComparison.thisWeekVsFirst.firstWeekVolume.toLocaleString()}</Text>
+                      <Text style={[styles.comparisonItemLabel, { color: colors.textMuted }]}>Week 1</Text>
+                    </View>
+                  </View>
+                  {selfComparison.thisWeekVsFirst.volumeChange !== null && (
+                    <Text style={[styles.comparisonDelta, { color: selfComparison.thisWeekVsFirst.volumeChange >= 0 ? '#22c55e' : '#ef4444' }]}>
+                      {selfComparison.thisWeekVsFirst.volumeChange >= 0 ? '+' : ''}{selfComparison.thisWeekVsFirst.volumeChange}% volume
+                    </Text>
+                  )}
+                </View>
+              )}
+              {selfComparison.thisMonthVsLast && (
+                <View style={[styles.comparisonCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', marginTop: 8 }]}>
+                  <Text style={[styles.comparisonTitle, { color: colors.text }]}>This month vs last month</Text>
+                  <View style={styles.comparisonGrid}>
+                    {[
+                      { label: 'Workouts', now: selfComparison.thisMonthVsLast.thisMonthWorkouts, prev: selfComparison.thisMonthVsLast.lastMonthWorkouts },
+                      { label: 'Volume', now: selfComparison.thisMonthVsLast.thisMonthVolume, prev: selfComparison.thisMonthVsLast.lastMonthVolume },
+                      { label: 'PRs', now: selfComparison.thisMonthVsLast.thisMonthPRs, prev: selfComparison.thisMonthVsLast.lastMonthPRs },
+                    ].map((item) => {
+                      const delta = item.prev > 0 ? Math.round(((item.now - item.prev) / item.prev) * 100) : null;
+                      return (
+                        <View key={item.label} style={styles.comparisonGridItem}>
+                          <Text style={[styles.comparisonGridValue, { color: colors.text }]}>
+                            {typeof item.now === 'number' && item.now > 999 ? `${(item.now / 1000).toFixed(1)}k` : item.now}
+                          </Text>
+                          <Text style={[styles.comparisonGridLabel, { color: colors.textMuted }]}>{item.label}</Text>
+                          {delta !== null && (
+                            <Text style={[styles.comparisonGridDelta, { color: delta >= 0 ? '#22c55e' : '#ef4444' }]}>
+                              {delta >= 0 ? '+' : ''}{delta}%
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </View>
+
+          </View>
+        </GlassCard>
+
+        {/* ═══ Rest / Misc ═══ */}
+        {restDays.avgRestDays > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>REST PATTERNS (4 WK)</Text>
+              <View style={styles.restRow}>
+                <View style={styles.restItem}><Text style={[styles.restValue, { color: colors.text }]}>{restDays.avgRestDays}</Text><Text style={[styles.restLabel, { color: colors.textMuted }]}>Avg rest days</Text></View>
+                <View style={styles.restItem}><Text style={[styles.restValue, { color: colors.text }]}>{restDays.longestGap}</Text><Text style={[styles.restLabel, { color: colors.textMuted }]}>Longest gap</Text></View>
+              </View>
+            </View>
+          </GlassCard>
+        )}
         {muscleBalance.score > 0 && (
           <GlassCard>
             <View style={styles.sectionInner}>
@@ -1485,8 +1490,6 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
             </View>
           </GlassCard>
         )}
-
-        {/* ═══ Session Quality Trend ═══ */}
         {sessionQuality.dataPoints.length >= 3 && (
           <GlassCard>
             <View style={styles.sectionInner}>
@@ -1509,8 +1512,6 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
             </View>
           </GlassCard>
         )}
-
-        {/* ═══ Favorite Exercises ═══ */}
         {(favoriteExercises.likedCount > 0 || favoriteExercises.dislikedCount > 0) && (
           <GlassCard>
             <View style={styles.sectionInner}>
@@ -1519,37 +1520,6 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                 <Text style={[styles.favStat, { color: '#22c55e' }]}>{favoriteExercises.likedCount} liked</Text>
                 <Text style={[styles.favStat, { color: '#ef4444' }]}>{favoriteExercises.dislikedCount} disliked</Text>
               </View>
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ Records Board ═══ */}
-        {recordsBoard.bestSession && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>ALL-TIME RECORDS</Text>
-              {recordsBoard.bestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Best session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.bestSession.score} pts</Text></View>}
-              {recordsBoard.longestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Longest session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.longestSession.duration} min</Text></View>}
-              {recordsBoard.heaviestLift && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Heaviest lift</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.heaviestLift.weight} lb ({recordsBoard.heaviestLift.exercise})</Text></View>}
-              {recordsBoard.mostVolume && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most volume</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostVolume.volume.toLocaleString()} lb</Text></View>}
-              {recordsBoard.mostPRs && recordsBoard.mostPRs.count > 0 && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most PRs (one session)</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostPRs.count}</Text></View>}
-              {recordsBoard.mostExercises && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most exercises</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostExercises.count}</Text></View>}
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ PR Timeline ═══ */}
-        {prTimeline.entries.length > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>PR TIMELINE</Text>
-              {prTimeline.entries.slice(0, 10).map((pr, i) => (
-                <View key={`${pr.exerciseName}-${pr.date}-${i}`} style={[styles.timelineRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.timelineDate, { color: colors.textMuted }]}>{formatDate(pr.date)}</Text>
-                  <Text style={[styles.timelineName, { color: colors.text }]} numberOfLines={1}>{pr.exerciseName}</Text>
-                  <Text style={[styles.timelineValue, { color: accent }]}>{pr.value} lb</Text>
-                </View>
-              ))}
             </View>
           </GlassCard>
         )}
@@ -1563,6 +1533,12 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
     <StyleTrackerDrawer
       visible={trackerVisible}
       onClose={() => setTrackerVisible(false)}
+    />
+
+    <AchievementModal
+      visible={!!detailItem}
+      achievement={detailItem}
+      onClose={() => setDetailItem(null)}
     />
   </>
   );

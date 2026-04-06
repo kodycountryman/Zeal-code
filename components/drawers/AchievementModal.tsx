@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { X, Footprints, Flame, Zap, Dumbbell, Trophy, Target, Medal, Shield, LucideIcon } from 'lucide-react-native';
+import { X, Footprints, Flame, Zap, Dumbbell, Trophy, Target, Medal, Shield, Award, Crown, LucideIcon } from 'lucide-react-native';
 import { useZealTheme } from '@/context/AppContext';
 
 const ACHIEVEMENT_ICON_MAP: Record<string, LucideIcon> = {
@@ -20,6 +20,8 @@ const ACHIEVEMENT_ICON_MAP: Record<string, LucideIcon> = {
   target: Target,
   medal: Medal,
   shield: Shield,
+  award: Award,
+  crown: Crown,
 };
 
 export function getAchievementIcon(iconName: string, color: string, size: number) {
@@ -34,6 +36,8 @@ export interface Achievement {
   label: string;
   description: string;
   unlocked: boolean;
+  current?: number;
+  target?: number;
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
@@ -183,6 +187,25 @@ export default function AchievementModal({ visible, achievement, onClose }: Prop
               <Text style={[styles.description, { color: colors.textSecondary }]}>
                 {achievement.description}
               </Text>
+
+              {!achievement.unlocked && achievement.current !== undefined && achievement.target !== undefined && (
+                <View style={styles.progressSection}>
+                  <View style={[styles.progressTrack, { backgroundColor: colors.cardSecondary }]}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          backgroundColor: accent,
+                          width: `${Math.min((achievement.current / achievement.target) * 100, 100)}%` as any,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.progressLabel, { color: colors.textMuted }]}>
+                    {achievement.current} / {achievement.target}
+                  </Text>
+                </View>
+              )}
             </Animated.View>
           </TouchableWithoutFeedback>
         </Animated.View>
@@ -243,5 +266,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     textAlign: 'center',
+  },
+  progressSection: {
+    width: '100%',
+    gap: 6,
+    alignItems: 'center',
+  },
+  progressTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.3,
   },
 });

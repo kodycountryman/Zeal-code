@@ -107,6 +107,13 @@ export default function FullCalendarModal() {
 
   const handleDayPress = (day: number) => {
     const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    // If this date has exactly one workout log, open it directly
+    const logsForDay = tracking.getLogsForDate(dateStr) ?? [];
+    if (logsForDay.length === 1 && logsForDay[0]?.id) {
+      setSelectedDate(dateStr);
+      handleViewFull(logsForDay[0].id);
+      return;
+    }
     setSelectedDate(prev => prev === dateStr ? null : dateStr);
   };
 
@@ -143,28 +150,10 @@ export default function FullCalendarModal() {
               <Text style={[styles.monthName, { color: colors.text }]}>{monthName}</Text>
               <Text style={[styles.yearLabel, { color: colors.textMuted }]}>{yearLabel}</Text>
             </View>
-            <View style={styles.navRow}>
-              <TouchableOpacity
-                style={[styles.navBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
-                onPress={prevMonth}
-                activeOpacity={0.7}
-              >
-                <PlatformIcon name="chevron-left" size={18} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.navBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
-                onPress={nextMonth}
-                activeOpacity={0.7}
-              >
-                <PlatformIcon name="chevron-right" size={18} color={colors.text} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
+              <PlatformIcon name="x" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
-
-          {/* Close button */}
-          <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
-            <PlatformIcon name="x" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
 
           {/* ── Divider ── */}
           <View style={[styles.divider, { backgroundColor: dividerColor }]} />
@@ -176,7 +165,7 @@ export default function FullCalendarModal() {
             ))}
           </View>
 
-          {/* ── Days grid ── */}
+          {/* ── Days grid — always 6 rows (42 cells) for consistent height ── */}
           <View style={styles.daysGrid}>
             {Array.from({ length: firstDay }).map((_, i) => (
               <View key={`empty-${i}`} style={styles.dayCell} />
@@ -228,6 +217,10 @@ export default function FullCalendarModal() {
                 </TouchableOpacity>
               );
             })}
+            {/* Pad trailing empty cells to always fill 6 rows (42 total cells) */}
+            {Array.from({ length: Math.max(0, 42 - firstDay - daysInMonth) }).map((_, i) => (
+              <View key={`trail-${i}`} style={styles.dayCell} />
+            ))}
           </View>
 
           {/* ── Legend ── */}
@@ -316,6 +309,26 @@ export default function FullCalendarModal() {
               <Text style={[styles.noWorkoutText, { color: colors.textMuted }]}>No workouts logged this day</Text>
             </View>
           )}
+
+          {/* ── Nav footer ── */}
+          <View style={[styles.navFooter, { borderTopColor: dividerColor }]}>
+            <View style={styles.navFooterBtns}>
+              <TouchableOpacity
+                style={[styles.navFooterBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
+                onPress={prevMonth}
+                activeOpacity={0.7}
+              >
+                <PlatformIcon name="chevron-left" size={18} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.navFooterBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
+                onPress={nextMonth}
+                activeOpacity={0.7}
+              >
+                <PlatformIcon name="chevron-right" size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Animated.View>
     </Modal>
@@ -338,16 +351,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     maxHeight: '92%',
   },
-  closeBtn: {
-    position: 'absolute',
-    top: 22,
-    right: 22,
-    zIndex: 10,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -355,26 +358,41 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 18,
   },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingTop: 14,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  navFooterBtns: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  navFooterBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   monthName: {
     fontSize: 26,
-    fontFamily: 'PlayfairDisplay_700Bold',
+    fontFamily: 'Outfit_700Bold',
     lineHeight: 30,
   },
   yearLabel: {
     fontSize: 13,
     fontFamily: 'Outfit_500Medium',
     marginTop: 1,
-  },
-  navRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   divider: {
     height: StyleSheet.hairlineWidth,
@@ -398,8 +416,9 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: '14.28%' as any,
+    height: 44,
     alignItems: 'center',
-    paddingVertical: 7,
+    justifyContent: 'center',
     gap: 4,
     borderRadius: 14,
   },

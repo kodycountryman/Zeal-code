@@ -1123,13 +1123,13 @@ export function getEMOMParams(
 ): { total_minutes: number; exercises_per_rotation: number } {
   // EMOM: duration MUST be a multiple of exercise count.
   // Each rotation = 1 minute per exercise. Total = exercises × rounds.
-  // Target 4-6 exercises, 16-35 minute range.
+  // Target 4-6 exercises, 8-24 minute range (aligned with styleFormats time_cap).
   const exercises = fitnessLevel === 'beginner' ? 4
     : fitnessLevel === 'intermediate' ? 5
     : 6;
-  // Snap total minutes to nearest multiple of exercise count within 16-35 range
-  const minRounds = Math.ceil(16 / exercises);
-  const maxRounds = Math.floor(35 / exercises);
+  // Snap total minutes to nearest multiple of exercise count within 8-24 range
+  const minRounds = Math.ceil(8 / exercises);
+  const maxRounds = Math.floor(24 / exercises);
   const budgetRounds = Math.round(timeBudgetMinutes / exercises);
   const rounds = Math.max(minRounds, Math.min(maxRounds, budgetRounds));
   const total = exercises * rounds;

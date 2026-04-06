@@ -10,6 +10,7 @@ import {
   UIManager,
   Modal,
   Pressable,
+  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import WheelPicker from '@/components/WheelPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Haptics from 'expo-haptics';
 import { Stethoscope, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useZealTheme, useAppContext, SpecialLifeCase, FitnessLevel, Sex, ActivityLevel } from '@/context/AppContext';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
@@ -27,7 +29,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const CHIP_H = 44;
+const CHIP_H = 38;
 const PICKER_H = 132;
 const CHIP_SPRING = { damping: 22, stiffness: 280, mass: 0.8 } as const;
 
@@ -192,6 +194,31 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
     }
   }, [visible, ctx.userName, ctx.dateOfBirth, ctx.heightFt, ctx.heightIn, ctx.weight, ctx.sex, ctx.bodyFat, ctx.fitnessLevel, ctx.activityLevel, ctx.trainingGoals, ctx.specialLifeCase, ctx.specialLifeCaseDetail]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hasChanges = useMemo(() => {
+    const dob = parseDOB(ctx.dateOfBirth);
+    return (
+      localName.trim() !== ctx.userName ||
+      localDOBDay !== dob.day || localDOBMonth !== dob.month || localDOBYear !== dob.year ||
+      localHFt !== ctx.heightFt || localHIn !== ctx.heightIn ||
+      localWeight !== ctx.weight || localSex !== ctx.sex ||
+      localBodyFat !== ctx.bodyFat || localFitnessLevel !== ctx.fitnessLevel ||
+      localActivityLevel !== (ctx.activityLevel ?? 'moderately_active') ||
+      JSON.stringify(localGoals) !== JSON.stringify(ctx.trainingGoals) ||
+      localSLC !== ctx.specialLifeCase || localSLCDetail !== ctx.specialLifeCaseDetail
+    );
+  }, [localName, localDOBDay, localDOBMonth, localDOBYear, localHFt, localHIn, localWeight, localSex, localBodyFat, localFitnessLevel, localActivityLevel, localGoals, localSLC, localSLCDetail, ctx]);
+
+  const handleCancel = useCallback(() => {
+    if (hasChanges) {
+      Alert.alert('Discard changes?', 'You have unsaved changes that will be lost.', [
+        { text: 'Keep Editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: onClose },
+      ]);
+    } else {
+      onClose();
+    }
+  }, [hasChanges, onClose]);
+
   const handleDone = () => {
     const dob = `${localDOBYear}-${String(localDOBMonth).padStart(2, '0')}-${String(localDOBDay).padStart(2, '0')}`;
     ctx.setUserName(localName.trim() || ctx.userName);
@@ -207,6 +234,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
     ctx.setSpecialLifeCase(localSLC);
     ctx.setSpecialLifeCaseDetail(localSLCDetail);
     ctx.saveState();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onClose();
   };
 
@@ -222,7 +250,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
   const fatMass  = Math.round(localWeight * (localBodyFat / 100));
   const bmiMarkerPos = bmiToPercent(bmi);
 
-  const bodyFatFormatValue = useCallback((v: number) => `${v}%`, []);
+  const bodyFatFormatValue = useCallback((v: number) => v === 0 ? '—' : `${v}%`, []);
 
   const computedAge = useMemo(() => {
     if (!localDOBYear || localDOBYear < 1900) return null;
@@ -235,7 +263,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
   }, [localDOBDay, localDOBMonth, localDOBYear]);
 
   // Tinted selection — border + light bg + accent text (not solid fill)
-  const selBorder = (on: boolean) => ({ borderColor: on ? accent : colors.border });
+  const selBorder = (on: boolean) => ({ borderColor: on ? accent : chipBorder });
   const selBg     = (on: boolean) => ({ backgroundColor: on ? `${accent}15` : colors.cardSecondary });
   const selText   = (on: boolean) => ({ color: on ? accent : colors.text, fontFamily: on ? 'Outfit_600SemiBold' : 'Outfit_500Medium' });
 
@@ -248,7 +276,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
     const isOpen = activePicker === id;
     return (
       <View style={styles.expandableWrap}>
-        {label ? <Text style={[styles.pickerColLabel, { color: colors.textMuted }]}>{label}</Text> : null}
+        {label ? <Text style={[styles.pickerColLabel, { color: colors.textSecondary }]}>{label}</Text> : null}
         {isOpen ? (
           <TouchableOpacity onPress={closePicker} activeOpacity={0.9}>
             <Animated.View
@@ -271,7 +299,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
   const headerContent = (
     <View style={styles.header}>
-      <TouchableOpacity onPress={onClose} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} style={styles.headerCancelBtn}>
+      <TouchableOpacity onPress={handleCancel} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} style={styles.headerCancelBtn}>
         <Text style={[styles.headerCancelText, { color: colors.textSecondary }]}>Cancel</Text>
       </TouchableOpacity>
       <Text style={[styles.title, { color: colors.text }]}>About Me</Text>
@@ -282,7 +310,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
   );
 
   return (
-    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} hasTextInput stackBehavior="push" backgroundColor={colors.background}>
+    <BaseDrawer visible={visible} onClose={handleCancel} header={headerContent} hasTextInput stackBehavior="push" backgroundColor={colors.background}>
       <View style={styles.content}>
 
         {/* ── IDENTITY ── */}
@@ -291,7 +319,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {/* Name */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Name</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</Text>
             <TextInput
               style={[styles.nameInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardSecondary }]}
               value={localName}
@@ -313,7 +341,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Birthday</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Birthday</Text>
               <Text style={[styles.disclosureValue, { color: colors.text }]}>
                 {MONTH_NAMES[localDOBMonth - 1]} {localDOBDay}, {localDOBYear}
               </Text>
@@ -356,7 +384,8 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {/* Biological Sex */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Biological Sex</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Biological Sex</Text>
+            <Text style={[styles.fieldCaption, { color: colors.textSecondary, marginTop: -4 }]}>Used for metabolism and BMI estimates</Text>
             <ExpandablePicker id="sex" label="" displayValue={sexFormatValue(localSex)}>
               <WheelPicker
                 values={SEX_VALUES}
@@ -380,7 +409,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {/* Height */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Height</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Height</Text>
             <View style={styles.dualPickerRow}>
               <ExpandablePicker id="height_ft" label="FT" displayValue={`${localHFt} ft`}>
                 <WheelPicker values={HEIGHT_FT_VALUES} selectedValue={localHFt} onValueChange={setLocalHFt}
@@ -398,7 +427,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {/* Body Weight */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Body Weight</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Body Weight</Text>
             <ExpandablePicker id="weight" label="LBS" displayValue={`${localWeight} lbs`}>
               <WheelPicker values={WEIGHT_VALUES} selectedValue={localWeight} onValueChange={setLocalWeight}
                 width={110} visibleItems={3} textColor={wheelText} mutedColor={wheelMuted} accentColor={accent} bgColor={wheelBg} />
@@ -409,32 +438,36 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {/* Body Fat % */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Body Fat %</Text>
-            <ExpandablePicker id="body_fat" label="%" displayValue={`${localBodyFat}%`}>
-              <WheelPicker values={BODY_FAT_VALUES} selectedValue={localBodyFat} onValueChange={setLocalBodyFat}
-                width={100} visibleItems={3} textColor={wheelText} mutedColor={wheelMuted} accentColor={accent} bgColor={wheelBg}
-                formatValue={bodyFatFormatValue} />
-            </ExpandablePicker>
-            <View style={styles.bfStats}>
-              <View style={[styles.bfStatBox, { backgroundColor: colors.cardSecondary }]}>
-                <Text style={[styles.bfStatLabel, { color: colors.textMuted }]}>LEAN MASS</Text>
-                <Text style={[styles.bfStatValue, { color: colors.text }]}>{leanMass}</Text>
-                <Text style={[styles.bfStatUnit, { color: colors.textMuted }]}>lbs</Text>
-              </View>
-              <View style={[styles.bfStatBox, { backgroundColor: colors.cardSecondary }]}>
-                <Text style={[styles.bfStatLabel, { color: colors.textMuted }]}>FAT MASS</Text>
-                <Text style={[styles.bfStatValue, { color: colors.text }]}>{fatMass}</Text>
-                <Text style={[styles.bfStatUnit, { color: colors.textMuted }]}>lbs</Text>
-              </View>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Body Fat %</Text>
+            <View style={styles.bfPickerRow}>
+              <ExpandablePicker id="body_fat" label="%" displayValue={localBodyFat === 0 ? 'Not set' : `${localBodyFat}%`}>
+                <WheelPicker values={BODY_FAT_VALUES} selectedValue={localBodyFat || BODY_FAT_VALUES[0]} onValueChange={setLocalBodyFat}
+                  width={100} visibleItems={3} textColor={wheelText} mutedColor={wheelMuted} accentColor={accent} bgColor={wheelBg}
+                  formatValue={bodyFatFormatValue} />
+              </ExpandablePicker>
+              {localBodyFat > 0 && (
+                <TouchableOpacity
+                  style={[styles.bfResetBtn, { borderColor: chipBorder }]}
+                  onPress={() => setLocalBodyFat(0)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.bfResetText, { color: colors.textMuted }]}>I'm not sure</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={[styles.fieldCaption, { color: colors.textMuted }]}>From DEXA scan, calipers, or body pod</Text>
+            {localBodyFat > 0 && (
+              <Text style={[styles.bfInline, { color: colors.textSecondary }]}>
+                Lean {leanMass} lbs · Fat {fatMass} lbs
+              </Text>
+            )}
+            <Text style={[styles.fieldCaption, { color: colors.textSecondary }]}>An estimate is fine — used to calculate body composition</Text>
           </View>
 
           <View style={[styles.sep, { backgroundColor: dividerColor }]} />
 
           {/* BMI */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>BMI</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>BMI</Text>
             <View style={styles.bmiValueRow}>
               <Text style={[styles.bmiValue, { color: colors.text }]}>{bmi}</Text>
               <View style={[styles.bmiCatBadge, { backgroundColor: `${bmiCat.color}22` }]}>
@@ -456,6 +489,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
               <Text style={[styles.bmiLabel, { color: colors.textMuted, flex: 1 }]}>Over</Text>
               <Text style={[styles.bmiLabel, { color: colors.textMuted, flex: 1.2 }]}>Obese</Text>
             </View>
+            <Text style={[styles.fieldCaption, { color: colors.textSecondary }]}>Estimated from your height & weight</Text>
           </View>
         </View>
 
@@ -465,7 +499,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {/* Fitness Level */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Fitness Level</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Fitness Level</Text>
             <View style={styles.chipRow}>
               {(['beginner', 'intermediate', 'advanced'] as FitnessLevel[]).map((l) => {
                 const on = localFitnessLevel === l;
@@ -489,8 +523,8 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
 
           {/* Activity Level */}
           <View style={styles.fieldPad}>
-            <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>Activity Level</Text>
-            <Text style={[styles.fieldCaption, { color: colors.textMuted, marginTop: 0 }]}>Outside of structured workouts</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Activity Level</Text>
+            <Text style={[styles.fieldCaption, { color: colors.textSecondary, marginTop: 0 }]}>Outside of structured workouts</Text>
             <View style={styles.activityGrid}>
               {ACTIVITY_LEVELS.map((al) => {
                 const on = localActivityLevel === al.id;
@@ -514,6 +548,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>TRAINING GOALS</Text>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.fieldPad}>
+            <Text style={[styles.fieldCaption, { color: colors.textSecondary, marginTop: 0 }]}>Select all that apply</Text>
             <View style={styles.goalsGrid}>
               {TRAINING_GOALS.map((g) => {
                 const on = localGoals.includes(g);
@@ -533,7 +568,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         {/* ── SPECIAL LIFE CASE ── */}
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>SPECIAL LIFE CASE</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>HEALTH CONSIDERATIONS</Text>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           {SPECIAL_LIFE_CASES.map((slc, idx) => {
             const on = localSLC === slc.id;
@@ -556,7 +591,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                     <Text style={[styles.slcLabel, { color: on ? accent : colors.text }]}>{slc.label}</Text>
                     <Text style={[styles.slcSub, { color: colors.textMuted }]}>{slc.sub}</Text>
                   </View>
-                  {on && <Stethoscope size={14} color={accent} />}
+                  {on && slc.id !== 'none' && <Stethoscope size={14} color={accent} />}
                 </TouchableOpacity>
                 {!isLast && <View style={[styles.sep, { backgroundColor: dividerColor }]} />}
               </React.Fragment>
@@ -566,7 +601,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
           {/* Detail input when selected */}
           {localSLC !== 'none' && (
             <View style={[styles.fieldPad, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: dividerColor }]}>
-              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
                 {localSLC === 'pregnant' ? 'Due Date' :
                  localSLC === 'postpartum' ? 'Notes (optional)' :
                  localSLC === 'injury' ? 'Injury Location' :
@@ -638,6 +673,8 @@ const styles = StyleSheet.create({
   section: {
     borderRadius: 18,
     overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   sep: {
     height: StyleSheet.hairlineWidth,
@@ -711,7 +748,7 @@ const styles = StyleSheet.create({
 
   // ── ExpandablePicker ─────────────────────────────────────────────────────
   dualPickerRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  pickerSep: { width: 1, height: CHIP_H, marginHorizontal: 10, marginTop: 22, opacity: 0.4 },
+  pickerSep: { width: 1, height: CHIP_H, marginHorizontal: 10, marginTop: 20, opacity: 0.4 },
   expandableWrap: { alignItems: 'flex-start', gap: 6 },
   pickerColLabel: { fontSize: 9, fontFamily: 'Outfit_700Bold', letterSpacing: 1.2 },
   pickerChip: {
@@ -723,18 +760,17 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   pickerChipText: {
-    fontSize: 22,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.3,
+    fontSize: 16,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.2,
     textAlign: 'center',
   },
 
   // ── Body fat ─────────────────────────────────────────────────────────────
-  bfStats: { flexDirection: 'row', gap: 10 },
-  bfStatBox: { flex: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
-  bfStatLabel: { fontSize: 9, fontFamily: 'Outfit_700Bold', letterSpacing: 0.8 },
-  bfStatValue: { fontSize: 18, fontFamily: 'Outfit_700Bold', marginTop: 2 },
-  bfStatUnit:  { fontSize: 10, fontFamily: 'Outfit_500Medium', marginTop: 1 },
+  bfPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  bfResetBtn: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  bfResetText: { fontSize: 12, fontFamily: 'Outfit_500Medium' },
+  bfInline: { fontSize: 13, fontFamily: 'Outfit_500Medium' },
 
   // ── BMI ──────────────────────────────────────────────────────────────────
   bmiValueRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -750,7 +786,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 3,
   },
   bmiLabels: { flexDirection: 'row', marginTop: 6 },
-  bmiLabel: { fontSize: 9, fontFamily: 'Outfit_500Medium', textAlign: 'center' },
+  bmiLabel: { fontSize: 11, fontFamily: 'Outfit_500Medium', textAlign: 'center' },
 
   // ── Chips (fitness level) ─────────────────────────────────────────────────
   chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },

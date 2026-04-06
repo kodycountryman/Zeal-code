@@ -19,6 +19,7 @@ import {
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
+import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PHASE_DISPLAY_NAMES } from '@/services/planConstants';
 import type { PlanPhase } from '@/services/planConstants';
@@ -101,6 +102,7 @@ const skStyles = StyleSheet.create({
 export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, day }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
+  const tracking = useWorkoutTracking();
   const router = useRouter();
 
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
@@ -203,11 +205,14 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
   }, [visible, day?.date, isGeneratingInBackground]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = useCallback(() => {
-    if (!day) return;
+    if (!day || !workout) return;
+    // Tag with planDayDate so the tracking context recognizes this as a plan workout
+    const taggedWorkout = { ...workout, planDayDate: day.date };
+    tracking.setCurrentGeneratedWorkout(taggedWorkout);
     onClose();
     onClosePlan();
     setTimeout(() => router.push('/(tabs)/workout' as any), 400);
-  }, [day, onClose, onClosePlan, router]);
+  }, [day, workout, onClose, onClosePlan, router, tracking]);
 
   if (!day) return null;
 

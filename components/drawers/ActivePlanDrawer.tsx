@@ -6,19 +6,35 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  ActivityIndicator,
+  Animated as RNAnimated,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  cancelAnimation,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
+import PlanScheduleDrawer from '@/components/drawers/PlanScheduleDrawer';
 import type { DayPrescription } from '@/services/planEngine';
 
 import { useZealTheme, useAppContext } from '@/context/AppContext';
+import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PHASE_DISPLAY_NAMES, PHASE_COLORS } from '@/services/planConstants';
 import type { WeekSchedule } from '@/services/planEngine';
-import { getEventMilestones, handleMissedDays } from '@/services/planEngine';
+import { generatePlanSchedule, getEventMilestones, handleMissedDays } from '@/services/planEngine';
 import type { PlanPhase } from '@/services/planConstants';
+import type { PlanGenerationInput } from '@/services/planEngine';
+import type { GenerateWorkoutParams } from '@/services/workoutEngine';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -31,6 +47,66 @@ const PHASE_INITIALS: Record<string, string> = {
   taper: 'T',
   test: 'TS',
 };
+
+const EDITABLE_STYLES = ['Strength', 'Bodybuilding', 'CrossFit', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact'];
+const EDITABLE_LEVELS = ['beginner', 'intermediate', 'advanced'];
+const EDITABLE_DAYS = [2, 3, 4, 5, 6, 7];
+const EDITABLE_DURATIONS = [30, 45, 60, 75, 90];
+
+type EditableField = 'style' | 'level' | 'daysPerWeek' | 'duration';
+
+function JiggleCard({
+  children,
+  index,
+  isEditMode,
+  isEditable,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  index: number;
+  isEditMode: boolean;
+  isEditable: boolean;
+  onPress?: () => void;
+  style?: any;
+}) {
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    if (isEditMode && isEditable) {
+      const dir = index % 2 === 0 ? 1 : -1;
+      rotation.value = withRepeat(
+        withSequence(
+          withTiming(-1.5 * dir, { duration: 120 }),
+          withTiming(1.5 * dir, { duration: 120 }),
+          withTiming(-1 * dir, { duration: 120 }),
+          withTiming(1 * dir, { duration: 120 }),
+          withTiming(0, { duration: 200 }),
+        ),
+        -1,
+      );
+    } else {
+      cancelAnimation(rotation);
+      rotation.value = withTiming(0, { duration: 150 });
+    }
+  }, [isEditMode, isEditable, index, rotation]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${rotation.value}deg` }],
+  }));
+
+  if (isEditMode && isEditable) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={style}>
+        <Reanimated.View style={animStyle}>
+          {children}
+        </Reanimated.View>
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={style}>{children}</View>;
+}
 
 interface Props {
   visible: boolean;
@@ -75,6 +151,7 @@ function getTodayStr(): string {
 export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onEditPlan }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
+  const tracking = useWorkoutTracking();
   const router = useRouter();
 
   const plan = ctx.activePlan;
@@ -83,8 +160,140 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
   const [previewDay, setPreviewDay] = useState<DayPrescription | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [fullPlanVisible, setFullPlanVisible] = useState(false);
   const [recoveryDismissed, setRecoveryDismissed] = useState(false);
   const phaseScrollRef = useRef<ScrollView>(null);
+
+  // ── Edit mode state ──
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingField, setEditingField] = useState<EditableField | null>(null);
+  const [editStyle, setEditStyle] = useState<string | null>(null);
+  const [editLevel, setEditLevel] = useState<string | null>(null);
+  const [editDaysPerWeek, setEditDaysPerWeek] = useState<number | null>(null);
+  const [editDuration, setEditDuration] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const hasChanges = useMemo(() => {
+    if (!plan) return false;
+    return (
+      (editStyle !== null && editStyle !== plan.style) ||
+      (editLevel !== null && editLevel !== plan.experienceLevel) ||
+      (editDaysPerWeek !== null && editDaysPerWeek !== plan.daysPerWeek) ||
+      (editDuration !== null && editDuration !== plan.sessionDuration)
+    );
+  }, [plan, editStyle, editLevel, editDaysPerWeek, editDuration]);
+
+  const enterEditMode = useCallback(() => {
+    if (!plan) return;
+    setEditStyle(plan.style);
+    setEditLevel(plan.experienceLevel);
+    setEditDaysPerWeek(plan.daysPerWeek);
+    setEditDuration(plan.sessionDuration);
+    setEditingField(null);
+    setIsEditMode(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }, [plan]);
+
+  const exitEditMode = useCallback(() => {
+    setIsEditMode(false);
+    setEditingField(null);
+    setEditStyle(null);
+    setEditLevel(null);
+    setEditDaysPerWeek(null);
+    setEditDuration(null);
+  }, []);
+
+  const handleSaveEdits = useCallback(async () => {
+    if (!plan || !schedule || !hasChanges) return;
+    setIsSaving(true);
+    try {
+      const updatedStyle = editStyle ?? plan.style;
+      const updatedLevel = editLevel ?? plan.experienceLevel;
+      const updatedDays = editDaysPerWeek ?? plan.daysPerWeek;
+      const updatedDuration = editDuration ?? plan.sessionDuration;
+
+      const genInput: PlanGenerationInput = {
+        goal: plan.goalId as any,
+        style: updatedStyle,
+        event: plan.event ?? [],
+        daysPerWeek: updatedDays,
+        sessionDuration: updatedDuration,
+        experienceLevel: updatedLevel as any,
+        planLength: plan.planLength as any,
+        startDate: plan.startDate,
+        trainingSplit: plan.trainingSplit,
+        is75Hard: plan.is75Hard,
+      };
+
+      const newSchedule = generatePlanSchedule(genInput);
+
+      // Clear only future cached workouts
+      const todayStr = getTodayStr();
+      const allKeys = await AsyncStorage.getAllKeys();
+      const prefix = `@zeal_plan_day_workout_${plan.id}_`;
+      const futureKeys = allKeys.filter(k => k.startsWith(prefix) && k.slice(prefix.length) >= todayStr);
+      if (futureKeys.length > 0) await AsyncStorage.multiRemove(futureKeys);
+
+      const updatedPlan = {
+        ...plan,
+        style: updatedStyle,
+        experienceLevel: updatedLevel,
+        daysPerWeek: updatedDays,
+        sessionDuration: updatedDuration,
+        name: plan.name,
+      };
+
+      const genParamsFactory = (d: DayPrescription): GenerateWorkoutParams => ({
+        style: d.style,
+        split: d.session_type,
+        targetDuration: d.target_duration,
+        restSlider: ctx.restBetweenSets,
+        availableEquipment: updatedPlan.equipment ?? {},
+        fitnessLevel: updatedLevel as any,
+        sex: ctx.sex,
+        specialLifeCase: ctx.specialLifeCase,
+        specialLifeCaseDetail: ctx.specialLifeCaseDetail,
+        warmUp: true,
+        coolDown: true,
+        recovery: true,
+        addCardio: true,
+        specificMuscles: [],
+        planPhase: d.phase,
+        volumeModifier: d.volume_modifier,
+        bodyweightLbs: ctx.weight,
+        cacheVariantKey: `${updatedPlan.id}_${d.date}`,
+      });
+
+      ctx.saveActivePlan(updatedPlan, newSchedule);
+      await ctx.startPlanGeneration(updatedPlan, newSchedule, genParamsFactory);
+      await tracking.ensureTodayWorkoutGenerated();
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      exitEditMode();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save changes. Please try again.');
+      __DEV__ && console.error('[ActivePlanDrawer] Save edits error:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [plan, schedule, hasChanges, editStyle, editLevel, editDaysPerWeek, editDuration, ctx, tracking, exitEditMode]);
+
+  // ── Tab state (Upcoming / Details) ──
+  const [activeTab, setActiveTab] = useState<0 | 1>(0);
+  const pillAnim = useRef(new RNAnimated.Value(0)).current;
+  const [tabItemWidth, setTabItemWidth] = useState(0);
+  const [tabXOffsets, setTabXOffsets] = useState<[number, number]>([0, 0]);
+
+  const switchTab = useCallback((tab: 0 | 1) => {
+    if (tab === activeTab) return;
+    setActiveTab(tab);
+    RNAnimated.spring(pillAnim, {
+      toValue: tab,
+      tension: 120,
+      friction: 20,
+      useNativeDriver: false,
+    }).start();
+  }, [activeTab, pillAnim]);
 
   useEffect(() => {
     if (visible) {
@@ -92,13 +301,15 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
         const cw = getCurrentWeek(plan.startDate);
         const idx = Math.max(0, Math.min(cw - 1, schedule.weeks.length - 1));
         setSelectedWeekIdx(idx);
-        // Scroll timeline to current week (36px dot + 6px gap = 42px per item)
         setTimeout(() => {
           phaseScrollRef.current?.scrollTo({ x: idx * 42, animated: true });
         }, 150);
       }
+    } else {
+      // Reset edit mode when drawer closes
+      if (isEditMode) exitEditMode();
     }
-  }, [visible, plan, schedule]);
+  }, [visible, plan, schedule]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePausePlan = useCallback(() => {
     if (!plan) return;
@@ -203,7 +414,11 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
   const progressPct = totalTrainingDays > 0
     ? Math.min(100, Math.round((completedCount / totalTrainingDays) * 100))
     : 0;
-  const adherencePct = totalTrainingDays > 0 ? Math.round((completedCount / totalTrainingDays) * 100) : 0;
+  // Rate = completed / training days elapsed so far (days up to and including today)
+  const daysElapsedTraining = schedule
+    ? schedule.weeks.reduce((sum, w) => sum + w.days.filter(d => !d.is_rest && d.date <= today).length, 0)
+    : 0;
+  const adherencePct = daysElapsedTraining > 0 ? Math.round((completedCount / daysElapsedTraining) * 100) : 0;
 
   const headerContent = (
     <View style={styles.header}>
@@ -221,387 +436,276 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
     <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
       <View style={styles.content}>
 
-        {/* ── Plan identity ─────────────────────────────── */}
+        {/* ── Plan name ─────────────────────────────── */}
         <Text style={[styles.planName, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{plan.name}</Text>
 
-        <View style={styles.tagRow}>
-          <View style={[styles.tag, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-            <Text style={[styles.tagText, { color: colors.textSecondary }]}>{plan.style}</Text>
-          </View>
-          <View style={[styles.tag, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-            <Text style={[styles.tagText, { color: colors.textSecondary }]}>{plan.goal}</Text>
-          </View>
-          <View style={[styles.tag, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-            <Text style={[styles.tagText, { color: colors.textSecondary }]}>
-              {plan.experienceLevel.charAt(0).toUpperCase() + plan.experienceLevel.slice(1)}
-            </Text>
-          </View>
-          {plan.equipment !== undefined && (
-            <View style={[styles.tag, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-              <Text style={[styles.tagText, { color: colors.textSecondary }]}>
-                {Object.values(plan.equipment).filter(v => v > 0).length === 0
-                  ? 'Bodyweight'
-                  : `${Object.values(plan.equipment).filter(v => v > 0).length} items`}
-              </Text>
-            </View>
+        {/* ── Tab bar (Upcoming / Details) ──────────── */}
+        <View style={styles.planTabBar}>
+          {tabItemWidth > 0 && (
+            <RNAnimated.View
+              pointerEvents="none"
+              style={[
+                styles.planTabPill,
+                {
+                  width: tabItemWidth,
+                  transform: [{
+                    translateX: pillAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: tabXOffsets,
+                    }),
+                  }],
+                },
+              ]}
+            />
           )}
-        </View>
-
-        {/* ── Paused banner ───────────────────────────── */}
-        {isPlanPaused && !isPlanComplete && (
-          <View style={[styles.pausedBanner, { backgroundColor: '#60a5fa0d', borderColor: '#60a5fa30' }]}>
-            <PlatformIcon name="pause-circle" size={14} color="#60a5fa" />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.pausedBannerTitle, { color: '#60a5fa' }]}>Plan Paused</Text>
-              <Text style={[styles.pausedBannerSub, { color: colors.textSecondary }]}>
-                Paused {plan.pausedAt ? `on ${formatDateShort(plan.pausedAt)}` : ''}. Tap Resume Plan below to continue.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {isPlanComplete ? (
-          /* ── PLAN COMPLETE HERO ──────────────────────── */
-          <View style={[styles.completionCard, { backgroundColor: '#22c55e0d', borderColor: '#22c55e35' }]}>
-            <View style={styles.completionTop}>
-              <View style={[styles.completionIconWrap, { backgroundColor: '#22c55e20' }]}>
-                <PlatformIcon name="trophy" size={26} color="#22c55e" />
-              </View>
-              <View style={styles.completionTextBlock}>
-                <Text style={[styles.completionTitle, { color: colors.text }]}>Plan Complete</Text>
-                <Text style={[styles.completionSub, { color: colors.textSecondary }]}>
-                  {formatDateShort(plan.startDate)} → {formatDateShort(plan.endDate)}
-                </Text>
-              </View>
-            </View>
-            <View style={[styles.completionDivider, { backgroundColor: '#22c55e20' }]} />
-            <View style={styles.completionStats}>
-              <View style={styles.completionStat}>
-                <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{completedCount}</Text>
-                <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>days done</Text>
-              </View>
-              <View style={[styles.completionStatDivider, { backgroundColor: '#22c55e20' }]} />
-              <View style={styles.completionStat}>
-                <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{adherencePct}%</Text>
-                <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>adherence</Text>
-              </View>
-              <View style={[styles.completionStatDivider, { backgroundColor: '#22c55e20' }]} />
-              <View style={styles.completionStat}>
-                <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{plan.planLength}</Text>
-                <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>weeks</Text>
-              </View>
-            </View>
-          </View>
-        ) : (
-          /* ── PROGRESS (active plan) ──────────────────── */
-          <View style={styles.progressSection}>
-            <View style={styles.progressHeader}>
-              <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>PROGRESS</Text>
-              <Text style={[styles.progressWeek, { color: colors.textSecondary }]}>
-                Week {currentWeek} of {plan.planLength}
-              </Text>
-            </View>
-            <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-              <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: styleColor }]} />
-            </View>
-            <View style={styles.progressFooter}>
-              <Text style={[styles.progressPct, { color: styleColor }]}>{progressPct}% complete</Text>
-              <Text style={[styles.progressLeft, { color: colors.textMuted }]}>{weeksLeft}w left</Text>
-            </View>
-          </View>
-        )}
-
-        {/* ── Today's session (active plan only) ───────── */}
-        {!isPlanComplete && todayPrescription ? (
-          <View style={[
-            styles.todayCard,
-            { backgroundColor: colors.cardSecondary, borderColor: colors.border },
-          ]}>
-            <View style={[styles.todayAccentBar, { backgroundColor: `${styleColor}60` }]} />
-            <View style={styles.todayBody}>
-              <Text style={[styles.todayLabel, { color: styleColor }]}>TODAY</Text>
-              {todayPrescription.is_rest ? (
-                <View style={styles.todayMain}>
-                  <PlatformIcon name="moon" size={18} color={colors.textSecondary} />
-                  <View style={styles.todayTextBlock}>
-                    <Text style={[styles.todaySession, { color: colors.text }]}>Recovery Day</Text>
-                    {todayPrescription.rest_suggestion ? (
-                      <Text style={[styles.todaySub, { color: colors.textSecondary }]} numberOfLines={2}>
-                        {todayPrescription.rest_suggestion}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.todayMain}>
-                  <PlatformIcon name="dumbbell" size={18} color={styleColor} />
-                  <View style={styles.todayTextBlock}>
-                    <Text style={[styles.todaySession, { color: colors.text }]} numberOfLines={1}>
-                      {todayPrescription.session_type || todayPrescription.style}
-                    </Text>
-                    <View style={styles.todayMetaRow}>
-                      <PlatformIcon name="clock" size={11} color={colors.textMuted} />
-                      <Text style={[styles.todayMetaText, { color: colors.textMuted }]}>
-                        {todayPrescription.target_duration} min
-                      </Text>
-                      <Text style={[styles.todayMetaDot, { color: colors.textMuted }]}>·</Text>
-                      <Text style={[styles.todayMetaText, { color: colors.textMuted }]}>
-                        {PHASE_DISPLAY_NAMES[todayPrescription.phase as PlanPhase] ?? todayPrescription.phase}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-        ) : null}
-
-        {/* ── Start today CTA (training day only) ──────── */}
-        {!isPlanComplete && todayPrescription && !todayPrescription.is_rest && (
-          <TouchableOpacity
-            style={[styles.startTodayBtn, { backgroundColor: styleColor }]}
-            onPress={() => {
-              onClose();
-              setTimeout(() => router.push('/(tabs)/workout' as any), 350);
+          <View
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            onLayout={(e) => {
+              const { x, width } = e.nativeEvent.layout;
+              setTabXOffsets(prev => [x, prev[1]]);
+              setTabItemWidth(width);
             }}
-            activeOpacity={0.85}
           >
-            <Text style={styles.startTodayBtnText}>Start Today's Workout</Text>
-            <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 14 }} />
-          </TouchableOpacity>
-        )}
-
-        {/* ── Missed day recovery ───────────────────────── */}
-        {!isPlanComplete && missedRecovery && !recoveryDismissed && (
-          <View style={[styles.recoveryCard, { backgroundColor: '#f59e0b0d', borderColor: '#f59e0b30' }]}>
-            <View style={styles.recoveryHeader}>
-              <PlatformIcon name="alert-triangle" size={13} color="#f59e0b" />
-              <Text style={styles.recoveryTitle}>
-                {plan.missedDays!.length === 1 ? '1 missed day' : `${plan.missedDays!.length} missed days`}
+            <TouchableOpacity style={styles.planTabBtn} onPress={() => switchTab(0)} activeOpacity={0.7}>
+              <PlatformIcon
+                name="calendar"
+                size={14}
+                color={activeTab === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'}
+              />
+              <Text style={[
+                styles.planTabLabel,
+                {
+                  color: activeTab === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
+                  fontFamily: activeTab === 0 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
+                },
+              ]}>
+                Upcoming
               </Text>
-            </View>
-            <Text style={[styles.recoveryMessage, { color: colors.textSecondary }]}>
-              {missedRecovery.message}
-            </Text>
-            <TouchableOpacity
-              style={styles.recoveryDismissBtn}
-              onPress={() => setRecoveryDismissed(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.recoveryDismissText}>Got it</Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        {/* ── Adherence analytics ──────────────────────── */}
-        {!isPlanComplete && completedCount > 0 && (
-          <View style={[styles.adherenceCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 10 }]}>ADHERENCE</Text>
-            <View style={styles.adherenceRow}>
-              <View style={styles.adherenceStat}>
-                <Text style={[styles.adherenceNum, { color: '#22c55e' }]}>{completedCount}</Text>
-                <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>done</Text>
-              </View>
-              <View style={[styles.adherenceDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.adherenceStat}>
-                <Text style={[styles.adherenceNum, { color: plan.missedDays?.length ? '#ef4444' : colors.textMuted }]}>
-                  {plan.missedDays?.length ?? 0}
-                </Text>
-                <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>missed</Text>
-              </View>
-              <View style={[styles.adherenceDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.adherenceStat}>
-                <Text style={[styles.adherenceNum, { color: colors.text }]}>{totalTrainingDays}</Text>
-                <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>total</Text>
-              </View>
-              <View style={[styles.adherenceDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.adherenceStat}>
-                <Text style={[styles.adherenceNum, { color: styleColor }]}>{adherencePct}%</Text>
-                <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>rate</Text>
-              </View>
-            </View>
-            <View style={[styles.adherenceTrack, { backgroundColor: colors.border }]}>
-              <View style={[styles.adherenceFill, { width: `${adherencePct}%` as any, backgroundColor: styleColor }]} />
-              {(plan.missedDays?.length ?? 0) > 0 && (
-                <View style={[
-                  styles.adherenceMissedFill,
-                  {
-                    width: `${Math.round(((plan.missedDays?.length ?? 0) / totalTrainingDays) * 100)}%` as any,
-                    left: `${adherencePct}%` as any,
-                  },
-                ]} />
-              )}
-            </View>
+          <View
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            onLayout={(e) => {
+              const { x } = e.nativeEvent.layout;
+              setTabXOffsets(prev => [prev[0], x]);
+            }}
+          >
+            <TouchableOpacity style={styles.planTabBtn} onPress={() => switchTab(1)} activeOpacity={0.7}>
+              <PlatformIcon
+                name="info"
+                size={14}
+                color={activeTab === 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'}
+              />
+              <Text style={[
+                styles.planTabLabel,
+                {
+                  color: activeTab === 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
+                  fontFamily: activeTab === 1 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
+                },
+              ]}>
+                Details
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
 
-        {/* ── Phase timeline ────────────────────────────── */}
-        {schedule && schedule.weeks.length > 0 && (
-          <>
-            <View style={styles.phaseTimeline}>
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PHASE TIMELINE</Text>
-              <ScrollView
-                ref={phaseScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.phaseTimelineScroll}
-              >
-                {schedule.weeks.map((week, idx) => {
-                  const isCurrentWeek = week.week_number === currentWeek;
-                  const isSelected = idx === selectedWeekIdx;
-                  const dotBg = isSelected ? `${accent}60` : 'rgba(255,255,255,0.06)';
-                  const dotBorderColor = isSelected ? `${accent}60` : isCurrentWeek ? `${accent}50` : 'transparent';
-                  const dotTextColor = isSelected ? '#fff' : isCurrentWeek ? `${accent}CC` : colors.textSecondary;
-                  const phaseInitial = PHASE_INITIALS[week.phase] ?? week.phase.charAt(0).toUpperCase();
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.phaseWeekDot,
-                        {
-                          backgroundColor: dotBg,
-                          borderColor: dotBorderColor,
-                          borderWidth: isCurrentWeek && !isSelected ? 1.5 : isSelected ? 0 : 1,
-                        },
-                      ]}
-                      onPress={() => setSelectedWeekIdx(idx)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Week ${week.week_number}, ${PHASE_DISPLAY_NAMES[week.phase as PlanPhase] ?? week.phase}${week.is_deload ? ', Deload' : ''}${isCurrentWeek ? ', current week' : ''}`}
-                      accessibilityState={{ selected: isSelected }}
-                    >
-                      <Text style={[styles.phaseWeekPhase, { color: dotTextColor }]}>{phaseInitial}</Text>
-                      <Text style={[styles.phaseWeekNum, { color: dotTextColor }]}>{week.week_number}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
+        {/* ═══════════════════════════════════════════════ */}
+        {/*  UPCOMING TAB                                  */}
+        {/* ═══════════════════════════════════════════════ */}
+        {activeTab === 0 && (<>
 
-            {/* ── Week detail ───────────────────────────── */}
-            <View style={styles.weekDetailSection}>
-              {/* Nav row */}
-              <View style={styles.weekNav}>
-                <TouchableOpacity
-                  onPress={handlePrevWeek}
-                  disabled={selectedWeekIdx === 0}
-                  activeOpacity={0.7}
-                  style={[styles.weekNavBtn, { opacity: selectedWeekIdx === 0 ? 0.3 : 1 }]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Previous week"
-                  accessibilityState={{ disabled: selectedWeekIdx === 0 }}
-                >
-                  <PlatformIcon name="chevron-left" size={18} color={colors.text} />
-                </TouchableOpacity>
-
-                <View style={styles.weekNavCenter}>
-                  <Text style={[styles.weekNavTitle, { color: colors.text }]}>
-                    Week {selectedWeek?.week_number ?? selectedWeekIdx + 1}
+          {isPlanComplete ? (
+            <View style={[styles.completionCard, { backgroundColor: '#22c55e0d', borderColor: '#22c55e35' }]}>
+              <View style={styles.completionTop}>
+                <View style={[styles.completionIconWrap, { backgroundColor: '#22c55e20' }]}>
+                  <PlatformIcon name="trophy" size={26} color="#22c55e" />
+                </View>
+                <View style={styles.completionTextBlock}>
+                  <Text style={[styles.completionTitle, { color: colors.text }]}>Plan Complete</Text>
+                  <Text style={[styles.completionSub, { color: colors.textSecondary }]}>
+                    {formatDateShort(plan.startDate)} → {formatDateShort(plan.endDate)}
                   </Text>
-                  {selectedWeek && (
-                    <View style={[styles.phaseBadge, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-                      <Text style={[styles.phaseBadgeText, { color: colors.textSecondary }]}>
-                        {PHASE_DISPLAY_NAMES[selectedWeek.phase as PlanPhase] ?? selectedWeek.phase}
-                        {selectedWeek.is_deload ? ' · Deload' : ''}
-                      </Text>
-                    </View>
-                  )}
                 </View>
-
-                <TouchableOpacity
-                  onPress={handleNextWeek}
-                  disabled={!schedule || selectedWeekIdx >= schedule.weeks.length - 1}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.weekNavBtn,
-                    { opacity: !schedule || selectedWeekIdx >= schedule.weeks.length - 1 ? 0.3 : 1 },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Next week"
-                  accessibilityState={{ disabled: !schedule || selectedWeekIdx >= schedule.weeks.length - 1 }}
-                >
-                  <PlatformIcon name="chevron-right" size={18} color={colors.text} />
-                </TouchableOpacity>
               </View>
-
-              {/* Week notes */}
-              {selectedWeek?.notes ? (
-                <View style={[styles.infoRow, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-                  <PlatformIcon name="trending-up" size={12} color={colors.textSecondary} />
-                  <Text style={[styles.infoRowText, { color: colors.textSecondary }]}>{selectedWeek.notes}</Text>
+              <View style={[styles.completionDivider, { backgroundColor: '#22c55e20' }]} />
+              <View style={styles.completionStats}>
+                <View style={styles.completionStat}>
+                  <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{completedCount}</Text>
+                  <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>days done</Text>
                 </View>
-              ) : null}
-
-              {/* Event milestone */}
-              {currentWeekMilestone && (
-                <View style={[styles.infoRow, { backgroundColor: '#f59e0b12', borderColor: '#f59e0b30' }]}>
-                  <PlatformIcon name="target" size={12} color="#f59e0b" />
-                  <Text style={[styles.infoRowText, { color: '#f59e0b' }]}>{currentWeekMilestone.label}</Text>
+                <View style={[styles.completionStatDivider, { backgroundColor: '#22c55e20' }]} />
+                <View style={styles.completionStat}>
+                  <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{adherencePct}%</Text>
+                  <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>adherence</Text>
                 </View>
-              )}
+                <View style={[styles.completionStatDivider, { backgroundColor: '#22c55e20' }]} />
+                <View style={styles.completionStat}>
+                  <Text style={[styles.completionStatNum, { color: '#22c55e' }]}>{plan.planLength}</Text>
+                  <Text style={[styles.completionStatLabel, { color: colors.textSecondary }]}>weeks</Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>PROGRESS</Text>
+                <Text style={[styles.progressWeek, { color: colors.textSecondary }]}>
+                  Week {currentWeek} of {plan.planLength}
+                </Text>
+              </View>
+              <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: styleColor }]} />
+              </View>
+              <View style={styles.progressFooter}>
+                <Text style={[styles.progressPct, { color: styleColor }]}>{progressPct}% complete</Text>
+                <Text style={[styles.progressLeft, { color: colors.textMuted }]}>{weeksLeft}w left</Text>
+              </View>
+            </View>
+          )}
 
-              {/* Day grid */}
+          {/* ── Paused banner ───────────────────────────── */}
+          {isPlanPaused && !isPlanComplete && (
+            <View style={[styles.pausedBanner, { backgroundColor: '#60a5fa0d', borderColor: '#60a5fa30' }]}>
+              <PlatformIcon name="pause-circle" size={14} color="#60a5fa" />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.pausedBannerTitle, { color: '#60a5fa' }]}>Plan Paused</Text>
+                <Text style={[styles.pausedBannerSub, { color: colors.textSecondary }]}>
+                  Paused {plan.pausedAt ? `on ${formatDateShort(plan.pausedAt)}` : ''}. Tap Resume below to continue.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* ── Missed day recovery ───────────────────────── */}
+          {!isPlanComplete && missedRecovery && !recoveryDismissed && (
+            <View style={[styles.recoveryCard, { backgroundColor: '#f59e0b0d', borderColor: '#f59e0b30' }]}>
+              <View style={styles.recoveryHeader}>
+                <PlatformIcon name="alert-triangle" size={13} color="#f59e0b" />
+                <Text style={styles.recoveryTitle}>
+                  {plan.missedDays!.length === 1 ? '1 missed day' : `${plan.missedDays!.length} missed days`}
+                </Text>
+              </View>
+              <Text style={[styles.recoveryMessage, { color: colors.textSecondary }]}>
+                {missedRecovery.message}
+              </Text>
+              <TouchableOpacity
+                style={styles.recoveryDismissBtn}
+                onPress={() => setRecoveryDismissed(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.recoveryDismissText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── Today's session ───────── */}
+          {!isPlanComplete && todayPrescription ? (
+            <TouchableOpacity
+              style={[
+                styles.todayCard,
+                { backgroundColor: colors.cardSecondary, borderColor: colors.border },
+              ]}
+              onPress={() => { setPreviewDay(todayPrescription); setPreviewVisible(true); }}
+              activeOpacity={todayPrescription.is_rest ? 1 : 0.75}
+              disabled={todayPrescription.is_rest}
+            >
+              <View style={[styles.todayAccentBar, { backgroundColor: `${styleColor}60` }]} />
+              <View style={styles.todayBody}>
+                <Text style={[styles.todayLabel, { color: styleColor }]}>TODAY</Text>
+                {todayPrescription.is_rest ? (
+                  <View style={styles.todayMain}>
+                    <PlatformIcon name="moon" size={18} color={colors.textSecondary} />
+                    <View style={styles.todayTextBlock}>
+                      <Text style={[styles.todaySession, { color: colors.text }]}>Recovery Day</Text>
+                      {todayPrescription.rest_suggestion ? (
+                        <Text style={[styles.todaySub, { color: colors.textSecondary }]} numberOfLines={2}>
+                          {todayPrescription.rest_suggestion}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.todayMain}>
+                    <PlatformIcon name="dumbbell" size={18} color={styleColor} />
+                    <View style={[styles.todayTextBlock, { flex: 1 }]}>
+                      <Text style={[styles.todaySession, { color: colors.text }]} numberOfLines={1}>
+                        {todayPrescription.session_type || todayPrescription.style}
+                      </Text>
+                      <View style={styles.todayMetaRow}>
+                        <PlatformIcon name="clock" size={11} color={colors.textMuted} />
+                        <Text style={[styles.todayMetaText, { color: colors.textMuted }]}>
+                          {todayPrescription.target_duration} min
+                        </Text>
+                        <Text style={[styles.todayMetaDot, { color: colors.textMuted }]}>·</Text>
+                        <Text style={[styles.todayMetaText, { color: colors.textMuted }]}>
+                          {PHASE_DISPLAY_NAMES[todayPrescription.phase as PlanPhase] ?? todayPrescription.phase}
+                        </Text>
+                      </View>
+                    </View>
+                    <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
+          {/* ── Start today CTA ──────── */}
+          {!isPlanComplete && todayPrescription && !todayPrescription.is_rest && (
+            <TouchableOpacity
+              style={[styles.startTodayBtn, { backgroundColor: styleColor }]}
+              onPress={() => {
+                tracking.ensureTodayWorkoutGenerated();
+                onClose();
+                setTimeout(() => router.push('/(tabs)/workout' as any), 350);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.startTodayBtnText}>Start Today's Workout</Text>
+              <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 14 }} />
+            </TouchableOpacity>
+          )}
+
+          {/* ── Divider ── */}
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
+
+          {/* ── Current phase info row ── */}
+          {selectedWeek?.notes ? (
+            <View style={[styles.infoRow, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+              <PlatformIcon name="trending-up" size={12} color={colors.textSecondary} />
+              <Text style={[styles.infoRowText, { color: colors.textSecondary }]}>{selectedWeek.notes}</Text>
+            </View>
+          ) : null}
+
+          {/* ── This week's day cards ── */}
+          {selectedWeek && (
+            <View style={styles.weekDetailSection}>
               <View style={styles.dayGrid}>
-                {selectedWeek?.days.map((day, dIdx) => {
+                {selectedWeek.days.map((day, dIdx) => {
                   const isToday = day.date === today;
                   const isPast = day.date < today;
                   const isMissed = plan.missedDays?.includes(day.date);
                   const isCompleted = !day.is_rest && plan.completedDays?.includes(day.date);
-
-                  // Resolved border/background based on state priority
-                  const cardBg = isCompleted
-                    ? '#22c55e0d'
-                    : day.is_rest
-                      ? colors.cardSecondary
-                      : `${accent}08`;
-                  const cardBorder = isCompleted
-                    ? '#22c55e40'
-                    : isToday
-                      ? styleColor
-                      : isMissed
-                        ? '#ef444430'
-                        : colors.border;
-
+                  const cardBg = isCompleted ? '#22c55e0d' : day.is_rest ? colors.cardSecondary : `${accent}08`;
+                  const cardBorder = isCompleted ? '#22c55e40' : isToday ? styleColor : isMissed ? '#ef444430' : colors.border;
                   const CardWrapper = day.is_rest ? View : TouchableOpacity;
                   return (
                     <CardWrapper
                       key={dIdx}
-                      style={[
-                        styles.dayCard,
-                        {
-                          backgroundColor: cardBg,
-                          borderColor: cardBorder,
-                          borderWidth: isToday || isCompleted ? 1.5 : 1,
-                        },
-                      ]}
+                      style={[styles.dayCard, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isToday || isCompleted ? 1.5 : 1 }]}
                       {...(!day.is_rest && {
-                        onPress: () => {
-                          setPreviewDay(day);
-                          setPreviewVisible(true);
-                        },
+                        onPress: () => { setPreviewDay(day); setPreviewVisible(true); },
                         activeOpacity: 0.75,
-                        accessibilityRole: 'button' as const,
-                        accessibilityLabel: `${DAY_LABELS[new Date(day.date + 'T00:00:00').getDay()] ?? ''} ${formatDateShort(day.date)}, ${day.session_type || day.style}, ${day.target_duration} minutes${isCompleted ? ', completed' : isMissed ? ', missed' : isToday ? ', today' : ''}`,
-                        accessibilityHint: 'Tap to preview this workout',
                       })}
                     >
                       <View style={styles.dayCardHeader}>
-                        <Text style={[
-                          styles.dayLabel,
-                          { color: isCompleted ? '#22c55e' : isToday ? styleColor : colors.textSecondary },
-                        ]}>
+                        <Text style={[styles.dayLabel, { color: isCompleted ? '#22c55e' : isToday ? styleColor : colors.textSecondary }]}>
                           {DAY_LABELS[new Date(day.date + 'T00:00:00').getDay()] ?? `D${dIdx + 1}`}
                         </Text>
                         <View style={styles.dayCardHeaderRight}>
-                          {isCompleted && (
-                            <PlatformIcon name="check-circle" size={14} color="#22c55e" fill="#22c55e" />
-                          )}
-                          <Text style={[styles.dayDate, { color: colors.textMuted }]}>
-                            {formatDateShort(day.date)}
-                          </Text>
+                          {isCompleted && <PlatformIcon name="check-circle" size={14} color="#22c55e" fill="#22c55e" />}
+                          <Text style={[styles.dayDate, { color: colors.textMuted }]}>{formatDateShort(day.date)}</Text>
                         </View>
                       </View>
-
                       {day.is_rest ? (
                         <View style={styles.restContent}>
                           <PlatformIcon name="moon" size={14} color={colors.textMuted} />
@@ -617,26 +721,15 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
                           </View>
                           <View style={styles.dayMetaRow}>
                             <PlatformIcon name="clock" size={10} color={colors.textMuted} />
-                            <Text style={[styles.dayMetaText, { color: colors.textMuted }]}>
-                              {day.target_duration}min
-                            </Text>
+                            <Text style={[styles.dayMetaText, { color: colors.textMuted }]}>{day.target_duration}min</Text>
                           </View>
                           <View style={styles.dayTagRow}>
-                            {day.is_deload_week && (
-                              <View style={styles.deloadTag}>
-                                <Text style={styles.deloadTagText}>Deload</Text>
-                              </View>
-                            )}
+                            {day.is_deload_week && <View style={styles.deloadTag}><Text style={styles.deloadTagText}>Deload</Text></View>}
                             {!day.is_deload_week && day.intensity_modifier > 0 && day.intensity_modifier < 0.9 && (
-                              <View style={styles.effortTag}>
-                                <Text style={styles.effortTagText}>~{Math.round(day.intensity_modifier * 100)}% effort</Text>
-                              </View>
+                              <View style={styles.effortTag}><Text style={styles.effortTagText}>~{Math.round(day.intensity_modifier * 100)}% effort</Text></View>
                             )}
                             {isPast && !day.is_rest && isMissed && !isCompleted && (
-                              <View style={styles.missedTag}>
-                                <PlatformIcon name="alert-triangle" size={9} color="#ef4444" />
-                                <Text style={styles.missedTagText}>Missed</Text>
-                              </View>
+                              <View style={styles.missedTag}><PlatformIcon name="alert-triangle" size={9} color="#ef4444" /><Text style={styles.missedTagText}>Missed</Text></View>
                             )}
                           </View>
                         </View>
@@ -646,56 +739,220 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
                 })}
               </View>
             </View>
-          </>
-        )}
+          )}
 
-        {/* ── Stats grid ────────────────────────────────── */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.statHeader}>
-              <PlatformIcon name="calendar" size={12} color={accent} />
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>START</Text>
+          {/* ── View full plan button ── */}
+          <TouchableOpacity
+            style={[styles.ghostBtn, { borderColor: colors.border }]}
+            onPress={() => setFullPlanVisible(true)}
+            activeOpacity={0.7}
+          >
+            <PlatformIcon name="list" size={14} color={colors.textSecondary} />
+            <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>View Full Workout Plan</Text>
+          </TouchableOpacity>
+
+        </>)}
+
+        {/* ═══════════════════════════════════════════════ */}
+        {/*  DETAILS TAB                                   */}
+        {/* ═══════════════════════════════════════════════ */}
+        {activeTab === 1 && (<>
+
+          {/* ── Adherence analytics ──────────────────────── */}
+          {!isPlanComplete && completedCount > 0 && (
+            <View style={[styles.adherenceCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 10 }]}>ADHERENCE</Text>
+              <View style={styles.adherenceRow}>
+                <View style={styles.adherenceStat}>
+                  <Text style={[styles.adherenceNum, { color: '#22c55e' }]}>{completedCount}</Text>
+                  <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>done</Text>
+                </View>
+                <View style={[styles.adherenceDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.adherenceStat}>
+                  <Text style={[styles.adherenceNum, { color: plan.missedDays?.length ? '#ef4444' : colors.textMuted }]}>
+                    {plan.missedDays?.length ?? 0}
+                  </Text>
+                  <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>missed</Text>
+                </View>
+                <View style={[styles.adherenceDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.adherenceStat}>
+                  <Text style={[styles.adherenceNum, { color: colors.text }]}>{totalTrainingDays}</Text>
+                  <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>total</Text>
+                </View>
+                <View style={[styles.adherenceDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.adherenceStat}>
+                  <Text style={[styles.adherenceNum, { color: styleColor }]}>{adherencePct}%</Text>
+                  <Text style={[styles.adherenceLabel, { color: colors.textSecondary }]}>rate</Text>
+                </View>
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{formatDateShort(plan.startDate)}</Text>
-          </View>
-          <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.statHeader}>
-              <PlatformIcon name="calendar" size={12} color={accent} />
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>END</Text>
+          )}
+
+          {/* ── Plan detail cards ────────────────────── */}
+          <View style={styles.statsGrid}>
+            {/* STYLE — editable */}
+            <JiggleCard index={0} isEditMode={isEditMode} isEditable onPress={() => setEditingField(editingField === 'style' ? null : 'style')} style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: isEditMode ? `${styleColor}50` : colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="dumbbell" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>STYLE</Text>
+                </View>
+                <Text style={[styles.statValue, { color: editStyle && editStyle !== plan.style ? styleColor : colors.text }]}>
+                  {editStyle ?? plan.style}
+                </Text>
+                {isEditMode && <View style={[styles.editBadge, { backgroundColor: styleColor }]}><PlatformIcon name="pencil" size={10} color="#fff" /></View>}
+              </View>
+            </JiggleCard>
+
+            {/* GOAL — not editable */}
+            <View style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="target" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GOAL</Text>
+                </View>
+                <Text style={[styles.statValue, { color: colors.text }]}>{plan.goal}</Text>
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{formatDateFull(plan.endDate)}</Text>
-          </View>
-          <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.statHeader}>
-              <PlatformIcon name="dumbbell" size={12} color={accent} />
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DAYS/WEEK</Text>
+
+            {/* LEVEL — editable */}
+            <JiggleCard index={1} isEditMode={isEditMode} isEditable onPress={() => setEditingField(editingField === 'level' ? null : 'level')} style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: isEditMode ? `${styleColor}50` : colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="star" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>LEVEL</Text>
+                </View>
+                <Text style={[styles.statValue, { color: editLevel && editLevel !== plan.experienceLevel ? styleColor : colors.text }]}>
+                  {(editLevel ?? plan.experienceLevel).charAt(0).toUpperCase() + (editLevel ?? plan.experienceLevel).slice(1)}
+                </Text>
+                {isEditMode && <View style={[styles.editBadge, { backgroundColor: styleColor }]}><PlatformIcon name="pencil" size={10} color="#fff" /></View>}
+              </View>
+            </JiggleCard>
+
+            {/* EQUIPMENT — not editable */}
+            {plan.equipment !== undefined && (
+              <View style={styles.statCellWrap}>
+                <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                  <View style={styles.statHeader}>
+                    <PlatformIcon name="layers" size={12} color={accent} />
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>EQUIPMENT</Text>
+                  </View>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    {Object.values(plan.equipment).filter(v => v > 0).length === 0
+                      ? 'Bodyweight'
+                      : `${Object.values(plan.equipment).filter(v => v > 0).length} items`}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* START — not editable */}
+            <View style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="calendar" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>START</Text>
+                </View>
+                <Text style={[styles.statValue, { color: colors.text }]}>{formatDateShort(plan.startDate)}</Text>
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{plan.daysPerWeek} days</Text>
-          </View>
-          <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.statHeader}>
-              <PlatformIcon name="clock" size={12} color={accent} />
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DURATION</Text>
+
+            {/* END — not editable */}
+            <View style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="calendar" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>END</Text>
+                </View>
+                <Text style={[styles.statValue, { color: colors.text }]}>{formatDateFull(plan.endDate)}</Text>
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{plan.sessionDuration} min</Text>
-          </View>
-          <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.statHeader}>
-              <PlatformIcon name="star" size={12} color={accent} />
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>LEVEL</Text>
+
+            {/* DAYS/WEEK — editable */}
+            <JiggleCard index={2} isEditMode={isEditMode} isEditable onPress={() => setEditingField(editingField === 'daysPerWeek' ? null : 'daysPerWeek')} style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: isEditMode ? `${styleColor}50` : colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="dumbbell" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DAYS/WEEK</Text>
+                </View>
+                <Text style={[styles.statValue, { color: editDaysPerWeek && editDaysPerWeek !== plan.daysPerWeek ? styleColor : colors.text }]}>
+                  {editDaysPerWeek ?? plan.daysPerWeek} days
+                </Text>
+                {isEditMode && <View style={[styles.editBadge, { backgroundColor: styleColor }]}><PlatformIcon name="pencil" size={10} color="#fff" /></View>}
+              </View>
+            </JiggleCard>
+
+            {/* DURATION — editable */}
+            <JiggleCard index={3} isEditMode={isEditMode} isEditable onPress={() => setEditingField(editingField === 'duration' ? null : 'duration')} style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: isEditMode ? `${styleColor}50` : colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="clock" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DURATION</Text>
+                </View>
+                <Text style={[styles.statValue, { color: editDuration && editDuration !== plan.sessionDuration ? styleColor : colors.text }]}>
+                  {editDuration ?? plan.sessionDuration} min
+                </Text>
+                {isEditMode && <View style={[styles.editBadge, { backgroundColor: styleColor }]}><PlatformIcon name="pencil" size={10} color="#fff" /></View>}
+              </View>
+            </JiggleCard>
+
+            {/* WEEKS LEFT — not editable */}
+            <View style={styles.statCellWrap}>
+              <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                <View style={styles.statHeader}>
+                  <PlatformIcon name="bar-chart-3" size={12} color={accent} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>WEEKS LEFT</Text>
+                </View>
+                <Text style={[styles.statValue, { color: colors.text }]}>{weeksLeft} weeks</Text>
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {plan.experienceLevel.charAt(0).toUpperCase() + plan.experienceLevel.slice(1)}
-            </Text>
           </View>
-          <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <View style={styles.statHeader}>
-              <PlatformIcon name="bar-chart-3" size={12} color={accent} />
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>WEEKS LEFT</Text>
+
+          {/* ── Inline picker (when editing a field) ── */}
+          {isEditMode && editingField && (
+            <View style={styles.pickerContainer}>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                {editingField === 'style' ? 'SELECT STYLE' : editingField === 'level' ? 'SELECT LEVEL' : editingField === 'daysPerWeek' ? 'DAYS PER WEEK' : 'SESSION DURATION'}
+              </Text>
+              <View style={styles.pickerRow}>
+                {(editingField === 'style' ? EDITABLE_STYLES :
+                  editingField === 'level' ? EDITABLE_LEVELS :
+                  editingField === 'daysPerWeek' ? EDITABLE_DAYS :
+                  EDITABLE_DURATIONS
+                ).map((opt) => {
+                  const val = editingField === 'style' ? editStyle : editingField === 'level' ? editLevel : editingField === 'daysPerWeek' ? editDaysPerWeek : editDuration;
+                  const isSelected = val === opt;
+                  const label = editingField === 'level'
+                    ? (opt as string).charAt(0).toUpperCase() + (opt as string).slice(1)
+                    : editingField === 'daysPerWeek'
+                      ? `${opt}`
+                      : editingField === 'duration'
+                        ? `${opt}m`
+                        : String(opt);
+                  return (
+                    <TouchableOpacity
+                      key={String(opt)}
+                      style={[
+                        styles.pickerPill,
+                        { borderColor: isSelected ? styleColor : colors.border },
+                        isSelected && { backgroundColor: `${styleColor}20` },
+                      ]}
+                      onPress={() => {
+                        if (editingField === 'style') setEditStyle(opt as string);
+                        else if (editingField === 'level') setEditLevel(opt as string);
+                        else if (editingField === 'daysPerWeek') setEditDaysPerWeek(opt as number);
+                        else setEditDuration(opt as number);
+                        Haptics.selectionAsync().catch(() => {});
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pickerPillText, { color: isSelected ? styleColor : colors.text }]}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{weeksLeft} weeks</Text>
-          </View>
-        </View>
+          )}
 
         {/* ── Schedule overview ─────────────────────────── */}
         {schedule && (
@@ -708,66 +965,101 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
               <Text style={[styles.scheduleRowLabel, { color: colors.textSecondary }]}>Total rest days</Text>
               <Text style={[styles.scheduleRowValue, { color: colors.text }]}>{schedule.total_rest_days}</Text>
             </View>
-            <View style={[styles.scheduleRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
-              <Text style={[styles.scheduleRowLabel, { color: colors.textSecondary }]}>Phases</Text>
-              <Text style={[styles.scheduleRowValue, { color: colors.text }]}>
-                {schedule.phases_used.map(p => PHASE_DISPLAY_NAMES[p as PlanPhase] ?? p).join(', ')}
-              </Text>
-            </View>
           </View>
         )}
 
         {/* ── Actions ───────────────────────────────────── */}
-        {!isPlanComplete && (
-          <TouchableOpacity
-            style={[styles.ghostBtn, { borderColor: styleColor + '40' }]}
-            onPress={() => { onClose(); setTimeout(() => onEditPlan(), 350); }}
-            activeOpacity={0.7}
-          >
-            <PlatformIcon name="pencil" size={14} color={styleColor} />
-            <Text style={[styles.ghostBtnText, { color: styleColor }]}>Edit Plan</Text>
-          </TouchableOpacity>
-        )}
+        {isEditMode ? (
+          <>
+            <View style={styles.editActions}>
+              <TouchableOpacity
+                style={[styles.ghostBtn, { borderColor: colors.border, flex: 1 }]}
+                onPress={exitEditMode}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.ghostBtn,
+                  {
+                    flex: 1,
+                    borderColor: hasChanges ? styleColor : colors.border,
+                    backgroundColor: hasChanges ? `${styleColor}15` : 'transparent',
+                    opacity: hasChanges && !isSaving ? 1 : 0.5,
+                  },
+                ]}
+                onPress={handleSaveEdits}
+                activeOpacity={0.7}
+                disabled={!hasChanges || isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={styleColor} />
+                ) : (
+                  <>
+                    <PlatformIcon name="check" size={14} color={hasChanges ? styleColor : colors.textMuted} />
+                    <Text style={[styles.ghostBtnText, { color: hasChanges ? styleColor : colors.textMuted }]}>Save Changes</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            {!isPlanComplete && (
+              <TouchableOpacity
+                style={[styles.ghostBtn, { borderColor: styleColor + '40' }]}
+                onPress={enterEditMode}
+                activeOpacity={0.7}
+              >
+                <PlatformIcon name="pencil" size={14} color={styleColor} />
+                <Text style={[styles.ghostBtnText, { color: styleColor }]}>Edit Plan</Text>
+              </TouchableOpacity>
+            )}
 
-        <TouchableOpacity
-          style={[styles.ghostBtn, { borderColor: colors.border }]}
-          onPress={handleStartNew}
-          activeOpacity={0.7}
-        >
-          <PlatformIcon name="refresh" size={14} color={colors.textSecondary} />
-          <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>Start New Plan</Text>
-        </TouchableOpacity>
-
-        {!isPlanComplete && (
-          plan.pausedAt ? (
-            <TouchableOpacity
-              style={[styles.ghostBtn, { borderColor: '#22c55e40' }]}
-              onPress={handleResumePlan}
-              activeOpacity={0.7}
-            >
-              <PlatformIcon name="play" size={14} color="#22c55e" />
-              <Text style={[styles.ghostBtnText, { color: '#22c55e' }]}>Resume Plan</Text>
-            </TouchableOpacity>
-          ) : (
             <TouchableOpacity
               style={[styles.ghostBtn, { borderColor: colors.border }]}
-              onPress={handlePausePlan}
+              onPress={handleStartNew}
               activeOpacity={0.7}
             >
-              <PlatformIcon name="pause" size={14} color={colors.textSecondary} />
-              <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>Pause Plan</Text>
+              <PlatformIcon name="refresh" size={14} color={colors.textSecondary} />
+              <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>Start New Plan</Text>
             </TouchableOpacity>
-          )
+
+            {!isPlanComplete && (
+              plan.pausedAt ? (
+                <TouchableOpacity
+                  style={[styles.ghostBtn, { borderColor: '#22c55e40' }]}
+                  onPress={handleResumePlan}
+                  activeOpacity={0.7}
+                >
+                  <PlatformIcon name="play" size={14} color="#22c55e" />
+                  <Text style={[styles.ghostBtnText, { color: '#22c55e' }]}>Resume Plan</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.ghostBtn, { borderColor: colors.border }]}
+                  onPress={handlePausePlan}
+                  activeOpacity={0.7}
+                >
+                  <PlatformIcon name="pause" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>Pause Plan</Text>
+                </TouchableOpacity>
+              )
+            )}
+
+            <TouchableOpacity
+              style={[styles.cancelBtn, { borderColor: '#ef444430' }]}
+              onPress={handleCancelPlan}
+              activeOpacity={0.7}
+            >
+              <PlatformIcon name="trash" size={14} color="#ef4444" />
+              <Text style={styles.cancelBtnText}>Cancel Plan</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        <TouchableOpacity
-          style={[styles.cancelBtn, { borderColor: '#ef444430' }]}
-          onPress={handleCancelPlan}
-          activeOpacity={0.7}
-        >
-          <PlatformIcon name="trash" size={14} color="#ef4444" />
-          <Text style={styles.cancelBtnText}>Cancel Plan</Text>
-        </TouchableOpacity>
+        </>)}
 
         <View style={{ height: 24 }} />
       </View>
@@ -777,6 +1069,12 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
         onClose={() => setPreviewVisible(false)}
         onClosePlan={onClose}
         day={previewDay}
+      />
+
+      <PlanScheduleDrawer
+        visible={fullPlanVisible}
+        onClose={() => setFullPlanVisible(false)}
+        onClosePlan={onClose}
       />
     </BaseDrawer>
   );
@@ -794,8 +1092,45 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(128,128,128,0.15)', alignItems: 'center', justifyContent: 'center',
   },
 
-  content: { paddingHorizontal: 16, gap: 16, paddingBottom: 8 },
+  content: { paddingHorizontal: 16, gap: 10, paddingBottom: 8 },
   planName: { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.5 },
+
+  planTabBar: {
+    flexDirection: 'row' as const,
+    height: 46,
+    paddingVertical: 5,
+    paddingHorizontal: 5,
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
+    backgroundColor: 'rgba(20,20,20,0.98)',
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  planTabPill: {
+    position: 'absolute' as const,
+    top: 5,
+    bottom: 5,
+    left: 0,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  planTabBtn: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    paddingVertical: 8,
+    zIndex: 1,
+  },
+  planTabLabel: {
+    fontSize: 13,
+    letterSpacing: 0.1,
+    includeFontPadding: false,
+  },
 
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
@@ -922,8 +1257,9 @@ const styles = StyleSheet.create({
 
   // Stats grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statCellWrap: { flexGrow: 1, flexBasis: '45%' },
   statCell: {
-    width: '47%' as any, borderRadius: 12, borderWidth: 1,
+    borderRadius: 12, borderWidth: 1,
     padding: 14, gap: 6,
   },
   statHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -951,6 +1287,19 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: { fontSize: 14, fontWeight: '600' as const, color: '#ef4444' },
 
+  // Edit mode
+  editBadge: {
+    position: 'absolute', top: -4, right: -4, width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center', zIndex: 2,
+  },
+  editActions: { flexDirection: 'row', gap: 10 },
+  pickerContainer: { gap: 8 },
+  pickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pickerPill: {
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 9, borderWidth: 1,
+  },
+  pickerPillText: { fontSize: 13, fontWeight: '600' as const },
+
   // Paused banner
   pausedBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -972,10 +1321,10 @@ const styles = StyleSheet.create({
     borderRadius: 14, borderWidth: 1, padding: 14, gap: 10,
   },
   adherenceRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    flexDirection: 'row', alignItems: 'stretch',
   },
-  adherenceStat: { alignItems: 'center', gap: 3, flex: 1 },
-  adherenceDivider: { width: 1, height: 28 },
+  adherenceStat: { alignItems: 'center', justifyContent: 'center', gap: 3, flex: 1, paddingVertical: 4 },
+  adherenceDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: 2 },
   adherenceNum: { fontSize: 20, fontWeight: '800' as const, letterSpacing: -0.5 },
   adherenceLabel: { fontSize: 10, fontWeight: '600' as const, letterSpacing: 0.4 },
   adherenceTrack: {

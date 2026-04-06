@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,15 @@ import {
   Platform,
   Animated,
 } from 'react-native';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { Settings, X, ChevronRight, Camera, PersonStanding, BarChart3, Crown, Sparkles } from 'lucide-react-native';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useZealTheme, useAppContext } from '@/context/AppContext';
-import AchievementModal, { ACHIEVEMENTS, Achievement, getAchievementIcon } from '@/components/drawers/AchievementModal';
+import AchievementModal, { Achievement, getAchievementIcon } from '@/components/drawers/AchievementModal';
+import { MILESTONES, computeMilestoneProgress, calcCurrentStreak } from '@/services/milestonesData';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
@@ -38,12 +40,23 @@ export default function AthleteProfileDrawer({
   const { colors, accent, isDark } = useZealTheme();
   const { userName, setUserName, userPhotoUri, setUserPhotoUri, saveState } = useAppContext();
   const { hasPro, subscriptionState, openPaywall } = useSubscription();
-  const { workoutHistory } = useWorkoutTracking();
+  const { workoutHistory, prHistory } = useWorkoutTracking();
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userName);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [achievementModalVisible, setAchievementModalVisible] = useState(false);
+
+  const top8Milestones = useMemo(() => {
+    const streak = calcCurrentStreak(workoutHistory.map(l => l.date));
+    const all = computeMilestoneProgress(workoutHistory.length, prHistory.length, streak);
+    // Sort: completed first, then by progress ratio desc
+    const sorted = [...all].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? -1 : 1;
+      return (b.current / b.target) - (a.current / a.target);
+    });
+    return sorted.slice(0, 8);
+  }, [workoutHistory, prHistory]);
 
   useEffect(() => {
     if (visible) {
@@ -195,32 +208,49 @@ export default function AthleteProfileDrawer({
 
           <View style={styles.achievementsWrapper}>
             <View style={[styles.achievementsGrid, { backgroundColor: colors.card }, !hasPro && { opacity: PRO_LOCKED_OPACITY }]}>
-              {ACHIEVEMENTS.map((ach, i) => (
-                <TouchableOpacity
-                  key={ach.id}
-                  style={[
-                    styles.achievementCell,
-                    i % 4 !== 3 && { borderRightWidth: 1, borderRightColor: colors.border },
-                    i < 4 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-                  ]}
-                  onPress={() => hasPro ? handleAchievementPress(ach) : showProGate('achievements', openPaywall)}
-                  activeOpacity={0.7}
-                  testID={`achievement-${ach.id}`}
-                >
-                  <View style={[styles.achIcon, { opacity: ach.unlocked ? 1 : 0.35 }]}>
-                    {getAchievementIcon(ach.iconName, ach.unlocked ? accent : colors.textMuted, 24)}
-                  </View>
-                  <Text
+              {top8Milestones.map((m, i) => {
+                const circumference = 2 * Math.PI * 18;
+                const progress = m.target > 0 ? m.current / m.target : 0;
+                const strokeDashoffset = circumference * (1 - Math.min(progress, 1));
+                const ringColor = m.completed ? '#eab308' : `${accent}77`;
+                const ach: Achievement = { id: m.id, iconName: m.icon, label: m.name, description: m.description, unlocked: m.completed, current: m.current, target: m.target };
+                return (
+                  <TouchableOpacity
+                    key={m.id}
                     style={[
-                      styles.achLabel,
-                      { color: ach.unlocked ? colors.text : colors.textMuted },
+                      styles.achievementCell,
+                      i % 4 !== 3 && { borderRightWidth: 1, borderRightColor: colors.border },
+                      i < 4 && { borderBottomWidth: 1, borderBottomColor: colors.border },
                     ]}
-                    numberOfLines={2}
+                    onPress={() => hasPro ? handleAchievementPress(ach) : showProGate('achievements', openPaywall)}
+                    activeOpacity={0.7}
+                    testID={`achievement-${m.id}`}
                   >
-                    {ach.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <View style={styles.achRingWrap}>
+                      <Svg width={44} height={44} viewBox="0 0 44 44">
+                        <SvgCircle cx={22} cy={22} r={18} fill="none" stroke={colors.border} strokeWidth={2.5} />
+                        <SvgCircle
+                          cx={22} cy={22} r={18} fill="none"
+                          stroke={ringColor} strokeWidth={2.5}
+                          strokeDasharray={`${circumference}`}
+                          strokeDashoffset={strokeDashoffset}
+                          strokeLinecap="round"
+                          transform="rotate(-90 22 22)"
+                        />
+                      </Svg>
+                      <View style={styles.achIconCenter}>
+                        {getAchievementIcon(m.icon, m.completed ? '#eab308' : colors.textMuted, 16)}
+                      </View>
+                    </View>
+                    <Text
+                      style={[styles.achLabel, { color: m.completed ? '#eab308' : colors.textMuted }]}
+                      numberOfLines={2}
+                    >
+                      {m.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             {!hasPro && (
               <TouchableOpacity
@@ -474,6 +504,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   achIcon: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  achRingWrap: {
+    width: 44,
+    height: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  achIconCenter: {
+    position: 'absolute' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },

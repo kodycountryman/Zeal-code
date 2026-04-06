@@ -6,8 +6,8 @@ import * as Haptics from 'expo-haptics';
 import { useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 import { healthService } from '@/services/healthService';
-import { generateWorkoutAsync, generateCoreFinisher, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
-import { generateWorkout } from '@/services/workoutEngine';
+import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
+import { generateWorkout, generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import { PRO_STYLES_SET } from '@/services/proGate';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
@@ -369,24 +369,39 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     }
 
     const todayStr = getTodayStr();
+    const hasPlan = !!ctx.activePlan;
+    const ov = ctx.workoutOverride;
+
     // Drop stale workout if calendar day rolled (e.g. app left open past midnight).
     if (currentGeneratedWorkout) {
       const refDay = generatedForDateRef.current;
-      if (refDay === todayStr) return;
-      if (refDay !== null && refDay !== todayStr) {
+      if (refDay === todayStr) {
+        // If active plan and no override, verify the loaded workout actually
+        // came from the plan cache. If not, clear it and re-generate from cache.
+        if (hasPlan && !ov && !(currentGeneratedWorkout as any).planDayDate) {
+          setCurrentGeneratedWorkout(null);
+          generatedForDateRef.current = null;
+        } else {
+          return;
+        }
+      } else if (refDay !== null && refDay !== todayStr) {
         setCurrentGeneratedWorkout(null);
         generatedForDateRef.current = null;
         void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
       } else {
-        generatedForDateRef.current = todayStr;
-        return;
+        // refDay is null — workout loaded from snapshot hydration
+        if (hasPlan && !ov && !(currentGeneratedWorkout as any).planDayDate) {
+          setCurrentGeneratedWorkout(null);
+          generatedForDateRef.current = null;
+        } else {
+          generatedForDateRef.current = todayStr;
+          return;
+        }
       }
     }
 
-    const ov = ctx.workoutOverride;
     const todayPrescription = ctx.getTodayPrescription();
     const lm = ctx.lastModifyState;
-    const hasPlan = !!ctx.activePlan;
 
     // Mimic the effective-params logic from the Workout tab.
     let effectiveStyle = ov?.style ?? (
@@ -450,6 +465,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         if (cached) {
           const cachedWorkout: GeneratedWorkout = JSON.parse(cached);
           cachedWorkout.workout = enforceStyleGrouping(cachedWorkout.workout, cachedWorkout.style);
+          (cachedWorkout as any).planDayDate = todayStr;
           generatedForDateRef.current = todayStr;
           setCurrentGeneratedWorkout(cachedWorkout);
           ctx.setCurrentWorkoutTitle(
@@ -477,16 +493,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         let w = await generateWorkoutAsync(params, prescription, hasPro);
         if (ctx.coreFinisher) {
           try {
-            const coreExercises = await Promise.race([
-              generateCoreFinisher({
+            const coreExercises = generateCoreFinisherFromEngine({
                 fitnessLevel: ctx.fitnessLevel,
-                sex: ctx.sex,
                 availableEquipment: effectiveEquipment,
-              }),
-              new Promise<WorkoutExercise[]>((_, reject) => {
-                setTimeout(() => reject(new Error('core finisher timeout')), 5000);
-              }),
-            ]);
+              });
             w = { ...w, coreFinisher: coreExercises };
           } catch (err) {
             __DEV__ && console.log('[WorkoutTracking] Core finisher failed, skipping:', err);
@@ -609,19 +619,26 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         try {
           const data = JSON.parse(dailyRaw) as DailyGeneratedSnapshot;
           if (data?.date === todayStr && data?.workout) {
-            setCurrentGeneratedWorkout(data.workout);
-            generatedForDateRef.current = todayStr;
-            if (typeof data.title === 'string' && data.title.trim()) {
-              ctx.setCurrentWorkoutTitle(data.title);
+            // If active plan exists and this snapshot lacks the planDayDate tag,
+            // skip loading it — ensureTodayWorkoutGenerated will load the correct
+            // plan workout from cache after hydration completes.
+            if (ctx.activePlan && !ctx.workoutOverride && !(data.workout as any).planDayDate) {
+              __DEV__ && console.log('[Tracking] Skipping stale non-plan snapshot — plan cache will be used');
             } else {
-              ctx.setCurrentWorkoutTitle(
-                buildCreativeWorkoutTitle({
-                  style: data.workout.style,
-                  split: data.workout.split,
-                  metconFormat: data.workout.metconFormat,
-                  duration: data.workout.estimatedDuration,
-                })
-              );
+              setCurrentGeneratedWorkout(data.workout);
+              generatedForDateRef.current = todayStr;
+              if (typeof data.title === 'string' && data.title.trim()) {
+                ctx.setCurrentWorkoutTitle(data.title);
+              } else {
+                ctx.setCurrentWorkoutTitle(
+                  buildCreativeWorkoutTitle({
+                    style: data.workout.style,
+                    split: data.workout.split,
+                    metconFormat: data.workout.metconFormat,
+                    duration: data.workout.estimatedDuration,
+                  })
+                );
+              }
             }
           } else if (data?.date && data.date !== todayStr) {
             void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
@@ -972,16 +989,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (!log) return prev;
       const newSets = [...log.sets];
       newSets[setIndex] = { ...newSets[setIndex], done: !newSets[setIndex].done };
-
-      // On check: cascade weight/reps to all following undone sets
-      if (newSets[setIndex].done) {
-        const { weight, reps } = newSets[setIndex];
-        for (let i = setIndex + 1; i < newSets.length; i++) {
-          if (!newSets[i].done) {
-            newSets[i] = { ...newSets[i], weight, reps };
-          }
-        }
-      }
 
       if (newSets[setIndex].done) {
         const set = newSets[setIndex];

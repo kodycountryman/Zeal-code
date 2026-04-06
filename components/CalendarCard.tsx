@@ -259,6 +259,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: CELL_GAP,
+    minHeight: 84,
   },
   calendarBtn: {
     borderTopRightRadius: 12,

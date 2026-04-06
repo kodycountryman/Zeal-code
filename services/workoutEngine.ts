@@ -1662,7 +1662,13 @@ function applyStyleAwareGrouping(
       }
     } else if (formatId === 'emom') {
       const emomParams = getEMOMParams(metconBudgetMin, level);
-      const emomExerciseCount = Math.min(emomParams.exercises_per_rotation, metconCandidates.length);
+      // If the metcon candidate pool is too small for EMOM's minimum of 4, pull from full exercise list
+      const emomPool = metconCandidates.length >= emomParams.exercises_per_rotation
+        ? metconCandidates
+        : exercises.length >= emomParams.exercises_per_rotation
+          ? exercises
+          : metconCandidates;
+      const emomExerciseCount = Math.min(emomParams.exercises_per_rotation, emomPool.length);
       // EMOM duration must be a multiple of exercise count (each round = 1 min per exercise)
       const emomMinutes = emomParams.total_minutes;
       // Verify divisibility — getEMOMParams already ensures this, but clamp if exercise pool was smaller
@@ -1671,7 +1677,7 @@ function applyStyleAwareGrouping(
         : emomMinutes;
       timeCap = adjustedMinutes;
       rounds = adjustedMinutes; // EMOM total minutes = number of 1-minute slots
-      metconPool = metconCandidates.slice(0, emomExerciseCount);
+      metconPool = emomPool.slice(0, emomExerciseCount);
 
       // EMOM: small rep counts completable within ~40 s to earn rest within the minute
       for (const ex of metconPool) {
