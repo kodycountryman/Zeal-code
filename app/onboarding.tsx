@@ -136,10 +136,22 @@ export default function OnboardingScreen() {
     }).start();
   }, [step]);
 
+  const ageError = useMemo(() => {
+    if (step !== 2) return null;
+    const today = new Date();
+    const birth = new Date(birthYear, birthMonth - 1, birthDay);
+    let age = today.getFullYear() - birth.getFullYear();
+    const notHadBirthdayYet =
+      today.getMonth() < birth.getMonth() ||
+      (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
+    if (notHadBirthdayYet) age -= 1;
+    return age < 10 ? 'You must be at least 10 years old to use Zeal.' : null;
+  }, [step, birthYear, birthMonth, birthDay]);
+
   const canContinue = useMemo(() => {
     switch (step) {
       case 1: return name.trim().length > 0;
-      case 2: return true;
+      case 2: return ageError === null;
       case 3: return sex !== null;
       case 4: return true;
       case 5: return true;
@@ -151,7 +163,7 @@ export default function OnboardingScreen() {
       case 11: return true;
       default: return false;
     }
-  }, [step, name, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone]);
+  }, [step, name, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone, ageError]);
 
   const goNext = useCallback(() => {
     if (step === 11) {
@@ -343,6 +355,7 @@ export default function OnboardingScreen() {
               onDayChange={setBirthDay}
               onMonthChange={setBirthMonth}
               onYearChange={setBirthYear}
+              ageError={ageError}
             />
           )}
           {step === 3 && <StepSex value={sex} onChange={setSex} />}
@@ -472,11 +485,13 @@ function StepName({ name, onChange, onSubmit }: { name: string; onChange: (v: st
 function StepBirthday({
   day, month, year,
   onDayChange, onMonthChange, onYearChange,
+  ageError,
 }: {
   day: number; month: number; year: number;
   onDayChange: (v: number) => void;
   onMonthChange: (v: number) => void;
   onYearChange: (v: number) => void;
+  ageError: string | null;
 }) {
   const monthFormatValue = useCallback((v: number) => MONTH_NAMES[v - 1] ?? String(v), []);
 
@@ -538,6 +553,9 @@ function StepBirthday({
         <Text style={styles.birthdayPreview}>
           {MONTH_NAMES[month - 1]} {String(day).padStart(2, '0')}, {year}
         </Text>
+        {ageError && (
+          <Text style={styles.ageErrorText}>{ageError}</Text>
+        )}
       </View>
     </View>
   );
@@ -1142,6 +1160,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     color: ACCENT,
     letterSpacing: 0.3,
+  },
+  ageErrorText: {
+    color: '#ef4444',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 10,
+    fontFamily: 'Outfit_400Regular',
   },
   pickerCenteredWrap: {
     alignItems: 'center',
