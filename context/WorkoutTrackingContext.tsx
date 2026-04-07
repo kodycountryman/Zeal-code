@@ -16,6 +16,7 @@ import {
   scheduleWeeklySummary,
 } from '@/services/notificationService';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
+import { calcCurrentStreak } from '@/services/milestonesData';
 
 const HISTORY_KEY = '@zeal_workout_history_v1';
 const PR_KEY = '@zeal_pr_history_v1';
@@ -89,6 +90,7 @@ export interface WorkoutLog {
   isManualLog?: boolean;
   calories?: number;
   muscleGroups?: string[];
+  muscleSetCounts?: Record<string, number>; // muscle name → completed sets
   startTime?: string;
 }
 
@@ -376,27 +378,16 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     if (currentGeneratedWorkout) {
       const refDay = generatedForDateRef.current;
       if (refDay === todayStr) {
-        // If active plan and no override, verify the loaded workout actually
-        // came from the plan cache. If not, clear it and re-generate from cache.
-        if (hasPlan && !ov && !(currentGeneratedWorkout as any).planDayDate) {
-          setCurrentGeneratedWorkout(null);
-          generatedForDateRef.current = null;
-        } else {
-          return;
-        }
+        // Already have a workout generated for today — keep it.
+        return;
       } else if (refDay !== null && refDay !== todayStr) {
         setCurrentGeneratedWorkout(null);
         generatedForDateRef.current = null;
         void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
       } else {
         // refDay is null — workout loaded from snapshot hydration
-        if (hasPlan && !ov && !(currentGeneratedWorkout as any).planDayDate) {
-          setCurrentGeneratedWorkout(null);
-          generatedForDateRef.current = null;
-        } else {
-          generatedForDateRef.current = todayStr;
-          return;
-        }
+        generatedForDateRef.current = todayStr;
+        return;
       }
     }
 
@@ -455,6 +446,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       // Pass plan phase context so generation matches current training phase
       planPhase: prescription?.phase,
       volumeModifier: prescription?.volume_modifier,
+      exercisePreferences: ctx.exercisePreferences,
     };
 
     // If we have a pre-generated plan day workout in cache, use it directly — skip AI call
@@ -465,7 +457,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         if (cached) {
           const cachedWorkout: GeneratedWorkout = JSON.parse(cached);
           cachedWorkout.workout = enforceStyleGrouping(cachedWorkout.workout, cachedWorkout.style);
-          (cachedWorkout as any).planDayDate = todayStr;
           generatedForDateRef.current = todayStr;
           setCurrentGeneratedWorkout(cachedWorkout);
           ctx.setCurrentWorkoutTitle(
@@ -619,26 +610,19 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         try {
           const data = JSON.parse(dailyRaw) as DailyGeneratedSnapshot;
           if (data?.date === todayStr && data?.workout) {
-            // If active plan exists and this snapshot lacks the planDayDate tag,
-            // skip loading it — ensureTodayWorkoutGenerated will load the correct
-            // plan workout from cache after hydration completes.
-            if (ctx.activePlan && !ctx.workoutOverride && !(data.workout as any).planDayDate) {
-              __DEV__ && console.log('[Tracking] Skipping stale non-plan snapshot — plan cache will be used');
+            setCurrentGeneratedWorkout(data.workout);
+            generatedForDateRef.current = todayStr;
+            if (typeof data.title === 'string' && data.title.trim()) {
+              ctx.setCurrentWorkoutTitle(data.title);
             } else {
-              setCurrentGeneratedWorkout(data.workout);
-              generatedForDateRef.current = todayStr;
-              if (typeof data.title === 'string' && data.title.trim()) {
-                ctx.setCurrentWorkoutTitle(data.title);
-              } else {
-                ctx.setCurrentWorkoutTitle(
-                  buildCreativeWorkoutTitle({
-                    style: data.workout.style,
-                    split: data.workout.split,
-                    metconFormat: data.workout.metconFormat,
-                    duration: data.workout.estimatedDuration,
-                  })
-                );
-              }
+              ctx.setCurrentWorkoutTitle(
+                buildCreativeWorkoutTitle({
+                  style: data.workout.style,
+                  split: data.workout.split,
+                  metconFormat: data.workout.metconFormat,
+                  duration: data.workout.estimatedDuration,
+                })
+              );
             }
           } else if (data?.date && data.date !== todayStr) {
             void AsyncStorage.removeItem(DAILY_GENERATED_SNAPSHOT_KEY).catch(() => {});
@@ -1174,6 +1158,17 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       acc + log.sets.filter(s => s.done).reduce((sum, s) => sum + s.weight * s.reps, 0), 0
     );
 
+    // Build per-muscle completed set counts for science-based readiness drops
+    const muscleSetCounts: Record<string, number> = {};
+    if (activeWorkout) {
+      for (const ex of activeWorkout.workout) {
+        const log = exerciseLogs[ex.id];
+        const doneSets = log ? log.sets.filter(s => s.done).length : 0;
+        const muscle = ex.muscleGroup;
+        muscleSetCounts[muscle] = (muscleSetCounts[muscle] ?? 0) + doneSets;
+      }
+    }
+
     const sessionId = generateId();
     const sessionStartISO = new Date(Date.now() - workoutElapsedRef.current * 1000).toISOString();
     saveTimeRef.current = Date.now();
@@ -1193,6 +1188,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       starRating: selectedStarRating,
       rpe: selectedRpe,
       whatWentWell,
+      muscleSetCounts,
       startTime: sessionStartISO,
     };
 
@@ -1254,24 +1250,30 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     ctx.setHoursTrainedToday(hours >= 1 ? `${hours}h` : `${newMinutes}m`);
 
     if (activeWorkout) {
-      const workedMuscles = new Set<string>();
-      for (const ex of activeWorkout.workout) {
-        workedMuscles.add(ex.muscleGroup);
-      }
+      // Difficulty multiplier — harder sessions cause deeper fatigue
+      const difficultyMultiplier: Record<string, number> = {
+        easy: 0.6, moderate: 0.85, hard: 1.0, brutal: 1.25,
+      };
+      const diffMul = difficultyMultiplier[selectedDifficulty] ?? 1.0;
+
       const updatedReadiness = ctx.muscleReadiness.map(m => {
-        if (workedMuscles.has(m.name)) {
-          return { ...m, status: 'recovering' as const, value: Math.max(20, m.value - 40), lastWorked: 'Today' };
-        }
-        return m;
+        const sets = muscleSetCounts[m.name] ?? 0;
+        if (sets === 0) return m; // untouched muscle — no change
+
+        // Volume scaling: 1-2 sets = light, 3-5 = moderate, 6-8 = heavy, 9+ = max
+        // Base drop 15–50 scaled by sets, then multiplied by difficulty
+        const volumeFactor = Math.min(1.0, (sets / 8));          // 0..1 across 1–8 sets
+        const baseDrop = Math.round((15 + volumeFactor * 35) * diffMul); // 9–75, capped below
+        const drop = Math.min(65, Math.max(10, baseDrop));        // floor 10, ceiling 65
+
+        return { ...m, status: 'recovering' as const, value: Math.max(15, m.value - drop), lastWorked: 'Today' };
       });
       ctx.setMuscleReadiness(updatedReadiness);
     }
 
-    const today = getTodayStr();
-    if (ctx.lastStreakDate !== today) {
-      ctx.setStreak(ctx.streak + 1);
-      ctx.setLastStreakDate(today);
-    }
+    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
+    ctx.setStreak(newStreak);
+    ctx.setLastStreakDate(getTodayStr());
 
     ctx.saveState();
 
@@ -1365,6 +1367,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
 
+    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
+    ctx.setStreak(newStreak);
+    ctx.setLastStreakDate(getTodayStr());
+
     const weekStart = getWeekStart();
     const logDate = new Date(data.date);
     const weekStartDate = new Date(weekStart);
@@ -1417,10 +1423,15 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const newHistory = [logEntry, ...workoutHistory];
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
+
+    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
+    ctx.setStreak(newStreak);
+    ctx.setLastStreakDate(getTodayStr());
+
     markImportSeen(importItem.id);
     setPendingHealthImports(prev => prev.filter(i => i.id !== importItem.id));
     __DEV__ && console.log('[HealthImport] Accepted:', importItem.id, style, muscleGroups);
-  }, [workoutHistory, markImportSeen]);
+  }, [workoutHistory, markImportSeen, ctx]);
 
   const dismissHealthImport = useCallback((importId: string) => {
     markImportSeen(importId);
@@ -1530,6 +1541,18 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory)).catch(console.warn);
 
+    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
+    ctx.setStreak(newStreak);
+    ctx.setLastStreakDate(getTodayStr());
+
+    // Remove any PRs that were set during the deleted session
+    const newPRHistory = prHistory.filter(pr => pr.sessionId !== logId);
+    if (newPRHistory.length !== prHistory.length) {
+      setPrHistory(newPRHistory);
+      AsyncStorage.setItem(PR_KEY, JSON.stringify(newPRHistory)).catch(console.warn);
+      __DEV__ && console.log('[Tracking] Removed', prHistory.length - newPRHistory.length, 'PRs for deleted session:', logId);
+    }
+
     // Recalculate muscle readiness from remaining history
     const freshReadiness: MuscleReadinessItem[] = [
       { name: 'Chest', status: 'ready', value: 100, lastWorked: 'Never' },
@@ -1548,18 +1571,29 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     // Replay remaining logs to rebuild readiness (most recent first)
     const sortedRemaining = [...newHistory].sort((a, b) => b.date.localeCompare(a.date));
     const muscleMap = new Map(freshReadiness.map(m => [m.name, m]));
+    const difficultyMultiplier: Record<string, number> = {
+      easy: 0.6, moderate: 0.85, hard: 1.0, brutal: 1.25,
+    };
     for (const log of sortedRemaining) {
       const logDate = new Date(log.date + 'T00:00:00');
       const daysAgo = Math.max(0, Math.floor((today.getTime() - logDate.getTime()) / 86_400_000));
-      if (daysAgo > 7) continue; // Only care about last 7 days
+      if (daysAgo > 7) continue;
+      const diffMul = difficultyMultiplier[log.difficulty] ?? 1.0;
       const muscles = log.muscleGroups ?? [];
       for (const name of muscles) {
         const m = muscleMap.get(name);
         if (!m) continue;
-        // Only apply if this is more recent than what we've already recorded
         if (m.lastWorked === 'Never' || m.lastWorked === '') {
-          const recovery = Math.min(40, daysAgo * 13); // ~3 days to full recovery from -40
-          const newValue = Math.max(20, 100 - 40 + recovery);
+          const sets = log.muscleSetCounts?.[name] ?? 4; // fallback for old logs without set counts
+          const volumeFactor = Math.min(1.0, sets / 8);
+          const baseDrop = Math.round((15 + volumeFactor * 35) * diffMul);
+          const drop = Math.min(65, Math.max(10, baseDrop));
+          // Exponential-ish recovery: faster early, slows near end
+          // recoveryFraction goes 0→1 over ~4 days, with a gentle curve
+          const recoveryFraction = Math.min(1, daysAgo / 4);
+          const eased = 1 - Math.pow(1 - recoveryFraction, 1.8); // ease-out curve
+          const recovered = Math.round(drop * eased);
+          const newValue = Math.min(100, Math.max(15, 100 - drop + recovered));
           const daysLabel = daysAgo === 0 ? 'Today' : `${daysAgo}d ago`;
           m.value = newValue;
           m.lastWorked = daysLabel;
@@ -1571,7 +1605,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     ctx.setMuscleReadiness(recalculated);
     ctx.saveState();
     __DEV__ && console.log('[Tracking] Recalculated muscle readiness after deletion');
-  }, [workoutHistory, ctx, weeklyHoursMin]);
+  }, [workoutHistory, prHistory, ctx, weeklyHoursMin]);
 
   const getLogForDate = useCallback((date: string): WorkoutLog | undefined => {
     return workoutHistory.find(l => l.date === date);

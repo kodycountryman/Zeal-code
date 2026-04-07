@@ -263,14 +263,14 @@ export default function LoginScreen() {
 
             <View style={styles.legalRow}>
               <TouchableOpacity
-                onPress={() => Linking.openURL('https://kodycountryman.notion.site/zeal-Privacy-Policy-327209e49d07805fb401cc05bdf9a1dd')}
+                onPress={() => Linking.openURL('https://zealplus.app/privacy-policy.html')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={styles.legalText}>Privacy Policy</Text>
               </TouchableOpacity>
               <Text style={styles.legalDot}>·</Text>
               <TouchableOpacity
-                onPress={() => Linking.openURL('https://kodycountryman.notion.site/Zeal-Terms-of-Service-327209e49d0780d2a5fed1775bff3d57')}
+                onPress={() => Linking.openURL('https://zealplus.app/terms-of-service.html')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={styles.legalText}>Terms of Service</Text>

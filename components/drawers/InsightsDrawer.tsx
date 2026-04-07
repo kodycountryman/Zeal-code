@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   Animated,
   Platform,
+  Modal,
 } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import GlassCard from '@/components/GlassCard';
 import StyleTrackerDrawer from '@/components/drawers/StyleTrackerDrawer';
+import MuscleReadinessDrawer from '@/components/drawers/MuscleReadinessDrawer';
 import Svg, { Polygon, Line, Circle as SvgCircle, Polyline } from 'react-native-svg';
 import {
   X,
@@ -33,6 +35,7 @@ import {
   TrendingDown,
   Minus,
   BarChart3,
+  Info,
 } from 'lucide-react-native';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -231,6 +234,14 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   const [prShowAll, setPrShowAll] = useState(false);
   const [prTimelineShowAll, setPrTimelineShowAll] = useState(false);
   const [trackerVisible, setTrackerVisible] = useState(false);
+  const [readinessDrawerVisible, setReadinessDrawerVisible] = useState(false);
+  const [infoToast, setInfoToast] = useState<{ title: string; body: string } | null>(null);
+  const infoToastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const showInfo = useCallback((title: string, body: string) => {
+    if (infoToastTimer.current) clearTimeout(infoToastTimer.current);
+    setInfoToast({ title, body });
+    infoToastTimer.current = setTimeout(() => setInfoToast(null), 4500);
+  }, []);
   const [detailItem, setDetailItem] = useState<Achievement | null>(null);
 
   // ─── Tab bar state ──────────────────────────────────────
@@ -342,7 +353,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   }, [ctx.workoutStyle, tracking.workoutHistory, tracking.prHistory, ctx.sex, ctx.weight]);
 
   // S7: Consistency heatmap
-  const consistency = useMemo(() => getConsistencyData(tracking.workoutHistory, hasPro ? 12 : 4), [tracking.workoutHistory, hasPro]);
+  const consistency = useMemo(() => getConsistencyData(tracking.workoutHistory, hasPro ? 17 : 8), [tracking.workoutHistory, hasPro]);
 
   // S8: Grouped PRs
   const groupedPRs = useMemo(() => getGroupedPRs(tracking.prHistory, tracking.workoutHistory), [tracking.prHistory, tracking.workoutHistory]);
@@ -379,6 +390,40 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   const prTimeline = useMemo(() => getPRTimeline(tracking.prHistory), [tracking.prHistory]);
   const recordsBoard = useMemo(() => getRecordsBoard(tracking.workoutHistory), [tracking.workoutHistory]);
   const warmupCompliance = useMemo(() => getWarmupCompliance(tracking.workoutHistory), [tracking.workoutHistory]);
+  const styleDistribution = useMemo(() => {
+    if (tracking.workoutHistory.length === 0) return [];
+    const counts: Record<string, number> = {};
+    for (const log of tracking.workoutHistory) {
+      const s = (log as any).workoutStyle ?? 'Other';
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    const total = tracking.workoutHistory.length;
+    return Object.entries(counts)
+      .map(([style, count]) => ({ style, count, pct: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.count - a.count);
+  }, [tracking.workoutHistory]);
+
+  const todDistribution = useMemo(() => {
+    const withTime = tracking.workoutHistory.filter(l => l.startTime);
+    if (withTime.length === 0) return { buckets: [] as { label: string; emoji: string; count: number }[], total: 0 };
+    let morning = 0, afternoon = 0, evening = 0, night = 0;
+    for (const log of withTime) {
+      const h = new Date(log.startTime!).getHours();
+      if (h >= 5 && h < 12) morning++;
+      else if (h >= 12 && h < 17) afternoon++;
+      else if (h >= 17 && h < 21) evening++;
+      else night++;
+    }
+    return {
+      total: withTime.length,
+      buckets: [
+        { label: 'Morning', emoji: '🌅', count: morning },
+        { label: 'Afternoon', emoji: '☀️', count: afternoon },
+        { label: 'Evening', emoji: '🌆', count: evening },
+        { label: 'Night', emoji: '🌙', count: night },
+      ],
+    };
+  }, [tracking.workoutHistory]);
 
   // Badges
   const badges = useMemo(() => computeBadges(tracking.workoutHistory, tracking.prHistory, ctx.weight || 160), [tracking.workoutHistory, tracking.prHistory, ctx.weight]);
@@ -396,6 +441,52 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
   const sectionBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const mutedLabel = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)';
+
+  // ─── Info toast helpers ─────────────────────────────────
+  const CARD_INFO: Record<string, string> = {
+    'STRENGTH PROFILE': 'Your estimated strength percentile across 6 movement categories vs. others of the same sex & bodyweight. Tap a spoke for details on that category.',
+    'MUSCLE READINESS': 'How recovered each muscle group is based on recent training volume and difficulty. Green = ready, yellow = building, red = recovering.',
+    'THIS WEEK': 'A snapshot of your training this 7-day window — workouts, total time, streak, and new PRs.',
+    'TRAINING LOAD': 'Your weekly training volume trend. Rising bars = increasing load. Spikes may mean overreaching; flat lines may signal time for a deload.',
+    'INSIGHTS': 'Style-specific metrics tailored to your training approach. Updates as you log workouts.',
+    'APPLE HEALTH — TODAY': 'Live data pulled from Apple Health — steps, estimated calories burned, and resting heart rate for today.',
+    'HEALTH CONNECT — TODAY': 'Live data pulled from Health Connect — steps, estimated calories burned, and resting heart rate for today.',
+    'AVG SESSION DURATION': 'Average workout length across recent sessions. Trending up means you\'re investing more time per session.',
+    'PEAK PERFORMANCE': 'The time of day when your workouts tend to be longest or highest quality, based on your history.',
+    'WORKOUT TIME OF DAY': 'How your sessions are distributed across morning, afternoon, evening, and night — based on when you actually started each workout.',
+    'TRAINING SPLIT (THIS MONTH)': 'Which muscle groups you\'ve hit most this month. Useful for spotting imbalances in your weekly split.',
+    'WEEKLY CALORIES BURNED': 'Estimated calories burned per week from logged workouts, trended over recent weeks.',
+    'CONSISTENCY': 'A heatmap of your workout frequency over the past 12 weeks. Darker squares = more active weeks.',
+    'PERSONAL RECORDS': 'Your all-time bests on individual exercises, tracked automatically across every session.',
+    'MILESTONES': 'Long-term goals tied to total workouts, PRs, and streak length. Progress reflects your full Zeal+ history.',
+    'BADGES': 'Special achievements unlocked by hitting specific training milestones or maintaining consistent habits.',
+    'LIFETIME TOTALS': 'Cumulative stats across every workout you\'ve ever logged — total time, sets, reps, and estimated calories.',
+    'ALL-TIME RECORDS': 'Your personal bests: heaviest lift, longest session, and highest volume day ever recorded.',
+    'MOST POPULAR': 'The exercises you\'ve done most often and the training styles you rely on most.',
+    'PR TIMELINE': 'A chronological view of when each personal record was set, so you can see your progress arc.',
+    'EQUIPMENT USAGE': 'Which equipment types appear most frequently across your logged workouts.',
+    'WARM-UP COMPLIANCE': 'How consistently you complete a warm-up before your main workout.',
+    'STRENGTH RATIOS': 'How your major lifts compare to each other — useful for spotting muscle imbalances or weak links.',
+    'PROGRESSIVE OVERLOAD': 'Week-over-week changes in weight, volume, or reps on key exercises to track adaptation.',
+    'TRAINING PATTERNS': 'Your training habits over time — preferred days, session timing, and rest frequency.',
+    'PROJECTIONS': 'Estimated future performance based on your current rate of improvement.',
+    'COMPARE TO YOURSELF': 'How your last 4 weeks stack up against the 4 weeks before — your own personal benchmark.',
+    'REST PATTERNS (4 WK)': 'How much rest you typically take between sessions and how that relates to performance.',
+    'MUSCLE BALANCE SCORE': 'A 0–100 score reflecting how evenly you train all major muscle groups. Higher = more balanced.',
+    'SESSION QUALITY': 'A trend of your self-rated workout quality over time, based on your post-workout feedback.',
+    'EXERCISE PREFERENCES': 'A summary of exercises you\'ve liked or disliked, directly influencing future workout suggestions.',
+  };
+
+  const InfoHeader = ({ title, desc, noMargin }: { title: string; desc: string; noMargin?: boolean }) => (
+    <TouchableOpacity
+      style={[styles.infoHeaderRow, noMargin && { marginBottom: 0 }]}
+      onPress={() => showInfo(title, desc)}
+      activeOpacity={0.65}
+      hitSlop={{ top: 8, bottom: 8, left: 0, right: 16 }}
+    >
+      <Text style={[styles.sectionLabel, { color: mutedLabel, marginBottom: 0 }]}>{title}</Text>
+    </TouchableOpacity>
+  );
 
   // ─── Render ─────────────────────────────────────────────
   const insightsTabs: { key: InsightsTab; label: string; icon: React.ReactNode }[] = [
@@ -496,7 +587,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {/* ═══ S1: Strength Percentile Radar ═══ */}
         <GlassCard>
           <View style={styles.sectionInner}>
-            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>STRENGTH PROFILE</Text>
+            <InfoHeader title="STRENGTH PROFILE" desc={CARD_INFO['STRENGTH PROFILE'] ?? ''} />
 
             <View style={styles.radarWrapper}>
               <View style={[styles.radarContainer, !hasPro && { opacity: PRO_LOCKED_OPACITY }]}>
@@ -573,32 +664,95 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </View>
         </GlassCard>
 
-        {/* ═══ S2: AI Coach Card ═══ */}
-        {hasPro && coachTips.length > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <View style={styles.coachHeader}>
-                <Sparkles size={12} color={accent} />
-                <Text style={[styles.sectionLabel, { color: mutedLabel, marginBottom: 0 }]}>AI COACH</Text>
-              </View>
-              <View style={[styles.coachCard, { borderLeftColor: accent }]}>
-                <InsightIcon name={coachTips[0].icon} color={accent} size={16} />
-                <View style={styles.coachContent}>
-                  <Text style={[styles.coachTitle, { color: colors.text }]}>{coachTips[0].title}</Text>
-                  <Text style={[styles.coachBody, { color: colors.textSecondary }]}>{coachTips[0].body}</Text>
-                </View>
-              </View>
-              <Text style={[styles.coachAttribution, { color: colors.textMuted }]}>
-                Based on your last {Math.min(tracking.workoutHistory.length, 28)} workouts
-              </Text>
-            </View>
-          </GlassCard>
-        )}
+        {/* ═══ S2: Muscle Readiness Card ═══ */}
+        {(() => {
+          const muscles = ctx.muscleReadiness;
+          if (!muscles || muscles.length === 0) return null;
+
+          // Interpolate red→yellow→green
+          const rc = (value: number): string => {
+            const t = Math.max(0, Math.min(100, value)) / 100;
+            let r: number, g: number, b: number;
+            if (t <= 0.5) {
+              const s = t / 0.5;
+              r = Math.round(239 + (234 - 239) * s);
+              g = Math.round(68  + (179 - 68)  * s);
+              b = Math.round(68  + (8   - 68)  * s);
+            } else {
+              const s = (t - 0.5) / 0.5;
+              r = Math.round(234 + (34  - 234) * s);
+              g = Math.round(179 + (197 - 179) * s);
+              b = Math.round(8   + (94  - 8)   * s);
+            }
+            return `rgb(${r},${g},${b})`;
+          };
+
+          // 4 summary groups
+          const avg = (names: string[]) => {
+            const vals = names.map(n => muscles.find(m => m.name === n)?.value ?? 100);
+            return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+          };
+          const groups = [
+            { label: 'Chest', names: ['Chest'] },
+            { label: 'Back',  names: ['Back'] },
+            { label: 'Legs',  names: ['Quads', 'Hamstrings', 'Glutes', 'Calves'] },
+            { label: 'Core',  names: ['Core'] },
+          ];
+
+          const overallScore = Math.round(muscles.reduce((s, m) => s + m.value, 0) / muscles.length);
+          const overallColor = rc(overallScore);
+
+          return (
+            <>
+              <TouchableOpacity activeOpacity={0.75} onPress={() => setReadinessDrawerVisible(true)}>
+                <GlassCard>
+                  <View style={styles.sectionInner}>
+                    {/* Header */}
+                    <View style={styles.readinessHeaderRow}>
+                      <InfoHeader title="MUSCLE READINESS" desc={CARD_INFO['MUSCLE READINESS'] ?? ''} noMargin />
+                      <Text style={[styles.readinessOverallPct, { color: overallColor }]}>{overallScore}%</Text>
+                    </View>
+
+                    {/* Overall bar */}
+                    <View style={styles.readinessOverallTrack}>
+                      <View style={[styles.readinessOverallFill, { width: `${overallScore}%` as any, backgroundColor: overallColor }]} />
+                    </View>
+
+                    {/* 4 group bars */}
+                    <View style={styles.readinessMuscleRow}>
+                      {groups.map(g => {
+                        const val = avg(g.names);
+                        const color = rc(val);
+                        return (
+                          <View key={g.label} style={styles.readinessMuscleCell}>
+                            <Text style={[styles.readinessMuscleName, { color: colors.textMuted }]} numberOfLines={1}>{g.label}</Text>
+                            <View style={styles.readinessMicroTrack}>
+                              <View style={[styles.readinessMicroFill, { width: `${val}%` as any, backgroundColor: color }]} />
+                            </View>
+                            <Text style={[styles.readinessMuscleVal, { color }]}>{val}%</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    {/* Tap hint */}
+                    <Text style={[styles.readinessTapHint, { color: colors.textMuted }]}>Tap to view all muscles</Text>
+                  </View>
+                </GlassCard>
+              </TouchableOpacity>
+
+              <MuscleReadinessDrawer
+                visible={readinessDrawerVisible}
+                onClose={() => setReadinessDrawerVisible(false)}
+              />
+            </>
+          );
+        })()}
 
         {/* ═══ S3: This Week Stats ═══ */}
         <GlassCard>
           <View style={styles.sectionInner}>
-            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>THIS WEEK</Text>
+            <InfoHeader title="THIS WEEK" desc={CARD_INFO['THIS WEEK'] ?? ''} />
 
             {/* 2x2 metric grid */}
             <View style={styles.metricGrid}>
@@ -616,7 +770,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
             </View>
 
             {/* 7-day bar chart */}
-            {dayBars.some(b => b.duration > 0) ? (
+            {dayBars.some(b => b.duration > 0) && (
               <View style={styles.barChart}>
                 {dayBars.map((bar) => {
                   const maxDur = Math.max(...dayBars.map(b => b.duration), 1);
@@ -637,10 +791,6 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                   );
                 })}
               </View>
-            ) : (
-              <Text style={[styles.emptyTextSmall, { color: colors.textMuted }]}>
-                Start a workout to see your week
-              </Text>
             )}
           </View>
         </GlassCard>
@@ -649,7 +799,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         <GlassCard>
           <View style={styles.sectionInner}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel, marginBottom: 0 }]}>TRAINING LOAD</Text>
+              <InfoHeader title="TRAINING LOAD" desc={CARD_INFO['TRAINING LOAD'] ?? ''} noMargin />
               {!hasPro && (
                 <TouchableOpacity onPress={() => showProGate('training_load', openPaywall)} activeOpacity={0.7}>
                   <Crown size={12} color={PRO_GOLD} />
@@ -681,9 +831,39 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                   </View>
                 </>
               ) : (
-                <Text style={[styles.emptyTextSmall, { color: colors.textMuted }]}>
-                  Complete workouts to track training load
-                </Text>
+                /* ── Example preview state ── */
+                <View>
+                  <View style={styles.exampleBadgeRow}>
+                    <View style={[styles.exampleBadge, { backgroundColor: `${accent}22`, borderColor: `${accent}44` }]}>
+                      <Text style={[styles.exampleBadgeText, { color: accent }]}>EXAMPLE</Text>
+                    </View>
+                  </View>
+                  <View style={{ opacity: 0.35 }}>
+                    <View style={styles.loadChart}>
+                      {[28, 45, 38, 60, 52, 70, 65, 80].map((vol, i) => {
+                        const maxVol = 80;
+                        const height = Math.max((vol / maxVol) * 48, 4);
+                        const isLast = i === 7;
+                        return (
+                          <View key={i} style={styles.loadBarCol}>
+                            <View style={[styles.loadBar, { height, backgroundColor: isLast ? accent : `${accent}55` }]} />
+                            <Text style={[styles.loadBarLabel, { color: isLast ? accent : colors.textMuted }]} numberOfLines={1}>
+                              {['Sep 2', 'Sep 9', 'Sep 16', 'Sep 23', 'Sep 30', 'Oct 7', 'Oct 14', 'This wk'][i]}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <View style={[styles.loadStatus, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+                      <BarChart3 size={14} color={accent} />
+                      <Text style={[styles.loadStatusText, { color: colors.text }]}>Building</Text>
+                    </View>
+                  </View>
+                  <View style={styles.exampleUnlockRow}>
+                    <BarChart3 size={14} color={colors.textMuted} strokeWidth={1.5} />
+                    <Text style={[styles.exampleUnlockText, { color: colors.textMuted }]}>Complete workouts to track training load</Text>
+                  </View>
+                </View>
               )}
             </View>
 
@@ -699,98 +879,137 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {/* ═══ S5: Style-Specific Insights ═══ */}
         <GlassCard>
           <View style={styles.sectionInner}>
-            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>{ctx.workoutStyle.toUpperCase()} INSIGHTS</Text>
+            <InfoHeader title={`${ctx.workoutStyle.toUpperCase()} INSIGHTS`} desc={CARD_INFO['INSIGHTS'] ?? ''} />
 
-            {styleInsight.type === 'bodybuilding' && (
-              <View style={styles.styleInsightContent}>
-                {styleInsight.muscleVolume.filter(m => m.sets > 0 || m.recommended[0] > 0).slice(0, 8).map((m) => (
-                  <View key={m.muscle} style={styles.volumeRow}>
-                    <Text style={[styles.volumeLabel, { color: colors.text }]}>{m.muscle}</Text>
-                    <View style={styles.volumeBarArea}>
-                      <View style={[styles.volumeBarTrack, { backgroundColor: colors.border }]}>
-                        <View style={[
-                          styles.volumeBarFill,
-                          {
-                            width: `${Math.min((m.sets / m.recommended[1]) * 100, 100)}%` as any,
-                            backgroundColor: m.sets < m.recommended[0] ? '#ef4444' : accent,
-                          },
-                        ]} />
-                      </View>
-                      <Text style={[styles.volumeSets, { color: colors.textSecondary }]}>
-                        {m.sets}/{m.recommended[0]}-{m.recommended[1]}
-                      </Text>
-                    </View>
+            {(() => {
+              const hasData =
+                (styleInsight.type === 'strength' && styleInsight.topLifts.length > 0) ||
+                (styleInsight.type === 'bodybuilding' && styleInsight.muscleVolume.some(m => m.sets > 0)) ||
+                (styleInsight.type === 'conditioning' && styleInsight.sessionsThisWeek > 0) ||
+                (styleInsight.type === 'recovery' && styleInsight.sessionsThisWeek > 0);
+              return !hasData ? (
+              /* ── Example preview state ── */
+              <View>
+                {/* EXAMPLE badge */}
+                <View style={styles.exampleBadgeRow}>
+                  <View style={[styles.exampleBadge, { backgroundColor: `${accent}22`, borderColor: `${accent}44` }]}>
+                    <Text style={[styles.exampleBadgeText, { color: accent }]}>EXAMPLE</Text>
                   </View>
-                ))}
-                {styleInsight.underworked.length > 0 && (
-                  <Text style={[styles.underworkedText, { color: '#ef4444' }]}>
-                    Underworked: {styleInsight.underworked.join(', ')}
-                  </Text>
-                )}
-              </View>
-            )}
+                </View>
 
-            {styleInsight.type === 'strength' && (
-              <View style={styles.styleInsightContent}>
-                {styleInsight.topLifts.length === 0 ? (
-                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>Log compound lifts to see your 1RM trends</Text>
-                ) : (
-                  styleInsight.topLifts.map((lift) => (
-                    <View key={lift.name} style={[styles.liftRow, { borderBottomColor: colors.border }]}>
+                {/* Dimmed mock data */}
+                <View style={{ opacity: 0.35 }}>
+                  {(['Bench Press', 'Squat', 'Deadlift'] as const).map((name, i) => (
+                    <View key={name} style={[styles.liftRow, { borderBottomColor: colors.border }]}>
                       <View style={styles.liftInfo}>
-                        <Text style={[styles.liftName, { color: colors.text }]}>{lift.name}</Text>
+                        <Text style={[styles.liftName, { color: colors.text }]}>{name}</Text>
                         <Text style={[styles.liftSub, { color: colors.textSecondary }]}>est. 1RM</Text>
                       </View>
                       <View style={styles.liftRight}>
-                        <Text style={[styles.liftE1rm, { color: accent }]}>{lift.e1rm} lb</Text>
-                        {lift.trend === 'up' && <TrendingUp size={14} color="#22c55e" />}
-                        {lift.trend === 'down' && <TrendingDown size={14} color="#ef4444" />}
-                        {lift.trend === 'flat' && <Minus size={14} color={colors.textMuted} />}
+                        <Text style={[styles.liftE1rm, { color: accent }]}>{[185, 225, 275][i]} lb</Text>
+                        <TrendingUp size={14} color="#22c55e" />
                       </View>
                     </View>
-                  ))
-                )}
-              </View>
-            )}
+                  ))}
+                </View>
 
-            {styleInsight.type === 'conditioning' && (
-              <View style={styles.styleInsightContent}>
-                <View style={styles.conditioningRow}>
-                  <View style={styles.conditioningMetric}>
-                    <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.sessionsThisWeek}</Text>
-                    <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Sessions</Text>
-                  </View>
-                  <View style={styles.conditioningMetric}>
-                    <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.avgRPE ?? '-'}</Text>
-                    <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Avg RPE</Text>
-                  </View>
-                  <View style={styles.conditioningMetric}>
-                    <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.avgDuration}m</Text>
-                    <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Avg Time</Text>
-                  </View>
+                {/* Unlock prompt */}
+                <View style={styles.exampleUnlockRow}>
+                  <BarChart3 size={14} color={colors.textMuted} strokeWidth={1.5} />
+                  <Text style={[styles.exampleUnlockText, { color: colors.textMuted }]}>Complete a workout to see your real insights</Text>
                 </View>
               </View>
-            )}
-
-            {styleInsight.type === 'recovery' && (
-              <View style={styles.styleInsightContent}>
-                <View style={styles.conditioningRow}>
-                  <View style={styles.conditioningMetric}>
-                    <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.sessionsThisWeek}</Text>
-                    <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Sessions</Text>
+            ) : (
+              <>
+                {styleInsight.type === 'bodybuilding' && (
+                  <View style={styles.styleInsightContent}>
+                    {styleInsight.muscleVolume.filter(m => m.sets > 0 || m.recommended[0] > 0).slice(0, 8).map((m) => (
+                      <View key={m.muscle} style={styles.volumeRow}>
+                        <Text style={[styles.volumeLabel, { color: colors.text }]}>{m.muscle}</Text>
+                        <View style={styles.volumeBarArea}>
+                          <View style={[styles.volumeBarTrack, { backgroundColor: colors.border }]}>
+                            <View style={[
+                              styles.volumeBarFill,
+                              {
+                                width: `${Math.min((m.sets / m.recommended[1]) * 100, 100)}%` as any,
+                                backgroundColor: m.sets < m.recommended[0] ? '#ef4444' : accent,
+                              },
+                            ]} />
+                          </View>
+                          <Text style={[styles.volumeSets, { color: colors.textSecondary }]}>
+                            {m.sets}/{m.recommended[0]}-{m.recommended[1]}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                    {styleInsight.underworked.length > 0 && (
+                      <Text style={[styles.underworkedText, { color: '#ef4444' }]}>
+                        Underworked: {styleInsight.underworked.join(', ')}
+                      </Text>
+                    )}
                   </View>
-                  <View style={styles.conditioningMetric}>
-                    <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.coveragePercent}%</Text>
-                    <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Coverage</Text>
-                  </View>
-                </View>
-                {styleInsight.areasTargeted.length > 0 && (
-                  <Text style={[styles.areasText, { color: colors.textSecondary }]}>
-                    Areas: {styleInsight.areasTargeted.join(', ')}
-                  </Text>
                 )}
-              </View>
-            )}
+
+                {styleInsight.type === 'strength' && (
+                  <View style={styles.styleInsightContent}>
+                    {styleInsight.topLifts.map((lift) => (
+                      <View key={lift.name} style={[styles.liftRow, { borderBottomColor: colors.border }]}>
+                        <View style={styles.liftInfo}>
+                          <Text style={[styles.liftName, { color: colors.text }]}>{lift.name}</Text>
+                          <Text style={[styles.liftSub, { color: colors.textSecondary }]}>est. 1RM</Text>
+                        </View>
+                        <View style={styles.liftRight}>
+                          <Text style={[styles.liftE1rm, { color: accent }]}>{lift.e1rm} lb</Text>
+                          {lift.trend === 'up' && <TrendingUp size={14} color="#22c55e" />}
+                          {lift.trend === 'down' && <TrendingDown size={14} color="#ef4444" />}
+                          {lift.trend === 'flat' && <Minus size={14} color={colors.textMuted} />}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {styleInsight.type === 'conditioning' && (
+                  <View style={styles.styleInsightContent}>
+                    <View style={styles.conditioningRow}>
+                      <View style={styles.conditioningMetric}>
+                        <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.sessionsThisWeek}</Text>
+                        <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Sessions</Text>
+                      </View>
+                      <View style={styles.conditioningMetric}>
+                        <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.avgRPE ?? '-'}</Text>
+                        <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Avg RPE</Text>
+                      </View>
+                      <View style={styles.conditioningMetric}>
+                        <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.avgDuration}m</Text>
+                        <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Avg Time</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {styleInsight.type === 'recovery' && (
+                  <View style={styles.styleInsightContent}>
+                    <View style={styles.conditioningRow}>
+                      <View style={styles.conditioningMetric}>
+                        <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.sessionsThisWeek}</Text>
+                        <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Sessions</Text>
+                      </View>
+                      <View style={styles.conditioningMetric}>
+                        <Text style={[styles.conditioningValue, { color: colors.text }]}>{styleInsight.coveragePercent}%</Text>
+                        <Text style={[styles.conditioningLabel, { color: colors.textMuted }]}>Coverage</Text>
+                      </View>
+                    </View>
+                    {styleInsight.areasTargeted.length > 0 && (
+                      <Text style={[styles.areasText, { color: colors.textSecondary }]}>
+                        Areas: {styleInsight.areasTargeted.join(', ')}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </>
+            )
+            })()}
           </View>
         </GlassCard>
 
@@ -800,9 +1019,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
             <View style={styles.sectionInner}>
               <View style={styles.healthHeader}>
                 <HeartPulse size={12} color="#ef4444" strokeWidth={2} />
-                <Text style={[styles.sectionLabel, { color: mutedLabel, marginBottom: 0 }]}>
-                  {Platform.OS === 'ios' ? 'APPLE HEALTH' : 'HEALTH CONNECT'} — TODAY
-                </Text>
+                <InfoHeader title={Platform.OS === 'ios' ? 'APPLE HEALTH — TODAY' : 'HEALTH CONNECT — TODAY'} desc={Platform.OS === 'ios' ? (CARD_INFO['APPLE HEALTH — TODAY'] ?? '') : (CARD_INFO['HEALTH CONNECT — TODAY'] ?? '')} noMargin />
               </View>
               <View style={styles.healthCards}>
                 <View style={[styles.healthCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
@@ -825,26 +1042,13 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </GlassCard>
         )}
 
-        {/* ═══ Muscle Readiness Summary ═══ */}
-        {muscleReadiness.muscles.length > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>MUSCLE READINESS</Text>
-              <View style={styles.readinessSummary}>
-                <View style={styles.readinessPill}><View style={[styles.readinessDot, { backgroundColor: '#22c55e' }]} /><Text style={[styles.readinessPillText, { color: colors.textSecondary }]}>{muscleReadiness.ready} ready</Text></View>
-                <View style={styles.readinessPill}><View style={[styles.readinessDot, { backgroundColor: '#eab308' }]} /><Text style={[styles.readinessPillText, { color: colors.textSecondary }]}>{muscleReadiness.building} building</Text></View>
-                <View style={styles.readinessPill}><View style={[styles.readinessDot, { backgroundColor: '#ef4444' }]} /><Text style={[styles.readinessPillText, { color: colors.textSecondary }]}>{muscleReadiness.recovering} recovering</Text></View>
-              </View>
-            </View>
-          </GlassCard>
-        )}
 
         {/* ═══ Average Duration Trend ═══ */}
         {durationTrend.dataPoints.length >= 3 && (
           <GlassCard>
             <View style={styles.sectionInner}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionLabel, { color: mutedLabel, marginBottom: 0 }]}>AVG SESSION DURATION</Text>
+                <InfoHeader title="AVG SESSION DURATION" desc={CARD_INFO['AVG SESSION DURATION'] ?? ''} noMargin />
                 <Text style={[styles.trendIndicator, { color: durationTrend.trend === 'up' ? '#22c55e' : durationTrend.trend === 'down' ? '#ef4444' : colors.textMuted }]}>
                   {durationTrend.avgRecent}m {durationTrend.trend === 'up' ? '↑' : durationTrend.trend === 'down' ? '↓' : '→'}
                 </Text>
@@ -867,7 +1071,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {peakWindow.bestWindow && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>PEAK PERFORMANCE</Text>
+              <InfoHeader title="PEAK PERFORMANCE" desc={CARD_INFO['PEAK PERFORMANCE'] ?? ''} />
               <Text style={[styles.peakWindowText, { color: colors.text }]}>
                 Your best sessions happen <Text style={{ color: accent, fontWeight: '800' }}>{peakWindow.bestWindow}</Text>
               </Text>
@@ -879,7 +1083,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {splitAdherence.splits.some(s => s.sets > 0) && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>TRAINING SPLIT (THIS MONTH)</Text>
+              <InfoHeader title="TRAINING SPLIT (THIS MONTH)" desc={CARD_INFO['TRAINING SPLIT (THIS MONTH)'] ?? ''} />
               <View style={styles.splitBar}>
                 {splitAdherence.splits.filter(s => s.pct > 0).map((s) => (
                   <View key={s.name} style={[styles.splitSegment, {
@@ -906,7 +1110,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {ctx.healthConnected && ctx.healthSyncEnabled && calorieTrend.weeklyTotals.some(w => w.calories > 0) && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>WEEKLY CALORIES BURNED</Text>
+              <InfoHeader title="WEEKLY CALORIES BURNED" desc={CARD_INFO['WEEKLY CALORIES BURNED'] ?? ''} />
               <Svg width={280} height={36} viewBox="0 0 280 36">
                 {(() => {
                   const data = calorieTrend.weeklyTotals.map(w => w.calories);
@@ -929,7 +1133,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {/* ═══ S7: Consistency Heatmap ═══ */}
         <GlassCard>
           <View style={styles.sectionInner}>
-            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>CONSISTENCY</Text>
+            <InfoHeader title="CONSISTENCY" desc={CARD_INFO['CONSISTENCY'] ?? ''} />
 
             <View style={styles.heatmapGrid}>
               {Array.from({ length: 7 }, (_, dayOfWeek) => (
@@ -937,22 +1141,24 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                   <Text style={[styles.heatmapDayLabel, { color: colors.textMuted }]}>
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'][dayOfWeek]}
                   </Text>
-                  {consistency.cells
-                    .filter(c => c.dayOfWeek === dayOfWeek)
-                    .map((cell) => (
-                      <View
-                        key={cell.date}
-                        style={[
-                          styles.heatmapCell,
-                          cell.workoutCount === 0
-                            ? { borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' }
-                            : cell.workoutCount >= 2
-                              ? { backgroundColor: accent, opacity: 0.8 }
-                              : { backgroundColor: accent, opacity: 0.4 },
-                        ]}
-                      />
-                    ))
-                  }
+                  <View style={styles.heatmapCells}>
+                    {consistency.cells
+                      .filter(c => c.dayOfWeek === dayOfWeek)
+                      .map((cell) => (
+                        <View
+                          key={cell.date}
+                          style={[
+                            styles.heatmapCell,
+                            cell.workoutCount === 0
+                              ? { borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' }
+                              : cell.workoutCount >= 2
+                                ? { backgroundColor: accent, opacity: 0.8 }
+                                : { backgroundColor: accent, opacity: 0.4 },
+                          ]}
+                        />
+                      ))
+                    }
+                  </View>
                 </View>
               ))}
             </View>
@@ -963,117 +1169,61 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </View>
         </GlassCard>
 
-        {/* ═══ S8: Personal Records ═══ */}
-        <GlassCard>
-          <View style={styles.sectionInner}>
-            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>PERSONAL RECORDS ({uniquePRs.length})</Text>
-
-            {groupedPRs.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No personal records yet.</Text>
-            ) : (
-              <>
-                {(['Upper Push', 'Upper Pull', 'Lower', 'Core', 'Other'] as PRCategory[]).map((cat) => {
-                  const catPRs = groupedPRs.filter(p => p.category === cat);
-                  if (catPRs.length === 0) return null;
-                  const displayPRs = prShowAll ? catPRs : catPRs.slice(0, 2);
-                  return (
-                    <View key={cat}>
-                      <Text style={[styles.prCategoryLabel, { color: colors.textMuted }]}>{cat}</Text>
-                      {displayPRs.map((pr, i) => (
-                        <View key={`${pr.exerciseName}-${i}`} style={[styles.prRow, { borderBottomColor: colors.border }]}>
-                          <View style={styles.prRowLeft}>
-                            <Text style={[styles.prName, { color: colors.text }]}>{pr.exerciseName}</Text>
-                            <Text style={[styles.prDetail, { color: colors.textSecondary }]}>
-                              {pr.reps} reps · {pr.weight} lb · {formatDate(pr.date)}
-                            </Text>
-                          </View>
-                          <View style={styles.prRowRight}>
-                            <Text style={[styles.prE1rm, { color: accent }]}>~{pr.e1rm} lb</Text>
-                            <View style={styles.prTrend}>
-                              {pr.trend === 'up' && <TrendingUp size={10} color="#22c55e" />}
-                              {pr.trend === 'down' && <TrendingDown size={10} color="#ef4444" />}
-                              {pr.trend === 'flat' && <Minus size={10} color={colors.textMuted} />}
-                            </View>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  );
-                })}
-                {!prShowAll && groupedPRs.length > 6 && (
-                  <TouchableOpacity onPress={() => setPrShowAll(true)} activeOpacity={0.7} style={styles.showAllBtn}>
-                    <Text style={[styles.showAllText, { color: accent }]}>Show all {groupedPRs.length} records</Text>
-                    <ChevronDown size={14} color={accent} />
-                  </TouchableOpacity>
-                )}
-                {prShowAll && (
-                  <TouchableOpacity onPress={() => setPrShowAll(false)} activeOpacity={0.7} style={styles.showAllBtn}>
-                    <Text style={[styles.showAllText, { color: accent }]}>Show less</Text>
-                    <ChevronUp size={14} color={accent} />
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </View>
-        </GlassCard>
-
-        {/* ═══ S9: Milestones ═══ */}
-        <GlassCard>
-          <View style={styles.sectionInner}>
-            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>MILESTONES</Text>
-
-            <View style={styles.milestoneGrid}>
-              {milestoneProgress.map((m) => {
-                const progress = m.target > 0 ? m.current / m.target : 0;
-                const circumference = 2 * Math.PI * 22; // r=22 for ring
-                const strokeDashoffset = circumference * (1 - Math.min(progress, 1));
-                const ringColor = m.completed ? '#eab308' : `${accent}88`;
-
-                return (
-                  <TouchableOpacity
-                    key={m.id}
-                    style={styles.milestoneBadge}
-                    onPress={() => setDetailItem({ id: m.id, iconName: m.icon, label: m.name, description: m.description, unlocked: m.completed, current: m.current, target: m.target })}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.milestoneRingContainer}>
-                      <Svg width={56} height={56} viewBox="0 0 56 56">
-                        <SvgCircle cx={28} cy={28} r={22} fill="none" stroke={colors.border} strokeWidth={3} />
-                        <SvgCircle
-                          cx={28} cy={28} r={22}
-                          fill="none"
-                          stroke={ringColor}
-                          strokeWidth={3}
-                          strokeDasharray={`${circumference}`}
-                          strokeDashoffset={strokeDashoffset}
-                          strokeLinecap="round"
-                          transform="rotate(-90 28 28)"
-                        />
-                      </Svg>
-                      <View style={styles.milestoneIconCenter}>
-                        {m.completed ? (
-                          <Check size={16} color="#eab308" />
-                        ) : (
-                          getMilestoneIcon(m.icon, colors.textMuted, 16)
-                        )}
-                      </View>
-                    </View>
-                    <Text style={[styles.milestoneName, { color: m.completed ? '#eab308' : colors.text }]} numberOfLines={1}>{m.name}</Text>
-                    <Text style={[styles.milestoneCount, { color: m.completed ? '#eab308' : colors.textMuted }]}>
-                      {m.current}/{m.target}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </GlassCard>
-
-        {/* ═══ Badges ═══ */}
-        {badges.length > 0 && (
+        {/* ═══ Badges + Milestones ═══ */}
+        {(badges.length > 0 || milestoneProgress.length > 0) && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>BADGES</Text>
+              <InfoHeader title="BADGES" desc={CARD_INFO['BADGES'] ?? ''} />
+
+              {/* ── Milestones section ── */}
+              {milestoneProgress.length > 0 && (
+                <>
+                  <Text style={[styles.badgeCatLabel, { color: colors.textMuted }]}>MILESTONES</Text>
+                  <View style={styles.milestoneGrid}>
+                    {milestoneProgress.map((m) => {
+                      const progress = m.target > 0 ? m.current / m.target : 0;
+                      const circumference = 2 * Math.PI * 22;
+                      const strokeDashoffset = circumference * (1 - Math.min(progress, 1));
+                      const ringColor = m.completed ? '#eab308' : `${accent}88`;
+                      return (
+                        <TouchableOpacity
+                          key={m.id}
+                          style={styles.milestoneBadge}
+                          onPress={() => setDetailItem({ id: m.id, iconName: m.icon, label: m.name, description: m.description, unlocked: m.completed, current: m.current, target: m.target })}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.milestoneRingContainer}>
+                            <Svg width={56} height={56} viewBox="0 0 56 56">
+                              <SvgCircle cx={28} cy={28} r={22} fill="none" stroke={colors.border} strokeWidth={3} />
+                              <SvgCircle
+                                cx={28} cy={28} r={22}
+                                fill="none"
+                                stroke={ringColor}
+                                strokeWidth={3}
+                                strokeDasharray={`${circumference}`}
+                                strokeDashoffset={strokeDashoffset}
+                                strokeLinecap="round"
+                                transform="rotate(-90 28 28)"
+                              />
+                            </Svg>
+                            <View style={styles.milestoneIconCenter}>
+                              {m.completed ? (
+                                <Check size={16} color="#eab308" />
+                              ) : (
+                                getMilestoneIcon(m.icon, colors.textMuted, 16)
+                              )}
+                            </View>
+                          </View>
+                          <Text style={[styles.milestoneName, { color: m.completed ? '#eab308' : colors.text }]} numberOfLines={1}>{m.name}</Text>
+                          <Text style={[styles.milestoneCount, { color: m.completed ? '#eab308' : colors.textMuted }]}>
+                            {m.current}/{m.target}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
               {(['volume', 'duration', 'style', 'strength', 'consistency', 'pattern', 'progression', 'endurance'] as const).map((cat) => {
                 const catBadges = badges.filter(b => b.category === cat);
                 if (catBadges.length === 0) return null;
@@ -1131,20 +1281,23 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {/* ═══ 1: Lifetime Totals ═══ */}
         <GlassCard>
           <View style={styles.sectionInner}>
-            <Text style={[styles.sectionLabel, { color: mutedLabel }]}>LIFETIME TOTALS</Text>
+            <InfoHeader title="LIFETIME TOTALS" desc={CARD_INFO['LIFETIME TOTALS'] ?? ''} />
             <View style={styles.nerdsStatGrid}>
               <View style={styles.nerdsStat}>
                 <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalVolumeLbs.toLocaleString()}</Text>
                 <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>lbs moved</Text>
               </View>
+              <View style={[styles.nerdsStatDivider, { backgroundColor: colors.border }]} />
               <View style={styles.nerdsStat}>
                 <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalHours}h</Text>
                 <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>training time</Text>
               </View>
+              <View style={[styles.nerdsStatDivider, { backgroundColor: colors.border }]} />
               <View style={styles.nerdsStat}>
                 <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.totalSets.toLocaleString()}</Text>
                 <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>total sets</Text>
               </View>
+              <View style={[styles.nerdsStatDivider, { backgroundColor: colors.border }]} />
               <View style={styles.nerdsStat}>
                 <Text style={[styles.nerdsStatValue, { color: colors.text }]}>{lifetimeTotals.trainingAgeDays}d</Text>
                 <Text style={[styles.nerdsStatLabel, { color: colors.textMuted }]}>training age</Text>
@@ -1158,106 +1311,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </View>
         </GlassCard>
 
-        {/* ═══ 2: All-Time Records ═══ */}
-        {recordsBoard.bestSession && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>ALL-TIME RECORDS</Text>
-              {recordsBoard.bestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Best session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.bestSession.score} pts</Text></View>}
-              {recordsBoard.longestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Longest session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.longestSession.duration} min</Text></View>}
-              {recordsBoard.heaviestLift && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Heaviest lift</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.heaviestLift.weight} lb ({recordsBoard.heaviestLift.exercise})</Text></View>}
-              {recordsBoard.mostVolume && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most volume</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostVolume.volume.toLocaleString()} lb</Text></View>}
-              {recordsBoard.mostPRs && recordsBoard.mostPRs.count > 0 && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most PRs (one session)</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostPRs.count}</Text></View>}
-              {recordsBoard.mostExercises && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most exercises</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostExercises.count}</Text></View>}
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ 3: Most Popular Exercises ═══ */}
-        {exerciseFreq.top.length > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>MOST POPULAR</Text>
-              {exerciseFreq.top.slice(0, 7).map((ex, i) => (
-                <View key={ex.name} style={[styles.freqRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.freqRank, { color: colors.textMuted }]}>{i + 1}</Text>
-                  <Text style={[styles.freqName, { color: colors.text }]} numberOfLines={1}>{ex.name}</Text>
-                  <Text style={[styles.freqCount, { color: accent }]}>{ex.count}x</Text>
-                </View>
-              ))}
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ 4: PR Timeline (5 shown, expandable) ═══ */}
-        {prTimeline.entries.length > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>PR TIMELINE</Text>
-              {prTimeline.entries.slice(0, prTimelineShowAll ? prTimeline.entries.length : 5).map((pr, i) => (
-                <View key={`${pr.exerciseName}-${pr.date}-${i}`} style={[styles.timelineRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.timelineDate, { color: colors.textMuted }]}>{formatDate(pr.date)}</Text>
-                  <Text style={[styles.timelineName, { color: colors.text }]} numberOfLines={1}>{pr.exerciseName}</Text>
-                  <Text style={[styles.timelineValue, { color: accent }]}>{pr.value} lb</Text>
-                </View>
-              ))}
-              {prTimeline.entries.length > 5 && (
-                <TouchableOpacity
-                  onPress={() => setPrTimelineShowAll(v => !v)}
-                  activeOpacity={0.7}
-                  style={styles.showMoreBtn}
-                >
-                  <Text style={[styles.showMoreText, { color: accent }]}>
-                    {prTimelineShowAll ? 'Show less' : `Show all ${prTimeline.entries.length}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ 5: Equipment Usage ═══ */}
-        {equipmentUsage.items.length > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>EQUIPMENT USAGE</Text>
-              {equipmentUsage.items.map((item) => (
-                <View key={item.name} style={[styles.freqRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.freqName, { color: colors.text }]}>{item.name}</Text>
-                  <Text style={[styles.freqCount, { color: accent }]}>{item.count}x</Text>
-                </View>
-              ))}
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ 6: Warmup Compliance ═══ */}
-        {warmupCompliance.totalSessions > 0 && (
-          <GlassCard>
-            <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>WARM-UP COMPLIANCE</Text>
-              <View style={styles.complianceRow}>
-                <Text style={[styles.compliancePct, { color: warmupCompliance.pct >= 50 ? '#22c55e' : '#ef4444' }]}>{warmupCompliance.pct}%</Text>
-                <Text style={[styles.complianceDesc, { color: colors.textSecondary }]}>of sessions this month included warm-up ({warmupCompliance.withWarmup}/{warmupCompliance.totalSessions})</Text>
-              </View>
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ═══ 7: Style Deep Dive ═══ */}
-        <TouchableOpacity
-          style={[styles.trackerBtn, { borderColor: `${WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent}40` }]}
-          onPress={() => setTrackerVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.trackerBtnDot, { backgroundColor: WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent }]} />
-          <Text style={[styles.trackerBtnText, { color: colors.text }]}>
-            {ctx.workoutStyle} Deep Dive
-          </Text>
-          <Text style={[styles.trackerBtnArrow, { color: colors.textMuted }]}>→</Text>
-        </TouchableOpacity>
-
-        {/* ═══ More Stats ═══ */}
+        {/* ═══ 2: More Stats ═══ */}
         <GlassCard>
           <View style={styles.nerdsContent}>
 
@@ -1466,11 +1520,252 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </View>
         </GlassCard>
 
+        {/* ═══ 3: All-Time Records ═══ */}
+        {recordsBoard.bestSession && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="ALL-TIME RECORDS" desc={CARD_INFO['ALL-TIME RECORDS'] ?? ''} />
+              {recordsBoard.bestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Best session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.bestSession.score} pts</Text></View>}
+              {recordsBoard.longestSession && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Longest session</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.longestSession.duration} min</Text></View>}
+              {recordsBoard.heaviestLift && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Heaviest lift</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.heaviestLift.weight} lb ({recordsBoard.heaviestLift.exercise})</Text></View>}
+              {recordsBoard.mostVolume && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most volume</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostVolume.volume.toLocaleString()} lb</Text></View>}
+              {recordsBoard.mostPRs && recordsBoard.mostPRs.count > 0 && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most PRs (one session)</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostPRs.count}</Text></View>}
+              {recordsBoard.mostExercises && <View style={[styles.recordRow, { borderBottomColor: colors.border }]}><Text style={[styles.recordLabel, { color: colors.textSecondary }]}>Most exercises</Text><Text style={[styles.recordValue, { color: colors.text }]}>{recordsBoard.mostExercises.count}</Text></View>}
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 2b: Personal Records ═══ */}
+        <GlassCard>
+          <View style={styles.sectionInner}>
+            <InfoHeader title={`PERSONAL RECORDS (${uniquePRs.length})`} desc={CARD_INFO['PERSONAL RECORDS'] ?? ''} />
+
+            {groupedPRs.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No personal records yet.</Text>
+            ) : (
+              <>
+                {(['Upper Push', 'Upper Pull', 'Lower', 'Core', 'Other'] as PRCategory[]).map((cat) => {
+                  const catPRs = groupedPRs.filter(p => p.category === cat);
+                  if (catPRs.length === 0) return null;
+                  const displayPRs = prShowAll ? catPRs : catPRs.slice(0, 2);
+                  return (
+                    <View key={cat}>
+                      <Text style={[styles.prCategoryLabel, { color: colors.textMuted }]}>{cat}</Text>
+                      {displayPRs.map((pr, i) => (
+                        <View key={`${pr.exerciseName}-${i}`} style={[styles.prRow, { borderBottomColor: colors.border }]}>
+                          <View style={styles.prRowLeft}>
+                            <Text style={[styles.prName, { color: colors.text }]}>{pr.exerciseName}</Text>
+                            <Text style={[styles.prDetail, { color: colors.textSecondary }]}>
+                              {pr.reps} reps · {pr.weight} lb · {formatDate(pr.date)}
+                            </Text>
+                          </View>
+                          <View style={styles.prRowRight}>
+                            <Text style={[styles.prE1rm, { color: accent }]}>~{pr.e1rm} lb</Text>
+                            <View style={styles.prTrend}>
+                              {pr.trend === 'up' && <TrendingUp size={10} color="#22c55e" />}
+                              {pr.trend === 'down' && <TrendingDown size={10} color="#ef4444" />}
+                              {pr.trend === 'flat' && <Minus size={10} color={colors.textMuted} />}
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+                {!prShowAll && groupedPRs.length > 6 && (
+                  <TouchableOpacity onPress={() => setPrShowAll(true)} activeOpacity={0.7} style={styles.showAllBtn}>
+                    <Text style={[styles.showAllText, { color: accent }]}>Show all {groupedPRs.length} records</Text>
+                    <ChevronDown size={14} color={accent} />
+                  </TouchableOpacity>
+                )}
+                {prShowAll && (
+                  <TouchableOpacity onPress={() => setPrShowAll(false)} activeOpacity={0.7} style={styles.showAllBtn}>
+                    <Text style={[styles.showAllText, { color: accent }]}>Show less</Text>
+                    <ChevronUp size={14} color={accent} />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        </GlassCard>
+
+        {/* ═══ Duration Trend ═══ */}
+        {durationTrend.dataPoints.length >= 3 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <View style={styles.sectionHeaderRow}>
+                <InfoHeader title="AVG SESSION DURATION" desc={CARD_INFO['AVG SESSION DURATION'] ?? ''} noMargin />
+                <Text style={[styles.trendIndicator, { color: durationTrend.trend === 'up' ? '#22c55e' : durationTrend.trend === 'down' ? '#ef4444' : colors.textMuted }]}>
+                  {durationTrend.avgRecent}m {durationTrend.trend === 'up' ? '↑' : durationTrend.trend === 'down' ? '↓' : '→'}
+                </Text>
+              </View>
+              <Svg width={280} height={36} viewBox="0 0 280 36">
+                {(() => {
+                  const data = durationTrend.dataPoints;
+                  const max = Math.max(...data, 1);
+                  const min = Math.min(...data, 0);
+                  const range = max - min || 1;
+                  const pts = data.map((v, i) => `${4 + (i / (data.length - 1)) * 272},${4 + 28 - ((v - min) / range) * 28}`).join(' ');
+                  return <Polyline points={pts} fill="none" stroke={accent} strokeWidth={2} strokeLinecap="round" />;
+                })()}
+              </Svg>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ Peak Performance Window ═══ */}
+        {peakWindow.bestWindow && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="PEAK PERFORMANCE" desc={CARD_INFO['PEAK PERFORMANCE'] ?? ''} />
+              <Text style={[styles.peakWindowText, { color: colors.text }]}>
+                Your best sessions happen <Text style={{ color: accent, fontWeight: '800' }}>{peakWindow.bestWindow}</Text>
+              </Text>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ Time of Day Distribution ═══ */}
+        {todDistribution.total >= 3 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="WORKOUT TIME OF DAY" desc={CARD_INFO['WORKOUT TIME OF DAY'] ?? ''} />
+              <View style={styles.todHistogram}>
+                {(() => {
+                  const maxCount = Math.max(...todDistribution.buckets.map(b => b.count), 1);
+                  return todDistribution.buckets.map(({ label, emoji, count }) => {
+                    const barH = Math.max(4, Math.round((count / maxCount) * 56));
+                    return (
+                      <View key={label} style={styles.todColumn}>
+                        <Text style={[styles.todCount, { color: count > 0 ? colors.text : colors.textMuted }]}>{count}</Text>
+                        <View style={styles.todBarWrap}>
+                          <View style={[styles.todBar, { height: barH, backgroundColor: count > 0 ? accent : colors.border }]} />
+                        </View>
+                        <Text style={styles.todEmoji}>{emoji}</Text>
+                        <Text style={[styles.todLabel, { color: colors.textMuted }]}>{label}</Text>
+                      </View>
+                    );
+                  });
+                })()}
+              </View>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ Training Style Distribution ═══ */}
+        {styleDistribution.length > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="TRAINING STYLE BREAKDOWN" desc="All-time distribution of your workout styles" />
+              <View style={styles.splitBar}>
+                {styleDistribution.map(({ style, pct }) => (
+                  <View key={style} style={[styles.splitSegment, {
+                    flex: pct,
+                    backgroundColor: WORKOUT_STYLE_COLORS[style] ?? accent,
+                  }]} />
+                ))}
+              </View>
+              <View style={styles.splitLegend}>
+                {styleDistribution.map(({ style, pct }) => (
+                  <View key={style} style={styles.splitLegendItem}>
+                    <View style={[styles.splitLegendDot, { backgroundColor: WORKOUT_STYLE_COLORS[style] ?? accent }]} />
+                    <Text style={[styles.splitLegendText, { color: colors.textSecondary }]}>{style} {pct}%</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 3: Most Popular Exercises ═══ */}
+        {exerciseFreq.top.length > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="MOST POPULAR" desc={CARD_INFO['MOST POPULAR'] ?? ''} />
+              {exerciseFreq.top.slice(0, 7).map((ex, i) => (
+                <View key={ex.name} style={[styles.freqRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.freqRank, { color: colors.textMuted }]}>{i + 1}</Text>
+                  <Text style={[styles.freqName, { color: colors.text }]} numberOfLines={1}>{ex.name}</Text>
+                  <Text style={[styles.freqCount, { color: accent }]}>{ex.count}x</Text>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 4: PR Timeline (5 shown, expandable) ═══ */}
+        {prTimeline.entries.length > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="PR TIMELINE" desc={CARD_INFO['PR TIMELINE'] ?? ''} />
+              {prTimeline.entries.slice(0, prTimelineShowAll ? prTimeline.entries.length : 5).map((pr, i) => (
+                <View key={`${pr.exerciseName}-${pr.date}-${i}`} style={[styles.timelineRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.timelineDate, { color: colors.textMuted }]}>{formatDate(pr.date)}</Text>
+                  <Text style={[styles.timelineName, { color: colors.text }]} numberOfLines={1}>{pr.exerciseName}</Text>
+                  <Text style={[styles.timelineValue, { color: accent }]}>{pr.value} lb</Text>
+                </View>
+              ))}
+              {prTimeline.entries.length > 5 && (
+                <TouchableOpacity
+                  onPress={() => setPrTimelineShowAll(v => !v)}
+                  activeOpacity={0.7}
+                  style={styles.showAllBtn}
+                >
+                  <Text style={[styles.showAllText, { color: accent }]}>
+                    {prTimelineShowAll ? 'Show less' : `Show all ${prTimeline.entries.length}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 5: Equipment Usage ═══ */}
+        {equipmentUsage.items.length > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="EQUIPMENT USAGE" desc={CARD_INFO['EQUIPMENT USAGE'] ?? ''} />
+              {equipmentUsage.items.map((item) => (
+                <View key={item.name} style={[styles.freqRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.freqName, { color: colors.text }]}>{item.name}</Text>
+                  <Text style={[styles.freqCount, { color: accent }]}>{item.count}x</Text>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 6: Warmup Compliance ═══ */}
+        {warmupCompliance.totalSessions > 0 && (
+          <GlassCard>
+            <View style={styles.sectionInner}>
+              <InfoHeader title="WARM-UP COMPLIANCE" desc={CARD_INFO['WARM-UP COMPLIANCE'] ?? ''} />
+              <View style={styles.complianceRow}>
+                <Text style={[styles.compliancePct, { color: warmupCompliance.pct >= 50 ? '#22c55e' : '#ef4444' }]}>{warmupCompliance.pct}%</Text>
+                <Text style={[styles.complianceDesc, { color: colors.textSecondary }]}>of sessions this month included warm-up ({warmupCompliance.withWarmup}/{warmupCompliance.totalSessions})</Text>
+              </View>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ═══ 7: Style Deep Dive ═══ */}
+        <TouchableOpacity
+          style={[styles.trackerBtn, { borderColor: `${WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent}40` }]}
+          onPress={() => setTrackerVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.trackerBtnDot, { backgroundColor: WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent }]} />
+          <Text style={[styles.trackerBtnText, { color: colors.text }]}>
+            {ctx.workoutStyle} Deep Dive
+          </Text>
+          <Text style={[styles.trackerBtnArrow, { color: colors.textMuted }]}>→</Text>
+        </TouchableOpacity>
+
         {/* ═══ Rest / Misc ═══ */}
         {restDays.avgRestDays > 0 && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>REST PATTERNS (4 WK)</Text>
+              <InfoHeader title="REST PATTERNS (4 WK)" desc={CARD_INFO['REST PATTERNS (4 WK)'] ?? ''} />
               <View style={styles.restRow}>
                 <View style={styles.restItem}><Text style={[styles.restValue, { color: colors.text }]}>{restDays.avgRestDays}</Text><Text style={[styles.restLabel, { color: colors.textMuted }]}>Avg rest days</Text></View>
                 <View style={styles.restItem}><Text style={[styles.restValue, { color: colors.text }]}>{restDays.longestGap}</Text><Text style={[styles.restLabel, { color: colors.textMuted }]}>Longest gap</Text></View>
@@ -1481,7 +1776,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {muscleBalance.score > 0 && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>MUSCLE BALANCE SCORE</Text>
+              <InfoHeader title="MUSCLE BALANCE SCORE" desc={CARD_INFO['MUSCLE BALANCE SCORE'] ?? ''} />
               <View style={styles.balanceRow}>
                 <Text style={[styles.balanceScore, { color: muscleBalance.score >= 70 ? '#22c55e' : muscleBalance.score >= 40 ? '#f59e0b' : '#ef4444' }]}>{muscleBalance.score}</Text>
                 <Text style={[styles.balanceMax, { color: colors.textMuted }]}>/100</Text>
@@ -1494,7 +1789,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           <GlassCard>
             <View style={styles.sectionInner}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionLabel, { color: mutedLabel, marginBottom: 0 }]}>SESSION QUALITY</Text>
+                <InfoHeader title="SESSION QUALITY" desc={CARD_INFO['SESSION QUALITY'] ?? ''} noMargin />
                 <Text style={[styles.trendIndicator, { color: sessionQuality.trend === 'up' ? '#22c55e' : sessionQuality.trend === 'down' ? '#ef4444' : colors.textMuted }]}>
                   {sessionQuality.trend === 'up' ? '↑' : sessionQuality.trend === 'down' ? '↓' : '→'}
                 </Text>
@@ -1515,7 +1810,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {(favoriteExercises.likedCount > 0 || favoriteExercises.dislikedCount > 0) && (
           <GlassCard>
             <View style={styles.sectionInner}>
-              <Text style={[styles.sectionLabel, { color: mutedLabel }]}>EXERCISE PREFERENCES</Text>
+              <InfoHeader title="EXERCISE PREFERENCES" desc={CARD_INFO['EXERCISE PREFERENCES'] ?? ''} />
               <View style={styles.favRow}>
                 <Text style={[styles.favStat, { color: '#22c55e' }]}>{favoriteExercises.likedCount} liked</Text>
                 <Text style={[styles.favStat, { color: '#ef4444' }]}>{favoriteExercises.dislikedCount} disliked</Text>
@@ -1540,6 +1835,32 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
       achievement={detailItem}
       onClose={() => setDetailItem(null)}
     />
+
+    {/* ── Info Popup ── */}
+    <Modal visible={!!infoToast} transparent animationType="fade" statusBarTranslucent>
+      <TouchableOpacity
+        style={styles.popupBackdrop}
+        activeOpacity={1}
+        onPress={() => { if (infoToastTimer.current) clearTimeout(infoToastTimer.current); setInfoToast(null); }}
+      >
+        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+          <View style={[styles.popupCard, { backgroundColor: isDark ? 'rgba(28,28,30,0.98)' : 'rgba(255,255,255,0.98)' }]}>
+            <View style={[styles.popupAccentBar, { backgroundColor: accent }]} />
+            <View style={styles.popupInner}>
+              <Text style={[styles.popupTitle, { color: isDark ? '#fff' : '#000' }]}>{infoToast?.title}</Text>
+              <Text style={[styles.popupBody, { color: isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)' }]}>{infoToast?.body}</Text>
+              <TouchableOpacity
+                style={[styles.popupDismiss, { backgroundColor: `${accent}22`, borderColor: `${accent}44` }]}
+                onPress={() => { if (infoToastTimer.current) clearTimeout(infoToastTimer.current); setInfoToast(null); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.popupDismissText, { color: accent }]}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
   </>
   );
 }
@@ -1625,6 +1946,59 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 4,
   },
+  infoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  popupBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  popupCard: {
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 20,
+  },
+  popupAccentBar: {
+    height: 3,
+    width: '100%',
+  },
+  popupInner: {
+    padding: 22,
+    gap: 10,
+  },
+  popupTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  popupBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
+  },
+  popupDismiss: {
+    marginTop: 6,
+    alignSelf: 'flex-end',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  popupDismissText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1693,6 +2067,11 @@ const styles = StyleSheet.create({
 
   // Style insights
   styleInsightContent: { gap: 8 },
+  exampleBadgeRow: { flexDirection: 'row', marginBottom: 10 },
+  exampleBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
+  exampleBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  exampleUnlockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 10 },
+  exampleUnlockText: { fontSize: 12, fontWeight: '500' },
   volumeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   volumeLabel: { fontSize: 12, fontWeight: '600', width: 72 },
   volumeBarArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -1721,9 +2100,10 @@ const styles = StyleSheet.create({
 
   // Consistency heatmap
   heatmapGrid: { gap: 3 },
-  heatmapRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  heatmapDayLabel: { width: 14, fontSize: 9, fontWeight: '600', textAlign: 'center' },
-  heatmapCell: { width: 10, height: 10, borderRadius: 2 },
+  heatmapRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  heatmapDayLabel: { width: 10, fontSize: 9, fontWeight: '600', textAlign: 'center' },
+  heatmapCells: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heatmapCell: { width: 15, height: 15, borderRadius: 3 },
   heatmapSummary: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
 
   // PRs
@@ -1769,10 +2149,11 @@ const styles = StyleSheet.create({
   nerdsContent: { padding: 16, gap: 20 },
   nerdsGroup: { gap: 8 },
   nerdsGroupLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
-  nerdsStatGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  nerdsStat: { width: '50%', paddingVertical: 8 },
-  nerdsStatValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
-  nerdsStatLabel: { fontSize: 10, fontWeight: '600' },
+  nerdsStatGrid: { flexDirection: 'row', alignItems: 'center' },
+  nerdsStat: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+  nerdsStatDivider: { width: 1, height: 32, opacity: 0.5 },
+  nerdsStatValue: { fontSize: 17, fontFamily: 'Outfit_800ExtraBold', letterSpacing: -0.5, textAlign: 'center' },
+  nerdsStatLabel: { fontSize: 10, fontFamily: 'Outfit_500Medium', textAlign: 'center', marginTop: 2 },
   funEquivalent: { fontSize: 12, fontWeight: '700', marginTop: 4 },
 
   // Strength ratios
@@ -1831,6 +2212,17 @@ const styles = StyleSheet.create({
   readinessPill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   readinessDot: { width: 8, height: 8, borderRadius: 4 },
   readinessPillText: { fontSize: 12, fontWeight: '600' },
+  readinessHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  readinessOverallPct: { fontSize: 15, fontWeight: '800', letterSpacing: -0.3 },
+  readinessOverallTrack: { height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 14 },
+  readinessOverallFill: { height: '100%', borderRadius: 3 },
+  readinessMuscleRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  readinessMuscleCell: { flex: 1, gap: 3 },
+  readinessTapHint: { fontSize: 10, fontWeight: '500', textAlign: 'center', marginTop: 4 },
+  readinessMuscleName: { fontSize: 9, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
+  readinessMicroTrack: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  readinessMicroFill: { height: '100%', borderRadius: 2 },
+  readinessMuscleVal: { fontSize: 9, fontWeight: '700' },
 
   // Duration / quality trends
   trendIndicator: { fontSize: 13, fontWeight: '700' },
@@ -1845,6 +2237,13 @@ const styles = StyleSheet.create({
   splitLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   splitLegendDot: { width: 6, height: 6, borderRadius: 3 },
   splitLegendText: { fontSize: 11, fontWeight: '600' },
+  todHistogram: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', paddingTop: 4, gap: 6 },
+  todColumn: { flex: 1, alignItems: 'center', gap: 3 },
+  todBarWrap: { height: 60, justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
+  todBar: { width: '55%', borderRadius: 4 },
+  todCount: { fontSize: 12, fontWeight: '700' },
+  todEmoji: { fontSize: 14 },
+  todLabel: { fontSize: 10, fontWeight: '600', textAlign: 'center' },
 
   // Badges
   badgeCatGroup: { gap: 6, marginTop: 8 },

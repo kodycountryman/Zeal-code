@@ -897,7 +897,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
         <GlassCard variant={isDark ? 'glass' : 'solid'} style={[styles.section, { padding: 0, gap: 0 }]}>
           <TouchableOpacity
             style={[styles.signOutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
-            onPress={() => void Linking.openURL('https://kodycountryman.notion.site/zeal-Privacy-Policy-327209e49d07805fb401cc05bdf9a1dd')}
+            onPress={() => void Linking.openURL('https://zealplus.app/privacy-policy.html')}
             activeOpacity={0.7}
             testID="legal-privacy-policy"
           >
@@ -908,7 +908,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
 
           <TouchableOpacity
             style={[styles.signOutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
-            onPress={() => void Linking.openURL('https://kodycountryman.notion.site/Zeal-Terms-of-Service-327209e49d0780d2a5fed1775bff3d57')}
+            onPress={() => void Linking.openURL('https://zealplus.app/terms-of-service.html')}
             activeOpacity={0.7}
             testID="legal-terms-of-service"
           >

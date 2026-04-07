@@ -132,9 +132,6 @@ export default function AthleteProfileDrawer({
                   <Camera size={28} color={colors.textSecondary} />
                 </View>
               )}
-              <View style={styles.cameraOverlay}>
-                <Camera size={12} color="#fff" />
-              </View>
             </TouchableOpacity>
 
             <View style={styles.profileInfo}>
@@ -160,45 +157,37 @@ export default function AthleteProfileDrawer({
                   </TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity
-                  onPress={() => setEditingName(true)}
-                  activeOpacity={0.7}
-                  testID="profile-name-edit"
-                >
-                  <Text style={[styles.nameText, { color: colors.text }]}>{userName}</Text>
-                </TouchableOpacity>
-              )}
-              <Text style={[styles.statsSubtitle, { color: colors.textSecondary }]}>
-                {workoutHistory.length > 0
-                  ? `${workoutHistory.length} workout${workoutHistory.length === 1 ? '' : 's'} logged`
-                  : 'No workouts yet'}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.memberBadge,
-                  hasPro
-                    ? { borderColor: PRO_GOLD, backgroundColor: `${PRO_GOLD}15` }
-                    : { borderColor: colors.border, backgroundColor: 'transparent' },
-                ]}
-                onPress={() => showProGate('subscription', openPaywall)}
-                activeOpacity={0.7}
-                testID="profile-member-badge"
-              >
-                <View style={styles.memberContent}>
-                  {hasPro
-                    ? <Sparkles size={13} color={PRO_GOLD} />
-                    : <Crown size={13} color={PRO_GOLD} />}
-                  <Text style={[
-                    styles.memberText,
-                    { color: hasPro ? PRO_GOLD : colors.textSecondary },
-                  ]}>
-                    {hasPro ? 'Zeal Pro' : 'Zeal Core'}
-                  </Text>
-                  {!hasPro && (
-                    <Text style={[styles.upgradeHint, { color: PRO_GOLD }]}>Upgrade</Text>
-                  )}
+                <View style={styles.nameRow}>
+                  <TouchableOpacity
+                    onPress={() => setEditingName(true)}
+                    activeOpacity={0.7}
+                    testID="profile-name-edit"
+                  >
+                    <Text style={[styles.nameText, { color: colors.text }]}>{userName}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.memberBadge,
+                      { borderColor: accent, backgroundColor: `${accent}18` },
+                    ]}
+                    onPress={() => showProGate('subscription', openPaywall)}
+                    activeOpacity={0.7}
+                    testID="profile-member-badge"
+                  >
+                    <View style={styles.memberContent}>
+                      {hasPro
+                        ? <Sparkles size={12} color={accent} />
+                        : <Crown size={12} color={accent} />}
+                      <Text style={[styles.memberText, { color: accent }]}>
+                        {hasPro ? 'Zeal Pro' : 'Zeal Core'}
+                      </Text>
+                      {!hasPro && (
+                        <Text style={[styles.upgradeHint, { color: accent }]}>Upgrade</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -212,7 +201,7 @@ export default function AthleteProfileDrawer({
                 const circumference = 2 * Math.PI * 18;
                 const progress = m.target > 0 ? m.current / m.target : 0;
                 const strokeDashoffset = circumference * (1 - Math.min(progress, 1));
-                const ringColor = m.completed ? '#eab308' : `${accent}77`;
+                const ringColor = m.completed ? accent : `${accent}55`;
                 const ach: Achievement = { id: m.id, iconName: m.icon, label: m.name, description: m.description, unlocked: m.completed, current: m.current, target: m.target };
                 return (
                   <TouchableOpacity
@@ -239,11 +228,11 @@ export default function AthleteProfileDrawer({
                         />
                       </Svg>
                       <View style={styles.achIconCenter}>
-                        {getAchievementIcon(m.icon, m.completed ? '#eab308' : colors.textMuted, 16)}
+                        {getAchievementIcon(m.icon, m.completed ? accent : colors.textMuted, 16)}
                       </View>
                     </View>
                     <Text
-                      style={[styles.achLabel, { color: m.completed ? '#eab308' : colors.textMuted }]}
+                      style={[styles.achLabel, { color: m.completed ? accent : colors.textMuted }]}
                       numberOfLines={2}
                     >
                       {m.name}
@@ -399,7 +388,13 @@ const styles = StyleSheet.create({
   },
   profileInfo: {
     flex: 1,
-    gap: 8,
+    gap: 6,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
   },
   nameEditRow: {
     flexDirection: 'row',
@@ -435,11 +430,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
   },
   memberBadge: {
-    alignSelf: 'flex-start',
     borderWidth: 1.5,
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
   memberContent: {
     flexDirection: 'row' as const,

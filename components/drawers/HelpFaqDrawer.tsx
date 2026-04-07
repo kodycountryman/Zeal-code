@@ -283,7 +283,7 @@ export default function HelpFaqDrawer({ visible, onClose }: Props) {
 
             <TouchableOpacity
               style={[styles.feedbackLink, { backgroundColor: colors.card, borderColor: cardBorder }]}
-              onPress={() => Linking.openURL('mailto:feedback@zealapp.com')}
+              onPress={() => Linking.openURL('mailto:support@zealplus.app')}
               activeOpacity={0.7}
               testID="feedback-link"
             >
