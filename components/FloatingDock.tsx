@@ -18,6 +18,7 @@ import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZealTheme } from '@/context/AppContext';
 import { getContrastTextColor } from '@/constants/colors';
+import { useTourTarget } from '@/context/AppTourContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { SWIFT_SPRING } from '@/constants/animation';
@@ -35,6 +36,9 @@ export default function FloatingDock() {
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   const { hasPro, openPaywall } = useSubscription();
+  const tourHomeRef = useTourTarget('dock-home');
+  const tourWorkoutRef = useTourTarget('dock-workout');
+  const tourPlusRef = useTourTarget('dock-plus');
   const isHome = pathname === '/' || pathname === '/index';
   const isWorkout = pathname === '/workout';
 
@@ -153,6 +157,7 @@ const blueGradient: [string, string, string] = isDark
             ]}
           >
             <TouchableOpacity
+              ref={tourHomeRef as any}
               style={styles.tab}
               onPress={() => { closeMenu(); router.push('/'); }}
               testID="dock-home"
@@ -173,6 +178,7 @@ const blueGradient: [string, string, string] = isDark
             <View style={styles.centerSpacer} />
 
             <TouchableOpacity
+              ref={tourWorkoutRef as any}
               style={styles.tab}
               onPress={() => { closeMenu(); router.push('/workout'); }}
               testID="dock-workout"
@@ -193,6 +199,7 @@ const blueGradient: [string, string, string] = isDark
 
           <View style={styles.plusAbsoluteWrapper} pointerEvents="box-none">
             <TouchableOpacity
+              ref={tourPlusRef as any}
               onPress={handlePlusPress}
               testID="dock-plus"
               activeOpacity={0.85}

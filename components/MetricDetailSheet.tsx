@@ -1,9 +1,11 @@
-import React, { useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import {
   BottomSheetModal,
@@ -44,6 +46,11 @@ const METRIC_EXPLAINER: Partial<Record<MetricSlotKey, string>> = {
   caloriesToday: 'Active calories burned today, pulled directly from Apple Health or Health Connect. Requires permission.',
   stepsToday: 'Total step count for today from your device\'s motion sensor via Apple Health or Health Connect.',
   restingBpm: 'Your resting heart rate as reported by Apple Health or Health Connect. Typically averaged over the past night.',
+  longestStreak: 'The longest unbroken chain of consecutive training days you\'ve ever achieved in Zeal. A personal record of consistency.',
+  exercisesThisWeek: 'The number of unique exercises you\'ve performed across all workouts logged this calendar week (Sun–Sat).',
+  consistencyPct: 'Sessions completed vs your weekly target over the last 28 days. 100% means you hit your target every single week.',
+  restingHeartRate: 'Your resting heart rate as reported by Apple Health or Health Connect. Lower values typically indicate better cardiovascular fitness.',
+  bodyWeight: 'Your current logged body weight in lbs. Tap "Update" to enter a new reading — this syncs to your profile.',
 };
 
 // Per-metric "context" tip shown below the big value
@@ -118,6 +125,37 @@ const METRIC_CONTEXT: Partial<Record<MetricSlotKey, (input: MetricSlotInput) => 
     if (d.heartRate < 70) return 'Normal resting HR. Consistent training can lower this over time.';
     return 'Slightly elevated. Sleep, hydration, and stress can all affect resting HR.';
   },
+  longestStreak: (d) => {
+    if (d.longestStreakDays === 0) return 'Log your first workout to start building your all-time streak record.';
+    if (d.longestStreakDays < 7) return 'Keep going — a 7-day streak is your next milestone.';
+    if (d.longestStreakDays < 30) return `${d.longestStreakDays} days is solid. Can you break a 30-day record?`;
+    return `${d.longestStreakDays} days is elite-level consistency. Impressive.`;
+  },
+  exercisesThisWeek: (d) => {
+    if (d.exercisesThisWeekCount === 0) return 'No movements logged yet this week. Start your first session.';
+    if (d.exercisesThisWeekCount < 10) return 'Building variety. More exercises means broader muscle stimulus.';
+    if (d.exercisesThisWeekCount < 20) return 'Good movement variety this week.';
+    return `${d.exercisesThisWeekCount} unique movements. High-volume training week.`;
+  },
+  consistencyPct: (d) => {
+    if (d.consistencyPct === 0) return 'No sessions logged in the last 4 weeks. Your journey starts now.';
+    if (d.consistencyPct < 50) return 'Below target. Small improvements in consistency compound fast.';
+    if (d.consistencyPct < 80) return 'Making progress. Aim to hit your target every week.';
+    if (d.consistencyPct < 100) return 'Strong consistency. You\'re close to a perfect run.';
+    return '100% — you\'ve hit your target every week for a month. Elite.';
+  },
+  restingHeartRate: (d) => {
+    if (!d.healthConnected) return null;
+    if (d.heartRate === null) return 'No heart rate data available yet.';
+    if (d.heartRate < 50) return 'Athletic resting HR. Your cardiovascular fitness is excellent.';
+    if (d.heartRate < 60) return 'Very good resting HR. Well-conditioned cardiovascular system.';
+    if (d.heartRate < 70) return 'Normal resting HR. Consistent training can lower this over time.';
+    return 'Slightly elevated. Sleep, hydration, and stress can all affect resting HR.';
+  },
+  bodyWeight: (d) => {
+    if (d.bodyWeight === null) return 'No weight logged yet. Tap "Update Weight" to add your current weight.';
+    return 'Tracking body weight over time helps measure progress toward your physique goals.';
+  },
 };
 
 export default function MetricDetailSheet({
@@ -129,10 +167,15 @@ export default function MetricDetailSheet({
   onChangeMetric,
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
+  const { setWeight } = useAppContext();
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 0) + 16;
   const { height: windowH } = useWindowDimensions();
+
+  // Body weight editing state
+  const [editingWeight, setEditingWeight] = useState(false);
+  const [weightInput, setWeightInput] = useState('');
 
   const snapPoints = useMemo(() => {
     return [Math.min(Math.round(windowH * 0.6), 520)];
@@ -140,6 +183,9 @@ export default function MetricDetailSheet({
 
   useEffect(() => {
     if (visible && slotIndex !== null && metricKey !== null) {
+      // Reset weight editing when opening
+      setEditingWeight(false);
+      setWeightInput(slotInput.bodyWeight !== null ? String(slotInput.bodyWeight) : '');
       bottomSheetRef.current?.present();
     } else {
       bottomSheetRef.current?.dismiss();
@@ -147,8 +193,18 @@ export default function MetricDetailSheet({
   }, [visible, slotIndex, metricKey]);
 
   const handleDismiss = useCallback(() => {
+    setEditingWeight(false);
     onClose();
   }, [onClose]);
+
+  const handleSaveWeight = useCallback(() => {
+    const parsed = parseFloat(weightInput);
+    if (!isNaN(parsed) && parsed > 0) {
+      setWeight(Math.round(parsed));
+    }
+    Keyboard.dismiss();
+    setEditingWeight(false);
+  }, [weightInput, setWeight]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -229,6 +285,53 @@ export default function MetricDetailSheet({
                 <PlatformIcon name="heart-pulse" size={12} color="#fff" />
                 <Text style={styles.connectBtnText}>Connect Health</Text>
               </TouchableOpacity>
+            </View>
+          ) : metricKey === 'bodyWeight' ? (
+            <View style={styles.weightBlock}>
+              {editingWeight ? (
+                <View style={styles.weightEditRow}>
+                  <TextInput
+                    style={[styles.weightInput, {
+                      color: colors.text,
+                      borderColor: accent,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    }]}
+                    value={weightInput}
+                    onChangeText={setWeightInput}
+                    keyboardType="decimal-pad"
+                    placeholder="lbs"
+                    placeholderTextColor={colors.textSecondary}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={handleSaveWeight}
+                  />
+                  <TouchableOpacity
+                    style={[styles.saveWeightBtn, { backgroundColor: accent }]}
+                    onPress={handleSaveWeight}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.saveWeightBtnText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.valueBlock}>
+                    <Text style={[styles.bigValue, { color: colors.text }]}>{resolved.value}</Text>
+                    <Text style={[styles.bigUnit, { color: colors.textSecondary }]}>{resolved.unit}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.updateWeightBtn, { borderColor: accent }]}
+                    onPress={() => {
+                      setWeightInput(slotInput.bodyWeight !== null ? String(slotInput.bodyWeight) : '');
+                      setEditingWeight(true);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <PlatformIcon name="pencil" size={11} color={accent} strokeWidth={2} />
+                    <Text style={[styles.updateWeightBtnText, { color: accent }]}>Update Weight</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           ) : (
             <View style={styles.valueBlock}>
@@ -364,5 +467,52 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     lineHeight: 19,
     letterSpacing: 0.1,
+  },
+  weightBlock: {
+    flex: 1,
+    gap: 10,
+  },
+  weightEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  weightInput: {
+    flex: 1,
+    fontSize: 32,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -1,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  saveWeightBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveWeightBtnText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#fff',
+    letterSpacing: 0,
+  },
+  updateWeightBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  updateWeightBtnText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
   },
 });

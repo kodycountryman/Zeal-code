@@ -507,84 +507,6 @@ export const HYROX_RULES: StyleGenerationRules = {
   ],
 };
 
-export const CARDIO_RULES: StyleGenerationRules = {
-  style_id: 'cardio',
-  display_name: 'Cardio',
-  available_formats: ['zone_steady', 'tempo_intervals', 'interval_repeats'],
-  primary_format: 'zone_steady',
-  format_selection: [
-    { format: 'zone_steady', weight: 40 },
-    { format: 'tempo_intervals', weight: 35 },
-    { format: 'interval_repeats', weight: 25 },
-  ],
-  session_architecture_id: 'cardio',
-  rest_overrides: {
-    heavy_compound:    { floor: 30,  ceiling: 90,  base: 45  },
-    moderate_compound: { floor: 20,  ceiling: 60,  base: 30  },
-    isolation:         { floor: 15,  ceiling: 45,  base: 20  },
-    core:              { floor: 10,  ceiling: 30,  base: 15  },
-    quick_bodyweight:  { floor: 10,  ceiling: 30,  base: 15  },
-  },
-  superset_rules: {
-    enabled: false,
-    default_for_isolation: false,
-    never_superset_primaries: true,
-    never_superset_heavy_compounds: true,
-    min_supersets: 0,
-    max_supersets: 0,
-    allowed_pairing_types: [],
-  },
-  progression: {
-    beginner: {
-      rep_increase_per_week: 0,
-      load_increase_percent_per_week: 0,
-      set_increase_frequency_weeks: 0,
-      max_load_increase_lbs_upper: 0,
-      max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 6,  // Attia: recovery cycles for aerobic base
-      deload_volume_reduction: 0.25,
-      duration_increase_percent_per_week: 5,  // Maffetone: add 5% duration/week
-    },
-    intermediate: {
-      rep_increase_per_week: 0,
-      load_increase_percent_per_week: 0,
-      set_increase_frequency_weeks: 0,
-      max_load_increase_lbs_upper: 0,
-      max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 5,
-      deload_volume_reduction: 0.20,
-      duration_increase_percent_per_week: 3,
-    },
-    advanced: {
-      rep_increase_per_week: 0,
-      load_increase_percent_per_week: 0,
-      set_increase_frequency_weeks: 0,
-      max_load_increase_lbs_upper: 0,
-      max_load_increase_lbs_lower: 0,
-      deload_frequency_weeks: 4,
-      deload_volume_reduction: 0.15,
-      duration_increase_percent_per_week: 2,
-    },
-  },
-  time_math: {
-    transition_buffer_seconds: 15,
-    distraction_factor: 0.95,
-    warmup_time_budget_fraction: 0.0,
-    cooldown_time_budget_fraction: 0.0,
-  },
-  rep_range: { min: 1, max: 1 },
-  set_range: { min: 1, max: 3 },
-  compounds_first: false,
-  pattern_priority: ['cardio'],
-  exercise_count: { min: 2, max: 5 },
-  special_rules: [
-    'DURATION_BASED_NOT_REP_BASED',
-    'ZONE_2_DEFAULT_FOR_BEGINNERS',
-    'TEMPO_INTERVALS_FOR_INTERMEDIATE',
-    'SPRINT_INTERVALS_FOR_ADVANCED',
-  ],
-};
-
 export const PILATES_RULES: StyleGenerationRules = {
   style_id: 'pilates',
   display_name: 'Pilates',
@@ -758,7 +680,7 @@ export const SEVENTY_FIVE_HARD_RULES = {
   session_2: {
     label: 'SESSION 2 — OUTDOORS',
     is_outdoor: true,
-    eligible_styles: ['cardio', 'hiit', 'mobility'] as const,
+    eligible_styles: ['hiit', 'mobility'] as const,
     default_split: 'Full Body',
   },
   muscle_separation: {
@@ -770,11 +692,11 @@ export const SEVENTY_FIVE_HARD_RULES = {
     avoid_same_style: true,
     prefer_complementary: true,
     complementary_pairs: [
-      ['strength', 'cardio'],
+      ['strength', 'mobility'],
       ['bodybuilding', 'mobility'],
-      ['crossfit', 'cardio'],
+      ['crossfit', 'hiit'],
       ['hiit', 'mobility'],
-      ['pilates', 'cardio'],
+      ['pilates', 'mobility'],
     ] as const,
   },
   recovery_items: [
@@ -948,7 +870,6 @@ export const ALL_STYLE_RULES: Record<string, StyleGenerationRules> = {
   crossfit: CROSSFIT_RULES,
   hiit: HIIT_RULES,
   hyrox: HYROX_RULES,
-  cardio: CARDIO_RULES,
   pilates: PILATES_RULES,
   mobility: MOBILITY_RULES,
   low_impact: LOW_IMPACT_RULES,
@@ -1109,8 +1030,8 @@ export function getAMRAPParams(
   timeBudgetMinutes: number,
   fitnessLevel: FitnessLevel,
 ): { time_cap_minutes: number; target_exercises: number } {
-  // AMRAP: 15-35 minute range — scales with session duration
-  const cap = Math.min(35, Math.max(15, timeBudgetMinutes));
+  // AMRAP: 8-20 minute range — aligned with styleFormats time_cap
+  const cap = Math.min(20, Math.max(8, timeBudgetMinutes));
   const target = fitnessLevel === 'beginner' ? 4
     : fitnessLevel === 'intermediate' ? 5
     : 6;
@@ -1145,10 +1066,10 @@ export function getRFTParams(
     : fitnessLevel === 'intermediate' ? 4
     : 5;
   const rounds = baseRounds + Math.floor(rng() * 2);
-  // Scale time cap with the session's metcon budget (clamp to sane RFT range 12–35 min)
+  // Scale time cap with the session's metcon budget (clamp to RFT range 8–25 min)
   const cap = timeBudgetMinutes != null
-    ? Math.max(12, Math.min(35, timeBudgetMinutes))
-    : 20;
+    ? Math.max(8, Math.min(25, timeBudgetMinutes))
+    : 18;
   return { rounds, time_cap_minutes: cap };
 }
 
@@ -1196,12 +1117,6 @@ export const HYROX_STATION_IDS = [
   'ski_erg', 'sled_push', 'sled_pull', 'burpee_broad_jump',
   'rowing_machine', 'farmers_carry', 'sandbag_lunge', 'wall_ball',
 ] as const;
-
-export function getCardioFormatForLevel(fitnessLevel: FitnessLevel): WorkoutFormatId {
-  if (fitnessLevel === 'beginner') return 'zone_steady';
-  if (fitnessLevel === 'intermediate') return 'tempo_intervals';
-  return 'interval_repeats';
-}
 
 export function getPilatesPositionOrder(): string[] {
   return ['supine', 'prone', 'seated', 'side_lying', 'kneeling', 'quadruped', 'standing'];

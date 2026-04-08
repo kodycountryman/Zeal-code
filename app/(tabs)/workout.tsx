@@ -98,16 +98,17 @@ import HealthImportBanner from '@/components/HealthImportBanner';
 import HealthImportSheet from '@/components/HealthImportSheet';
 import WorkoutLogDetail from '@/components/WorkoutLogDetail';
 import FullCalendarModal from '@/components/FullCalendarModal';
+import ExerciseCatalogDrawer from '@/components/drawers/ExerciseCatalogDrawer';
+import HelpFaqDrawer from '@/components/drawers/HelpFaqDrawer';
 import WheelPicker from '@/components/WheelPicker';
 import WheelGuideModal from '@/components/WheelGuideModal';
-import WorkoutWalkthrough from '@/components/WorkoutWalkthrough';
 import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassCard from '@/components/GlassCard';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
+import { useTourTarget, useAppTour } from '@/context/AppTourContext';
 
-const WALKTHROUGH_KEY = '@zeal_workout_walkthrough_seen_v1';
 const WEIGHT_TIP_KEY = '@zeal_weight_chip_tip_seen_v1';
 
 
@@ -860,6 +861,12 @@ export default function WorkoutScreen() {
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
   const [insightsVisible, setInsightsVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [helpFaqVisible, setHelpFaqVisible] = useState(false);
+  const tourInfoRef = useTourTarget('workout-info-card');
+  const tourModifyRef = useTourTarget('modify-workout-card');
+  const tourStartRef = useTourTarget('start-workout-card');
+  const tourShuffleRef = useTourTarget('shuffle-workout');
+  const { resetTour, startTour } = useAppTour();
   const [colorThemeVisible, setColorThemeVisible] = useState(false);
   const [equipmentVisible, setEquipmentVisible] = useState(false);
   const [infoLabel, setInfoLabel] = useState<string | null>(null);
@@ -979,8 +986,6 @@ export default function WorkoutScreen() {
   const dragStartPageY = useRef(0);
   const handleDropToIndexRef = useRef<(ids: string[], insertIdx: number) => void>(() => {});
 
-  const [showWalkthrough, setShowWalkthrough] = useState(false);
-  const walkthroughChecked = useRef(false);
   const lastResetToken = useRef(ctx.newUserResetToken);
   const preTabRef = useRef<View | null>(null);
   const postTabRef = useRef<View | null>(null);
@@ -998,10 +1003,6 @@ export default function WorkoutScreen() {
   const trackedExercisesRef = useRef<Set<string>>(new Set());
   const exerciseLogsRef = useRef<Record<string, ExerciseLog>>({});
   const scrollGesture = useMemo(() => Gesture.Native(), []);
-  const [walkthroughRects, setWalkthroughRects] = useState<({
-    x: number; y: number; width: number; height: number;
-  } | null)[]>(Array(8).fill(null));
-
   useEffect(() => {
     AsyncStorage.getItem('@zeal_wheel_guide_seen_v1').then((val) => {
       if (val === 'true') {
@@ -1009,51 +1010,6 @@ export default function WorkoutScreen() {
       }
     });
   }, []);
-
-  const measureWalkthroughRefs = useCallback(() => {
-    const refs: (React.RefObject<View | null>)[] = [
-      preTabRef, postTabRef, workoutTabRef,
-      firstExRowRef, trackPanelRef, modifyBtnRef,
-      addBtnRef, finishBtnRef,
-    ];
-    const newRects: ({ x: number; y: number; width: number; height: number } | null)[] = [];
-    let pending = refs.length;
-    refs.forEach((ref, idx) => {
-      if (ref.current) {
-        ref.current.measureInWindow((x, y, w, h) => {
-          newRects[idx] = { x, y, width: w, height: h };
-          pending--;
-          if (pending === 0) {
-            setWalkthroughRects([...newRects]);
-          }
-        });
-      } else {
-        newRects[idx] = null;
-        pending--;
-        if (pending === 0) {
-          setWalkthroughRects([...newRects]);
-        }
-      }
-    });
-  }, []);
-
-  const remeasureSingleRef = useCallback((idx: number, ref: React.RefObject<View | null>) => {
-    if (ref.current) {
-      ref.current.measureInWindow((x, y, w, h) => {
-        setWalkthroughRects(prev => {
-          const next = [...prev];
-          next[idx] = { x, y, width: w, height: h };
-          return next;
-        });
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (showWalkthrough && workout) {
-      setTimeout(() => measureWalkthroughRefs(), 500);
-    }
-  }, [showWalkthrough, workout, activePanel, expandedTrack, measureWalkthroughRefs]);
 
   useEffect(() => {
     workoutRef.current = workout;
@@ -1272,6 +1228,7 @@ export default function WorkoutScreen() {
       planPhase: prescription?.phase,
       volumeModifier: prescription?.volume_modifier,
       bodyweightLbs: ctx.weight,
+      exercisePreferences: ctx.exercisePreferences,
     } as const;
 
     setIsGenerating(true);
@@ -1366,16 +1323,16 @@ export default function WorkoutScreen() {
           setGeneratingElapsed(0);
           setIsGenerating(true);
         } else if (!isPlanRestDay && !isPlanPaused) {
-          if (pwPlan) {
-            // Active plan: load from plan cache rather than generating from scratch
-            tracking.ensureTodayWorkoutGenerated();
-          } else {
-            doGenerate();
-          }
+          // Always use the synchronous doGenerate path — it produces warmup,
+          // cooldown, recovery, cardio, and core finisher data instantly via
+          // the rule engine.  The async ensureTodayWorkoutGenerated path could
+          // leave workout null while waiting for the promise chain, causing
+          // every supplementary section to disappear.
+          doGenerate();
         }
         // On plan rest days or paused plans: skip generation entirely
       }
-    }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx, isPlanRestDay, isPlanPaused, pwPlan, tracking])
+    }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx, isPlanRestDay, isPlanPaused])
   );
 
   // Sync local workout state when context workout changes (e.g. PlanDayPreviewDrawer
@@ -1410,65 +1367,8 @@ export default function WorkoutScreen() {
   useEffect(() => {
     if (ctx.newUserResetToken !== 0 && ctx.newUserResetToken !== lastResetToken.current) {
       lastResetToken.current = ctx.newUserResetToken;
-      walkthroughChecked.current = false;
-      __DEV__ && console.log('[WorkoutScreen] New user reset detected — will re-check walkthrough');
     }
   }, [ctx.newUserResetToken]);
-
-  useEffect(() => {
-    if (workout && !walkthroughChecked.current) {
-      walkthroughChecked.current = true;
-      __DEV__ && console.log('[WorkoutScreen] Workout ready, checking walkthrough status...');
-      AsyncStorage.getItem(WALKTHROUGH_KEY).then((val) => {
-        if (val !== 'true') {
-          __DEV__ && console.log('[WorkoutScreen] First visit — launching workout walkthrough');
-          setTimeout(() => {
-            setShowWalkthrough(true);
-          }, 1200);
-        } else {
-          __DEV__ && console.log('[WorkoutScreen] Walkthrough already seen');
-        }
-      });
-    }
-  }, [workout]);
-
-  const handleWalkthroughDismiss = useCallback(() => {
-    __DEV__ && console.log('[WorkoutScreen] Walkthrough dismissed');
-    setShowWalkthrough(false);
-    AsyncStorage.setItem(WALKTHROUGH_KEY, 'true').catch(() => {});
-  }, []);
-
-  const handleWalkthroughRequestTab = useCallback((tab: 0 | 1 | 2) => {
-    switchPanelTab(tab);
-    setTimeout(() => measureWalkthroughRefs(), 400);
-  }, [switchPanelTab, measureWalkthroughRefs]);
-
-  const handleWalkthroughExpandFirst = useCallback(() => {
-    if (workout && workout.workout.length > 0) {
-      const firstEx = workout.workout[0];
-      if (expandedTrack !== firstEx.id) {
-        setExpandedTrack(firstEx.id);
-        if (!tracking.exerciseLogs[firstEx.id]) {
-          tracking.initExerciseLog(firstEx);
-        }
-      }
-      setTimeout(() => measureWalkthroughRefs(), 500);
-    }
-  }, [workout, expandedTrack, tracking, measureWalkthroughRefs]);
-
-  const handleWalkthroughCollapse = useCallback(() => {
-    if (expandedTrack) {
-      setExpandedTrack(null);
-    }
-  }, [expandedTrack]);
-
-  const handleWalkthroughScrollTop = useCallback(() => {
-    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-  }, []);
-
-  const handleWalkthroughScrollBottom = useCallback(() => {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  }, []);
 
   useEffect(() => {
     if (ctx.workoutOverride) {
@@ -3768,6 +3668,25 @@ export default function WorkoutScreen() {
               </View>
             </TouchableOpacity>
 
+            {/* AI Coach recovery tip */}
+            <GlassCard
+              style={[styles.postWorkoutCoachCard, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
+              variant={isDark ? 'glass' : 'solid'}
+            >
+              <PlatformIcon name="brain" size={14} color={currentAccent} />
+              <Text style={[styles.postWorkoutCoachText, { color: colors.textSecondary }]} numberOfLines={3}>
+                {(() => {
+                  const style = latestTodayLog?.workoutStyle ?? currentStyle;
+                  const dur = latestTodayLog?.duration ?? 0;
+                  if (dur >= 60) return 'Strong session. Prioritize protein within the hour and get 7–9 hrs of sleep tonight to maximize adaptation.';
+                  if (style === 'CrossFit' || style === 'HIIT') return 'High-intensity work done. Replenish with fast carbs and protein. Foam roll anything that feels tight.';
+                  if (style === 'Strength' || style === 'Bodybuilding') return 'Muscles are broken down — now they rebuild. Hit 25–40g of protein and keep stress low for the next 24 hrs.';
+                  if (style === 'Mobility' || style === 'Pilates') return 'Great choice for your joints and posture. Stay hydrated and let your nervous system reset before your next heavy session.';
+                  return 'Recovery starts now. Hydrate, eat well, and sleep deep. That\'s where the gains actually happen.';
+                })()}
+              </Text>
+            </GlassCard>
+
             {/* Start another workout section */}
             <View style={styles.postWorkoutSection}>
               <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>START ANOTHER</Text>
@@ -3906,10 +3825,9 @@ export default function WorkoutScreen() {
                 <Text style={{ fontWeight: '700' as const, color: colors.text }}>{ctx.workoutStyle}</Text>
                 {' '}during setup. As a{' '}
                 <Text style={{ fontWeight: '700' as const }}>Zeal Core</Text>
-                {' '}member, you have access to{' '}
+                {' '}member, your workouts use{' '}
                 <Text style={{ fontWeight: '700' as const }}>Strength</Text>
-                {' '}and{' '}
-                <Text style={{ fontWeight: '700' as const }}>Cardio</Text>.
+                {' '}mode.
               </Text>
             </View>
             <TouchableOpacity
@@ -4008,6 +3926,7 @@ export default function WorkoutScreen() {
               </GlassCard>
             ) : (
               /* ── Normal Workout Card ── */
+              <View ref={tourInfoRef} collapsable={false}>
               <GlassCard
                 style={[styles.workoutInfoCard, { borderWidth: 1 }]}
                 variant={isDark ? 'glass' : 'solid'}
@@ -4023,6 +3942,7 @@ export default function WorkoutScreen() {
                     </View>
                     <View style={{ flex: 1 }} />
                     <TouchableOpacity
+                      ref={tourShuffleRef as any}
                       style={[styles.shuffleBtn, { borderColor: currentAccent, backgroundColor: `${currentAccent}12` }]}
                       onPress={handleRegenerate}
                       activeOpacity={0.7}
@@ -4088,6 +4008,7 @@ export default function WorkoutScreen() {
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
+                        ref={tourModifyRef as any}
                         style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
                         onPress={() => setModifyVisible(true)}
                         activeOpacity={0.7}
@@ -4101,6 +4022,7 @@ export default function WorkoutScreen() {
 
                   <Animated.View style={[startWorkoutAnimStyle, { flex: 2 }]}>
                     <TouchableOpacity
+                      ref={tourStartRef as any}
                       style={[styles.workoutStartBtn, { backgroundColor: currentAccent, shadowColor: currentAccent }]}
                       onPress={handleStartWorkout}
                       onPressIn={() => { startWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
@@ -4114,6 +4036,7 @@ export default function WorkoutScreen() {
                   </Animated.View>
                 </View>
               </GlassCard>
+              </View>
             )}
           </>
         )}
@@ -4649,6 +4572,103 @@ export default function WorkoutScreen() {
           </View>
         )}
 
+        {/* Add / Finish button — Cool-Down tab */}
+        {!hasCompletedToday && activePanel === 2 && (
+          <View style={{ marginHorizontal: 16, marginTop: 8, paddingBottom: 24 }}>
+            <View style={styles.tabCompleteWrap}>
+              {tracking.isWorkoutActive ? (
+                <View style={styles.completeRow}>
+                  <View style={styles.addBtnWrap}>
+                    <View ref={addBtnRef} collapsable={false}>
+                      <TouchableOpacity
+                        style={[styles.addBtnSquare, { borderColor: `${currentAccent}50`, backgroundColor: 'transparent', borderWidth: 1.5 }]}
+                        onPress={() => setAddMenuVisible(!addMenuVisible)}
+                        activeOpacity={0.7}
+                      >
+                        <Plus size={20} color={currentAccent} />
+                      </TouchableOpacity>
+                    </View>
+                    {addMenuVisible && (
+                      <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
+                        {Platform.OS !== 'web' ? (
+                          <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+                        ) : null}
+                        <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
+                        {([
+                          { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                          { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                          { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                        ]).map((item, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            style={[styles.addMenuItem, idx < 2 && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
+                            onPress={() => handleOpenAddSheet(item.mode)}
+                            activeOpacity={0.7}
+                          >
+                            {item.icon}
+                            <Text style={[styles.addMenuText, { color: colors.text }]}>{item.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                  <View ref={finishBtnRef} collapsable={false} style={{ flex: 1 }}>
+                    <Animated.View style={completeWorkoutAnimStyle}>
+                      <TouchableOpacity
+                        style={[styles.completeBtn, { backgroundColor: currentAccent }]}
+                        onPress={handleCompleteWorkout}
+                        onPressIn={() => { completeWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
+                        onPressOut={() => { completeWorkoutScale.value = withSpring(1, SPRING_BTN); }}
+                        activeOpacity={1}
+                        testID="complete-workout-cooldown"
+                      >
+                        <Check size={18} color={getContrastTextColor(currentAccent)} />
+                        <Text style={[styles.completeBtnText, { color: getContrastTextColor(currentAccent) }]}>Finish Workout</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.addBtnWrap}>
+                  <View ref={addBtnRef} collapsable={false}>
+                    <TouchableOpacity
+                      style={[styles.addBtnFull, { borderColor: `${currentAccent}30`, backgroundColor: 'transparent' }]}
+                      onPress={() => setAddMenuVisible(!addMenuVisible)}
+                      activeOpacity={0.7}
+                    >
+                      <Plus size={15} color={currentAccent} />
+                      <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {addMenuVisible && (
+                    <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
+                      {Platform.OS !== 'web' ? (
+                        <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+                      ) : null}
+                      <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
+                      {([
+                        { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                        { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                        { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                      ]).map((item, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[styles.addMenuItem, idx < 2 && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
+                          onPress={() => handleOpenAddSheet(item.mode)}
+                          activeOpacity={0.7}
+                        >
+                          {item.icon}
+                          <Text style={[styles.addMenuText, { color: colors.text }]}>{item.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Add / Finish button — outside the card, workout tab only */}
         {!hasCompletedToday && activePanel === 1 && (
           <View style={{ marginHorizontal: 16, marginTop: 8, paddingBottom: 24 }}>
@@ -4798,6 +4818,29 @@ export default function WorkoutScreen() {
         onBack={() => setSettingsVisible(false)}
         onOpenColorTheme={() => setColorThemeVisible(true)}
         onOpenEquipment={() => setEquipmentVisible(true)}
+        onOpenExerciseCatalog={() => tracking.setExerciseCatalogVisible(true)}
+        onOpenHelpFaq={() => setHelpFaqVisible(true)}
+        onReplayTour={() => {
+          setSettingsVisible(false);
+          setProfileVisible(false);
+          setAboutMeVisible(false);
+          setInsightsVisible(false);
+          setColorThemeVisible(false);
+          setEquipmentVisible(false);
+          setHelpFaqVisible(false);
+          resetTour();
+          setTimeout(() => startTour(), 800);
+        }}
+      />
+
+      <ExerciseCatalogDrawer
+        visible={tracking.exerciseCatalogVisible}
+        onClose={() => tracking.setExerciseCatalogVisible(false)}
+      />
+
+      <HelpFaqDrawer
+        visible={helpFaqVisible}
+        onClose={() => setHelpFaqVisible(false)}
       />
 
       <ColorThemeDrawer
@@ -4904,36 +4947,6 @@ export default function WorkoutScreen() {
         accentColor={currentAccent}
       />
 
-      <WorkoutWalkthrough
-        visible={showWalkthrough}
-        onDismiss={handleWalkthroughDismiss}
-        stepRects={walkthroughRects}
-        onRequestTab={handleWalkthroughRequestTab}
-        onRequestExpandFirstExercise={handleWalkthroughExpandFirst}
-        onRequestCollapseExercise={handleWalkthroughCollapse}
-        onRequestScrollToTop={handleWalkthroughScrollTop}
-        onRequestScrollToBottom={handleWalkthroughScrollBottom}
-        onStepPress={(stepIndex) => {
-          // Execute the real action the user is being guided to do.
-          if (stepIndex === 0) handleWalkthroughRequestTab(0);
-          else if (stepIndex === 1) handleWalkthroughRequestTab(2);
-          else if (stepIndex === 2) handleWalkthroughRequestTab(1);
-          else if (stepIndex === 3) handleWalkthroughExpandFirst();
-          else if (stepIndex === 4) {
-            // Logging step: tapping the highlighted track panel is enough to proceed.
-          }
-          else if (stepIndex === 5) {
-            setModifyVisible(true);
-            // Don't let the drawer block the next spotlight (+ button) step.
-            setTimeout(() => setModifyVisible(false), 650);
-          }
-          else if (stepIndex === 6) {
-            setModifyVisible(false);
-            setAddMenuVisible(true);
-          }
-          else if (stepIndex === 7) handleCompleteWorkout();
-        }}
-      />
 
       <Modal
         transparent
@@ -6075,7 +6088,6 @@ const styles = StyleSheet.create({
   },
   addBtnWrap: {
     position: 'relative',
-    paddingBottom: 16,
   },
   addBtnSquare: {
     width: 50,
@@ -7059,6 +7071,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Outfit_400Regular',
     marginTop: 2,
+  },
+  postWorkoutCoachCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    overflow: 'hidden',
+  },
+  postWorkoutCoachText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Outfit_300Light',
+    lineHeight: 18,
+    letterSpacing: 0.1,
   },
   postWorkoutSection: {
     gap: 10,

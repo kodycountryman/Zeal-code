@@ -11,7 +11,7 @@ export type PaywallVersion = 'trial' | 'no_trial';
 const STORAGE_KEY = '@zeal_subscription_v2';
 
 // Set to false before any TestFlight / App Store submission.
-const DEV_FORCE_PRO: boolean | null = __DEV__ ? false : null;
+const DEV_FORCE_PRO: boolean | null = __DEV__ ? true : null;
 
 interface PersistedState {
   hasEverStarted: boolean;
@@ -156,21 +156,17 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     const newCount = p.appOpenCount + 1;
     const next: PersistedState = { ...p, appOpenCount: newCount };
 
-    const state = deriveState(next, hp);
-    __DEV__ && console.log('[subscription] App open #', newCount, '| state:', state);
+    __DEV__ && console.log('[subscription] App open #', newCount, '| hasPro:', hp);
 
-    if (state === 'active') {
+    // Pro users never see the paywall
+    if (hp) {
       await savePersisted(next);
       return;
     }
 
-    let shouldShow = false;
-    if (state === 'never_seen') {
-      shouldShow = newCount >= 3; // soft sell — let user explore first
-    } else {
-      const opensSinceLast = newCount - p.lastPaywallShownAtOpenCount;
-      shouldShow = opensSinceLast >= 7;
-    }
+    // Skip first open entirely — let new users explore
+    // After that: show every other open (open 2, 4, 6, 8...)
+    const shouldShow = newCount > 1 && newCount % 2 === 0;
 
     if (shouldShow) {
       await savePersisted({ ...next, lastPaywallShownAtOpenCount: newCount });
@@ -179,7 +175,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     } else {
       await savePersisted(next);
     }
-  }, [persistedLoaded, savePersisted, deriveState]);
+  }, [persistedLoaded, savePersisted]);
 
   const openPaywall = useCallback(() => {
     __DEV__ && console.log('[subscription] Manual paywall open');

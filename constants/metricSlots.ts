@@ -14,10 +14,16 @@ export type MetricSlotKey =
   | 'prsThisMonth'
   | 'avgDuration'
   | 'volumeThisWeek'
+  | 'longestStreak'
+  | 'exercisesThisWeek'
+  | 'consistencyPct'
   // Health data (requires Apple Health / Health Connect)
   | 'caloriesToday'
   | 'stepsToday'
-  | 'restingBpm';
+  | 'restingBpm'
+  | 'restingHeartRate'
+  // Body metrics
+  | 'bodyWeight';
 
 export type MetricGroup = 'workout' | 'health';
 
@@ -91,6 +97,30 @@ export const METRIC_REGISTRY: MetricSlotDefinition[] = [
     group: 'workout',
     description: 'Total weight moved this week',
   },
+  {
+    key: 'longestStreak',
+    label: 'Longest Streak',
+    shortLabel: 'Best',
+    icon: 'award',
+    group: 'workout',
+    description: 'All-time best consecutive training days',
+  },
+  {
+    key: 'exercisesThisWeek',
+    label: 'Exercises This Week',
+    shortLabel: 'Moves',
+    icon: 'layers',
+    group: 'workout',
+    description: 'Unique movements performed this week',
+  },
+  {
+    key: 'consistencyPct',
+    label: 'Consistency',
+    shortLabel: 'Consist.',
+    icon: 'trending-up',
+    group: 'workout',
+    description: 'Sessions hit vs target over the last 4 weeks',
+  },
   // — Health group —
   {
     key: 'caloriesToday',
@@ -118,6 +148,24 @@ export const METRIC_REGISTRY: MetricSlotDefinition[] = [
     group: 'health',
     description: 'Resting heart rate',
     requiresHealth: true,
+  },
+  {
+    key: 'restingHeartRate',
+    label: 'Resting Heart Rate',
+    shortLabel: 'HR',
+    icon: 'heart',
+    group: 'health',
+    description: 'Resting heart rate from Health',
+    requiresHealth: true,
+  },
+  // — Body metrics —
+  {
+    key: 'bodyWeight',
+    label: 'Body Weight',
+    shortLabel: 'Weight',
+    icon: 'scale',
+    group: 'workout',
+    description: 'Your current logged body weight',
   },
 ];
 
@@ -170,6 +218,11 @@ export interface MetricSlotInput {
   steps: number | null;
   heartRate: number | null;
   healthConnected: boolean;
+  // Extended fields for new metrics
+  longestStreakDays: number;
+  exercisesThisWeekCount: number;
+  consistencyPct: number;
+  bodyWeight: number | null;
 }
 
 export interface ResolvedMetricValue {
@@ -262,6 +315,42 @@ export function resolveMetricValue(
       return {
         value: data.heartRate !== null ? String(data.heartRate) : '—',
         unit: 'bpm',
+        needsHealth: false,
+      };
+
+    case 'longestStreak':
+      return {
+        value: String(data.longestStreakDays),
+        unit: 'day best',
+        needsHealth: false,
+      };
+
+    case 'exercisesThisWeek':
+      return {
+        value: String(data.exercisesThisWeekCount),
+        unit: 'moves',
+        needsHealth: false,
+      };
+
+    case 'consistencyPct':
+      return {
+        value: `${data.consistencyPct}%`,
+        unit: '4-wk avg',
+        needsHealth: false,
+      };
+
+    case 'restingHeartRate':
+      if (!data.healthConnected) return { value: '—', unit: 'bpm', needsHealth: true };
+      return {
+        value: data.heartRate !== null ? String(data.heartRate) : '—',
+        unit: 'bpm resting',
+        needsHealth: false,
+      };
+
+    case 'bodyWeight':
+      return {
+        value: data.bodyWeight !== null ? String(data.bodyWeight) : '—',
+        unit: 'lbs',
         needsHealth: false,
       };
 

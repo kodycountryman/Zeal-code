@@ -374,7 +374,7 @@ export function getRadarPercentiles(
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
   const recentConditioningSessions = workoutHistory.filter(log => {
     const style = log.workoutStyle;
-    const isConditioning = style === 'HIIT' || style === 'CrossFit' || style === 'Cardio';
+    const isConditioning = style === 'HIIT' || style === 'CrossFit';
     return isConditioning && new Date(log.date + 'T00:00:00') >= fourWeeksAgo;
   }).length;
 

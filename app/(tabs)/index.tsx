@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from 'react-native';
 import { healthService } from '@/services/healthService';
 import { useRouter } from 'expo-router';
-import { useZealTheme, useAppContext, type MuscleReadinessItem, type WorkoutPlan } from '@/context/AppContext';
+import { useZealTheme, useAppContext, type WorkoutPlan } from '@/context/AppContext';
 import { resolvePushPullLegs } from '@/utils/training';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -45,6 +45,10 @@ import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
 import type { DayPrescription } from '@/services/planEngine';
 import * as Haptics from 'expo-haptics';
 import { mockBibleVerse } from '@/mocks/homeData';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Crown } from 'lucide-react-native';
+import { PRO_GOLD } from '@/services/proGate';
 import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PRO_STYLES_SET } from '@/services/proGate';
@@ -53,70 +57,8 @@ import SeventyFiveHardBanner from '@/components/SeventyFiveHardBanner';
 import OutdoorWorkoutCard from '@/components/OutdoorWorkoutCard';
 import SeventyFiveHardChecklist from '@/components/SeventyFiveHardChecklist';
 import SeventyFiveHardProgressDrawer from '@/components/drawers/SeventyFiveHardProgressDrawer';
+import { useTourTarget, useAppTour } from '@/context/AppTourContext';
 
-
-function getSmartCoachMessage({
-  muscleReadiness,
-  workoutTitle,
-  workoutStyle,
-  numericDuration,
-  streak,
-  readiness,
-  hasTodayWorkout,
-}: {
-  muscleReadiness: MuscleReadinessItem[];
-  workoutTitle: string;
-  workoutStyle: string;
-  numericDuration: number;
-  streak: number;
-  readiness: number;
-  hasTodayWorkout: boolean;
-}): string {
-  if (hasTodayWorkout) {
-    return 'Great work today. Recovery starts now. Stay hydrated and sleep well.';
-  }
-  const isRestDay = workoutTitle === 'Rest Day';
-  if (isRestDay) {
-    return readiness < 60
-      ? "Your body is asking for recovery. Today's rest is part of the plan."
-      : 'Rest day locked in. Light movement or a walk can keep momentum going.';
-  }
-  if (streak === 0) {
-    return 'Every elite athlete started with day one. Today is yours.';
-  }
-  if (streak === 1) {
-    return `Day one is already done. Show up again today. That’s how momentum starts.`;
-  }
-  if (streak >= 7) {
-    return `${streak}-day streak. You're building something real. Don't break the chain.`;
-  }
-  if (readiness >= 88) {
-    const t = workoutTitle.toLowerCase();
-    if (t.includes('push') || t.includes('chest') || t.includes('shoulder')) {
-      return 'Chest and shoulders are primed. Good day to push heavy.';
-    }
-    if (t.includes('pull') || t.includes('back') || t.includes('bicep')) {
-      return 'Your pull muscles are fresh. Time to move some weight.';
-    }
-    if (t.includes('leg') || t.includes('squat') || t.includes('glute')) {
-      return 'Legs are fully recovered. Squat strong today.';
-    }
-    return `Readiness is high. ${workoutTitle} is going to feel good today.`;
-  }
-  const sorted = [...muscleReadiness].sort((a, b) => b.value - a.value);
-  if (sorted.length >= 2) {
-    const a = sorted[0].name;
-    const b = sorted[1].name;
-    return `You're freshest in ${a} and ${b} today. Right on time for ${workoutTitle}.`;
-  }
-  if (numericDuration <= 30) {
-    return 'Short and sharp. A focused 30-minute session beats skipping any day.';
-  }
-  if (numericDuration >= 75) {
-    return `A ${numericDuration}-minute ${workoutStyle} session. Make every set count.`;
-  }
-  return `A ${numericDuration}-minute ${workoutStyle} session lines up perfectly with your goal today.`;
-}
 
 function getMuscleGroupsFromSplit(split: string, style: string): string {
   const s = split.toLowerCase();
@@ -143,11 +85,49 @@ export default function HomeScreen() {
   const { colors, accent, isZeal, isDark } = useZealTheme();
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
-  const { hasPro } = useSubscription();
+  const { hasPro, openPaywall } = useSubscription();
   const seventyFiveHard = useSeventyFiveHard();
   const router = useRouter();
+  const tourProfileRef = useTourTarget('profile-avatar');
+  const tourScoreRef = useTourTarget('training-score-card');
+  const { resetTour, startTour, tourActive } = useAppTour();
   const [hard75ProgressVisible, setHard75ProgressVisible] = useState(false);
   const glowColor: string = WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent;
+
+  // Pro style modal — shown once on mount if user selected a Pro style during onboarding
+  const [proStyleModalVisible, setProStyleModalVisible] = useState(false);
+  const proStyleModalShown = useRef(false);
+
+  useEffect(() => {
+    if (proStyleModalShown.current) return;
+    if (!hasPro && PRO_STYLES_SET.has(ctx.workoutStyle)) {
+      proStyleModalShown.current = true;
+      setProStyleModalVisible(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-dismiss if user purchases while modal is open
+  useEffect(() => {
+    if (hasPro && proStyleModalVisible) {
+      setProStyleModalVisible(false);
+    }
+  }, [hasPro, proStyleModalVisible]);
+
+  const handleProStyleDismiss = useCallback(() => {
+    setProStyleModalVisible(false);
+    ctx.setWorkoutStyle('Strength');
+    // Patch storage directly — ctx.saveState() captures stale workoutStyle closure
+    AsyncStorage.getItem('@zeal_app_state_v4').then(raw => {
+      if (raw) {
+        try {
+          const d = JSON.parse(raw);
+          d.workoutStyle = 'Strength';
+          AsyncStorage.setItem('@zeal_app_state_v4', JSON.stringify(d)).catch(console.warn);
+        } catch { /* ignore */ }
+      }
+    }).catch(console.warn);
+  }, [ctx]);
   const cardAnims = useMemo(() => ({
     d90:  FadeInUp.delay(90).springify().damping(18).stiffness(160),
     d150: FadeInUp.delay(150).springify().damping(18).stiffness(160),
@@ -424,6 +404,7 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
             <TouchableOpacity
+              ref={tourProfileRef as any}
               style={[
                 styles.avatarBtn,
                 { borderColor: ctx.userPhotoUri ? 'transparent' : colors.border },
@@ -497,19 +478,21 @@ export default function HomeScreen() {
           </Animated.View>
 
           {/* Workout 1 — AI-generated indoor workout */}
-          <Animated.View key="75h-workout1" entering={cardAnims.d210}>
-            <WorkoutOverviewCard
-              title={workoutTitle}
-              style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
-              duration={workoutDuration}
-              muscleGroups={muscleGroups}
-              exerciseCount={exerciseCount}
-              onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
-              activePlan={ctx.activePlan}
-              variant={isDark ? 'glass' : 'solid'}
-              completedLog={hasTodayWorkout ? latestTodayLog : null}
-            />
-          </Animated.View>
+          {tracking.workoutHistory.length > 0 && (
+            <Animated.View key="75h-workout1" entering={cardAnims.d210}>
+              <WorkoutOverviewCard
+                title={workoutTitle}
+                style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
+                duration={workoutDuration}
+                muscleGroups={muscleGroups}
+                exerciseCount={exerciseCount}
+                onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
+                activePlan={ctx.activePlan}
+                variant={isDark ? 'glass' : 'solid'}
+                completedLog={hasTodayWorkout ? latestTodayLog : null}
+              />
+            </Animated.View>
+          )}
 
           {/* Workout 2 — Outdoor workout */}
           <Animated.View key="75h-outdoor" entering={cardAnims.d270}>
@@ -521,8 +504,8 @@ export default function HomeScreen() {
             <SeventyFiveHardChecklist variant={isDark ? 'glass' : 'solid'} />
           </Animated.View>
 
-          {tracking.workoutHistory.length > 0 && (
-            <Animated.View entering={cardAnims.d390}>
+          <Animated.View entering={cardAnims.d390}>
+            {tracking.workoutHistory.length > 0 ? (
               <TrainingScoreCard
                 score={liveScore}
                 tier={tier}
@@ -533,15 +516,24 @@ export default function HomeScreen() {
                 steps={healthSteps}
                 heartRate={healthHeartRate}
                 weeklyHoursMin={tracking.weeklyHoursMin}
-                lastWorkout={{
-                  split: tracking.workoutHistory[0].split,
-                  duration: tracking.workoutHistory[0].duration,
-                }}
+                lastWorkout={{ split: tracking.workoutHistory[0].split, duration: tracking.workoutHistory[0].duration }}
                 onPress={() => setInsightsVisible(true)}
                 variant={isDark ? 'glass' : 'solid'}
               />
-            </Animated.View>
-          )}
+            ) : (
+              <GlassCard
+                onPress={() => setInsightsVisible(true)}
+                variant={isDark ? 'glass' : 'solid'}
+                style={{ padding: 22, alignItems: 'center' as const, opacity: 0.65 }}
+              >
+                <PlatformIcon name="bar-chart-3" size={28} color={colors.textMuted} />
+                <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 16, color: colors.text, marginTop: 10 }}>No insights yet</Text>
+                <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: 'center' as const, lineHeight: 18 }}>
+                  Log a workout to see your training score, analytics, and more.
+                </Text>
+              </GlassCard>
+            )}
+          </Animated.View>
 
           <View style={styles.bibleContainer} testID="bible-verse">
             <Text style={[styles.bibleText, { color: colors.textSecondary }]}>
@@ -613,22 +605,25 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
-          <Animated.View entering={cardAnims.d210}>
-            <WorkoutOverviewCard
-              title={workoutTitle}
-              style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
-              duration={workoutDuration}
-              muscleGroups={muscleGroups}
-              exerciseCount={exerciseCount}
-              onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
-              activePlan={ctx.activePlan}
-              variant={isDark ? 'glass' : 'solid'}
-              completedLog={hasTodayWorkout ? latestTodayLog : null}
-            />
-          </Animated.View>
-
           {tracking.workoutHistory.length > 0 && (
-            <Animated.View entering={cardAnims.d270}>
+            <Animated.View entering={cardAnims.d210}>
+              <WorkoutOverviewCard
+                title={workoutTitle}
+                style={tracking.currentGeneratedWorkout?.style ?? effectiveWorkout.style}
+                duration={workoutDuration}
+                muscleGroups={muscleGroups}
+                exerciseCount={exerciseCount}
+                onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
+                activePlan={ctx.activePlan}
+                variant={isDark ? 'glass' : 'solid'}
+                completedLog={hasTodayWorkout ? latestTodayLog : null}
+              />
+            </Animated.View>
+          )}
+
+          <Animated.View entering={cardAnims.d270}>
+            <View ref={tourScoreRef} collapsable={false}>
+            {tracking.workoutHistory.length > 0 ? (
               <TrainingScoreCard
                 score={liveScore}
                 tier={tier}
@@ -639,35 +634,25 @@ export default function HomeScreen() {
                 steps={healthSteps}
                 heartRate={healthHeartRate}
                 weeklyHoursMin={tracking.weeklyHoursMin}
-                lastWorkout={{
-                  split: tracking.workoutHistory[0].split,
-                  duration: tracking.workoutHistory[0].duration,
-                }}
+                lastWorkout={{ split: tracking.workoutHistory[0].split, duration: tracking.workoutHistory[0].duration }}
                 onPress={() => setInsightsVisible(true)}
                 variant={isDark ? 'glass' : 'solid'}
               />
-            </Animated.View>
-          )}
-
-
-          {tracking.workoutHistory.length > 0 && (
-            <Animated.View entering={cardAnims.d330}>
-              <GlassCard style={styles.coachCard} variant={isDark ? 'glass' : 'solid'}>
-                <PlatformIcon name="brain" size={14} color={accent} />
-                <Text style={[styles.coachText, { color: colors.textSecondary }]} numberOfLines={2}>
-                  {getSmartCoachMessage({
-                    muscleReadiness: ctx.muscleReadiness,
-                    workoutTitle,
-                    workoutStyle: ctx.workoutStyle,
-                    numericDuration,
-                    streak: ctx.streak,
-                    readiness,
-                    hasTodayWorkout,
-                  })}
+            ) : (
+              <GlassCard
+                onPress={() => setInsightsVisible(true)}
+                variant={isDark ? 'glass' : 'solid'}
+                style={{ padding: 22, alignItems: 'center' as const, opacity: 0.65 }}
+              >
+                <PlatformIcon name="bar-chart-3" size={28} color={colors.textMuted} />
+                <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 16, color: colors.text, marginTop: 10 }}>No insights yet</Text>
+                <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: 'center' as const, lineHeight: 18 }}>
+                  Log a workout to see your training score, analytics, and more.
                 </Text>
               </GlassCard>
-            </Animated.View>
-          )}
+            )}
+            </View>
+          </Animated.View>
 
 
           <View style={styles.bibleContainer} testID="bible-verse">
@@ -722,6 +707,22 @@ export default function HomeScreen() {
         onOpenEquipment={() => setEquipmentVisible(true)}
         onOpenExerciseCatalog={() => tracking.setExerciseCatalogVisible(true)}
         onOpenHelpFaq={() => setHelpFaqVisible(true)}
+        onReplayTour={() => {
+          // Close ALL open drawers before starting tour
+          setSettingsVisible(false);
+          setProfileVisible(false);
+          setAboutMeVisible(false);
+          setInsightsVisible(false);
+          setColorThemeVisible(false);
+          setEquipmentVisible(false);
+          setHelpFaqVisible(false);
+          resetTour();
+          // Wait for bottom sheets to fully dismiss, then navigate + start
+          setTimeout(() => {
+            router.push('/workout');
+            setTimeout(() => startTour(), 600);
+          }, 500);
+        }}
       />
 
       <ColorThemeDrawer
@@ -807,6 +808,49 @@ export default function HomeScreen() {
         }}
         day={planDayPreviewDay}
       />
+
+      {/* Pro style onboarding modal */}
+      <Modal
+        visible={proStyleModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <View style={styles.proModalOverlay}>
+          <View style={[styles.proModalCard, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}>
+            <View style={styles.proModalIconWrap}>
+              <Crown size={28} color={PRO_GOLD} />
+            </View>
+            <View style={styles.proModalTitleRow}>
+              <Text style={[styles.proModalTitle, { color: colors.text }]}>Pro Training Style</Text>
+            </View>
+            <Text style={[styles.proModalBody, { color: colors.textSecondary }]}>
+              You selected{' '}
+              <Text style={{ color: accent, fontFamily: 'Outfit_800ExtraBold' }}>{ctx.workoutStyle}</Text>
+              {' '}— a Zeal Pro training style.{'\n\n'}
+              Start a free trial to train in this style. If you close without upgrading, we'll automatically switch you to{' '}
+              <Text style={{ color: colors.text, fontFamily: 'Outfit_700Bold' }}>Strength</Text>.
+            </Text>
+            <TouchableOpacity
+              style={styles.proModalTrialBtn}
+              onPress={() => { setProStyleModalVisible(false); openPaywall(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#ff8c35', '#f87116', '#d96010']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.proModalTrialGradient}
+              >
+                <Text style={styles.proModalTrialText}>Start Free Trial</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleProStyleDismiss} activeOpacity={0.7} style={styles.proModalDismiss}>
+              <Text style={[styles.proModalDismissText, { color: colors.textMuted }]}>Switch me to Strength</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -881,23 +925,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     gap: 12,
     flexGrow: 1,
-  },
-  coachCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 26,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  coachText: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: 'Outfit_300Light',
-    lineHeight: 18,
-    letterSpacing: 0.1,
   },
   bibleContainer: {
     marginTop: 8,
@@ -1141,5 +1168,73 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Outfit_700Bold',
+  },
+  proModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  proModalCard: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 28,
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  proModalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${PRO_GOLD}18`,
+    borderWidth: 1,
+    borderColor: `${PRO_GOLD}40`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proModalTitleRow: {
+    alignItems: 'center',
+  },
+  proModalTitle: {
+    fontSize: 20,
+    fontFamily: 'Outfit_700Bold',
+    textAlign: 'center',
+  },
+  proModalBody: {
+    fontSize: 14,
+    fontFamily: 'Outfit_400Regular',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  proModalTrialBtn: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  proModalTrialGradient: {
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proModalTrialText: {
+    fontSize: 16,
+    fontFamily: 'Outfit_700Bold',
+    color: '#fff',
+  },
+  proModalDismiss: {
+    paddingVertical: 8,
+  },
+  proModalDismissText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_500Medium',
   },
 });

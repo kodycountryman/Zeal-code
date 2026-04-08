@@ -376,7 +376,9 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
   }
 
   const primaryMuscles: string[] = (ref?.primary_muscles ?? ref?.primaryMuscles ?? []);
-  const secondaryMuscles: string[] = (ref?.secondary_muscles ?? ref?.secondaryMuscles ?? []);
+  const primarySet = new Set(primaryMuscles.map((m: string) => m.toLowerCase()));
+  const secondaryMuscles: string[] = (ref?.secondary_muscles ?? ref?.secondaryMuscles ?? [])
+    .filter((m: string) => !primarySet.has(m.toLowerCase()));
   const movementPattern: string = ref?.movement_pattern ?? ref?.movementPattern ?? '';
   const steps = generateSteps(ref, exercise.name);
   const equipDisplay = exercise.equipment === 'Bodyweight'
@@ -406,24 +408,23 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
         {/* ── Header: name + muscles + like/dislike ── */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Text style={[styles.exerciseName, { color: colors.text }]}>{exercise.name}</Text>
-            {primaryMuscles.length > 0 && (
-              <View style={styles.muscleChipRow}>
-                {primaryMuscles.map((m: string) => (
-                  <View key={m} style={[styles.muscleChip, { borderColor: styleAccent, backgroundColor: `${styleAccent}15` }]}>
-                    <Text style={[styles.muscleChipText, { color: styleAccent }]}>{m.replace(/_/g, ' ')}</Text>
+            <Text
+              style={[styles.exerciseName, { color: colors.text }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.6}
+            >{exercise.name}</Text>
+            {/* Muscle groups — single row with muted chips + secondary inline */}
+            {(primaryMuscles.length > 0 || secondaryMuscles.length > 0) && (
+              <View style={styles.muscleRow}>
+                <Text style={[styles.muscleGroupLabel, { color: colors.textMuted }]}>Targeted</Text>
+                {[...primaryMuscles, ...secondaryMuscles].map((m: string) => (
+                  <View key={m} style={[styles.muscleChip, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
+                    <Text style={[styles.muscleChipText, { color: colors.textSecondary }]}>{m.replace(/_/g, ' ')}</Text>
                   </View>
                 ))}
               </View>
             )}
-            {secondaryMuscles.length > 0 && (
-              <Text style={[styles.secondaryMuscleText, { color: colors.textSecondary }]}>
-                {secondaryMuscles.map((m: string) => m.replace(/_/g, ' ')).join(' · ')}
-              </Text>
-            )}
-            {currentOrmStr ? (
-              <Text style={[styles.ormLine, { color: styleAccent }]}>{currentOrmStr} est. 1RM</Text>
-            ) : null}
           </View>
           <View style={styles.prefButtons}>
             <TouchableOpacity
@@ -457,6 +458,13 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
         </View>
         {hasHistory && (
           <View style={[styles.trendCard, { backgroundColor: colors.cardSecondary }]}>
+            {/* Est. 1RM shown here when we have real history */}
+            {currentOrmStr && (
+              <View style={styles.ormInTrendRow}>
+                <Text style={[styles.ormInTrendLabel, { color: colors.textMuted }]}>Est. 1RM</Text>
+                <Text style={[styles.ormInTrendValue, { color: styleAccent }]}>{currentOrmStr}</Text>
+              </View>
+            )}
             <Sparkline
               data={exerciseHistory}
               accent={styleAccent}
@@ -474,15 +482,14 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
           </View>
         )}
 
-        {/* ── Execution (setup + steps merged) ── */}
-        <View style={styles.sectionRow}>
-          <Zap size={13} color={styleAccent} />
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>EXECUTION</Text>
-        </View>
+        {/* ── Execution — header inside the card ── */}
         <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
-          <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>
-            {equipDisplay}
-          </Text>
+          {/* Header row inside the card */}
+          <View style={styles.executionHeaderRow}>
+            <Zap size={13} color={styleAccent} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>EXECUTION</Text>
+            <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>· {equipDisplay}</Text>
+          </View>
           <View style={[styles.executionDivider, { backgroundColor: colors.border }]} />
           {steps.map((step: string, idx: number) => (
             <View key={idx} style={styles.stepRow}>
@@ -527,15 +534,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.5,
   },
-  ormLine: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-  },
-  muscleChipRow: {
+  muscleRow: {
     flexDirection: 'row' as const,
     flexWrap: 'wrap' as const,
+    alignItems: 'center',
     gap: 5,
-    marginTop: 4,
+    marginTop: 5,
+  },
+  muscleGroupLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
+    marginRight: 2,
   },
   muscleChip: {
     paddingHorizontal: 8,
@@ -548,10 +557,25 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     textTransform: 'capitalize' as const,
   },
-  secondaryMuscleText: {
-    fontSize: 12,
-    marginTop: 2,
-    textTransform: 'capitalize' as const,
+  ormInTrendRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  ormInTrendLabel: {
+    fontSize: 10,
+    fontWeight: '600' as const,
+    letterSpacing: 0.5,
+  },
+  ormInTrendValue: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
+  executionHeaderRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center',
+    gap: 6,
   },
   noHistoryInline: {
     fontSize: 10,
@@ -614,8 +638,8 @@ const styles = StyleSheet.create({
   },
   equipmentLabel: {
     fontSize: 10,
-    fontWeight: '600' as const,
-    letterSpacing: 0.4,
+    fontWeight: '500' as const,
+    letterSpacing: 0.3,
     textTransform: 'capitalize' as const,
   },
   executionDivider: {

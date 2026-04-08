@@ -44,7 +44,6 @@ export default function WheelPicker({
   const initIndex = findClosestIndex(values, selectedValue);
   const [selIdx, setSelIdx] = useState<number>(initIndex);
   const lastEmitted = useRef<number>(-1);
-  const mounted = useRef<boolean>(false);
 
   const padding = ITEM_H * Math.floor(visibleItems / 2);
   const containerH = ITEM_H * visibleItems;
@@ -56,14 +55,6 @@ export default function WheelPicker({
     index,
   }), []);
 
-  useEffect(() => {
-    if (mounted.current) return;
-    mounted.current = true;
-    const t = setTimeout(() => {
-      listRef.current?.scrollToOffset({ offset: initIndex * ITEM_H, animated: false });
-    }, 60);
-    return () => clearTimeout(t);
-  }, [initIndex]);
 
   // Re-snap when selectedValue changes externally — always instant, no animation
   useEffect(() => {
@@ -130,6 +121,7 @@ export default function WheelPicker({
         keyExtractor={(_, i) => String(i)}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
+        initialScrollIndex={initIndex}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_H}
         decelerationRate={0.993}

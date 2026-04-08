@@ -32,17 +32,18 @@ import {
   Wind,
   Zap,
   Target,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppContext } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import WheelPicker from '@/components/WheelPicker';
-import AppWalkthrough from '@/components/AppWalkthrough';
+
 import { healthService } from '@/services/healthService';
-import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
 import type { Sex, FitnessLevel } from '@/context/AppContext';
-import { COMMERCIAL_EQUIPMENT_PRESET, HOME_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
+import { COMMERCIAL_EQUIPMENT_PRESET, CROSSFIT_EQUIPMENT_PRESET, EQUIPMENT_CATEGORIES } from '@/mocks/equipmentData';
 import { type TrainingGoal as Goal } from '@/constants/fitnessGoals';
 import { requestNotificationPermissions } from '@/services/notificationService';
 import { WORKOUT_STYLE_LIST as WORKOUT_STYLES_LIST } from '@/constants/workoutStyles';
@@ -54,12 +55,12 @@ const CARD = '#1c1c1c';
 const BORDER = '#2a2a2a';
 const TEXT = '#ffffff';
 const TEXT2 = 'rgba(255,255,255,0.55)';
-const TOTAL_STEPS = 12;
+const TOTAL_STEPS = 13;
 
 const CURRENT_YEAR = new Date().getFullYear();
 
 
-type EquipmentPreset = 'commercial' | 'home' | 'bodyweight' | 'custom';
+type EquipmentPreset = 'commercial' | 'home' | 'crossfit';
 
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -106,10 +107,9 @@ export default function OnboardingScreen() {
   const [weightUnit, setWeightUnit] = useState<'lbs' | 'kg'>('lbs');
   const [fitnessLevel, setFitnessLevel] = useState<FitnessLevel | null>(null);
   const [goal, setGoal] = useState<Goal | null>(null);
-  const [workoutStyle, setWorkoutStyle] = useState<string | null>(null);
+  const [workoutStyle, setWorkoutStyle] = useState<string | null>('Strength');
   const [equipPreset, setEquipPreset] = useState<EquipmentPreset | null>(null);
-  const [equipDrawerVisible, setEquipDrawerVisible] = useState(false);
-  const [customEquipDone, setCustomEquipDone] = useState(false);
+  const [localHomeEquip, setLocalHomeEquip] = useState<Record<string, number>>({});
   const [warmUpEnabled, setWarmUpEnabled] = useState(true);
   const [coolDownEnabled, setCoolDownEnabled] = useState(true);
   const [recoveryEnabled, setRecoveryEnabled] = useState(false);
@@ -117,7 +117,6 @@ export default function OnboardingScreen() {
   const [coreFinisherEnabled, setCoreFinisherEnabled] = useState(false);
 
   const [generating, setGenerating] = useState(false);
-  const [walkthroughVisible, setWalkthroughVisible] = useState(false);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -149,40 +148,44 @@ export default function OnboardingScreen() {
       case 9: return equipPreset !== null;
       case 10: return true;
       case 11: return true;
+      case 12: return true;
       default: return false;
     }
-  }, [step, name, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone]);
+  }, [step, name, sex, fitnessLevel, goal, workoutStyle, equipPreset]);
 
   const goNext = useCallback(() => {
-    if (step === 11) {
-      setWalkthroughVisible(true);
+    if (step === 12) {
+      handleWalkthroughDone();
       return;
     }
-    if (step === 9 && equipPreset === 'custom' && !customEquipDone) {
-      setEquipDrawerVisible(true);
+    if (step === 9 && equipPreset !== 'home') {
+      slideDir.current = 1;
+      setStep(11);
       return;
     }
     slideDir.current = 1;
     setStep((s) => s + 1);
-  }, [step, equipPreset, customEquipDone]);
+  }, [step, equipPreset]);
 
   const goBack = useCallback(() => {
     if (step <= 1) return;
     slideDir.current = -1;
+    if (step === 11 && equipPreset !== 'home') {
+      setStep(9);
+      return;
+    }
     setStep((s) => s - 1);
-  }, [step]);
+  }, [step, equipPreset]);
 
   const handleWalkthroughDone = useCallback(async () => {
-    setWalkthroughVisible(false);
     setGenerating(true);
 
     try {
       const finalWeight = weightUnit === 'kg' ? kgToLbs(weightLbs) : weightLbs;
       const finalEquip =
         equipPreset === 'commercial' ? COMMERCIAL_EQUIPMENT_PRESET
-          : equipPreset === 'home' ? HOME_EQUIPMENT_PRESET
-          : equipPreset === 'bodyweight' ? {}
-          : ctx.selectedEquipment;
+          : equipPreset === 'crossfit' ? CROSSFIT_EQUIPMENT_PRESET
+          : localHomeEquip;
 
       const dob = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
 
@@ -205,6 +208,7 @@ export default function OnboardingScreen() {
         trainingGoals: [goal ?? 'Build Muscle'],
         workoutStyle: workoutStyle ?? 'Strength',
         selectedEquipment: finalEquip,
+        gymType: equipPreset ?? 'commercial',
         warmUp: warmUpEnabled,
         coolDown: coolDownEnabled,
         recovery: recoveryEnabled,
@@ -215,7 +219,6 @@ export default function OnboardingScreen() {
       await new Promise((r) => setTimeout(r, 1800));
 
       ctx.completeOnboarding();
-      ctx.setShowPlusSpotlight(true);
       router.replace('/(tabs)');
     } catch (e) {
       console.error('[Onboarding] Failed to save profile:', e);
@@ -227,7 +230,7 @@ export default function OnboardingScreen() {
     } finally {
       setGenerating(false);
     }
-  }, [name, birthDay, birthMonth, birthYear, heightFt, heightIn, weightLbs, weightUnit, sex, fitnessLevel, goal, workoutStyle, equipPreset, customEquipDone, warmUpEnabled, coolDownEnabled, recoveryEnabled, addCardioEnabled, coreFinisherEnabled, ctx]);
+  }, [name, birthDay, birthMonth, birthYear, heightFt, heightIn, weightLbs, weightUnit, sex, fitnessLevel, goal, workoutStyle, equipPreset, localHomeEquip, warmUpEnabled, coolDownEnabled, recoveryEnabled, addCardioEnabled, coreFinisherEnabled, ctx]);
 
   const handleRequestNotifications = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -244,7 +247,7 @@ export default function OnboardingScreen() {
       }
     }
     slideDir.current = 1;
-    setStep(12);
+    setStep(13);
   }, [ctx]);
 
   const handleConnectHealth = useCallback(async () => {
@@ -365,13 +368,18 @@ export default function OnboardingScreen() {
           {step === 7 && <StepGoal value={goal} onChange={setGoal} />}
           {step === 8 && <StepWorkoutStyle value={workoutStyle} onChange={setWorkoutStyle} />}
           {step === 9 && (
-            <StepEquipment
+            <StepGymType
               value={equipPreset}
               onChange={setEquipPreset}
-              customDone={customEquipDone}
             />
           )}
           {step === 10 && (
+            <StepHomeEquipment
+              value={localHomeEquip}
+              onChange={setLocalHomeEquip}
+            />
+          )}
+          {step === 11 && (
             <StepWorkoutComponents
               warmUp={warmUpEnabled}
               coolDown={coolDownEnabled}
@@ -385,13 +393,13 @@ export default function OnboardingScreen() {
               onToggleCoreFinisher={() => setCoreFinisherEnabled(v => !v)}
             />
           )}
-          {step === 11 && (
+          {step === 12 && (
             <StepNotifications
               onAllow={handleRequestNotifications}
-              onSkip={() => { slideDir.current = 1; setStep(12); }}
+              onSkip={() => { slideDir.current = 1; setStep(13); }}
             />
           )}
-          {step === 12 && (
+          {step === 13 && (
             <StepHealthData
               onConnect={handleConnectHealth}
               onSkip={() => setWalkthroughVisible(true)}
@@ -399,48 +407,60 @@ export default function OnboardingScreen() {
           )}
         </Animated.View>
 
-        {step !== 11 && step !== 12 && (
+        {step !== 12 && step !== 13 && (
           <View style={styles.bottomBar}>
-            <TouchableOpacity
-              style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
-              onPress={canContinue ? goNext : undefined}
-              activeOpacity={canContinue ? 0.85 : 1}
-              testID="onboarding-continue"
-            >
-              {canContinue ? (
-                <LinearGradient
-                  colors={['#ff8c35', '#f87116', '#d96010']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.continueGradient}
+            {step === 10 ? (
+              <View style={styles.homeEquipFooter}>
+                <TouchableOpacity
+                  style={styles.skipEquipBtn}
+                  onPress={() => { setLocalHomeEquip({}); slideDir.current = 1; setStep(11); }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.continueText}>Continue</Text>
-                </LinearGradient>
-              ) : (
-                <View style={styles.continueGradient}>
-                  <Text style={[styles.continueText, { color: 'rgba(255,255,255,0.3)' }]}>Continue</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+                  <Text style={styles.skipLink}>Skip</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.continueBtn, { flex: 2 }]}
+                  onPress={goNext}
+                  activeOpacity={0.85}
+                  testID="onboarding-continue"
+                >
+                  <LinearGradient
+                    colors={['#ff8c35', '#f87116', '#d96010']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.continueGradient}
+                  >
+                    <Text style={styles.continueText}>Done</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
+                onPress={canContinue ? goNext : undefined}
+                activeOpacity={canContinue ? 0.85 : 1}
+                testID="onboarding-continue"
+              >
+                {canContinue ? (
+                  <LinearGradient
+                    colors={['#ff8c35', '#f87116', '#d96010']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.continueGradient}
+                  >
+                    <Text style={styles.continueText}>Continue</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.continueGradient}>
+                    <Text style={[styles.continueText, { color: 'rgba(255,255,255,0.3)' }]}>Continue</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </SafeAreaView>
 
-      <EquipmentDrawer
-        visible={equipDrawerVisible}
-        onClose={() => {
-          setEquipDrawerVisible(false);
-          setCustomEquipDone(true);
-          slideDir.current = 1;
-          setStep((s) => s + 1);
-        }}
-      />
-
-      <AppWalkthrough
-        visible={walkthroughVisible}
-        onDone={handleWalkthroughDone}
-        showCloseButton={false}
-      />
     </View>
   );
 }
@@ -547,7 +567,6 @@ function StepSex({ value, onChange }: { value: Sex | null; onChange: (v: Sex) =>
   const OPTIONS: { key: Sex; label: string }[] = [
     { key: 'male', label: 'Male' },
     { key: 'female', label: 'Female' },
-    { key: 'prefer_not', label: 'Prefer not to say' },
   ];
   return (
     <View style={styles.stepInner}>
@@ -646,7 +665,7 @@ function StepWeight({
             textColor={TEXT}
             accentColor={ACCENT}
             bgColor="transparent"
-            visibleItems={1}
+            visibleItems={3}
             suffix={` ${unit}`}
           />
         </View>
@@ -755,10 +774,7 @@ function StepWorkoutStyle({ value, onChange }: { value: string | null; onChange:
             return (
               <TouchableOpacity
                 key={s.key}
-                style={[
-                  styles.styleRow,
-                  sel && { borderColor: color, backgroundColor: color + '15' },
-                ]}
+                style={[styles.styleRow, sel && { borderColor: color, backgroundColor: color + '15' }]}
                 onPress={() => onChange(s.key)}
                 activeOpacity={0.75}
               >
@@ -777,29 +793,26 @@ function StepWorkoutStyle({ value, onChange }: { value: string | null; onChange:
   );
 }
 
-function StepEquipment({
-  value, onChange, customDone,
+function StepGymType({
+  value, onChange,
 }: {
   value: EquipmentPreset | null;
   onChange: (v: EquipmentPreset) => void;
-  customDone: boolean;
 }) {
   const OPTIONS = [
-    { key: 'commercial' as const, label: 'Commercial Gym', desc: 'Full access to machines, barbells, cables', Icon: Building2 },
-    { key: 'home' as const, label: 'Home Gym', desc: 'Dumbbells, bench, some equipment', Icon: Home },
-    { key: 'bodyweight' as const, label: 'Bodyweight Only', desc: 'No equipment needed', Icon: User },
-    { key: 'custom' as const, label: 'Custom', desc: 'Pick exactly which equipment you have', Icon: Dumbbell },
+    { key: 'commercial' as const, label: 'Commercial Gym', desc: 'Full machines, cables, barbells', Icon: Building2 },
+    { key: 'home' as const, label: 'Home Gym', desc: 'Select your equipment in the next step', Icon: Home },
+    { key: 'crossfit' as const, label: 'CrossFit Gym', desc: 'Barbells, conditioning, functional movements', Icon: Zap },
   ];
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What equipment do you have?</Text>
-        <Text style={styles.stepSubtext}>We&apos;ll only generate workouts you can actually do.</Text>
+        <Text style={styles.stepHeadline}>Where do you train?</Text>
+        <Text style={styles.stepSubtext}>We&apos;ll tailor workouts to what you actually have.</Text>
       </View>
       <View style={styles.cardList}>
         {OPTIONS.map((o) => {
           const sel = value === o.key;
-          const showCustomDone = o.key === 'custom' && customDone;
           return (
             <TouchableOpacity
               key={o.key}
@@ -812,7 +825,7 @@ function StepEquipment({
               </View>
               <View style={styles.selectCardTextCol}>
                 <Text style={[styles.selectCardLabel, sel && styles.selectCardLabelActive]}>
-                  {o.label}{showCustomDone ? ' (saved)' : ''}
+                  {o.label}
                 </Text>
                 <Text style={[styles.selectCardDesc, sel && { color: 'rgba(255,255,255,0.7)' }]}>
                   {o.desc}
@@ -823,6 +836,90 @@ function StepEquipment({
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function StepHomeEquipment({
+  value, onChange,
+}: {
+  value: Record<string, number>;
+  onChange: (v: Record<string, number>) => void;
+}) {
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
+  const totalSelected = Object.values(value).filter((v) => v > 0).length;
+
+  const toggleItem = (id: string) => {
+    onChange({ ...value, [id]: (value[id] ?? 0) > 0 ? 0 : 1 });
+  };
+
+  const toggleCat = (catId: string) => {
+    setExpandedCats((prev) => ({ ...prev, [catId]: !prev[catId] }));
+  };
+
+  return (
+    <View style={styles.stepInner}>
+      <View style={styles.headingBlock}>
+        <Text style={styles.stepHeadline}>What equipment do you have?</Text>
+        <Text style={styles.stepSubtext}>Tap to add items — or skip if you&apos;re not sure yet.</Text>
+      </View>
+      <Text style={[styles.stepSubtext, { color: ACCENT, marginBottom: 10 }]}>
+        {totalSelected > 0 ? `${totalSelected} item${totalSelected !== 1 ? 's' : ''} selected` : 'Nothing selected yet'}
+      </Text>
+      <ScrollView
+        style={styles.styleScrollView}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {EQUIPMENT_CATEGORIES.map((cat) => {
+          const selectedInCat = cat.items.filter((i) => (value[i.id] ?? 0) > 0).length;
+          const isExpanded = expandedCats[cat.id] ?? false;
+          return (
+            <View key={cat.id} style={styles.homeEquipCat}>
+              <TouchableOpacity
+                style={styles.homeEquipCatHeader}
+                onPress={() => toggleCat(cat.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.homeEquipCatName}>{cat.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {selectedInCat > 0 && (
+                    <Text style={{ color: ACCENT, fontSize: 13, fontFamily: 'Outfit_600SemiBold' }}>
+                      {selectedInCat}
+                    </Text>
+                  )}
+                  {isExpanded
+                    ? <ChevronUp size={17} color={TEXT2} />
+                    : <ChevronDown size={17} color={TEXT2} />
+                  }
+                </View>
+              </TouchableOpacity>
+              {isExpanded && cat.items.map((item) => {
+                const isOn = (value[item.id] ?? 0) > 0;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.homeEquipItemRow}
+                    onPress={() => toggleItem(item.id)}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[styles.homeEquipItemName, isOn && { color: TEXT }]}>
+                      {item.name}
+                    </Text>
+                    <View style={[
+                      styles.homeEquipCheckbox,
+                      { borderColor: isOn ? ACCENT : BORDER, backgroundColor: isOn ? ACCENT : 'transparent' },
+                    ]}>
+                      {isOn && <Check size={12} color="#fff" strokeWidth={3} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          );
+        })}
+        <View style={{ height: 24 }} />
+      </ScrollView>
     </View>
   );
 }
@@ -1395,9 +1492,64 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   skipLink: {
+    fontSize: 16,
+    fontFamily: 'Outfit_600SemiBold',
+    color: 'rgba(255,255,255,0.5)',
+  },
+  homeEquipFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  skipEquipBtn: {
+    flex: 1,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  homeEquipCat: {
+    backgroundColor: CARD,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  homeEquipCatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  homeEquipCatName: {
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
+    color: TEXT,
+  },
+  homeEquipItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  homeEquipItemName: {
+    flex: 1,
     fontSize: 14,
-    fontFamily: 'Outfit_500Medium',
-    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Outfit_400Regular',
+    color: TEXT2,
+  },
+  homeEquipCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomBar: {
     paddingHorizontal: 24,

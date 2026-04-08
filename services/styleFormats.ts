@@ -694,21 +694,6 @@ export const HYROX_ARCHITECTURE: SessionArchitecture = {
   total_phase_fraction: 1.0,
 };
 
-export const CARDIO_ARCHITECTURE: SessionArchitecture = {
-  phases: [
-    {
-      id: 'cardio_main',
-      name: 'Main Cardio',
-      exercise_count: { min: 1, max: 3 },
-      role_filter: ['primary', 'secondary', 'accessory'],
-      preferred_formats: ['zone_steady', 'tempo_intervals', 'interval_repeats'],
-      time_budget_fraction: 1.0,
-      movement_filter: ['cardio'],
-    },
-  ],
-  total_phase_fraction: 1.0,
-};
-
 export const PILATES_ARCHITECTURE: SessionArchitecture = {
   phases: [
     {
@@ -1566,10 +1551,6 @@ const SPLIT_TO_STRENGTH_ARCHITECTURE: Record<string, SessionArchitecture> = {
   'lower body': STRENGTH_LOWER_ARCHITECTURE,
   // Full Body
   'full body': STRENGTH_FULL_BODY_ARCHITECTURE,
-  // Core + Cardio
-  'core + cardio': STRENGTH_CORE_CARDIO_ARCHITECTURE,
-  'core+cardio': STRENGTH_CORE_CARDIO_ARCHITECTURE,
-  'core blast': STRENGTH_CORE_CARDIO_ARCHITECTURE,
   // Body Part Split day names (from planEngine SPLIT_NAME_TO_ROTATION)
   chest: STRENGTH_PUSH_ARCHITECTURE,
   'chest day': STRENGTH_PUSH_ARCHITECTURE,
@@ -1659,7 +1640,6 @@ export function getArchitectureForStyle(style: string, split?: string): SessionA
     case 'crossfit': return CROSSFIT_ARCHITECTURE;
     case 'hiit': return HIIT_ARCHITECTURE;
     case 'hyrox': return HYROX_ARCHITECTURE;
-    case 'cardio': return CARDIO_ARCHITECTURE;
     case 'pilates': return PILATES_ARCHITECTURE;
     case 'mobility': return MOBILITY_ARCHITECTURE;
     case 'hybrid': return HYBRID_ARCHITECTURE;

@@ -15,6 +15,7 @@ import BaseDrawer from '@/components/drawers/BaseDrawer';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
 }
 
 type TabKey = 'faq' | 'reviews' | 'science';
@@ -128,13 +129,6 @@ const SCIENCE_DATA: ScienceCard[] = [
     researcher: 'Official Hyrox Race Format & Functional Fitness Research',
     description: 'Structured around the official Hyrox race format: 8 \u00D7 8km runs + functional stations. Training follows the top Hyrox athletes\' approaches \u2014 building both aerobic capacity and functional strength endurance simultaneously.',
     benefits: ['Race-specific preparation', 'Combines running and functional fitness', 'Rapidly growing global sport', 'Tests true all-around fitness'],
-  },
-  {
-    style: 'Cardio',
-    color: WORKOUT_STYLE_COLORS['Cardio'],
-    researcher: 'Stephen Seiler (Polarized Training) & Phil Maffetone (MAF Method)',
-    description: 'Seiler\'s research on elite endurance athletes consistently shows 80% low intensity / 20% high intensity as the optimal training distribution. Maffetone\'s MAF method ensures Zone 2 base work is truly aerobic \u2014 not lactate-accumulating moderate intensity.',
-    benefits: ['Mitochondrial density increase', 'Cardiovascular efficiency', 'Fat adaptation', 'Longevity and metabolic health'],
   },
   {
     style: 'HIIT',

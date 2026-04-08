@@ -118,18 +118,65 @@ function TrainingScoreCard({
   const targetCapped = Math.min(targetDone, targetTotal);
 
   // Build the data bag for the value resolver
-  const slotInput = useMemo<MetricSlotInput>(() => ({
-    workoutHistory: tracking.workoutHistory,
-    weeklyHoursMin,
-    streak: ctx.streak,
-    targetDone,
-    targetTotal,
-    calories: calories ?? null,
-    steps: steps ?? null,
-    heartRate: heartRate ?? null,
-    healthConnected: ctx.healthConnected,
-  }), [tracking.workoutHistory, weeklyHoursMin, ctx.streak, ctx.healthConnected,
-      targetDone, targetTotal, calories, steps, heartRate]);
+  const slotInput = useMemo<MetricSlotInput>(() => {
+    const history = tracking.workoutHistory;
+
+    // Longest ever consecutive-day streak
+    const allDays = [...new Set(history.map((l) => l.date))].sort();
+    let longestStreakDays = allDays.length > 0 ? 1 : 0;
+    let curRun = allDays.length > 0 ? 1 : 0;
+    for (let i = 1; i < allDays.length; i++) {
+      const prev = new Date(allDays[i - 1]);
+      const curr = new Date(allDays[i]);
+      const diffDays = Math.round((curr.getTime() - prev.getTime()) / 86400000);
+      if (diffDays === 1) {
+        curRun++;
+        longestStreakDays = Math.max(longestStreakDays, curRun);
+      } else if (diffDays > 1) {
+        curRun = 1;
+      }
+    }
+
+    // Unique exercise names logged this calendar week
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const thisWeekFullLogs = history.filter((l) => new Date(l.date) >= weekStart);
+    const uniqueNames = new Set<string>();
+    for (const log of thisWeekFullLogs) {
+      if ((log as any).exercises) {
+        for (const ex of (log as any).exercises as Array<{ exerciseName: string }>) {
+          if (ex.exerciseName) uniqueNames.add(ex.exerciseName);
+        }
+      }
+    }
+    const exercisesThisWeekCount = uniqueNames.size;
+
+    // Consistency % — sessions completed vs (targetTotal × 4) in last 28 days
+    const fourWeeksAgo = new Date();
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const sessionsLast4Wks = history.filter((l) => new Date(l.date) >= fourWeeksAgo).length;
+    const consistencyPct = targetTotal > 0
+      ? Math.min(100, Math.round((sessionsLast4Wks / (targetTotal * 4)) * 100))
+      : 0;
+
+    return {
+      workoutHistory: history,
+      weeklyHoursMin,
+      streak: ctx.streak,
+      targetDone,
+      targetTotal,
+      calories: calories ?? null,
+      steps: steps ?? null,
+      heartRate: heartRate ?? null,
+      healthConnected: ctx.healthConnected,
+      longestStreakDays,
+      exercisesThisWeekCount,
+      consistencyPct,
+      bodyWeight: ctx.weight ?? null,
+    };
+  }, [tracking.workoutHistory, weeklyHoursMin, ctx.streak, ctx.healthConnected,
+      ctx.weight, targetDone, targetTotal, calories, steps, heartRate]);
 
   const handleSlotPress = useCallback((index: number) => {
     const key = slots[index];
@@ -157,22 +204,22 @@ function TrainingScoreCard({
         variant={variant}
       >
         <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Training Score
-            </Text>
-            <Text style={[styles.tier, { color: 'rgba(255,255,255,0.45)' }]}>{tier}</Text>
-          </View>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Training Score
+          </Text>
           <PlatformIcon name="chevron-right" size={16} color={colors.textSecondary} />
         </View>
 
-        {score === 0 ? (
-          <Text style={[styles.scoreNumber, { color: colors.textSecondary, letterSpacing: -1 }]}>—</Text>
-        ) : (
-          <Animated.Text style={[styles.scoreNumber, { color: colors.score, transform: [{ scale: scaleAnim }] }]}>{displayScore}</Animated.Text>
-        )}
+        <View style={styles.scoreRow}>
+          {score === 0 ? (
+            <Text style={[styles.scoreNumber, { color: colors.textSecondary, letterSpacing: -1 }]}>—</Text>
+          ) : (
+            <Animated.Text style={[styles.scoreNumber, { color: colors.score, transform: [{ scale: scaleAnim }] }]}>{displayScore}</Animated.Text>
+          )}
+          <Text style={[styles.tierLabel, { color: mutedColor }]}>{tier}</Text>
+        </View>
 
-        <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+        <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
           {score > 0 && (
             <View
               style={[
@@ -204,12 +251,6 @@ function TrainingScoreCard({
             </Text>
           </View>
         </View>
-
-        {lastWorkout && (
-          <Text style={[styles.lastWorkoutLine, { color: colors.textSecondary }]}>
-            Last: {lastWorkout.split} · {lastWorkout.duration > 0 ? `${lastWorkout.duration}m` : '—'}
-          </Text>
-        )}
 
         <View style={[styles.metricsDivider, { backgroundColor: dividerColor }]} />
 
@@ -280,21 +321,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   label: {
-    fontSize: 12,
-    fontFamily: 'Outfit_500Medium',
-    letterSpacing: 0,
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: -0.2,
   },
-  tier: {
-    fontSize: 11,
-    fontFamily: 'Outfit_500Medium',
-    letterSpacing: -0.1,
-    marginTop: 1,
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: -6,
+  },
+  tierLabel: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    letterSpacing: 0,
   },
   emptyScoreState: {
     gap: 6,
@@ -312,13 +353,13 @@ const styles = StyleSheet.create({
     lineHeight: 48,
   },
   progressTrack: {
-    height: 4,
-    borderRadius: 2,
+    height: 7,
+    borderRadius: 3.5,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3.5,
     minWidth: 8,
   },
   readinessRow: {
@@ -338,24 +379,24 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   readinessLabel: {
-    fontSize: 10,
-    fontFamily: 'Outfit_400Regular',
-    letterSpacing: 0.2,
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.1,
   },
   readinessValue: {
-    fontSize: 10,
-    fontFamily: 'Outfit_600SemiBold',
-    letterSpacing: 0.2,
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0,
   },
   targetValue: {
-    fontSize: 10,
-    fontFamily: 'Outfit_600SemiBold',
-    letterSpacing: 0.2,
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0,
   },
   targetTotal: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: 'Outfit_400Regular',
-    letterSpacing: 0.2,
+    letterSpacing: 0,
   },
   lastWorkoutLine: {
     fontSize: 11,

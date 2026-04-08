@@ -65,10 +65,7 @@ export default function MetricSlot({
             adjustsFontSizeToFit
             minimumFontScale={0.7}
           >
-            {resolved.value}
-          </Text>
-          <Text style={[styles.unit, { color: mutedColor }]} numberOfLines={1}>
-            {resolved.needsHealth ? 'Connect Health' : resolved.unit}
+            {resolved.needsHealth ? '—' : resolved.value}
           </Text>
         </View>
       )}
@@ -82,7 +79,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    minHeight: 52,
+    minHeight: 40,
   },
   emptyInner: {
     alignItems: 'center',
@@ -104,7 +101,7 @@ const styles = StyleSheet.create({
   },
   filledInner: {
     alignItems: 'center',
-    gap: 3,
+    gap: 5,
   },
   value: {
     fontSize: 14,

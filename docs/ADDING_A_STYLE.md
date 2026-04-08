@@ -29,7 +29,7 @@ Add your style to the `EligibleStyle` type union:
 ```typescript
 export type EligibleStyle =
   | 'strength' | 'bodybuilding' | 'crossfit' | 'hyrox'
-  | 'mobility' | 'hiit' | 'cardio' | 'pilates' | 'low_impact'
+  | 'mobility' | 'hiit' | 'pilates' | 'low_impact'
   | 'hybrid'
   | 'your_new_style';  // <-- add here
 ```

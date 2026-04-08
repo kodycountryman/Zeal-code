@@ -44,6 +44,7 @@ type TabId = 'muscle' | 'equipment';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onBack?: () => void;
 }
 
 interface MuscleGroupCategory {

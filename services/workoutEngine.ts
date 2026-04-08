@@ -375,7 +375,7 @@ function resolveAutoStyle(params: EngineParams): string {
   const split = (params.split ?? '').toLowerCase().trim();
   if (['amrap', 'emom', 'rft', 'chipper', 'ladder'].includes(split)) return 'CrossFit';
   if (split.includes('hyrox') || split.includes('simulation')) return 'Hyrox';
-  if (split.includes('zone') || split.includes('fartlek') || split.includes('tempo') || split.includes('interval')) return 'Cardio';
+  if (split.includes('zone') || split.includes('fartlek') || split.includes('tempo') || split.includes('interval')) return 'HIIT';
   if (split.includes('flow') || split.includes('recovery')) return 'Mobility';
   if (split.includes('pilates') || split.includes('reformer')) return 'Pilates';
   return 'Strength';
@@ -396,10 +396,6 @@ function resolveAutoSplitForStyle(style: string, split: string, duration: number
       if (duration >= 75) return 'Half Simulation';
       if (duration >= 55) return 'Compromised Run';
       return 'Station Practice';
-    case 'cardio':
-      if (duration >= 50) return 'Steady-State (Zone 2)';
-      if (duration <= 30) return 'Intervals';
-      return 'Tempo';
     case 'mobility':
       return duration <= 20 ? 'Recovery Day' : 'Full-Body Flow';
     case 'pilates':
@@ -1579,7 +1575,7 @@ function applyStyleAwareGrouping(
     // Strength block: ALWAYS start CrossFit with 2-4 movements.
     // Prefer heavy compounds, but hard-fallback so a strength opener is never missing.
     const cfSessionDuration = targetDuration ?? 45;
-    const targetStrengthCount = hasGymEquipment ? (cfSessionDuration >= 50 ? 4 : 3) : 2;
+    const targetStrengthCount = hasGymEquipment ? 3 : 2;
     const minStrengthCount = Math.min(2, exercises.length);
 
     const strengthCandidates = exercises.filter(isGoodCrossfitStrengthLift);
@@ -1649,7 +1645,7 @@ function applyStyleAwareGrouping(
     if (formatId === 'amrap') {
       // Keep AMRAP concise: too many 1-set stations reads noisy and kills pacing.
       const maxAmrapExercises = sessionDuration >= 55 ? 6 : 5;
-      metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxAmrapExercises, metconCandidates.length)));
+      metconPool = metconCandidates.slice(0, Math.max(4, Math.min(maxAmrapExercises, metconCandidates.length)));
       const params = getAMRAPParams(metconBudgetMin, level);
       timeCap = params.time_cap_minutes;
       // AMRAP: single timed block — sets = 1, reps are moderate (cycle through repeatedly)
@@ -1662,13 +1658,7 @@ function applyStyleAwareGrouping(
       }
     } else if (formatId === 'emom') {
       const emomParams = getEMOMParams(metconBudgetMin, level);
-      // If the metcon candidate pool is too small for EMOM's minimum of 4, pull from full exercise list
-      const emomPool = metconCandidates.length >= emomParams.exercises_per_rotation
-        ? metconCandidates
-        : exercises.length >= emomParams.exercises_per_rotation
-          ? exercises
-          : metconCandidates;
-      const emomExerciseCount = Math.min(emomParams.exercises_per_rotation, emomPool.length);
+      const emomExerciseCount = Math.min(emomParams.exercises_per_rotation, metconCandidates.length);
       // EMOM duration must be a multiple of exercise count (each round = 1 min per exercise)
       const emomMinutes = emomParams.total_minutes;
       // Verify divisibility — getEMOMParams already ensures this, but clamp if exercise pool was smaller
@@ -1677,7 +1667,7 @@ function applyStyleAwareGrouping(
         : emomMinutes;
       timeCap = adjustedMinutes;
       rounds = adjustedMinutes; // EMOM total minutes = number of 1-minute slots
-      metconPool = emomPool.slice(0, emomExerciseCount);
+      metconPool = metconCandidates.slice(0, emomExerciseCount);
 
       // EMOM: small rep counts completable within ~40 s to earn rest within the minute
       for (const ex of metconPool) {
@@ -1704,7 +1694,7 @@ function applyStyleAwareGrouping(
       __DEV__ && console.log('[EngineV2] EMOM structure:', adjustedMinutes, 'min with', emomExerciseCount, 'exercise(s),', adjustedMinutes / emomExerciseCount, 'rounds');
     } else if (formatId === 'rft') {
       const maxRftExercises = sessionDuration >= 55 ? 5 : 4;
-      metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxRftExercises, metconCandidates.length)));
+      metconPool = metconCandidates.slice(0, Math.max(4, Math.min(maxRftExercises, metconCandidates.length)));
       const params = getRFTParams(level, rng, metconBudgetMin);
       timeCap = params.time_cap_minutes;
       rounds = params.rounds;
@@ -1778,10 +1768,10 @@ function applyStyleAwareGrouping(
       }
     } else if (formatId === 'ladder') {
       const maxLadderExercises = sessionDuration >= 55 ? 5 : 4;
-      metconPool = metconCandidates.slice(0, Math.max(3, Math.min(maxLadderExercises, metconCandidates.length)));
+      metconPool = metconCandidates.slice(0, Math.max(4, Math.min(maxLadderExercises, metconCandidates.length)));
       const ladderParams = getLadderParams(level, rng);
       // Ladders scale with session duration
-      timeCap = Math.max(10, Math.min(35, metconBudgetMin));
+      timeCap = Math.max(8, Math.min(20, metconBudgetMin));
       // Use metconRounds to encode the ladder increment so the UI can display "start X · +Y/rd".
       // (We don't track "target round" yet — this is strictly metadata clarity.)
       const ladderInc = level === 'beginner' ? 2 : level === 'intermediate' ? 2 : 3;
@@ -1810,6 +1800,15 @@ function applyStyleAwareGrouping(
 
     for (const ex of metconPool) {
       if (!ex.groupType) {
+        ex.groupType = 'circuit';
+        ex.groupId = 'metcon_1';
+      }
+    }
+
+    // Tag any orphaned exercises (not in strength block, not in metcon pool) as metcon
+    // so they don't accidentally render in the Strength section in the UI.
+    for (const ex of exercises) {
+      if (!strengthIds.has(ex.exerciseRef.id) && !ex.groupType) {
         ex.groupType = 'circuit';
         ex.groupId = 'metcon_1';
       }
@@ -2464,7 +2463,7 @@ function generateCardioItems(
   style: string,
   rng: () => number,
 ): CardioItem[] {
-  if (!addCardio && style !== 'Cardio') return [];
+  if (!addCardio) return [];
   const cardioFormats = ['Intervals', 'Steady State', 'Tempo'];
   const cardioExercises = ['Battle Ropes', 'Jump Rope', 'Rowing Machine', 'Assault Bike', 'Treadmill Run'];
   const format = cardioFormats[Math.floor(rng() * cardioFormats.length)];

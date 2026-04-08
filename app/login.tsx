@@ -221,12 +221,15 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </Animated.View>
 
+            {/* OR divider + Google Sign-In — disabled for now, keep code for future use
             <View style={styles.orRow}>
               <View style={styles.orLine} />
               <Text style={styles.orText}>OR</Text>
               <View style={styles.orLine} />
             </View>
+            */}
 
+            {/* Google Sign-In — disabled for now, keep code for future use
             <TouchableOpacity
               style={[styles.googleBtn, googleLoading && styles.googleBtnDisabled]}
               onPress={handleGoogleSignIn}
@@ -245,6 +248,7 @@ export default function LoginScreen() {
                 </>
               )}
             </TouchableOpacity>
+            */}
 
             {hasExistingAccount && (
               <Animated.View style={{ transform: [{ scale: returnBtnScale }] }}>

@@ -15,9 +15,8 @@ import { useRouter } from 'expo-router';
 import CustomSlider from '@/components/CustomSlider';
 import GlassCard from '@/components/GlassCard';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import { X, ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, PlayCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download } from 'lucide-react-native';
+import { X, ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download, Lightbulb, Compass } from 'lucide-react-native';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY, PRO_STYLES, PRO_STYLES_SET } from '@/services/proGate';
-import AppWalkthrough from '@/components/AppWalkthrough';
 import { useZealTheme, useAppContext, type NotifPrefs } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { healthService } from '@/services/healthService';
@@ -76,11 +75,12 @@ interface Props {
   onOpenEquipment: () => void;
   onOpenExerciseCatalog?: () => void;
   onOpenHelpFaq?: () => void;
+  onReplayTour?: () => void;
 }
 
 const DANGER_ZONE_HEIGHT = 100;
 
-export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq }: Props) {
+export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq, onReplayTour }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const router = useRouter();
@@ -97,7 +97,6 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
   const [localCardio, setLocalCardio] = useState(ctx.addCardio);
   const [localCoreFinisher, setLocalCoreFinisher] = useState(ctx.coreFinisher);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [walkthroughVisible, setWalkthroughVisible] = useState(false);
   const [healthConnecting, setHealthConnecting] = useState(false);
   const healthPulse = useRef(new Animated.Value(1)).current;
   const [dangerOpen, setDangerOpen] = useState(false);
@@ -607,11 +606,11 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               testID: 'settings-faq',
             },
             {
-              iconComponent: <PlayCircle size={18} color={colors.textSecondary} />,
-              label: 'App Walkthrough',
-              sub: 'Replay the guided tour',
-              onPress: () => setWalkthroughVisible(true),
-              testID: 'settings-walkthrough',
+              iconComponent: <Compass size={18} color={colors.textSecondary} />,
+              label: 'App Tour',
+              sub: 'Replay the guided walkthrough',
+              onPress: () => onReplayTour?.(),
+              testID: 'settings-app-tour',
             },
           ].map((item, i, arr) => (
             <TouchableOpacity
@@ -826,7 +825,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               )}
 
               <TouchableOpacity
-                style={styles.toggleRow}
+                style={[styles.toggleRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}
                 onPress={() => void handleNotifToggle('weeklySummaryEnabled', !localNotif.weeklySummaryEnabled)}
                 activeOpacity={0.7}
               >
@@ -842,6 +841,33 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                   onValueChange={(v) => void handleNotifToggle('weeklySummaryEnabled', v)}
                   trackColor={{ false: colors.border, true: `${colors.text}30` }}
                   thumbColor={localNotif.weeklySummaryEnabled ? colors.text : colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.toggleRow}
+                onPress={() => {
+                  const v = !localNotif.zealTipsEnabled;
+                  setLocalNotif(prev => ({ ...prev, zealTipsEnabled: v }));
+                  ctxRef.current.saveNotifPrefs({ zealTipsEnabled: v });
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.notifToggleLabelWrap}>
+                  <Lightbulb size={14} color={localNotif.zealTipsEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
+                  <View>
+                    <Text style={[styles.toggleLabel, { color: colors.text }]}>Zeal Tips</Text>
+                    <Text style={[styles.toggleTag, { color: colors.textMuted }]}>In-app coaching hints on app open</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={localNotif.zealTipsEnabled}
+                  onValueChange={(v) => {
+                    setLocalNotif(prev => ({ ...prev, zealTipsEnabled: v }));
+                    ctxRef.current.saveNotifPrefs({ zealTipsEnabled: v });
+                  }}
+                  trackColor={{ false: colors.border, true: `${colors.text}30` }}
+                  thumbColor={localNotif.zealTipsEnabled ? colors.text : colors.textSecondary}
                 />
               </TouchableOpacity>
             </GlassCard>
@@ -933,11 +959,6 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
       </View>
     </BaseDrawer>
 
-    <AppWalkthrough
-      visible={walkthroughVisible}
-      onDone={() => setWalkthroughVisible(false)}
-      showCloseButton
-    />
     </>
   );
 }

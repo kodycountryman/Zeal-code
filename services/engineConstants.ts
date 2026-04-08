@@ -88,10 +88,10 @@ export function getMuscleSizeTier(primaryMuscles: string[]): number {
 export const MIN_EXERCISES_PER_STYLE: Record<string, number> = {
   strength: 4,
   bodybuilding: 6,
-  crossfit: 5,
+  crossfit: 7,      // 2-3 strength + 4 metcon + 0-1 core
   hyrox: 4,
   hiit: 7,
-  cardio: 1,
+
   mobility: 7,
   pilates: 7,
   '75_hard': 5,
@@ -105,7 +105,7 @@ export const MAX_EXERCISES_PER_STYLE: Record<string, number> = {
   crossfit: 8,      // Guide: max 4-6 WOD exercises + Part A/C
   hyrox: 16,
   hiit: 10,         // Guide: max 8-10 at 60 min
-  cardio: 4,
+
   mobility: 25,     // Guide: up to 20-25 at 45 min
   pilates: 34,      // Guide: full classical order = 34 exercises at 60 min
   '75_hard': 8,
@@ -119,10 +119,10 @@ export const MAX_EXERCISES_PER_STYLE: Record<string, number> = {
 export const EXERCISE_COUNT_BY_DURATION: Record<string, Record<number, { min: number; max: number }>> = {
   strength:     { 30: { min: 3, max: 4 }, 45: { min: 4, max: 5 }, 60: { min: 5, max: 6 } },
   bodybuilding: { 30: { min: 4, max: 5 }, 45: { min: 5, max: 7 }, 60: { min: 7, max: 9 } },
-  crossfit:     { 30: { min: 2, max: 4 }, 45: { min: 3, max: 5 }, 60: { min: 4, max: 6 } },
+  crossfit:     { 30: { min: 6, max: 7 }, 45: { min: 7, max: 8 }, 60: { min: 8, max: 10 } },
   hiit:         { 30: { min: 4, max: 6 }, 45: { min: 6, max: 8 }, 60: { min: 8, max: 10 } },
   hyrox:        { 30: { min: 2, max: 3 }, 45: { min: 3, max: 4 }, 60: { min: 4, max: 8 } },
-  cardio:       { 30: { min: 1, max: 2 }, 45: { min: 1, max: 3 }, 60: { min: 2, max: 4 } },
+
   pilates:      { 30: { min: 12, max: 15 }, 45: { min: 18, max: 22 }, 60: { min: 28, max: 34 } },
   mobility:     { 30: { min: 12, max: 15 }, 45: { min: 15, max: 18 }, 60: { min: 20, max: 25 } },
   low_impact:   { 30: { min: 3, max: 5 }, 45: { min: 5, max: 7 }, 60: { min: 6, max: 8 } },
@@ -204,13 +204,7 @@ export const STYLE_ENGINE_CONFIGS: Record<string, StyleEngineConfig> = {
     pattern_priority: ['plyometric', 'squat', 'push', 'pull', 'cardio'],
     circuit_grouping: true,
   },
-  cardio: {
-    allow_supersets: false,
-    superset_min: 0,
-    superset_max: 0,
-    compounds_first: false,
-    pattern_priority: ['cardio'],
-  },
+
   mobility: {
     rep_range_override: { min: 5, max: 10 },
     set_range_override: { min: 2, max: 3 },

@@ -41,7 +41,7 @@ const ACCORDION_ANIM = {
 
 const WORKOUT_STYLES = [
   'Strength', 'Bodybuilding', 'CrossFit', 'Hyrox',
-  'Cardio', 'HIIT', 'Mobility', 'Pilates', 'Low-Impact', 'Hybrid',
+  'HIIT', 'Mobility', 'Pilates', 'Low-Impact', 'Hybrid',
 ];
 
 interface Props {

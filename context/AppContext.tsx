@@ -9,7 +9,7 @@ import type { GeneratedPlanSchedule, DayPrescription, WeekSchedule } from '@/ser
 import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import { generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import type { PlanGoal, PlanLength, ExperienceLevel as PlanExperienceLevel } from '@/services/planConstants';
-import { ALL_EQUIPMENT_IDS, HOME_EQUIPMENT_PRESET, CROSSFIT_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
+import { ALL_EQUIPMENT_IDS, CROSSFIT_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
 import { type FitnessLevel } from '@/constants/fitnessLevel';
 
 export type AppTheme = 'system' | 'dark' | 'light' | 'zeal' | 'neon';
@@ -132,6 +132,7 @@ export interface NotifPrefs {
   streakHour: number;
   streakMinute: number;
   weeklySummaryEnabled: boolean;
+  zealTipsEnabled: boolean;
 }
 
 const DEFAULT_LIKED_EXERCISE_IDS: string[] = [
@@ -211,7 +212,7 @@ const DEFAULT_MUSCLE_READINESS: MuscleReadinessItem[] = [
 ];
 
 const DEFAULT_SAVED_GYMS: SavedGym[] = [
-  { id: 'default_home', name: 'Home Gym', equipment: HOME_EQUIPMENT_PRESET },
+  { id: 'default_home', name: 'Home Gym', equipment: {} },
   { id: 'default_crossfit', name: 'CrossFit Gym', equipment: CROSSFIT_EQUIPMENT_PRESET },
 ];
 
@@ -285,12 +286,12 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     streakHour: 20,
     streakMinute: 0,
     weeklySummaryEnabled: false,
+    zealTipsEnabled: true,
   });
 
   const [loaded, setLoaded] = useState<boolean>(false);
   const [onboardingComplete, setOnboardingCompleteState] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [showPlusSpotlight, setShowPlusSpotlight] = useState<boolean>(false);
   const [googlePrefill, setGooglePrefill] = useState<{ name: string; photoUri: string | null } | null>(null);
   const [newUserResetToken, setNewUserResetToken] = useState<number>(0);
 
@@ -871,10 +872,10 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       streakHour: 20,
       streakMinute: 0,
       weeklySummaryEnabled: false,
+      zealTipsEnabled: true,
     });
     setIsLoggedIn(false);
     setOnboardingCompleteState(false);
-    setShowPlusSpotlight(false);
     setGooglePrefill(null);
     setNewUserResetToken(t => t + 1);
     __DEV__ && console.log('[AppContext] All in-memory state reset to defaults');
@@ -902,6 +903,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     trainingGoals: string[];
     workoutStyle: string;
     selectedEquipment: Record<string, number>;
+    gymType: 'commercial' | 'home' | 'crossfit';
     warmUp: boolean;
     coolDown: boolean;
     recovery: boolean;
@@ -924,6 +926,13 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setRecovery(profile.recovery);
     setAddCardio(profile.addCardio);
     setCoreFinisher(profile.coreFinisher);
+    const savedGymsForStorage: SavedGym[] = profile.gymType === 'home'
+      ? [
+          { id: 'default_home', name: 'Home Gym', equipment: { ...profile.selectedEquipment } },
+          { id: 'default_crossfit', name: 'CrossFit Gym', equipment: CROSSFIT_EQUIPMENT_PRESET },
+        ]
+      : DEFAULT_SAVED_GYMS;
+    setSavedGyms(savedGymsForStorage);
     const data = {
       userName: profile.userName,
       userPhotoUri: profile.userPhotoUri,
@@ -950,7 +959,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       appTheme: 'dark',
       reflectWorkoutColor: false,
       selectedEquipment: profile.selectedEquipment,
-      savedGyms: DEFAULT_SAVED_GYMS,
+      savedGyms: savedGymsForStorage,
       streak: 1,
       lastStreakDate: getTodayDateStr(),
       trainingScore: 0,
@@ -1263,8 +1272,6 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       savePlannedWorkout,
       deletePlannedWorkout,
       getPlannedWorkoutForDate,
-      showPlusSpotlight,
-      setShowPlusSpotlight,
       googlePrefill,
       setGooglePrefill,
       deleteAccount,
@@ -1299,7 +1306,6 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       loadedWorkout, setLoadedWorkout,
       lastModifyState, saveLastModifyState, clearLastModifyState,
       plannedWorkouts, savePlannedWorkout, deletePlannedWorkout, getPlannedWorkoutForDate,
-      showPlusSpotlight, setShowPlusSpotlight,
       googlePrefill, setGooglePrefill, deleteAccount, resetForNewUser, saveOnboardingProfile, newUserResetToken,
       planGenProgress, startPlanGeneration, clearPlanGenProgress, cancelPlanGeneration,
     ]

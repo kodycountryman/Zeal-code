@@ -61,7 +61,7 @@ function getStyleForGoal(goal: string): string {
     case 'build_strength':    return 'Strength';
     case 'build_muscle':      return 'Bodybuilding';
     case 'lose_fat':          return 'HIIT';
-    case 'improve_endurance': return 'Cardio';
+    case 'improve_endurance': return 'HIIT';
     case 'general_fitness':   return 'CrossFit';
     case 'event_preparation': return 'Hyrox';
     case 'improve_mobility':  return 'Mobility';
@@ -454,6 +454,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
         planPhase: d.phase,
         volumeModifier: d.volume_modifier,
         bodyweightLbs: ctx.weight,
+        exercisePreferences: ctx.exercisePreferences,
         cacheVariantKey: `${plan.id}_${d.date}`,
       });
 
@@ -554,6 +555,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
       planPhase: d.phase,
       volumeModifier: d.volume_modifier,
       bodyweightLbs: ctx.weight,
+      exercisePreferences: ctx.exercisePreferences,
       cacheVariantKey: `${plan.id}_${d.date}`,
     });
 

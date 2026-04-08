@@ -103,7 +103,7 @@ export const MUSCLE_STATUS_COLORS: Record<string, string> = {
 };
 
 export const TRAINING_SPLITS: Record<string, string[]> = {
-  Strength:     ['Push Day', 'Pull Day', 'Leg Day', 'Upper', 'Lower', 'Full Body', 'Core + Cardio'],
+  Strength:     ['Push Day', 'Pull Day', 'Leg Day', 'Upper', 'Lower', 'Full Body'],
   Bodybuilding: ['Push Day', 'Pull Day', 'Leg Day', 'Upper', 'Lower', 'Full Body', 'Bro Split', 'Arnold Split'],
   CrossFit:     ['Auto', 'AMRAP', 'EMOM', 'RFT', 'Chipper', 'Ladder'],
   Hyrox:        ['Auto', 'Station Practice', 'Compromised Run', 'Strength Circuit', 'Half Simulation', 'Full Simulation'],
