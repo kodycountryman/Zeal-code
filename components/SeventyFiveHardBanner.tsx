@@ -23,14 +23,9 @@ export default function SeventyFiveHardBanner({ onPress, variant }: Props) {
       <View style={styles.topRow}>
         <View style={styles.left}>
           <PlatformIcon name="trophy" size={20} color={GOLD} />
-          <View>
-            <Text style={[styles.dayLabel, { color: GOLD }]}>
-              DAY {currentDay} OF 75
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              {75 - currentDay} days remaining
-            </Text>
-          </View>
+          <Text style={[styles.dayLabel, { color: GOLD }]}>
+            DAY {currentDay} OF 75
+          </Text>
         </View>
         <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
       </View>
@@ -61,11 +56,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Outfit_800ExtraBold',
     letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 12,
-    fontFamily: 'Outfit_400Regular',
-    marginTop: 1,
   },
   progressTrack: {
     height: 6,

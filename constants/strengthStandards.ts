@@ -305,10 +305,11 @@ interface LogEntry {
  *   Uses the best estimated 1RM from PRs matched to known exercises.
  *
  * For conditioning:
- *   Uses HIIT/CrossFit/Cardio session frequency as a proxy.
+ *   Weighted score from conditioning-style sessions (HIIT, CrossFit, Hyrox, etc.)
+ *   plus individual cardio/metcon exercises logged within any workout type.
  *
  * For core:
- *   Not enough standardized data — returns null unless we add weighted core standards later.
+ *   Rep-volume heuristic — counts reps across core exercise patterns over 28 days.
  */
 export function getRadarPercentiles(
   sex: string,
@@ -369,19 +370,85 @@ export function getRadarPercentiles(
     }
   }
 
-  // Conditioning: frequency-based heuristic
   const fourWeeksAgo = new Date();
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-  const recentConditioningSessions = workoutHistory.filter(log => {
-    const style = log.workoutStyle;
-    const isConditioning = style === 'HIIT' || style === 'CrossFit';
-    return isConditioning && new Date(log.date + 'T00:00:00') >= fourWeeksAgo;
-  }).length;
 
-  // Map sessions/4 weeks to percentile: 0=0, 4=20, 8=40, 12=60, 16=80, 20+=95
-  const conditioningPct = recentConditioningSessions === 0
+  // ── Conditioning: session-count + cardio-exercise-count heuristic ─────────
+  // Counts conditioning-style workouts AND individual cardio/metcon exercises
+  // logged within any workout type over the last 28 days.
+  const CONDITIONING_EXERCISE_PATTERNS = [
+    'run', 'sprint', 'jog', 'row', 'rowing', 'bike', 'cycling', 'assault bike',
+    'ski erg', 'jump rope', 'double under', 'battle rope', 'burpee', 'box jump',
+    'treadmill', 'elliptical', 'stair', 'sled push', 'sled pull', 'sled drag',
+    'wall ball', 'thruster', 'kettlebell swing', 'kb swing', 'swing',
+    'farmer carry', 'sandbag carry', 'bear crawl', 'shuttle run',
+    'air bike', 'echo bike', 'rower', 'cardio', 'metcon',
+  ];
+
+  const CONDITIONING_WORKOUT_STYLES = ['HIIT', 'CrossFit', 'Hyrox', 'Low-Impact', 'Cardio'];
+
+  let conditioningScore = 0; // weighted score, not raw count
+  for (const log of workoutHistory) {
+    if (new Date(log.date + 'T00:00:00') < fourWeeksAgo) continue;
+    // Full conditioning-style workout = 3 points
+    if (CONDITIONING_WORKOUT_STYLES.includes(log.workoutStyle ?? '')) {
+      conditioningScore += 3;
+      continue;
+    }
+    // Individual cardio/metcon exercises within any workout = 1 point each (capped at 2/session)
+    if (log.exercises) {
+      let cardioExInSession = 0;
+      for (const ex of log.exercises) {
+        const name = ex.exerciseName.toLowerCase();
+        if (CONDITIONING_EXERCISE_PATTERNS.some(p => name.includes(p))) {
+          conditioningScore += 1;
+          cardioExInSession++;
+          if (cardioExInSession >= 2) break;
+        }
+      }
+    }
+  }
+
+  // Scale: 0=null, 1-6=Beginner, 7-15=Novice, 16-30=Intermediate, 31-50=Advanced, 51+=Elite
+  // Full conditioning workouts: 4/mo=~12pts, 8/mo=~24pts, 12/mo=~36pts, 16/mo=~48pts, 20+/mo=~60pts
+  const conditioningPct = conditioningScore === 0
     ? null
-    : Math.min(99, Math.round((recentConditioningSessions / 20) * 99));
+    : Math.min(99, Math.round((conditioningScore / 60) * 99));
+
+  // ── Core: rep-volume heuristic over last 28 days ──────────────────────────
+  // Core is bodyweight-dominant, so e1RM doesn't apply — track reps logged
+  // across a broad set of core exercise patterns instead.
+  const CORE_EXERCISE_PATTERNS = [
+    'sit-up', 'situp', 'sit up', 'crunch', 'leg raise', 'knee raise',
+    'hanging leg', 'hanging knee', 'toes-to-bar', 'toes to bar', 't2b',
+    'ab wheel', 'rollout', 'roll out', 'russian twist', 'plank',
+    'hollow body', 'hollow hold', 'dragon flag', 'l-sit', 'l sit',
+    'cable crunch', 'decline crunch', 'bicycle crunch', 'flutter kick',
+    'mountain climber', 'woodchop', 'wood chop', 'pallof',
+    'dead bug', 'bird dog', 'hyperextension', 'back extension',
+    'ab pulldown', 'ab pull-down', 'oblique', 'side bend',
+    'windshield wiper', 'v-up', 'v up',
+  ];
+
+  let coreReps = 0;
+  for (const log of workoutHistory) {
+    if (new Date(log.date + 'T00:00:00') < fourWeeksAgo) continue;
+    if (!log.exercises) continue;
+    for (const ex of log.exercises) {
+      const name = ex.exerciseName.toLowerCase();
+      if (CORE_EXERCISE_PATTERNS.some(p => name.includes(p))) {
+        for (const set of ex.sets) {
+          coreReps += (set.reps ?? 0);
+        }
+      }
+    }
+  }
+
+  // Scale per 4 weeks: 0=null, 1-100=Beginner, 100-300=Novice, 300-600=Intermediate,
+  // 600-1000=Advanced, 1000+=Elite (~250 reps/wk sustained is well-trained)
+  const corePct = coreReps === 0
+    ? null
+    : Math.min(99, Math.round((coreReps / 1000) * 99));
 
   return categories.map(cat => {
     if (cat === 'conditioning') {
@@ -396,12 +463,11 @@ export function getRadarPercentiles(
     }
 
     if (cat === 'core') {
-      // No standardized core strength data — show null
       return {
         category: cat,
         label: RADAR_CATEGORY_LABELS[cat],
-        percentile: null,
-        tier: null,
+        percentile: corePct,
+        tier: corePct !== null ? getTierForPercentile(corePct) : null,
         drivingExercise: null,
         drivingE1RM: null,
       };

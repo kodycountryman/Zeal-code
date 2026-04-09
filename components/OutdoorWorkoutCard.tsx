@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import GlassCard from '@/components/GlassCard';
@@ -30,7 +30,7 @@ const ACTIVITY_ICONS: Record<string, string> = {
   Other: 'ellipsis',
 };
 
-type Mode = 'choice' | 'timer' | 'manual';
+type Mode = 'choice' | 'timer' | 'manual' | 'log';
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -52,6 +52,9 @@ export default function OutdoorWorkoutCard({ variant }: Props) {
   );
   const [mode, setMode] = useState<Mode | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [logDistance, setLogDistance] = useState('');
+  const [logHeartRate, setLogHeartRate] = useState('');
+  const [logCalories, setLogCalories] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isComplete = todayChecklist.workout2Complete;
@@ -78,9 +81,9 @@ export default function OutdoorWorkoutCard({ variant }: Props) {
   const handleStopTimer = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     const minutes = Math.max(1, Math.round(elapsed / 60));
-    setOutdoorConfig(selectedActivity!, minutes);
-    markOutdoorComplete();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setSelectedDuration(minutes);
+    setMode('log');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
   };
 
   const handleAlreadyDone = () => {
@@ -90,8 +93,15 @@ export default function OutdoorWorkoutCard({ variant }: Props) {
 
   const handleConfirmActivity = () => {
     if (!selectedActivity) return;
-    setOutdoorConfig(selectedActivity, selectedDuration);
+    setMode('log');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  };
+
+  const handleLogComplete = () => {
+    if (!selectedActivity) return;
+    setOutdoorConfig(selectedActivity, selectedDuration);
+    markOutdoorComplete();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };
 
   const handleMarkComplete = () => {
@@ -115,6 +125,9 @@ export default function OutdoorWorkoutCard({ variant }: Props) {
             setSelectedDuration(45);
             setMode(null);
             setElapsed(0);
+            setLogDistance('');
+            setLogHeartRate('');
+            setLogCalories('');
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
           },
         },
@@ -286,8 +299,66 @@ export default function OutdoorWorkoutCard({ variant }: Props) {
             onPress={handleConfirmActivity}
             activeOpacity={0.85}
           >
-            <PlatformIcon name="check" size={14} color={LIGHT} strokeWidth={3} />
-            <Text style={[styles.actionBtnText, { color: LIGHT }]}>Set Activity</Text>
+            <PlatformIcon name="arrow-right" size={14} color={LIGHT} strokeWidth={2.5} />
+            <Text style={[styles.actionBtnText, { color: LIGHT }]}>Next</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* Log data inputs */}
+      {mode === 'log' && (
+        <>
+          <View style={styles.logSummary}>
+            <Text style={[styles.logSummaryText, { color: colors.text }]}>
+              {selectedActivity} · {selectedDuration} min
+            </Text>
+          </View>
+          <View style={styles.logInputRow}>
+            <View style={styles.logInputGroup}>
+              <Text style={[styles.logInputLabel, { color: colors.textSecondary }]}>Distance</Text>
+              <TextInput
+                style={[styles.logInput, { color: colors.text, borderColor: colors.border, backgroundColor: `${colors.card}` }]}
+                value={logDistance}
+                onChangeText={setLogDistance}
+                placeholder="mi"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+              />
+            </View>
+            <View style={styles.logInputGroup}>
+              <Text style={[styles.logInputLabel, { color: colors.textSecondary }]}>Avg HR</Text>
+              <TextInput
+                style={[styles.logInput, { color: colors.text, borderColor: colors.border, backgroundColor: `${colors.card}` }]}
+                value={logHeartRate}
+                onChangeText={setLogHeartRate}
+                placeholder="bpm"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="number-pad"
+                returnKeyType="done"
+              />
+            </View>
+            <View style={styles.logInputGroup}>
+              <Text style={[styles.logInputLabel, { color: colors.textSecondary }]}>Calories</Text>
+              <TextInput
+                style={[styles.logInput, { color: colors.text, borderColor: colors.border, backgroundColor: `${colors.card}` }]}
+                value={logCalories}
+                onChangeText={setLogCalories}
+                placeholder="cal"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="number-pad"
+                returnKeyType="done"
+              />
+            </View>
+          </View>
+          <Text style={[styles.logOptionalHint, { color: colors.textMuted }]}>All fields optional</Text>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: GREEN }]}
+            onPress={handleLogComplete}
+            activeOpacity={0.85}
+          >
+            <PlatformIcon name="check" size={14} color="#fff" strokeWidth={3} />
+            <Text style={styles.actionBtnText}>Log Workout</Text>
           </TouchableOpacity>
         </>
       )}
@@ -408,5 +479,40 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Outfit_700Bold',
+  },
+  logSummary: {
+    alignItems: 'center',
+  },
+  logSummaryText: {
+    fontSize: 15,
+    fontFamily: 'Outfit_700Bold',
+  },
+  logInputRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  logInputGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  logInputLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.5,
+  },
+  logInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
+    textAlign: 'center',
+  },
+  logOptionalHint: {
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+    textAlign: 'center',
+    marginTop: -6,
   },
 });

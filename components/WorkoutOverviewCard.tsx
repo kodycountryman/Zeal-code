@@ -46,6 +46,7 @@ interface Props {
   muscleGroups?: string;
   exerciseCount?: number;
   onPress?: () => void;
+  onOpenActivePlan?: () => void;
   activePlan?: WorkoutPlan | null;
   variant?: 'solid' | 'glass';
   completedLog?: WorkoutLog | null;
@@ -58,6 +59,7 @@ function WorkoutOverviewCard({
   muscleGroups,
   exerciseCount,
   onPress,
+  onOpenActivePlan,
   activePlan,
   variant = 'solid',
   completedLog,
@@ -113,50 +115,53 @@ function WorkoutOverviewCard({
 
   const isRestDay = title === 'Rest Day';
 
-  // ── Completed state ─────────────────────────────────────────────
+  // ── Completed state (compact — expands if active plan) ──────────
   if (completedLog) {
     const completedBorder = isDark ? 'rgba(34,197,94,0.22)' : 'rgba(34,197,94,0.18)';
-    const chipBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+    const rowPressBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
     return (
       <GlassCard
-        onPress={onPress}
-        activeOpacity={onPress ? 0.78 : 1}
         variant={variant}
-        style={[styles.card, { borderColor: completedBorder }, cardShadow]}
+        style={[styles.card, { borderColor: completedBorder, padding: 0 }, cardShadow]}
         testID="workout-overview-card"
       >
-        <View style={styles.inner}>
-          <View style={styles.labelRow}>
-            <View style={styles.labelLeft}>
-              <View style={[styles.pulseDot, { backgroundColor: '#22c55e' }]} />
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Completed Today</Text>
-            </View>
-            <PlatformIcon name="chevron-right" size={16} color="rgba(255,255,255,0.28)" />
-          </View>
-
-          <Text style={[styles.workoutTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+        <TouchableOpacity
+          onPress={onPress}
+          activeOpacity={1}
+          onPressIn={(e) => (e.target as any)?.setNativeProps?.({ style: { backgroundColor: rowPressBg } })}
+          onPressOut={(e) => (e.target as any)?.setNativeProps?.({ style: { backgroundColor: 'transparent' } })}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: activePlan ? 0 : 26 }}
+        >
+          <View style={[styles.pulseDot, { backgroundColor: '#22c55e' }]} />
+          <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 13, color: colors.textSecondary }}>Completed Today —</Text>
+          <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 15, color: colors.text, flex: 1 }} numberOfLines={1}>
             {completedLog.workoutName}
           </Text>
-
-          <View style={styles.metaRow}>
-            <View style={[styles.metaChip, { backgroundColor: chipBg }]}>
-              <PlatformIcon name="clock" size={11} color={colors.textSecondary} />
-              <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{completedLog.duration}m</Text>
-            </View>
-            <View style={[styles.metaChip, { backgroundColor: chipBg }]}>
-              <PlatformIcon name="zap" size={11} color="#f87116" fill="#f87116" />
-              <Text style={[styles.metaChipText, { color: '#f87116' }]}>+{completedLog.trainingScore} pts</Text>
-            </View>
-            {completedLog.prsHit > 0 && (
-              <View style={[styles.metaChip, { backgroundColor: chipBg }]}>
-                <PlatformIcon name="trophy" size={11} color="#f87116" />
-                <Text style={[styles.metaChipText, { color: '#f87116' }]}>
-                  {completedLog.prsHit} PR{completedLog.prsHit > 1 ? 's' : ''}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
+          {completedLog.trainingScore > 0 && (
+            <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 13, color: '#f87116' }}>+{completedLog.trainingScore} pts</Text>
+          )}
+          <PlatformIcon name="chevron-right" size={14} color="rgba(255,255,255,0.28)" />
+        </TouchableOpacity>
+        {activePlan && onOpenActivePlan && (
+          <>
+            <View style={{ height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }} />
+            <TouchableOpacity
+              onPress={onOpenActivePlan}
+              activeOpacity={1}
+              onPressIn={(e) => (e.target as any)?.setNativeProps?.({ style: { backgroundColor: rowPressBg } })}
+              onPressOut={(e) => (e.target as any)?.setNativeProps?.({ style: { backgroundColor: 'transparent' } })}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11 }}
+            >
+              <PlatformIcon name="sparkles" size={12} color={accent} />
+              <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 13, color: colors.text }}>View Active Plan</Text>
+              <View style={{ flex: 1 }} />
+              <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 11, color: colors.textMuted }}>
+                Week {Math.max(1, Math.ceil((Date.now() - new Date(activePlan.startDate + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)))} of {activePlan.planLength}
+              </Text>
+              <PlatformIcon name="chevron-right" size={12} color="rgba(255,255,255,0.28)" />
+            </TouchableOpacity>
+          </>
+        )}
       </GlassCard>
     );
   }

@@ -128,33 +128,48 @@ export const [SeventyFiveHardProvider, useSeventyFiveHard] = createContextHook((
     if (!state?.active || !loaded || missedDayCheckedRef.current) return;
     missedDayCheckedRef.current = true;
 
-    const yesterday = getYesterdayStr();
-    // Only check if yesterday is within the challenge window
-    if (yesterday < state.startDate) return;
+    // Guard: verify an active 75 Hard plan still exists before showing the alert.
+    // If the plan was cancelled without clearing 75 Hard state, self-clean and bail.
+    AsyncStorage.getItem('@zeal_workout_plan_v2').then((raw) => {
+      try {
+        const plan = raw ? JSON.parse(raw) : null;
+        if (!plan?.is75Hard) {
+          // No active 75 Hard plan — orphaned state, clean up silently
+          __DEV__ && console.log('[75Hard] Orphaned state detected, auto-ending challenge');
+          setState(null);
+          persist(null);
+          return;
+        }
+      } catch { /* ignore parse errors */ }
 
-    const yesterdayData = state.days[yesterday];
-    // If yesterday has no entry at all, that's a missed day too
-    if (yesterdayData && isDayFullyComplete(yesterdayData)) return;
+      const yesterday = getYesterdayStr();
+      // Only check if yesterday is within the challenge window
+      if (yesterday < state.startDate) return;
 
-    // Yesterday was incomplete — prompt user
-    Alert.alert(
-      '75 Hard — Missed Items',
-      'You didn\'t complete all items yesterday. What would you like to do?',
-      [
-        {
-          text: 'Keep Going',
-          style: 'cancel',
-          onPress: () => {
-            __DEV__ && console.log('[75Hard] User chose to keep going after missed day');
+      const yesterdayData = state.days[yesterday];
+      // If yesterday has no entry at all, that's a missed day too
+      if (yesterdayData && isDayFullyComplete(yesterdayData)) return;
+
+      // Yesterday was incomplete — prompt user
+      Alert.alert(
+        '75 Hard — Missed Items',
+        'You didn\'t complete all items yesterday. What would you like to do?',
+        [
+          {
+            text: 'Keep Going',
+            style: 'cancel',
+            onPress: () => {
+              __DEV__ && console.log('[75Hard] User chose to keep going after missed day');
+            },
           },
-        },
-        {
-          text: 'Reset to Day 1',
-          style: 'destructive',
-          onPress: () => resetChallenge(),
-        },
-      ],
-    );
+          {
+            text: 'Reset to Day 1',
+            style: 'destructive',
+            onPress: () => resetChallenge(),
+          },
+        ],
+      );
+    }).catch(() => { /* ignore storage errors */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.active, loaded, state?.startDate]);
 

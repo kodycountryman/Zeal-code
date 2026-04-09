@@ -46,7 +46,12 @@
       "WebSearch",
       "Bash(kill 45188)",
       "Bash(lsof -ti:8081,8082)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "WebFetch(domain:exercisedb-api.vercel.app)",
+      "WebFetch(domain:exercisedb.p.rapidapi.com)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(/usr/local/bin/node -e \":*)"
     ]
   },
   "hooks": {

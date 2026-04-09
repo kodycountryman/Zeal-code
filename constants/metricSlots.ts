@@ -11,6 +11,7 @@ export type MetricSlotKey =
   | 'weeklyHours'
   | 'sessionsThisWeek'
   | 'target'
+  | 'readiness'
   | 'prsThisMonth'
   | 'avgDuration'
   | 'volumeThisWeek'
@@ -72,6 +73,14 @@ export const METRIC_REGISTRY: MetricSlotDefinition[] = [
     icon: 'target',
     group: 'workout',
     description: 'Progress toward your weekly session goal',
+  },
+  {
+    key: 'readiness',
+    label: 'Readiness',
+    shortLabel: 'Ready',
+    icon: 'zap',
+    group: 'workout',
+    description: 'How recovered and ready your body is to train today',
   },
   {
     key: 'prsThisMonth',
@@ -171,15 +180,15 @@ export const METRIC_REGISTRY: MetricSlotDefinition[] = [
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
-/** Slot 1 pre-loaded with Streak. Slots 2-4 empty until user configures. */
+/** Slots 1-2 pre-loaded with Readiness and Target. Slots 3-4 empty until user configures. */
 export const DEFAULT_METRIC_SLOTS: (MetricSlotKey | null)[] = [
-  'streak',
-  null,
+  'readiness',
+  'target',
   null,
   null,
 ];
 
-export const METRIC_SLOT_STORAGE_KEY = 'zeal_metric_slot_config_v1';
+export const METRIC_SLOT_STORAGE_KEY = 'zeal_metric_slot_config_v2';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -214,6 +223,7 @@ export interface MetricSlotInput {
   streak: number;
   targetDone: number;
   targetTotal: number;
+  readiness: number;
   calories: number | null;
   steps: number | null;
   heartRate: number | null;
@@ -263,6 +273,13 @@ export function resolveMetricValue(
       return {
         value: `${Math.min(data.targetDone, data.targetTotal)}`,
         unit: `of ${data.targetTotal}`,
+        needsHealth: false,
+      };
+
+    case 'readiness':
+      return {
+        value: `${data.readiness}%`,
+        unit: 'readiness',
         needsHealth: false,
       };
 

@@ -260,9 +260,18 @@ function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
     equipment.includes('kettlebell') || equipment.includes('machine') ||
     equipment.includes('cable') || equipment.includes('ez') ||
     equipment.includes('trap bar') || equipment.includes('smith') ||
+    equipment.includes('slam') || equipment.includes('medicine') ||
     name.includes('barbell') || name.includes('dumbbell') ||
     name.includes('kettlebell') || name.includes('cable') ||
-    name.includes('ez bar') || name.includes('ez curl');
+    name.includes('ez bar') || name.includes('ez curl') ||
+    name.includes('pulldown') || name.includes('pull-down') ||
+    name.includes('machine') || name.includes('medicine ball') ||
+    name.includes('slam') || name.includes('ball slam') ||
+    name.includes('leg press') || name.includes('hack squat') ||
+    name.includes('leg curl') || name.includes('leg extension') ||
+    name.includes('pec deck') || name.includes('chest press') ||
+    name.includes('shoulder press') || name.includes('seated row') ||
+    name.includes('lat pull');
 
   const isBodyweightEquipment =
     equipment === 'bodyweight' || equipment.includes('body weight') ||

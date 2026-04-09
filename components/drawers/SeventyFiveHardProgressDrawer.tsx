@@ -250,21 +250,21 @@ export default function SeventyFiveHardProgressDrawer({ visible, onClose }: Prop
         {/* ─── Actions ───────────────────────────────────────── */}
         <View style={styles.actionsSection}>
           <TouchableOpacity
-            style={[styles.resetBtn, { borderColor: YELLOW }]}
+            style={[styles.resetBtn, { borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.05)' }]}
             onPress={handleReset}
             activeOpacity={0.7}
           >
-            <PlatformIcon name="refresh-cw" size={14} color={YELLOW} />
-            <Text style={[styles.resetBtnText, { color: YELLOW }]}>Reset to Day 1</Text>
+            <PlatformIcon name="refresh" size={12} color={colors.textMuted} />
+            <Text style={[styles.resetBtnText, { color: colors.textMuted }]}>Reset to Day 1</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.endBtn, { borderColor: RED }]}
+            style={[styles.endBtn, { borderColor: 'rgba(239,68,68,0.25)', backgroundColor: 'rgba(239,68,68,0.07)' }]}
             onPress={handleEndChallenge}
             activeOpacity={0.7}
           >
-            <PlatformIcon name="x" size={14} color={RED} />
-            <Text style={[styles.endBtnText, { color: RED }]}>End Challenge</Text>
+            <PlatformIcon name="x" size={12} color={'rgba(239,68,68,0.6)'} />
+            <Text style={[styles.endBtnText, { color: 'rgba(239,68,68,0.6)' }]}>End Challenge</Text>
           </TouchableOpacity>
         </View>
 
@@ -342,13 +342,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   progressTrack: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 999,
     overflow: 'hidden',
   },
   progressFill: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 999,
   },
   progressText: {
     fontSize: 11,
@@ -372,13 +372,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
   },
   barTrack: {
-    height: 5,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 999,
     overflow: 'hidden',
   },
   barFill: {
-    height: 5,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 999,
   },
   heatmapGrid: {
     flexDirection: 'row',
@@ -432,34 +432,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
   },
   actionsSection: {
-    gap: 10,
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 4,
   },
   resetBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingVertical: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
   },
   resetBtnText: {
-    fontSize: 14,
-    fontFamily: 'Outfit_700Bold',
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
   },
   endBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingVertical: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
   },
   endBtnText: {
-    fontSize: 14,
-    fontFamily: 'Outfit_700Bold',
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
   },
   overlayBackdrop: {
     flex: 1,

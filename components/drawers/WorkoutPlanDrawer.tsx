@@ -641,7 +641,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
               activeOpacity={0.7}
             >
               <View style={[styles.goalIconWrap, { backgroundColor: !hard75StartFresh ? `${goalAccent}20` : `${colors.border}60` }]}>
-                <PlatformIcon name="fast-forward" size={18} color={!hard75StartFresh ? goalAccent : colors.textSecondary} />
+                <PlatformIcon name="play" size={18} color={!hard75StartFresh ? goalAccent : colors.textSecondary} />
               </View>
               <View style={styles.goalRowText}>
                 <Text style={[styles.goalLabel, { color: !hard75StartFresh ? goalAccent : colors.text }]}>Pick Up Where I Am</Text>

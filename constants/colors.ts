@@ -58,12 +58,12 @@ export const WORKOUT_STYLE_COLORS: Record<string, string> = {
   Strength: '#f87116',
   Bodybuilding: '#ef4444',
   CrossFit: '#06b6d4',
-  Hyrox: '#eab308',
+  Hyrox: '#f87116',
   HIIT: '#60a5fa',
   Mobility: '#22c55e',
   Pilates: '#ec4899',
   'Low-Impact': '#86efac',
-  Hybrid: '#f59e0b',
+  Hybrid: '#f87116',
 };
 
 export const ZEAL_ACCENT_COLORS = [

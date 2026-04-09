@@ -1,6 +1,6 @@
 {
   "_schema_version": "1.4",
-  "_description": "Zeal Exercise Database Schema & Sample Exercises. Every exercise in the app MUST follow this exact structure. No field is optional. The generation engine depends on every field — missing data causes rules to silently fail.",
+  "_description": "Zeal Exercise Database Schema & Sample Exercises. Every exercise in the app MUST follow this exact structure. No field is optional. The generation engine depends on every field \u2014 missing data causes rules to silently fail.",
   "_last_updated": "2026-03",
   "_enum_definitions": {
     "movement_pattern": [
@@ -55,7 +55,7 @@
       "cardio",
       "pilates"
     ],
-    "_75_hard_note": "75 Hard is NOT a workout style — it is a meta-layer / program mode that generates two daily sessions by pulling from the styles above. It does not appear in eligible_styles. See Master Rules Document Section 4 for details.",
+    "_75_hard_note": "75 Hard is NOT a workout style \u2014 it is a meta-layer / program mode that generates two daily sessions by pulling from the styles above. It does not appear in eligible_styles. See Master Rules Document Section 4 for details.",
     "muscle_groups": [
       "chest",
       "upper_chest",
@@ -166,35 +166,35 @@
     ]
   },
   "_field_reference": {
-    "id": "string — Unique identifier. Use snake_case. Example: 'barbell_back_squat'",
-    "name": "string — Display name shown in the app. Example: 'Barbell Back Squat'",
-    "aliases": "string[] — Alternate search names. Example: ['back squat', 'bb squat']",
-    "movement_pattern": "enum — Primary movement classification. One value from movement_pattern enum.",
-    "difficulty_tier": "enum — Skill/complexity level. Affects which fitness levels can access it.",
-    "eligible_styles": "string[] — Which workout styles may include this exercise. Values: strength, bodybuilding, crossfit, hyrox, mobility, hiit, cardio, pilates. Note: 75 Hard is a program mode, not a style — it pulls from these styles.",
-    "primary_muscles": "string[] — Main muscles trained. Used for split filtering and volume tracking.",
-    "secondary_muscles": "string[] — Assisting muscles. NOT used for split filtering but counted for volume awareness.",
-    "joints_loaded": "string[] — Joints bearing significant load. Used for injury/contraindication filtering.",
-    "equipment_required": "string[] — ALL equipment needed. Exercise only eligible if EVERY item is in user's inventory. Use ['bodyweight'] for no-equipment exercises.",
-    "equipment_optional": "string[] — Helpful but not required accessories.",
-    "is_unilateral": "boolean — If true, reps display as 'ea' and set_duration doubles in time calculations.",
-    "is_compound": "boolean — Multi-joint movement? Affects rest period tier and exercise ordering in some styles.",
-    "default_tempo_seconds_per_rep": "number — Average time for one full rep at controlled pace. For time-based exercises (planks, carries, cardio intervals), this is the duration in seconds per 'rep'. CRITICAL for time accuracy engine.",
-    "setup_time_seconds": "number — Time to get into position / set up equipment. Added to transition buffer.",
-    "contraindication_tags": "string[] — Life cases / injuries where this exercise is BLOCKED. Hard safety filter.",
-    "rom_requirement": "enum — Range of motion needed. Helps filter for ROM-limited users (pregnancy, injury).",
-    "spinal_load": "enum — How much the spine is loaded. Key filter for pregnancy and back injuries.",
-    "position": "enum — Body position during execution. Supine filtered for pregnancy after week 20.",
-    "weight_increment": "number — Standard progression jump in lbs. Barbell = 5, dumbbell = 2.5, cable = 5, bodyweight = 0 (progress via reps). Cardio exercises = 0 (progress via duration/speed).",
-    "rep_range_floor": "number — Minimum productive reps. Going below this means the weight is too heavy. For cardio, this is minimum intervals/rounds.",
-    "rep_range_ceiling": "number — Max reps before the user should increase weight. For cardio, max intervals/rounds.",
-    "default_load_table": "object — Starting weight suggestions keyed by gender_fitnesslevel. Each has a 'multiplier' (× bodyweight) and 'absolute_fallback_lbs' for cases where bodyweight math produces odd numbers. Bodyweight / cardio / pilates exercises use 0 for all values.",
-    "is_warmup_eligible": "boolean — Can this serve as a warmup movement?",
-    "is_cooldown_eligible": "boolean — Can this serve as a cooldown/mobility movement?",
-    "warmup_for_muscles": "string[] — If warmup-eligible, which muscles does it prepare?",
-    "cooldown_for_muscles": "string[] — If cooldown-eligible, which muscles does it help recover?",
-    "substitutes": "string[] — Ranked exercise IDs: same muscle/pattern, different equipment/difficulty. Best substitute first.",
-    "variation_family": "string — Groups related variations. Shared novelty penalty in rotation logic.",
+    "id": "string \u2014 Unique identifier. Use snake_case. Example: 'barbell_back_squat'",
+    "name": "string \u2014 Display name shown in the app. Example: 'Barbell Back Squat'",
+    "aliases": "string[] \u2014 Alternate search names. Example: ['back squat', 'bb squat']",
+    "movement_pattern": "enum \u2014 Primary movement classification. One value from movement_pattern enum.",
+    "difficulty_tier": "enum \u2014 Skill/complexity level. Affects which fitness levels can access it.",
+    "eligible_styles": "string[] \u2014 Which workout styles may include this exercise. Values: strength, bodybuilding, crossfit, hyrox, mobility, hiit, cardio, pilates. Note: 75 Hard is a program mode, not a style \u2014 it pulls from these styles.",
+    "primary_muscles": "string[] \u2014 Main muscles trained. Used for split filtering and volume tracking.",
+    "secondary_muscles": "string[] \u2014 Assisting muscles. NOT used for split filtering but counted for volume awareness.",
+    "joints_loaded": "string[] \u2014 Joints bearing significant load. Used for injury/contraindication filtering.",
+    "equipment_required": "string[] \u2014 ALL equipment needed. Exercise only eligible if EVERY item is in user's inventory. Use ['bodyweight'] for no-equipment exercises.",
+    "equipment_optional": "string[] \u2014 Helpful but not required accessories.",
+    "is_unilateral": "boolean \u2014 If true, reps display as 'ea' and set_duration doubles in time calculations.",
+    "is_compound": "boolean \u2014 Multi-joint movement? Affects rest period tier and exercise ordering in some styles.",
+    "default_tempo_seconds_per_rep": "number \u2014 Average time for one full rep at controlled pace. For time-based exercises (planks, carries, cardio intervals), this is the duration in seconds per 'rep'. CRITICAL for time accuracy engine.",
+    "setup_time_seconds": "number \u2014 Time to get into position / set up equipment. Added to transition buffer.",
+    "contraindication_tags": "string[] \u2014 Life cases / injuries where this exercise is BLOCKED. Hard safety filter.",
+    "rom_requirement": "enum \u2014 Range of motion needed. Helps filter for ROM-limited users (pregnancy, injury).",
+    "spinal_load": "enum \u2014 How much the spine is loaded. Key filter for pregnancy and back injuries.",
+    "position": "enum \u2014 Body position during execution. Supine filtered for pregnancy after week 20.",
+    "weight_increment": "number \u2014 Standard progression jump in lbs. Barbell = 5, dumbbell = 2.5, cable = 5, bodyweight = 0 (progress via reps). Cardio exercises = 0 (progress via duration/speed).",
+    "rep_range_floor": "number \u2014 Minimum productive reps. Going below this means the weight is too heavy. For cardio, this is minimum intervals/rounds.",
+    "rep_range_ceiling": "number \u2014 Max reps before the user should increase weight. For cardio, max intervals/rounds.",
+    "default_load_table": "object \u2014 Starting weight suggestions keyed by gender_fitnesslevel. Each has a 'multiplier' (\u00d7 bodyweight) and 'absolute_fallback_lbs' for cases where bodyweight math produces odd numbers. Bodyweight / cardio / pilates exercises use 0 for all values.",
+    "is_warmup_eligible": "boolean \u2014 Can this serve as a warmup movement?",
+    "is_cooldown_eligible": "boolean \u2014 Can this serve as a cooldown/mobility movement?",
+    "warmup_for_muscles": "string[] \u2014 If warmup-eligible, which muscles does it prepare?",
+    "cooldown_for_muscles": "string[] \u2014 If cooldown-eligible, which muscles does it help recover?",
+    "substitutes": "string[] \u2014 Ranked exercise IDs: same muscle/pattern, different equipment/difficulty. Best substitute first.",
+    "variation_family": "string \u2014 Groups related variations. Shared novelty penalty in rotation logic.",
     "equipment_note": "Equipment IDs bosu_ball, pilates_ring, and stability_ball are defined in the enum for future use but currently have no exercises requiring or optionally using them."
   },
   "exercises": [
@@ -4923,7 +4923,7 @@
         "elbow"
       ],
       "equipment_required": [
-        "bodyweight"
+        "pull_up_bar"
       ],
       "equipment_optional": [
         "squat_rack",
@@ -13625,7 +13625,7 @@
         "wrist"
       ],
       "equipment_required": [
-        "bodyweight"
+        "pull_up_bar"
       ],
       "equipment_optional": [],
       "is_unilateral": false,
@@ -13706,7 +13706,7 @@
         "elbow"
       ],
       "equipment_required": [
-        "bodyweight"
+        "dip_station"
       ],
       "equipment_optional": [],
       "is_unilateral": false,
@@ -13876,7 +13876,7 @@
         "spine"
       ],
       "equipment_required": [
-        "bodyweight"
+        "weight_plates"
       ],
       "equipment_optional": [],
       "is_unilateral": true,

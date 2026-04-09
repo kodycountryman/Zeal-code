@@ -8,6 +8,10 @@ import {
   Alert,
   ActivityIndicator,
   Animated as RNAnimated,
+  Image,
+  Modal,
+  Pressable,
+  Dimensions,
 } from 'react-native';
 import Reanimated, {
   useSharedValue,
@@ -35,6 +39,8 @@ import { generatePlanSchedule, getEventMilestones, handleMissedDays } from '@/se
 import type { PlanPhase } from '@/services/planConstants';
 import type { PlanGenerationInput } from '@/services/planEngine';
 import type { GenerateWorkoutParams } from '@/services/workoutEngine';
+import { useSeventyFiveHard } from '@/context/SeventyFiveHardContext';
+import { isDayFullyComplete } from '@/services/seventyFiveHardTypes';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -113,6 +119,7 @@ interface Props {
   onClose: () => void;
   onStartNewPlan: () => void;
   onEditPlan: () => void;
+  initialTab?: 0 | 1 | 2;
 }
 
 function formatDateShort(dateStr: string): string {
@@ -148,11 +155,18 @@ function getTodayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onEditPlan }: Props) {
+const SFHARD_GREEN = '#22c55e';
+const SFHARD_YELLOW = '#f59e0b';
+const SFHARD_RED = '#ef4444';
+const SFHARD_GRAY = 'rgba(128,128,128,0.3)';
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+
+export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onEditPlan, initialTab }: Props) {
   const { colors, accent } = useZealTheme();
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
   const router = useRouter();
+  const sfHard = useSeventyFiveHard();
 
   const plan = ctx.activePlan;
   const schedule = ctx.planSchedule;
@@ -278,13 +292,13 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
     }
   }, [plan, schedule, hasChanges, editStyle, editLevel, editDaysPerWeek, editDuration, ctx, tracking, exitEditMode]);
 
-  // ── Tab state (Upcoming / Details) ──
-  const [activeTab, setActiveTab] = useState<0 | 1>(0);
+  // ── Tab state (Upcoming / Details / Progress) ──
+  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0);
   const pillAnim = useRef(new RNAnimated.Value(0)).current;
   const [tabItemWidth, setTabItemWidth] = useState(0);
-  const [tabXOffsets, setTabXOffsets] = useState<[number, number]>([0, 0]);
+  const [tabXOffsets, setTabXOffsets] = useState<[number, number, number]>([0, 0, 0]);
 
-  const switchTab = useCallback((tab: 0 | 1) => {
+  const switchTab = useCallback((tab: 0 | 1 | 2) => {
     if (tab === activeTab) return;
     setActiveTab(tab);
     RNAnimated.spring(pillAnim, {
@@ -297,6 +311,10 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
 
   useEffect(() => {
     if (visible) {
+      if (initialTab !== undefined) {
+        setActiveTab(initialTab);
+        pillAnim.setValue(initialTab);
+      }
       if (plan && schedule) {
         const cw = getCurrentWeek(plan.startDate);
         const idx = Math.max(0, Math.min(cw - 1, schedule.weeks.length - 1));
@@ -336,6 +354,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
             onClose();
             setTimeout(() => {
               ctx.saveActivePlan(null, null);
+              if (plan?.is75Hard) sfHard.endChallenge();
             }, 400);
           },
         },
@@ -397,6 +416,74 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
     return handleMissedDays(total, consecutive);
   }, [plan?.missedDays]);
 
+  // ── 75 Hard progress data (only used when plan.is75Hard) ──
+  const [selectedPhoto, setSelectedPhoto] = useState<{ uri: string; date: string } | null>(null);
+
+  const sfStats = useMemo(() => {
+    if (!plan?.is75Hard) return null;
+    return sfHard.getAdherenceStats();
+  }, [plan?.is75Hard, sfHard.getAdherenceStats, sfHard.state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sfAdherenceBars = useMemo(() => {
+    if (!sfStats) return [];
+    return [
+      { label: 'Workout 1', icon: 'dumbbell', count: sfStats.workout1, total: sfStats.total, color: '#f87116' },
+      { label: 'Workout 2', icon: 'sun', count: sfStats.workout2, total: sfStats.total, color: '#06b6d4' },
+      { label: 'Water', icon: 'droplets', count: sfStats.water, total: sfStats.total, color: '#60a5fa' },
+      { label: 'Reading', icon: 'book-open', count: sfStats.reading, total: sfStats.total, color: '#a78bfa' },
+      { label: 'Diet', icon: 'utensils', count: sfStats.diet, total: sfStats.total, color: '#22c55e' },
+      { label: 'Photos', icon: 'camera', count: sfStats.photo, total: sfStats.total, color: '#ec4899' },
+    ];
+  }, [sfStats]);
+
+  const sfHeatmapCells = useMemo(() => {
+    if (!sfHard.state || !plan?.is75Hard) return [];
+    const cells: { day: number; color: string }[] = [];
+    const start = new Date(sfHard.state.startDate + 'T00:00:00');
+    for (let i = 0; i < 75; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      if (dateStr > todayStr) {
+        cells.push({ day: i + 1, color: SFHARD_GRAY });
+      } else {
+        const dayData = sfHard.state.days[dateStr];
+        if (!dayData) {
+          cells.push({ day: i + 1, color: dateStr < todayStr ? SFHARD_RED : SFHARD_GRAY });
+        } else if (isDayFullyComplete(dayData)) {
+          cells.push({ day: i + 1, color: SFHARD_GREEN });
+        } else {
+          const checked = [dayData.workout1Complete, dayData.workout2Complete, dayData.waterComplete, dayData.readingComplete, dayData.dietComplete, dayData.photoComplete].filter(Boolean).length;
+          cells.push({ day: i + 1, color: checked > 0 ? SFHARD_YELLOW : SFHARD_RED });
+        }
+      }
+    }
+    return cells;
+  }, [sfHard.state, plan?.is75Hard]);
+
+  const sfPhotoTimeline = useMemo(() => {
+    if (!sfHard.state || !plan?.is75Hard) return [];
+    return Object.values(sfHard.state.days)
+      .filter(d => d.photoUri)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [sfHard.state, plan?.is75Hard]);
+
+  const handleSfEndChallenge = useCallback(() => {
+    Alert.alert('End 75 Hard?', 'This will clear all progress. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'End Challenge', style: 'destructive', onPress: () => { sfHard.endChallenge(); onClose(); } },
+    ]);
+  }, [sfHard, onClose]);
+
+  const handleSfReset = useCallback(() => {
+    Alert.alert('Reset to Day 1?', "Your progress will be cleared and you'll start fresh. Reset history will be preserved.", [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset', style: 'destructive', onPress: sfHard.resetChallenge },
+    ]);
+  }, [sfHard]);
+
   if (!plan) return null;
 
   const today = getTodayStr();
@@ -411,9 +498,18 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
     ? schedule.weeks.reduce((sum, w) => sum + w.days.filter(d => !d.is_rest).length, 0)
     : plan.daysPerWeek * plan.planLength;
   const completedCount = plan.completedDays?.length ?? 0;
-  const progressPct = totalTrainingDays > 0
+  const completedPct = totalTrainingDays > 0
     ? Math.min(100, Math.round((completedCount / totalTrainingDays) * 100))
     : 0;
+  // Time-elapsed progress: always reflects how far through the plan calendar we are
+  const planTotalCalendarDays = plan.is75Hard ? 75 : plan.planLength * 7;
+  const elapsedCalendarDays = Math.max(0, Math.min(
+    planTotalCalendarDays,
+    Math.floor((new Date().getTime() - new Date(plan.startDate + 'T00:00:00').getTime()) / (24 * 60 * 60 * 1000)) + 1,
+  ));
+  const elapsedPct = Math.round((elapsedCalendarDays / planTotalCalendarDays) * 100);
+  // Show whichever is higher: workouts done or time elapsed
+  const progressPct = Math.max(completedPct, elapsedPct);
   // Rate = completed / training days elapsed so far (days up to and including today)
   const daysElapsedTraining = schedule
     ? schedule.weeks.reduce((sum, w) => sum + w.days.filter(d => !d.is_rest && d.date <= today).length, 0)
@@ -433,6 +529,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
   );
 
   return (
+    <>
     <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
       <View style={styles.content}>
 
@@ -450,7 +547,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
                   width: tabItemWidth,
                   transform: [{
                     translateX: pillAnim.interpolate({
-                      inputRange: [0, 1],
+                      inputRange: [0, 1, 2],
                       outputRange: tabXOffsets,
                     }),
                   }],
@@ -462,7 +559,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
             style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             onLayout={(e) => {
               const { x, width } = e.nativeEvent.layout;
-              setTabXOffsets(prev => [x, prev[1]]);
+              setTabXOffsets(prev => [x, prev[1], prev[2]]);
               setTabItemWidth(width);
             }}
           >
@@ -487,7 +584,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
             style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             onLayout={(e) => {
               const { x } = e.nativeEvent.layout;
-              setTabXOffsets(prev => [prev[0], x]);
+              setTabXOffsets(prev => [prev[0], x, prev[2]]);
             }}
           >
             <TouchableOpacity style={styles.planTabBtn} onPress={() => switchTab(1)} activeOpacity={0.7}>
@@ -507,6 +604,32 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
               </Text>
             </TouchableOpacity>
           </View>
+          {plan.is75Hard && (
+            <View
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              onLayout={(e) => {
+                const { x } = e.nativeEvent.layout;
+                setTabXOffsets(prev => [prev[0], prev[1], x]);
+              }}
+            >
+              <TouchableOpacity style={styles.planTabBtn} onPress={() => switchTab(2)} activeOpacity={0.7}>
+                <PlatformIcon
+                  name="trophy"
+                  size={14}
+                  color={activeTab === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'}
+                />
+                <Text style={[
+                  styles.planTabLabel,
+                  {
+                    color: activeTab === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
+                    fontFamily: activeTab === 2 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
+                  },
+                ]}>
+                  Progress
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* ═══════════════════════════════════════════════ */}
@@ -566,7 +689,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
           {/* ── Paused banner ───────────────────────────── */}
           {isPlanPaused && !isPlanComplete && (
             <View style={[styles.pausedBanner, { backgroundColor: '#60a5fa0d', borderColor: '#60a5fa30' }]}>
-              <PlatformIcon name="pause-circle" size={14} color="#60a5fa" />
+              <PlatformIcon name="pause" size={14} color="#60a5fa" />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.pausedBannerTitle, { color: '#60a5fa' }]}>Plan Paused</Text>
                 <Text style={[styles.pausedBannerSub, { color: colors.textSecondary }]}>
@@ -578,22 +701,14 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
 
           {/* ── Missed day recovery ───────────────────────── */}
           {!isPlanComplete && missedRecovery && !recoveryDismissed && (
-            <View style={[styles.recoveryCard, { backgroundColor: '#f59e0b0d', borderColor: '#f59e0b30' }]}>
-              <View style={styles.recoveryHeader}>
-                <PlatformIcon name="alert-triangle" size={13} color="#f59e0b" />
-                <Text style={styles.recoveryTitle}>
-                  {plan.missedDays!.length === 1 ? '1 missed day' : `${plan.missedDays!.length} missed days`}
-                </Text>
-              </View>
-              <Text style={[styles.recoveryMessage, { color: colors.textSecondary }]}>
-                {missedRecovery.message}
+            <View style={styles.recoveryInlineRow}>
+              <PlatformIcon name="alert-triangle" size={12} color="#f87116" />
+              <Text style={[styles.recoveryInlineText, { color: colors.textMuted }]}>
+                {plan.missedDays!.length === 1 ? '1 missed day' : `${plan.missedDays!.length} missed days`}
+                {'  ·  '}{missedRecovery.message}
               </Text>
-              <TouchableOpacity
-                style={styles.recoveryDismissBtn}
-                onPress={() => setRecoveryDismissed(true)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.recoveryDismissText}>Got it</Text>
+              <TouchableOpacity onPress={() => setRecoveryDismissed(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <PlatformIcon name="x" size={11} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           )}
@@ -666,7 +781,10 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
           )}
 
           {/* ── Divider ── */}
-          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 10 }} />
+
+          {/* ── Upcoming section header ── */}
+          <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
 
           {/* ── Current phase info row ── */}
           {selectedWeek?.notes ? (
@@ -685,53 +803,64 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
                   const isPast = day.date < today;
                   const isMissed = plan.missedDays?.includes(day.date);
                   const isCompleted = !day.is_rest && plan.completedDays?.includes(day.date);
-                  const cardBg = isCompleted ? '#22c55e0d' : day.is_rest ? colors.cardSecondary : `${accent}08`;
-                  const cardBorder = isCompleted ? '#22c55e40' : isToday ? styleColor : isMissed ? '#ef444430' : colors.border;
+                  const isFaded = (isMissed || isCompleted) && !isToday;
+                  const cardBg = isToday ? colors.cardSecondary : isFaded ? 'rgba(255,255,255,0.02)' : colors.cardSecondary;
+                  const cardBorder = isToday ? styleColor : isFaded ? colors.border : colors.border;
+                  const textColor = isFaded ? colors.textMuted : colors.text;
+                  const subColor = colors.textMuted;
                   const CardWrapper = day.is_rest ? View : TouchableOpacity;
                   return (
                     <CardWrapper
                       key={dIdx}
-                      style={[styles.dayCard, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isToday || isCompleted ? 1.5 : 1 }]}
+                      style={[styles.dayCard, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isToday ? 1.5 : 1, opacity: isFaded ? 0.55 : 1 }]}
                       {...(!day.is_rest && {
                         onPress: () => { setPreviewDay(day); setPreviewVisible(true); },
                         activeOpacity: 0.75,
                       })}
                     >
                       <View style={styles.dayCardHeader}>
-                        <Text style={[styles.dayLabel, { color: isCompleted ? '#22c55e' : isToday ? styleColor : colors.textSecondary }]}>
+                        <Text style={[styles.dayLabel, { color: isToday ? styleColor : textColor }]}>
                           {DAY_LABELS[new Date(day.date + 'T00:00:00').getDay()] ?? `D${dIdx + 1}`}
                         </Text>
                         <View style={styles.dayCardHeaderRight}>
-                          {isCompleted && <PlatformIcon name="check-circle" size={14} color="#22c55e" fill="#22c55e" />}
-                          <Text style={[styles.dayDate, { color: colors.textMuted }]}>{formatDateShort(day.date)}</Text>
+                          {isCompleted && (
+                            <View style={styles.completedBadge}>
+                              <PlatformIcon name="check" size={9} color="#22c55e" />
+                            </View>
+                          )}
+                          {isMissed && !isCompleted && (
+                            <View style={styles.missedBadge}>
+                              <PlatformIcon name="x" size={9} color="#ef4444" />
+                            </View>
+                          )}
+                          <Text style={[styles.dayDate, { color: subColor }]}>{formatDateShort(day.date)}</Text>
                         </View>
                       </View>
                       {day.is_rest ? (
                         <View style={styles.restContent}>
-                          <PlatformIcon name="moon" size={14} color={colors.textMuted} />
-                          <Text style={[styles.restLabel, { color: colors.textSecondary }]}>Rest</Text>
+                          <PlatformIcon name="moon" size={14} color={subColor} />
+                          <Text style={[styles.restLabel, { color: subColor }]}>Rest</Text>
                         </View>
                       ) : (
                         <View style={styles.trainingContent}>
                           <View style={styles.dayStyleRow}>
-                            <PlatformIcon name="dumbbell" size={11} color={isCompleted ? '#22c55e' : isToday ? accent : colors.text} />
-                            <Text style={[styles.dayStyleText, { color: isCompleted ? '#22c55e' : isToday ? accent : colors.text }]} numberOfLines={1}>
+                            <PlatformIcon name="dumbbell" size={11} color={isToday ? accent : textColor} />
+                            <Text style={[styles.dayStyleText, { color: isToday ? accent : textColor }]} numberOfLines={1}>
                               {day.session_type || day.style}
                             </Text>
                           </View>
                           <View style={styles.dayMetaRow}>
-                            <PlatformIcon name="clock" size={10} color={colors.textMuted} />
-                            <Text style={[styles.dayMetaText, { color: colors.textMuted }]}>{day.target_duration}min</Text>
+                            <PlatformIcon name="clock" size={10} color={subColor} />
+                            <Text style={[styles.dayMetaText, { color: subColor }]}>{day.target_duration}min</Text>
                           </View>
-                          <View style={styles.dayTagRow}>
-                            {day.is_deload_week && <View style={styles.deloadTag}><Text style={styles.deloadTagText}>Deload</Text></View>}
-                            {!day.is_deload_week && day.intensity_modifier > 0 && day.intensity_modifier < 0.9 && (
-                              <View style={styles.effortTag}><Text style={styles.effortTagText}>~{Math.round(day.intensity_modifier * 100)}% effort</Text></View>
-                            )}
-                            {isPast && !day.is_rest && isMissed && !isCompleted && (
-                              <View style={styles.missedTag}><PlatformIcon name="alert-triangle" size={9} color="#ef4444" /><Text style={styles.missedTagText}>Missed</Text></View>
-                            )}
-                          </View>
+                          {!isFaded && (
+                            <View style={styles.dayTagRow}>
+                              {day.is_deload_week && <View style={styles.deloadTag}><Text style={styles.deloadTagText}>Deload</Text></View>}
+                              {!day.is_deload_week && day.intensity_modifier > 0 && day.intensity_modifier < 0.9 && (
+                                <View style={styles.effortTag}><Text style={styles.effortTagText}>~{Math.round(day.intensity_modifier * 100)}% effort</Text></View>
+                              )}
+                            </View>
+                          )}
                         </View>
                       )}
                     </CardWrapper>
@@ -747,7 +876,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
             onPress={() => setFullPlanVisible(true)}
             activeOpacity={0.7}
           >
-            <PlatformIcon name="list" size={14} color={colors.textSecondary} />
+            <PlatformIcon name="list-checks" size={14} color={colors.textSecondary} />
             <Text style={[styles.ghostBtnText, { color: colors.textSecondary }]}>View Full Workout Plan</Text>
           </TouchableOpacity>
 
@@ -1061,6 +1190,136 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
 
         </>)}
 
+        {/* ═══════════════════════════════════════════════ */}
+        {/*  PROGRESS TAB (75 Hard only)                   */}
+        {/* ═══════════════════════════════════════════════ */}
+        {activeTab === 2 && plan.is75Hard && (<>
+
+          {/* ─── Overview stats ─── */}
+          <View style={styles.sfOverviewRow}>
+            <View style={[styles.sfStatBox, { backgroundColor: colors.cardSecondary }]}>
+              <Text style={[styles.sfStatValue, { color: '#f87116' }]}>{sfHard.currentDay}</Text>
+              <Text style={[styles.sfStatLabel, { color: colors.textSecondary }]}>Current Day</Text>
+            </View>
+            <View style={[styles.sfStatBox, { backgroundColor: colors.cardSecondary }]}>
+              <Text style={[styles.sfStatValue, { color: SFHARD_GREEN }]}>{sfStats?.fullyComplete ?? 0}</Text>
+              <Text style={[styles.sfStatLabel, { color: colors.textSecondary }]}>Perfect Days</Text>
+            </View>
+            <View style={[styles.sfStatBox, { backgroundColor: colors.cardSecondary }]}>
+              <Text style={[styles.sfStatValue, { color: colors.text }]}>{75 - sfHard.currentDay + 1}</Text>
+              <Text style={[styles.sfStatLabel, { color: colors.textSecondary }]}>Remaining</Text>
+            </View>
+          </View>
+
+          {/* ─── Overall progress bar ─── */}
+          <View style={styles.sfSection}>
+            <Text style={[styles.sfSectionLabel, { color: colors.textSecondary }]}>overall progress</Text>
+            <View style={[styles.sfProgressTrack, { backgroundColor: 'rgba(248,113,22,0.12)' }]}>
+              <View style={[styles.sfProgressFill, { width: `${Math.round(((sfStats?.fullyComplete ?? 0) / 75) * 100)}%` as any, backgroundColor: '#f87116' }]} />
+            </View>
+            <Text style={[styles.sfProgressText, { color: colors.textMuted }]}>{sfStats?.fullyComplete ?? 0}/75 days fully completed</Text>
+          </View>
+
+          {/* ─── Category adherence bars ─── */}
+          <View style={styles.sfSection}>
+            <Text style={[styles.sfSectionLabel, { color: colors.textSecondary }]}>category adherence</Text>
+            {sfAdherenceBars.map((bar) => {
+              const pct = bar.total > 0 ? Math.round((bar.count / bar.total) * 100) : 0;
+              return (
+                <View key={bar.label} style={styles.sfBarRow}>
+                  <View style={styles.sfBarLabelRow}>
+                    <PlatformIcon name={bar.icon as any} size={13} color={bar.color} />
+                    <Text style={[styles.sfBarLabel, { color: colors.text }]}>{bar.label}</Text>
+                    <Text style={[styles.sfBarPct, { color: colors.textMuted }]}>{pct}%</Text>
+                  </View>
+                  <View style={[styles.sfBarTrack, { backgroundColor: `${bar.color}15` }]}>
+                    <View style={[styles.sfBarFill, { width: `${pct}%` as any, backgroundColor: bar.color }]} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* ─── Heatmap ─── */}
+          <View style={styles.sfSection}>
+            <Text style={[styles.sfSectionLabel, { color: colors.textSecondary }]}>75-day heatmap</Text>
+            <View style={styles.sfHeatmapGrid}>
+              {sfHeatmapCells.map((cell) => (
+                <View key={cell.day} style={[styles.sfHeatmapCell, { backgroundColor: cell.color }]} />
+              ))}
+            </View>
+            <View style={styles.sfLegendRow}>
+              {[{ color: SFHARD_GREEN, label: 'Complete' }, { color: SFHARD_YELLOW, label: 'Partial' }, { color: SFHARD_RED, label: 'Missed' }, { color: SFHARD_GRAY, label: 'Future' }].map(({ color, label }) => (
+                <View key={label} style={styles.sfLegendItem}>
+                  <View style={[styles.sfLegendDot, { backgroundColor: color }]} />
+                  <Text style={[styles.sfLegendText, { color: colors.textMuted }]}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* ─── Photo timeline ─── */}
+          {sfPhotoTimeline.length > 0 && (
+            <View style={styles.sfSection}>
+              <Text style={[styles.sfSectionLabel, { color: colors.textSecondary }]}>photo timeline</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {sfPhotoTimeline.map((day) => (
+                  <TouchableOpacity
+                    key={day.date}
+                    style={styles.sfPhotoThumbWrap}
+                    onPress={() => setSelectedPhoto({ uri: day.photoUri!, date: day.date })}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={{ uri: day.photoUri }}
+                      style={[styles.sfPhotoThumb, { borderColor: colors.border }]}
+                      resizeMode="cover"
+                    />
+                    <Text style={[styles.sfPhotoDate, { color: colors.textMuted }]}>
+                      {new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* ─── Reset history ─── */}
+          {sfHard.state && sfHard.state.resetHistory.length > 0 && (
+            <View style={styles.sfSection}>
+              <Text style={[styles.sfSectionLabel, { color: colors.textSecondary }]}>reset history</Text>
+              <Text style={[styles.sfResetText, { color: colors.textMuted }]}>
+                Restarted {sfHard.state.resetHistory.length} time{sfHard.state.resetHistory.length > 1 ? 's' : ''}
+                {' — '}
+                {sfHard.state.resetHistory.map(d =>
+                  new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                ).join(', ')}
+              </Text>
+            </View>
+          )}
+
+          {/* ─── Actions ─── */}
+          <View style={styles.sfActionsSection}>
+            <TouchableOpacity
+              style={[styles.sfResetBtn, { borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.05)' }]}
+              onPress={handleSfReset}
+              activeOpacity={0.7}
+            >
+              <PlatformIcon name="refresh" size={12} color={colors.textMuted} />
+              <Text style={[styles.sfResetBtnText, { color: colors.textMuted }]}>Reset to Day 1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sfEndBtn, { borderColor: 'rgba(239,68,68,0.25)', backgroundColor: 'rgba(239,68,68,0.07)' }]}
+              onPress={handleSfEndChallenge}
+              activeOpacity={0.7}
+            >
+              <PlatformIcon name="x" size={12} color="rgba(239,68,68,0.6)" />
+              <Text style={[styles.sfEndBtnText, { color: 'rgba(239,68,68,0.6)' }]}>End Challenge</Text>
+            </TouchableOpacity>
+          </View>
+
+        </>)}
+
         <View style={{ height: 24 }} />
       </View>
 
@@ -1077,6 +1336,38 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
         onClosePlan={onClose}
       />
     </BaseDrawer>
+
+    {/* ─── Full-screen photo overlay (75 Hard) ─── */}
+    <Modal
+      visible={!!selectedPhoto}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => setSelectedPhoto(null)}
+    >
+      <Pressable style={styles.sfOverlayBackdrop} onPress={() => setSelectedPhoto(null)}>
+        <View style={styles.sfOverlayContent}>
+          {selectedPhoto && (
+            <>
+              <Image
+                source={{ uri: selectedPhoto.uri }}
+                style={styles.sfOverlayImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.sfOverlayDate}>
+                {new Date(selectedPhoto.date + 'T00:00:00').toLocaleDateString('en-US', {
+                  weekday: 'short', month: 'long', day: 'numeric',
+                })}
+              </Text>
+            </>
+          )}
+          <TouchableOpacity style={styles.sfOverlayClose} onPress={() => setSelectedPhoto(null)}>
+            <PlatformIcon name="x" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </Pressable>
+    </Modal>
+    </>
   );
 }
 
@@ -1159,8 +1450,8 @@ const styles = StyleSheet.create({
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   progressLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.8 },
   progressWeek: { fontSize: 12, fontWeight: '500' as const },
-  progressTrack: { height: 5, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: 5, borderRadius: 3 },
+  progressTrack: { height: 10, borderRadius: 999, overflow: 'hidden' },
+  progressFill: { height: 10, borderRadius: 999 },
   progressFooter: { flexDirection: 'row', justifyContent: 'space-between' },
   progressPct: { fontSize: 11, fontWeight: '600' as const },
   progressLeft: { fontSize: 11 },
@@ -1189,13 +1480,13 @@ const styles = StyleSheet.create({
     fontSize: 15, fontWeight: '700' as const, color: '#fff', letterSpacing: -0.2, flex: 1, textAlign: 'center' as const,
   },
 
-  // Recovery card
-  recoveryCard: {
-    borderRadius: 12, borderWidth: 1, padding: 12, gap: 6,
+  // Recovery inline row
+  recoveryInlineRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
   },
-  recoveryHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  recoveryTitle: { fontSize: 12, fontWeight: '700' as const, color: '#f59e0b' },
-  recoveryMessage: { fontSize: 12, fontWeight: '400' as const, lineHeight: 17 },
+  recoveryInlineText: {
+    flex: 1, fontSize: 11, fontFamily: 'Outfit_400Regular', lineHeight: 15,
+  },
 
   // Phase timeline
   sectionLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.8, marginBottom: 8 },
@@ -1230,6 +1521,16 @@ const styles = StyleSheet.create({
   dayCardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dayLabel: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.5 },
   dayDate: { fontSize: 10 },
+  completedBadge: {
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: 'rgba(34,197,94,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  missedBadge: {
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   restContent: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   restLabel: { fontSize: 13, fontWeight: '500' as const },
   trainingContent: { gap: 3 },
@@ -1312,9 +1613,9 @@ const styles = StyleSheet.create({
   recoveryDismissBtn: {
     alignSelf: 'flex-end', marginTop: 4,
     paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 8, backgroundColor: '#f59e0b20',
+    borderRadius: 8, backgroundColor: '#f8711620',
   },
-  recoveryDismissText: { fontSize: 12, fontWeight: '600' as const, color: '#f59e0b' },
+  recoveryDismissText: { fontSize: 12, fontWeight: '600' as const, color: '#f87116' },
 
   // Adherence card
   adherenceCard: {
@@ -1332,4 +1633,52 @@ const styles = StyleSheet.create({
   },
   adherenceFill: { height: 4 },
   adherenceMissedFill: { height: 4, position: 'absolute', top: 0, backgroundColor: '#ef4444' },
+
+  // 75 Hard Progress tab
+  sfOverviewRow: { flexDirection: 'row', gap: 8 },
+  sfStatBox: { flex: 1, alignItems: 'center', borderRadius: 14, paddingVertical: 14, gap: 2 },
+  sfStatValue: { fontSize: 24, fontFamily: 'Outfit_800ExtraBold', letterSpacing: -1 },
+  sfStatLabel: { fontSize: 11, fontFamily: 'Outfit_500Medium' },
+  sfSection: { gap: 8 },
+  sfSectionLabel: { fontSize: 11, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.5, textTransform: 'uppercase' },
+  sfProgressTrack: { height: 10, borderRadius: 999, overflow: 'hidden' },
+  sfProgressFill: { height: 10, borderRadius: 999 },
+  sfProgressText: { fontSize: 11, fontFamily: 'Outfit_400Regular' },
+  sfBarRow: { gap: 4 },
+  sfBarLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sfBarLabel: { flex: 1, fontSize: 13, fontFamily: 'Outfit_500Medium' },
+  sfBarPct: { fontSize: 12, fontFamily: 'Outfit_600SemiBold' },
+  sfBarTrack: { height: 8, borderRadius: 999, overflow: 'hidden' },
+  sfBarFill: { height: 8, borderRadius: 999 },
+  sfHeatmapGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
+  sfHeatmapCell: { width: 18, height: 18, borderRadius: 4 },
+  sfLegendRow: { flexDirection: 'row', gap: 14, marginTop: 4 },
+  sfLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sfLegendDot: { width: 8, height: 8, borderRadius: 2 },
+  sfLegendText: { fontSize: 10, fontFamily: 'Outfit_400Regular' },
+  sfPhotoThumbWrap: { alignItems: 'center', gap: 5, marginRight: 10 },
+  sfPhotoThumb: { width: 80, height: 106, borderRadius: 12, borderWidth: 1 },
+  sfPhotoDate: { fontSize: 10, fontFamily: 'Outfit_500Medium' },
+  sfResetText: { fontSize: 12, fontFamily: 'Outfit_400Regular' },
+  sfActionsSection: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  sfResetBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, borderWidth: 1, borderRadius: 12, paddingVertical: 10,
+  },
+  sfResetBtnText: { fontSize: 12, fontFamily: 'Outfit_500Medium' },
+  sfEndBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, borderWidth: 1, borderRadius: 12, paddingVertical: 10,
+  },
+  sfEndBtnText: { fontSize: 12, fontFamily: 'Outfit_500Medium' },
+  sfOverlayBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+  sfOverlayContent: { width: SCREEN_W, alignItems: 'center', gap: 14 },
+  sfOverlayImage: { width: SCREEN_W, height: SCREEN_H * 0.72 },
+  sfOverlayDate: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Outfit_500Medium' },
+  sfOverlayClose: {
+    position: 'absolute', top: -SCREEN_H * 0.38, right: 20,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
+  },
+
 });

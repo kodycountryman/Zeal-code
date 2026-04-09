@@ -166,6 +166,7 @@ function TrainingScoreCard({
       streak: ctx.streak,
       targetDone,
       targetTotal,
+      readiness,
       calories: calories ?? null,
       steps: steps ?? null,
       heartRate: heartRate ?? null,
@@ -228,28 +229,6 @@ function TrainingScoreCard({
               ]}
             />
           )}
-        </View>
-
-        <View style={styles.readinessRow}>
-          <View style={styles.readinessLeft}>
-            <PlatformIcon name="zap" size={11} color={colors.readiness} fill={colors.readiness} />
-            <Text style={[styles.readinessLabel, { color: colors.textSecondary }]}>
-              Readiness{' '}
-            </Text>
-            <Text style={[styles.readinessValue, { color: colors.readiness }]}>
-              {readiness}%
-            </Text>
-          </View>
-          <View style={styles.targetRight}>
-            <PlatformIcon name="target" size={11} color={colors.textSecondary} />
-            <Text style={[styles.readinessLabel, { color: colors.textSecondary }]}>
-              {' '}Target{' '}
-            </Text>
-            <Text style={[styles.targetValue, { color: colors.text }]}>
-              {targetCapped}
-              <Text style={[styles.targetTotal, { color: colors.textSecondary }]}>/{targetTotal}</Text>
-            </Text>
-          </View>
         </View>
 
         <View style={[styles.metricsDivider, { backgroundColor: dividerColor }]} />
@@ -356,47 +335,12 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 3.5,
     overflow: 'hidden',
+    marginBottom: 6,
   },
   progressFill: {
     height: '100%',
     borderRadius: 3.5,
     minWidth: 8,
-  },
-  readinessRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 2,
-  },
-  readinessLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  targetRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  readinessLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit_500Medium',
-    letterSpacing: 0.1,
-  },
-  readinessValue: {
-    fontSize: 13,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0,
-  },
-  targetValue: {
-    fontSize: 13,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0,
-  },
-  targetTotal: {
-    fontSize: 12,
-    fontFamily: 'Outfit_400Regular',
-    letterSpacing: 0,
   },
   lastWorkoutLine: {
     fontSize: 11,

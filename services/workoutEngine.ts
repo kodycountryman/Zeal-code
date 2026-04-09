@@ -581,6 +581,17 @@ function stage3PoolFiltering(
     pool = pool.filter(ex => !(ex.movement_pattern as string === 'cardio'));
     pool = pool.filter(ex => !(ex.movement_pattern as string === 'plyometric'));
     __DEV__ && console.log('[EngineV2] After low_impact style gate:', pool.length, '/', startCount);
+  } else if (style === 'hybrid') {
+    // Hybrid pulls from strength exercises (for the strength block) plus
+    // cardio/plyometric/conditioning exercises (for the conditioning finisher).
+    pool = pool.filter(ex =>
+      ex.eligible_styles.includes('strength' as never) ||
+      ex.eligible_styles.includes('crossfit' as never) ||
+      ex.eligible_styles.includes('hiit' as never) ||
+      ex.eligible_styles.includes('hyrox' as never) ||
+      ex.eligible_styles.includes('cardio' as never)
+    );
+    __DEV__ && console.log('[EngineV2] After hybrid style gate:', pool.length, '/', startCount);
   } else {
     pool = pool.filter(ex => ex.eligible_styles.includes(style as never));
     __DEV__ && console.log('[EngineV2] After style gate:', pool.length, '/', startCount);
@@ -2071,7 +2082,9 @@ export function runEngine(params: EngineParams): EngineResult {
   // Final compound-before-isolation reorder: Stage 6 may have added overflow
   // exercises at the end of the list (to fill the time budget), placing compounds
   // after the architecture's isolation phases. Re-sort so all compounds lead.
-  if (STYLE_ENGINE_CONFIGS[s1.effectiveStyle]?.compounds_first) {
+  // Skip for Hybrid — the architecture orders strength block first, conditioning
+  // second, and a global reorder would interleave them.
+  if (STYLE_ENGINE_CONFIGS[s1.effectiveStyle]?.compounds_first && s1.effectiveStyle !== 'hybrid') {
     const compounds = workoutExercises.filter(e => e.exerciseRef.is_compound);
     const isolations = workoutExercises.filter(e => !e.exerciseRef.is_compound);
     workoutExercises.length = 0;
@@ -2113,6 +2126,23 @@ export function runEngine(params: EngineParams): EngineResult {
   const metconTimeCap = groupingResult.timeCap;
   const metconRounds = groupingResult.rounds;
   selectedFormat = groupingResult.format;
+
+  // Hybrid: group conditioning exercises (cardio/plyometric/carry) as a circuit.
+  // These come from the conditioning_block phase and sit at the end of the list.
+  if (s1.effectiveStyle === 'hybrid') {
+    const conditioningExercises = workoutExercises.filter(ex => {
+      const mp = ex.exerciseRef.movement_pattern as string;
+      return mp === 'cardio' || mp === 'plyometric' || mp === 'carry';
+    });
+    if (conditioningExercises.length >= 2) {
+      const gid = 'conditioning_1';
+      for (const ex of conditioningExercises) {
+        ex.groupType = 'circuit';
+        ex.groupId = gid;
+      }
+      __DEV__ && console.log('[EngineV2] Hybrid: grouped', conditioningExercises.length, 'conditioning exercises as circuit');
+    }
+  }
 
   const { warmup, cooldown, recovery } = stage7WarmupCooldown(
     targetMuscles,

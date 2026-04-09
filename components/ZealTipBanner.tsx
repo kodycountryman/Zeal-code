@@ -9,6 +9,7 @@ import {
   Modal,
   Switch,
   Platform,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Lightbulb, X } from 'lucide-react-native';
@@ -106,6 +107,34 @@ export default function ZealTipBanner() {
     dismiss();
   };
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) => gs.dy < -6,
+      onPanResponderGrant: () => {
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+        progressAnim.stopAnimation();
+      },
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy < 0) translateY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy < -50 || gs.vy < -0.6) {
+          dismiss();
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            tension: 140,
+            friction: 18,
+            useNativeDriver: true,
+          }).start();
+          // Restart auto-dismiss
+          dismissTimerRef.current = setTimeout(() => dismiss(), 3000);
+        }
+      },
+    })
+  ).current;
+
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
@@ -121,7 +150,7 @@ export default function ZealTipBanner() {
             styles.banner,
             { top: topPos, transform: [{ translateY }] },
           ]}
-          pointerEvents="box-none"
+          {...panResponder.panHandlers}
         >
           <TouchableOpacity
             onPress={handleTap}
@@ -217,7 +246,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 9999,
-    borderRadius: 18,
+    borderRadius: 26,
     overflow: 'hidden',
     backgroundColor: 'rgba(18,18,18,0.94)',
     borderWidth: 1,

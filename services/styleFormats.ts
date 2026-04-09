@@ -1562,7 +1562,33 @@ const SPLIT_TO_STRENGTH_ARCHITECTURE: Record<string, SessionArchitecture> = {
   'arms day': STRENGTH_UPPER_ARCHITECTURE,
 };
 
-// Hybrid: strength compounds followed by a conditioning circuit finisher
+// ───── Hybrid architectures: strength block → conditioning finisher ─────
+// Every Hybrid architecture keeps 2 blocks:
+//   1. Strength Block (~60%) — heavy compounds for the split, straight/ascending sets
+//   2. Conditioning Finisher (~35%) — high-intensity cardio/plyometric circuit
+//   3. Core (5%) — optional single core exercise
+
+const HYBRID_CONDITIONING_FINISHER: SessionPhase = {
+  id: 'conditioning_block',
+  name: 'Conditioning Finisher',
+  exercise_count: { min: 3, max: 5 },
+  role_filter: ['primary', 'secondary', 'accessory'],
+  preferred_formats: ['circuit'],
+  time_budget_fraction: 0.35,
+  is_required: true,
+  movement_filter: ['cardio', 'plyometric', 'carry'],
+};
+
+const HYBRID_CORE: SessionPhase = {
+  id: 'core',
+  name: 'Core',
+  exercise_count: { min: 0, max: 1 },
+  role_filter: ['accessory'],
+  preferred_formats: ['straight_sets'],
+  time_budget_fraction: 0.05,
+  muscle_filter: ['core', 'obliques'],
+};
+
 export const HYBRID_ARCHITECTURE: SessionArchitecture = {
   phases: [
     {
@@ -1575,36 +1601,237 @@ export const HYBRID_ARCHITECTURE: SessionArchitecture = {
       is_compound_only: true,
       movement_filter: ['push', 'pull', 'squat', 'hinge', 'lunge'],
     },
-    {
-      id: 'conditioning_block',
-      name: 'Conditioning Finisher',
-      exercise_count: { min: 3, max: 5 },
-      role_filter: ['primary', 'secondary', 'accessory'],
-      preferred_formats: ['circuit'],
-      time_budget_fraction: 0.35,
-      movement_filter: ['squat', 'push', 'pull', 'hinge', 'plyometric', 'carry'],
-    },
-    {
-      id: 'core',
-      name: 'Core',
-      exercise_count: { min: 0, max: 1 },
-      role_filter: ['accessory'],
-      preferred_formats: ['straight_sets'],
-      time_budget_fraction: 0.05,
-      muscle_filter: ['core', 'obliques'],
-    },
+    HYBRID_CONDITIONING_FINISHER,
+    HYBRID_CORE,
   ],
   total_phase_fraction: 1.0,
+};
+
+export const HYBRID_PUSH_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Press',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'wave_loading'],
+      time_budget_fraction: 0.30,
+      is_compound_only: true,
+      movement_filter: ['push'],
+      muscle_filter: ['chest', 'upper_chest', 'lower_chest', 'front_delt', 'side_delt'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Accessory Press',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary', 'secondary', 'accessory'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.30,
+      movement_filter: ['push', 'isolation'],
+      muscle_filter: ['chest', 'upper_chest', 'lower_chest', 'front_delt', 'side_delt', 'triceps'],
+    },
+    HYBRID_CONDITIONING_FINISHER,
+    HYBRID_CORE,
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const HYBRID_PULL_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Heavy Hinge',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'wave_loading'],
+      time_budget_fraction: 0.25,
+      is_compound_only: true,
+      movement_filter: ['hinge'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Pull Compounds',
+      exercise_count: { min: 2, max: 3 },
+      role_filter: ['primary', 'secondary', 'accessory'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.35,
+      is_compound_only: true,
+      movement_filter: ['pull'],
+    },
+    HYBRID_CONDITIONING_FINISHER,
+    HYBRID_CORE,
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const HYBRID_LEGS_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Squat',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'wave_loading'],
+      time_budget_fraction: 0.30,
+      is_compound_only: true,
+      movement_filter: ['squat'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Hip Hinge + Single Leg',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['secondary', 'accessory'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.30,
+      is_compound_only: true,
+      movement_filter: ['hinge', 'lunge'],
+    },
+    HYBRID_CONDITIONING_FINISHER,
+    HYBRID_CORE,
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const HYBRID_UPPER_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Push',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'wave_loading'],
+      time_budget_fraction: 0.20,
+      is_compound_only: true,
+      movement_filter: ['push'],
+      muscle_filter: ['chest', 'upper_chest', 'lower_chest'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Main Pull',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.20,
+      is_compound_only: true,
+      movement_filter: ['pull'],
+    },
+    {
+      id: 'accessories',
+      name: 'Accessory Press + Row',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['secondary', 'accessory'],
+      preferred_formats: ['straight_sets'],
+      time_budget_fraction: 0.20,
+      movement_filter: ['push', 'pull'],
+    },
+    HYBRID_CONDITIONING_FINISHER,
+    HYBRID_CORE,
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const HYBRID_LOWER_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Main Squat',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets', 'wave_loading'],
+      time_budget_fraction: 0.30,
+      is_compound_only: true,
+      movement_filter: ['squat'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Hinge + Lunge',
+      exercise_count: { min: 1, max: 2 },
+      role_filter: ['secondary', 'accessory'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.30,
+      is_compound_only: true,
+      movement_filter: ['hinge', 'lunge'],
+    },
+    HYBRID_CONDITIONING_FINISHER,
+    HYBRID_CORE,
+  ],
+  total_phase_fraction: 1.0,
+};
+
+export const HYBRID_FULL_BODY_ARCHITECTURE: SessionArchitecture = {
+  phases: [
+    {
+      id: 'primary_compound',
+      name: 'Squat',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.20,
+      is_compound_only: true,
+      movement_filter: ['squat'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Press',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['primary', 'secondary'],
+      preferred_formats: ['straight_sets', 'ascending_sets'],
+      time_budget_fraction: 0.20,
+      is_compound_only: true,
+      movement_filter: ['push'],
+    },
+    {
+      id: 'secondary_compound',
+      name: 'Pull',
+      exercise_count: { min: 1, max: 1 },
+      role_filter: ['secondary'],
+      preferred_formats: ['straight_sets'],
+      time_budget_fraction: 0.20,
+      is_compound_only: true,
+      movement_filter: ['pull'],
+    },
+    HYBRID_CONDITIONING_FINISHER,
+    HYBRID_CORE,
+  ],
+  total_phase_fraction: 1.0,
+};
+
+const SPLIT_TO_HYBRID_ARCHITECTURE: Record<string, SessionArchitecture> = {
+  // PPL variants
+  push: HYBRID_PUSH_ARCHITECTURE,
+  'push day': HYBRID_PUSH_ARCHITECTURE,
+  pull: HYBRID_PULL_ARCHITECTURE,
+  'pull day': HYBRID_PULL_ARCHITECTURE,
+  legs: HYBRID_LEGS_ARCHITECTURE,
+  'leg day': HYBRID_LEGS_ARCHITECTURE,
+  // Upper / Lower
+  upper: HYBRID_UPPER_ARCHITECTURE,
+  'upper body': HYBRID_UPPER_ARCHITECTURE,
+  lower: HYBRID_LOWER_ARCHITECTURE,
+  'lower body': HYBRID_LOWER_ARCHITECTURE,
+  // Full Body
+  'full body': HYBRID_FULL_BODY_ARCHITECTURE,
+  // Body Part Split day names
+  chest: HYBRID_PUSH_ARCHITECTURE,
+  'chest day': HYBRID_PUSH_ARCHITECTURE,
+  back: HYBRID_PULL_ARCHITECTURE,
+  'back day': HYBRID_PULL_ARCHITECTURE,
+  shoulders: HYBRID_PUSH_ARCHITECTURE,
+  'shoulders day': HYBRID_PUSH_ARCHITECTURE,
+  arms: HYBRID_UPPER_ARCHITECTURE,
+  'arms day': HYBRID_UPPER_ARCHITECTURE,
 };
 
 export function getArchitectureForStyle(style: string, split?: string): SessionArchitecture {
   if ((style === 'strength' || style === 'bodybuilding' || style === 'hybrid') && split) {
     const normalizedSplit = split.toLowerCase().trim();
 
-    // Use style-specific mapping: BB gets BB architectures, strength/hybrid get strength architectures
+    // Use style-specific mapping: BB gets BB, hybrid gets hybrid, strength gets strength
     const lookupTable = style === 'bodybuilding'
       ? SPLIT_TO_BODYBUILDING_ARCHITECTURE
-      : SPLIT_TO_STRENGTH_ARCHITECTURE;
+      : style === 'hybrid'
+        ? SPLIT_TO_HYBRID_ARCHITECTURE
+        : SPLIT_TO_STRENGTH_ARCHITECTURE;
     const splitArch = lookupTable[normalizedSplit];
     if (splitArch) {
       __DEV__ && console.log('[StyleFormats] Using split-specific architecture for', style, '/', split);
@@ -1613,22 +1840,28 @@ export function getArchitectureForStyle(style: string, split?: string): SessionA
 
     // Fuzzy fallbacks — also style-aware
     if (normalizedSplit.includes('push') && !normalizedSplit.includes('pull') && !normalizedSplit.includes('legs')) {
-      return style === 'bodybuilding' ? BODYBUILDING_PUSH_ARCHITECTURE : STRENGTH_PUSH_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_PUSH_ARCHITECTURE
+        : style === 'hybrid' ? HYBRID_PUSH_ARCHITECTURE : STRENGTH_PUSH_ARCHITECTURE;
     }
     if (normalizedSplit.includes('pull') && !normalizedSplit.includes('push') && !normalizedSplit.includes('legs')) {
-      return style === 'bodybuilding' ? BODYBUILDING_PULL_ARCHITECTURE : STRENGTH_PULL_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_PULL_ARCHITECTURE
+        : style === 'hybrid' ? HYBRID_PULL_ARCHITECTURE : STRENGTH_PULL_ARCHITECTURE;
     }
     if (normalizedSplit.includes('legs') || normalizedSplit.startsWith('leg ')) {
-      return style === 'bodybuilding' ? BODYBUILDING_LEGS_ARCHITECTURE : STRENGTH_LEGS_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_LEGS_ARCHITECTURE
+        : style === 'hybrid' ? HYBRID_LEGS_ARCHITECTURE : STRENGTH_LEGS_ARCHITECTURE;
     }
     if (normalizedSplit === 'upper' || normalizedSplit.includes('upper body')) {
-      return style === 'bodybuilding' ? BODYBUILDING_UPPER_ARCHITECTURE : STRENGTH_UPPER_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_UPPER_ARCHITECTURE
+        : style === 'hybrid' ? HYBRID_UPPER_ARCHITECTURE : STRENGTH_UPPER_ARCHITECTURE;
     }
     if (normalizedSplit === 'lower' || normalizedSplit.includes('lower body')) {
-      return style === 'bodybuilding' ? BODYBUILDING_LOWER_ARCHITECTURE : STRENGTH_LOWER_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_LOWER_ARCHITECTURE
+        : style === 'hybrid' ? HYBRID_LOWER_ARCHITECTURE : STRENGTH_LOWER_ARCHITECTURE;
     }
     if (normalizedSplit.includes('full body') || normalizedSplit.includes('full_body')) {
-      return style === 'bodybuilding' ? BODYBUILDING_FULL_BODY_ARCHITECTURE : STRENGTH_FULL_BODY_ARCHITECTURE;
+      return style === 'bodybuilding' ? BODYBUILDING_FULL_BODY_ARCHITECTURE
+        : style === 'hybrid' ? HYBRID_FULL_BODY_ARCHITECTURE : STRENGTH_FULL_BODY_ARCHITECTURE;
     }
     if (normalizedSplit.includes('core')) {
       return STRENGTH_CORE_CARDIO_ARCHITECTURE;

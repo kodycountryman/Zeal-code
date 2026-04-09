@@ -56,7 +56,6 @@ import { useSeventyFiveHard } from '@/context/SeventyFiveHardContext';
 import SeventyFiveHardBanner from '@/components/SeventyFiveHardBanner';
 import OutdoorWorkoutCard from '@/components/OutdoorWorkoutCard';
 import SeventyFiveHardChecklist from '@/components/SeventyFiveHardChecklist';
-import SeventyFiveHardProgressDrawer from '@/components/drawers/SeventyFiveHardProgressDrawer';
 import { useTourTarget, useAppTour } from '@/context/AppTourContext';
 
 
@@ -91,7 +90,7 @@ export default function HomeScreen() {
   const tourProfileRef = useTourTarget('profile-avatar');
   const tourScoreRef = useTourTarget('training-score-card');
   const { resetTour, startTour, tourActive } = useAppTour();
-  const [hard75ProgressVisible, setHard75ProgressVisible] = useState(false);
+  const [activePlanInitialTab, setActivePlanInitialTab] = useState<0 | 1 | 2 | undefined>(undefined);
   const glowColor: string = WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent;
 
   // Pro style modal — shown once on mount if user selected a Pro style during onboarding
@@ -457,7 +456,7 @@ export default function HomeScreen() {
         testID="home-scroll"
       >
         {/* ─── 75 Hard card stack ─────────────────────────────────────── */}
-        {seventyFiveHard.isActive ? (<>
+        {seventyFiveHard.isActive && !!ctx.activePlan?.is75Hard ? (<>
           <Animated.View key="75h-calendar" entering={cardAnims.d90}>
             <CalendarCard
               streak={ctx.streak}
@@ -472,7 +471,7 @@ export default function HomeScreen() {
 
           <Animated.View key="75h-banner" entering={cardAnims.d150}>
             <SeventyFiveHardBanner
-              onPress={() => setHard75ProgressVisible(true)}
+              onPress={() => { setActivePlanInitialTab(2); tracking.setActivePlanVisible(true); }}
               variant={isDark ? 'glass' : 'solid'}
             />
           </Animated.View>
@@ -487,6 +486,7 @@ export default function HomeScreen() {
                 muscleGroups={muscleGroups}
                 exerciseCount={exerciseCount}
                 onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
+                onOpenActivePlan={ctx.activePlan ? () => tracking.setActivePlanVisible(true) : undefined}
                 activePlan={ctx.activePlan}
                 variant={isDark ? 'glass' : 'solid'}
                 completedLog={hasTodayWorkout ? latestTodayLog : null}
@@ -614,6 +614,7 @@ export default function HomeScreen() {
                 muscleGroups={muscleGroups}
                 exerciseCount={exerciseCount}
                 onPress={hasTodayWorkout ? handleViewTodayLog : (ctx.activePlan ? () => tracking.setActivePlanVisible(true) : handlePreviewPress)}
+                onOpenActivePlan={ctx.activePlan ? () => tracking.setActivePlanVisible(true) : undefined}
                 activePlan={ctx.activePlan}
                 variant={isDark ? 'glass' : 'solid'}
                 completedLog={hasTodayWorkout ? latestTodayLog : null}
@@ -678,11 +679,6 @@ export default function HomeScreen() {
         visible={streakSheetVisible}
         streak={ctx.streak}
         onClose={() => setStreakSheetVisible(false)}
-      />
-
-      <SeventyFiveHardProgressDrawer
-        visible={hard75ProgressVisible}
-        onClose={() => setHard75ProgressVisible(false)}
       />
 
       <AthleteProfileDrawer
@@ -767,7 +763,8 @@ export default function HomeScreen() {
 
       <ActivePlanDrawer
         visible={tracking.activePlanVisible}
-        onClose={() => tracking.setActivePlanVisible(false)}
+        initialTab={activePlanInitialTab}
+        onClose={() => { tracking.setActivePlanVisible(false); setActivePlanInitialTab(undefined); }}
         onStartNewPlan={() => tracking.setWorkoutPlanVisible(true)}
         onEditPlan={() => {
           setEditingPlan(ctx.activePlan ?? undefined);
