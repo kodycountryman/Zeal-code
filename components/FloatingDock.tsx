@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   View,
@@ -7,13 +7,36 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  Animated,
+  Animated as RNAnimated,
   Platform,
+  type LayoutChangeEvent,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useDerivedValue,
+  withSpring,
+  interpolate,
+  interpolateColor,
+  runOnJS,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter, usePathname } from 'expo-router';
-import { Home, Dumbbell, Plus, ClipboardList, X, Hammer, Sparkles, Crown } from 'lucide-react-native';
+import {
+  Home,
+  Dumbbell,
+  Brain,
+  Apple,
+  Plus,
+  X,
+  Hammer,
+  Sparkles,
+  ClipboardList,
+  Crown,
+} from 'lucide-react-native';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZealTheme } from '@/context/AppContext';
@@ -21,9 +44,24 @@ import { getContrastTextColor } from '@/constants/colors';
 import { useTourTarget } from '@/context/AppTourContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { SWIFT_SPRING } from '@/constants/animation';
+import { SWIFT_SPRING, SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
+type TabDef = {
+  key: 'home' | 'workout' | 'coach' | 'nutrition';
+  label: string;
+  route: '/' | '/workout' | '/coach' | '/nutrition';
+  Icon: typeof Home;
+  testID: string;
+};
 
+const TABS: TabDef[] = [
+  { key: 'home', label: 'Home', route: '/', Icon: Home, testID: 'dock-home' },
+  { key: 'workout', label: 'Workout', route: '/workout', Icon: Dumbbell, testID: 'dock-workout' },
+  { key: 'coach', label: 'Coach', route: '/coach', Icon: Brain, testID: 'dock-coach' },
+  { key: 'nutrition', label: 'Nutrition', route: '/nutrition', Icon: Apple, testID: 'dock-nutrition' },
+];
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function FloatingDock() {
   const router = useRouter();
@@ -31,22 +69,23 @@ export default function FloatingDock() {
   const insets = useSafeAreaInsets();
   const { colors, accent, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-
   const { hasPro, openPaywall } = useSubscription();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Legacy RN Animated for the menu modal (unchanged from previous version)
+  const fadeAnim = useRef(new RNAnimated.Value(0)).current;
+  const slideAnim = useRef(new RNAnimated.Value(30)).current;
+
+  // AppTour refs — keep the test IDs so the tour still finds these targets.
   const tourHomeRef = useTourTarget('dock-home');
   const tourWorkoutRef = useTourTarget('dock-workout');
   const tourPlusRef = useTourTarget('dock-plus');
-  const isHome = pathname === '/' || pathname === '/index';
-  const isWorkout = pathname === '/workout';
 
+  // ───── Theme-derived colors ─────
   const bgHex = colors.background;
   const r = parseInt(bgHex.slice(1, 3), 16);
   const g = parseInt(bgHex.slice(3, 5), 16);
   const b = parseInt(bgHex.slice(5, 7), 16);
-
   const darkGradient: [string, string, string, string, string] = [
     `rgba(${r},${g},${b},1)`,
     `rgba(${r},${g},${b},0.96)`,
@@ -54,27 +93,80 @@ export default function FloatingDock() {
     `rgba(${r},${g},${b},0.3)`,
     `rgba(${r},${g},${b},0)`,
   ];
-
-const blueGradient: [string, string, string] = isDark
-  ? [`rgba(${r},${g},${b},0.28)`, `rgba(${r},${g},${b},0.12)`, `rgba(${r},${g},${b},0)`]
-  : [`rgba(${r},${g},${b},0.10)`, `rgba(${r},${g},${b},0.05)`, `rgba(${r},${g},${b},0)`];
-
-  const gradientHeight = 200;
+  const gradientHeight = 180;
 
   const dockBlurTint = isDark ? 'dark' : 'light';
+  const dockBorderColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
+  const dockInnerStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)';
+  const inactiveIconColor = isDark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.42)';
 
+  // ───── Active tab index (derived from pathname) ─────
+  const activeIndex = useMemo(() => {
+    const idx = TABS.findIndex((t) => {
+      if (t.route === '/') return pathname === '/' || pathname === '/index';
+      return pathname === t.route;
+    });
+    return idx === -1 ? 0 : idx;
+  }, [pathname]);
+
+  // ───── Pill layout (measured via onLayout) ─────
+  const [pillInnerWidth, setPillInnerWidth] = useState(0);
+  const tabWidth = pillInnerWidth / TABS.length;
+
+  // ───── Shared values driving the bubble ─────
+  // bubbleX is measured in "slot units" (0..TABS.length-1) so it's layout-independent.
+  // We multiply by tabWidth inside useAnimatedStyle for the actual px translation.
+  const bubbleX = useSharedValue<number>(activeIndex);
+  // Dragging flag — when true, suppress the useEffect snap so the user's finger owns the bubble.
+  const isDragging = useSharedValue<boolean>(false);
+  // Start-of-pan snapshot
+  const dragStart = useSharedValue<number>(0);
+  // Plain-JS mirror of the ref so onLayout only snaps once on first measure
+  const hasMeasured = useRef(false);
+
+  // When the route changes (via tap, deep link, or drag-release), spring bubble to that tab.
+  // Skip animation on the very first measurement so the bubble mounts exactly under the active tab.
+  useEffect(() => {
+    if (!hasMeasured.current) return;
+    if (isDragging.value) return;
+    bubbleX.value = withSpring(activeIndex, SWIFT_REANIMATED_SPRING);
+  }, [activeIndex, bubbleX, isDragging]);
+
+  const onPillLayout = (e: LayoutChangeEvent) => {
+    // Measure the BlurView's inner content width (= layout.width - horizontal padding).
+    // paddingHorizontal: 4 on each side → subtract 8.
+    const w = e.nativeEvent.layout.width - 8;
+    if (w > 0 && w !== pillInnerWidth) {
+      setPillInnerWidth(w);
+      if (!hasMeasured.current) {
+        // First measure — snap without animation so mount doesn't spring from 0
+        bubbleX.value = activeIndex;
+        hasMeasured.current = true;
+      }
+    }
+  };
+
+  // ───── Bubble animated style (translateX in px) ─────
+  const bubbleAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: bubbleX.value * tabWidth }],
+      width: tabWidth > 0 ? tabWidth : 0,
+    };
+  }, [tabWidth]);
+
+  // ───── Menu helpers (unchanged) ─────
   const openMenu = () => {
     setMenuOpen(true);
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, ...SWIFT_SPRING }),
+    RNAnimated.parallel([
+      RNAnimated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+      RNAnimated.spring(slideAnim, { toValue: 0, ...SWIFT_SPRING }),
     ]).start();
   };
 
   const closeMenu = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 30, ...SWIFT_SPRING }),
+    RNAnimated.parallel([
+      RNAnimated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      RNAnimated.spring(slideAnim, { toValue: 30, ...SWIFT_SPRING }),
     ]).start(() => setMenuOpen(false));
   };
 
@@ -82,52 +174,96 @@ const blueGradient: [string, string, string] = isDark
     if (menuOpen) {
       closeMenu();
     } else {
-      if (typeof Haptics !== 'undefined') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (typeof Haptics !== 'undefined') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
       openMenu();
     }
   };
 
-  const handleLogPrevious = () => {
+  // ───── Navigation helpers ─────
+  const navigateToTab = (index: number) => {
+    const tab = TABS[index];
+    if (!tab) return;
     closeMenu();
-    setTimeout(() => tracking.setLogPreviousVisible(true), 100);
+    router.push(tab.route);
   };
 
-  const handleBuildWorkout = () => {
-    closeMenu();
-    setTimeout(() => tracking.setBuildWorkoutVisible(true), 100);
+  const fireSelectionHaptic = () => {
+    if (typeof Haptics !== 'undefined') {
+      void Haptics.selectionAsync();
+    }
   };
 
-  const handleStartPlan = () => {
-    if (!hasPro) {
-      closeMenu();
-      setTimeout(() => showProGate('planBuilder', openPaywall), 200);
+  const handleTabTap = (index: number) => {
+    if (index === activeIndex) {
+      // Re-tap current tab: just nav (in case of stacked screens), no haptic
+      navigateToTab(index);
       return;
     }
-    closeMenu();
-    setTimeout(() => tracking.setWorkoutPlanVisible(true), 100);
+    fireSelectionHaptic();
+    // Spring immediately toward the tapped index for responsive feel
+    bubbleX.value = withSpring(index, SWIFT_REANIMATED_SPRING);
+    navigateToTab(index);
   };
 
-  const dockBottom = insets.bottom > 0 ? insets.bottom : 16;
-  const plusBtnBottom = dockBottom + 8;
-  const menuBaseBottom = plusBtnBottom + 90;
+  // ───── Pan gesture: drag bubble between tabs ─────
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-6, 6])
+    .failOffsetY([-12, 12])
+    .onStart(() => {
+      isDragging.value = true;
+      dragStart.value = bubbleX.value;
+    })
+    .onUpdate((e) => {
+      if (tabWidth <= 0) return;
+      const next = dragStart.value + e.translationX / tabWidth;
+      // Clamp to [0, TABS.length - 1]
+      if (next < 0) {
+        bubbleX.value = 0;
+      } else if (next > TABS.length - 1) {
+        bubbleX.value = TABS.length - 1;
+      } else {
+        bubbleX.value = next;
+      }
+    })
+    .onEnd(() => {
+      const nearest = Math.round(bubbleX.value);
+      const clamped = Math.max(0, Math.min(TABS.length - 1, nearest));
+      bubbleX.value = withSpring(clamped, SWIFT_REANIMATED_SPRING);
+      isDragging.value = false;
+      if (clamped !== activeIndex) {
+        runOnJS(fireSelectionHaptic)();
+        runOnJS(navigateToTab)(clamped);
+      }
+    });
 
   const menuItems = [
-    { icon: <Hammer size={20} color={accent} />, label: 'Build Workout', onPress: handleBuildWorkout, locked: false },
+    { icon: <Hammer size={20} color={accent} />, label: 'Build Workout', onPress: () => { closeMenu(); setTimeout(() => tracking.setBuildWorkoutVisible(true), 100); }, locked: false },
     {
       icon: <Sparkles size={20} color={hasPro ? accent : colors.textMuted} />,
       label: 'Start a Plan',
-      onPress: handleStartPlan,
+      onPress: () => {
+        if (!hasPro) {
+          closeMenu();
+          setTimeout(() => showProGate('planBuilder', openPaywall), 200);
+          return;
+        }
+        closeMenu();
+        setTimeout(() => tracking.setWorkoutPlanVisible(true), 100);
+      },
       locked: !hasPro,
     },
-    { icon: <ClipboardList size={20} color={accent} />, label: 'Log Previous', onPress: handleLogPrevious, locked: false },
+    { icon: <ClipboardList size={20} color={accent} />, label: 'Log Previous', onPress: () => { closeMenu(); setTimeout(() => tracking.setLogPreviousVisible(true), 100); }, locked: false },
   ];
+
+  const dockBottom = insets.bottom > 0 ? insets.bottom : 16;
+  const menuBaseBottom = dockBottom + 100;
 
   return (
     <>
-      <View
-        style={[styles.wrapper, { paddingBottom: dockBottom }]}
-        pointerEvents="box-none"
-      >
+      <View style={[styles.wrapper, { paddingBottom: dockBottom }]} pointerEvents="box-none">
+        {/* Background gradient fade behind dock */}
         <LinearGradient
           colors={darkGradient}
           locations={[0, 0.2, 0.5, 0.78, 1]}
@@ -136,86 +272,114 @@ const blueGradient: [string, string, string] = isDark
           style={[styles.gradientLayer, { height: gradientHeight }]}
           pointerEvents="none"
         />
-        <LinearGradient
-          colors={blueGradient}
-          locations={[0, 0.5, 1]}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={[styles.gradientLayer, { height: gradientHeight }]}
-          pointerEvents="none"
-        />
 
-        <View style={styles.dockContainer} pointerEvents="box-none">
-          <BlurView
-            intensity={isDark ? 52 : 45}
-            tint={dockBlurTint}
-            style={[
-              styles.dock,
-              {
-                borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
-              },
-            ]}
-          >
-            <TouchableOpacity
-              ref={tourHomeRef as any}
-              style={styles.tab}
-              onPress={() => { closeMenu(); router.push('/'); }}
-              testID="dock-home"
-              activeOpacity={0.7}
-            >
-              <View style={styles.tabIndicator}>
-                <Home
-                  size={22}
-                  color={isHome ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)'}
-                  strokeWidth={isHome ? 2 : 1.6}
+        <View style={styles.dockRow} pointerEvents="box-none">
+          {/* ───── Left: Glass pill with 4 tabs + draggable bubble ───── */}
+          <View style={styles.pillContainer}>
+            <GestureDetector gesture={panGesture}>
+              <BlurView
+                intensity={isDark ? 70 : 55}
+                tint={dockBlurTint}
+                style={[styles.pill, { borderColor: dockBorderColor }]}
+                onLayout={onPillLayout}
+              >
+                {/* Subtle inner stroke for glass refraction effect */}
+                <View
+                  pointerEvents="none"
+                  style={[
+                    StyleSheet.absoluteFillObject,
+                    styles.pillInnerStroke,
+                    { borderColor: dockInnerStroke },
+                  ]}
                 />
-              </View>
-              <Text style={[styles.tabLabel, { color: isHome ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)' }]}>
-                Home
-              </Text>
-            </TouchableOpacity>
 
-            <View style={styles.centerSpacer} />
-
-            <TouchableOpacity
-              ref={tourWorkoutRef as any}
-              style={styles.tab}
-              onPress={() => { closeMenu(); router.push('/workout'); }}
-              testID="dock-workout"
-              activeOpacity={0.7}
-            >
-              <View style={styles.tabIndicator}>
-                <Dumbbell
-                  size={22}
-                  color={isWorkout ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)'}
-                  strokeWidth={isWorkout ? 2 : 1.6}
-                />
-              </View>
-              <Text style={[styles.tabLabel, { color: isWorkout ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.32)' }]}>
-                Workout
-              </Text>
-            </TouchableOpacity>
-          </BlurView>
-
-          <View style={styles.plusAbsoluteWrapper} pointerEvents="box-none">
-            <TouchableOpacity
-              ref={tourPlusRef as any}
-              onPress={handlePlusPress}
-              testID="dock-plus"
-              activeOpacity={0.85}
-            >
-              <View style={[styles.plusButton, { backgroundColor: accent, shadowColor: accent }]}>
-                {menuOpen ? (
-                  <X size={32} color={getContrastTextColor(accent)} strokeWidth={2.5} />
-                ) : (
-                  <Plus size={40} color={getContrastTextColor(accent)} strokeWidth={2.5} />
+                {/* Single shared bubble — absolutely positioned, translated by shared value */}
+                {tabWidth > 0 && (
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.activeBubble,
+                      bubbleAnimatedStyle,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255,255,255,0.14)'
+                          : 'rgba(255,255,255,0.65)',
+                        borderColor: isDark
+                          ? 'rgba(255,255,255,0.22)'
+                          : 'rgba(255,255,255,0.85)',
+                        shadowColor: accent,
+                      },
+                    ]}
+                  >
+                    {/* Top-left glass highlight */}
+                    <LinearGradient
+                      colors={
+                        isDark
+                          ? ['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0)']
+                          : ['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.30)', 'rgba(255,255,255,0)']
+                      }
+                      locations={[0, 0.5, 1]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFillObject as any}
+                    />
+                  </Animated.View>
                 )}
-              </View>
-            </TouchableOpacity>
+
+                {/* Tabs */}
+                {TABS.map((tab, index) => {
+                  const ref =
+                    tab.key === 'home'
+                      ? (tourHomeRef as any)
+                      : tab.key === 'workout'
+                        ? (tourWorkoutRef as any)
+                        : undefined;
+                  return (
+                    <DockTab
+                      key={tab.key}
+                      ref={ref}
+                      tab={tab}
+                      index={index}
+                      bubbleX={bubbleX}
+                      accent={accent}
+                      inactiveIconColor={inactiveIconColor}
+                      onPress={() => handleTabTap(index)}
+                    />
+                  );
+                })}
+              </BlurView>
+            </GestureDetector>
           </View>
+
+          {/* ───── Right: Standalone glass + button ───── */}
+          <TouchableOpacity
+            ref={tourPlusRef as any}
+            onPress={handlePlusPress}
+            testID="dock-plus"
+            activeOpacity={0.85}
+            style={styles.plusTouchable}
+          >
+            <View
+              style={[
+                styles.plusButton,
+                {
+                  backgroundColor: accent,
+                  shadowColor: accent,
+                  borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.6)',
+                },
+              ]}
+            >
+              {menuOpen ? (
+                <X size={22} color={getContrastTextColor(accent)} strokeWidth={2.8} />
+              ) : (
+                <Plus size={26} color={getContrastTextColor(accent)} strokeWidth={2.8} />
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
 
+      {/* ───── Action menu modal ───── */}
       {menuOpen && (
         <Modal
           visible={menuOpen}
@@ -235,10 +399,14 @@ const blueGradient: [string, string, string] = isDark
             <View style={[styles.modalDark, StyleSheet.absoluteFill]} />
 
             <View style={styles.menuContent} pointerEvents="box-none">
-              <Animated.View
+              <RNAnimated.View
                 style={[
                   styles.menuItemsCol,
-                  { bottom: menuBaseBottom, opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+                  {
+                    bottom: menuBaseBottom,
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }],
+                  },
                 ]}
               >
                 {menuItems.map((item, i) => (
@@ -246,7 +414,10 @@ const blueGradient: [string, string, string] = isDark
                     key={i}
                     style={[
                       styles.menuPill,
-                      { backgroundColor: isDark ? 'rgba(30,30,30,0.96)' : 'rgba(255,255,255,0.96)', borderColor: isDark ? '#333' : '#e5e5e5' },
+                      {
+                        backgroundColor: isDark ? 'rgba(30,30,30,0.96)' : 'rgba(255,255,255,0.96)',
+                        borderColor: isDark ? '#333' : '#e5e5e5',
+                      },
                       item.locked && { opacity: PRO_LOCKED_OPACITY },
                     ]}
                     onPress={item.onPress}
@@ -255,34 +426,11 @@ const blueGradient: [string, string, string] = isDark
                     <View style={[styles.menuPillIcon, { backgroundColor: `${accent}18` }]}>
                       {item.icon}
                     </View>
-                    <Text style={[styles.menuPillLabel, { color: colors.text }]}>
-                      {item.label}
-                    </Text>
-                    {item.locked && (
-                      <Crown size={14} color={PRO_GOLD} strokeWidth={2} />
-                    )}
+                    <Text style={[styles.menuPillLabel, { color: colors.text }]}>{item.label}</Text>
+                    {item.locked && <Crown size={14} color={PRO_GOLD} strokeWidth={2} />}
                   </TouchableOpacity>
                 ))}
-              </Animated.View>
-
-              <Animated.View
-                style={[
-                  styles.closeBtnAbs,
-                  {
-                    bottom: plusBtnBottom,
-                    opacity: fadeAnim,
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  onPress={closeMenu}
-                  activeOpacity={0.85}
-                >
-                  <View style={[styles.plusButton, { backgroundColor: accent, shadowColor: accent }]}>
-                    <X size={32} color={getContrastTextColor(accent)} strokeWidth={2.5} />
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
+              </RNAnimated.View>
             </View>
           </Pressable>
         </Modal>
@@ -291,13 +439,84 @@ const blueGradient: [string, string, string] = isDark
   );
 }
 
+// ══════════════════════════════════════════════════════════
+// DockTab — individual tab whose icon/label interpolate
+// based on how close the shared bubble is to its slot.
+// ══════════════════════════════════════════════════════════
+type DockTabProps = {
+  tab: TabDef;
+  index: number;
+  bubbleX: ReturnType<typeof useSharedValue<number>>;
+  accent: string;
+  inactiveIconColor: string;
+  onPress: () => void;
+};
+
+const DockTab = React.forwardRef<any, DockTabProps>(function DockTab(
+  { tab, index, bubbleX, accent, inactiveIconColor, onPress },
+  ref,
+) {
+  // closeness: 1 when bubble sits directly on this tab, 0 when one-or-more slots away
+  const closeness = useDerivedValue(() => {
+    const dist = Math.abs(bubbleX.value - index);
+    return Math.max(0, 1 - dist);
+  });
+
+  const iconContainerStyle = useAnimatedStyle(() => {
+    const scale = interpolate(closeness.value, [0, 1], [1, 1.08], Extrapolation.CLAMP);
+    return { transform: [{ scale }] };
+  });
+
+  // Reanimated cannot animate Lucide icon colors (they're props, not style).
+  // We fake it by overlaying a second tinted View via useAnimatedStyle opacity,
+  // but the cleanest path is: render BOTH icons stacked, fade between them.
+  const inactiveIconStyle = useAnimatedStyle(() => ({
+    opacity: 1 - closeness.value,
+  }));
+  const activeIconStyle = useAnimatedStyle(() => ({
+    opacity: closeness.value,
+  }));
+
+  const labelStyle = useAnimatedStyle(() => {
+    const color = interpolateColor(
+      closeness.value,
+      [0, 1],
+      [inactiveIconColor, accent],
+    );
+    return { color };
+  });
+
+  const Icon = tab.Icon;
+
+  return (
+    <AnimatedTouchable
+      ref={ref as any}
+      style={styles.tab}
+      onPress={onPress}
+      testID={tab.testID}
+      activeOpacity={0.75}
+    >
+      <Animated.View style={[styles.iconStack, iconContainerStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, inactiveIconStyle]}>
+          <Icon size={18} color={inactiveIconColor} strokeWidth={2} />
+        </Animated.View>
+        <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, activeIconStyle]}>
+          <Icon size={20} color={accent} strokeWidth={2.5} />
+        </Animated.View>
+      </Animated.View>
+      <Animated.Text style={[styles.tabLabel, labelStyle]} numberOfLines={1}>
+        {tab.label}
+      </Animated.Text>
+    </AnimatedTouchable>
+  );
+});
+
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    alignItems: 'center',
     pointerEvents: 'box-none',
   } as any,
   gradientLayer: {
@@ -306,63 +525,95 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  dockContainer: {
-    width: '100%',
-    paddingHorizontal: 16,
-    overflow: 'visible',
-  } as any,
-  dock: {
+
+  // ───── Dock row layout (pill on left + plus on right) ─────
+  dockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+
+  // ───── Glass pill (4 tabs) ─────
+  pillContainer: {
+    flex: 1,
+  },
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 6,
+    paddingHorizontal: 3,
+    paddingVertical: 4,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
     elevation: 10,
-  } as any,
+  },
+  pillInnerStroke: {
+    borderRadius: 999,
+    borderWidth: 1,
+    margin: 1,
+  },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 2,
+    gap: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    position: 'relative',
   },
-  tabIndicator: {
+  iconStack: {
+    width: 22,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeBubble: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    bottom: 2,
+    // width comes from bubbleAnimatedStyle
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    fontSize: 9,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.2,
   },
-  centerSpacer: {
-    width: 64,
+
+  // ───── Standalone + button (iOS-style glass FAB) ─────
+  plusTouchable: {
+    // hit area sizing handled by plusButton
   },
-  plusAbsoluteWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    pointerEvents: 'box-none',
-  } as any,
   plusButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
     elevation: 12,
   },
+
+  // ───── Action menu ─────
   modalOverlay: {
     flex: 1,
   },
@@ -404,25 +655,7 @@ const styles = StyleSheet.create({
   },
   menuPillLabel: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Outfit_700Bold',
     flex: 1,
-  },
-  proTag: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: '#f5c842',
-    letterSpacing: 0.8,
-    backgroundColor: '#f5c84220',
-    borderWidth: 1,
-    borderColor: '#f5c84240',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  closeBtnAbs: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
   },
 });
