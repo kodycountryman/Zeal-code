@@ -65,6 +65,10 @@ export const PRO_FEATURE_INFO: Record<string, ProFeatureInfo> = {
     title: '75 Hard Challenge',
     message: 'Take on the ultimate mental toughness challenge with daily tracking, AI workouts, and progress photos — available with Zeal Pro.',
   },
+  nutrition: {
+    title: 'Nutrition Tracker',
+    message: 'Log meals, track macros, scan barcodes, and get AI-powered food estimates with Zeal Pro.',
+  },
 };
 
 export function showProGate(

@@ -11,6 +11,7 @@ import { AppProvider, useAppContext } from "@/context/AppContext";
 import { SubscriptionProvider, useSubscription } from "@/context/SubscriptionContext";
 import { WorkoutTrackingProvider, useWorkoutTracking } from "@/context/WorkoutTrackingContext";
 import { SeventyFiveHardProvider } from "@/context/SeventyFiveHardContext";
+import { NutritionProvider } from "@/context/NutritionContext";
 import {
   initNotificationService,
   ACTION_SKIP,
@@ -170,11 +171,13 @@ export default function RootLayout() {
             <SubscriptionProvider>
               <WorkoutTrackingProvider>
                 <SeventyFiveHardProvider>
+                  <NutritionProvider>
                   <BottomSheetModalProvider>
                     <NotificationHandler />
                     <AutoGenerateTodayWorkout />
                     <RootLayoutNav />
                   </BottomSheetModalProvider>
+                  </NutritionProvider>
                 </SeventyFiveHardProvider>
               </WorkoutTrackingProvider>
             </SubscriptionProvider>
