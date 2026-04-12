@@ -8,11 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import {
-  X, CalendarPlus, Trash2, CheckCircle, ChevronRight, AlertCircle, Clock,
-  Dumbbell, RefreshCw, Plus, ArrowUp, ArrowDown, ArrowUpDown, Search,
-  Repeat2,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { useZealTheme, useAppContext, type PlannedWorkout, type MuscleReadinessItem } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -401,7 +397,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
             }}
             activeOpacity={0.6}
           >
-            <ArrowUpDown size={13} color={isReorderActive ? styleColor : `${colors.border}80`} strokeWidth={2} />
+            <PlatformIcon name="arrow-up-down" size={13} color={isReorderActive ? styleColor : `${colors.border}80`} strokeWidth={2} />
           </TouchableOpacity>
 
           <View style={[styles.indexBubble, { backgroundColor: `${styleColor}14` }]}>
@@ -423,7 +419,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
             onPress={() => handleSwapTap(ex)}
             activeOpacity={0.7}
           >
-            <Repeat2 size={14} color={isSwapTarget ? styleColor : colors.textMuted} strokeWidth={2} />
+            <PlatformIcon name="repeat" size={14} color={isSwapTarget ? styleColor : colors.textMuted} strokeWidth={2} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -431,7 +427,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
             onPress={() => handleRemoveExercise(ex.id)}
             activeOpacity={0.7}
           >
-            <Trash2 size={14} color={colors.textMuted} strokeWidth={1.8} />
+            <PlatformIcon name="trash" size={14} color={colors.textMuted} strokeWidth={1.8} />
           </TouchableOpacity>
         </View>
 
@@ -469,7 +465,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
               onPress={handleEditConfirm}
               activeOpacity={0.8}
             >
-              <CheckCircle size={14} color="#fff" strokeWidth={2.5} />
+              <PlatformIcon name="check-circle" size={14} color="#fff" strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
         )}
@@ -482,7 +478,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
               disabled={index === 0}
               activeOpacity={0.7}
             >
-              <ArrowUp size={13} color={colors.textSecondary} strokeWidth={2} />
+              <PlatformIcon name="arrow-up" size={13} color={colors.textSecondary} strokeWidth={2} />
               <Text style={[styles.moveBtnText, { color: colors.textSecondary }]}>Up</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -491,7 +487,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
               disabled={index === total - 1}
               activeOpacity={0.7}
             >
-              <ArrowDown size={13} color={colors.textSecondary} strokeWidth={2} />
+              <PlatformIcon name="arrow-down" size={13} color={colors.textSecondary} strokeWidth={2} />
               <Text style={[styles.moveBtnText, { color: colors.textSecondary }]}>Down</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -524,7 +520,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                       {alt.primary_muscles[0]?.replace(/_/g, ' ')}
                     </Text>
                   </View>
-                  <ChevronRight size={14} color={colors.textMuted} />
+                  <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               ))
             )}
@@ -546,7 +542,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
       <View style={[styles.header, { paddingHorizontal: 20 }]}>
         <View style={styles.headerLeft}>
           <View style={[styles.headerIcon, { backgroundColor: `${accent}18` }]}>
-            <CalendarPlus size={20} color={accent} strokeWidth={1.8} />
+            <PlatformIcon name="calendar-plus" size={20} color={accent} strokeWidth={1.8} />
           </View>
           <View>
             <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -556,7 +552,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
           </View>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-          <X size={20} color={colors.textSecondary} />
+          <PlatformIcon name="x" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
       <View style={[styles.divider, { backgroundColor: colors.border, marginHorizontal: 20 }]} />
@@ -581,12 +577,12 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
 
               <View style={styles.existingStatsRow}>
                 <View style={[styles.existingStatPill, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                  <Clock size={13} color={colors.textSecondary} />
+                  <PlatformIcon name="clock" size={13} color={colors.textSecondary} />
                   <Text style={[styles.existingStatText, { color: colors.text }]}>{existingPlan.duration} min</Text>
                 </View>
                 {existingPlan.muscles.length > 0 && (
                   <View style={[styles.existingStatPill, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
-                    <Dumbbell size={13} color={colors.textSecondary} />
+                    <PlatformIcon name="dumbbell" size={13} color={colors.textSecondary} />
                     <Text style={[styles.existingStatText, { color: colors.text }]}>
                       {existingPlan.muscles.slice(0, 2).join(', ')}
                     </Text>
@@ -625,7 +621,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                 activeOpacity={0.8}
               >
                 <Text style={[styles.modifyBtnText, { color: colors.text }]}>Change Workout Plan</Text>
-                <ChevronRight size={16} color={colors.textMuted} />
+                <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -633,7 +629,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                 onPress={handleDelete}
                 activeOpacity={0.8}
               >
-                <Trash2 size={16} color="#ef4444" />
+                <PlatformIcon name="trash" size={16} color="#ef4444" />
                 <Text style={styles.deleteBtnText}>Remove Plan</Text>
               </TouchableOpacity>
             </View>
@@ -646,7 +642,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
 
               {topMuscles.length > 0 && (
                 <View style={[styles.suggestBanner, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: colors.border }]}>
-                  <AlertCircle size={13} color={colors.textSecondary} strokeWidth={2} />
+                  <PlatformIcon name="alert-circle" size={13} color={colors.textSecondary} strokeWidth={2} />
                   <Text style={[styles.suggestText, { color: colors.textSecondary }]}>
                     Freshest muscles: <Text style={{ color: colors.text, fontFamily: 'Outfit_600SemiBold' }}>{topMuscles.join(', ')}</Text>
                   </Text>
@@ -699,7 +695,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
 
               {conflictingSplits.length > 0 && (
                 <View style={[styles.conflictBanner, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.25)' }]}>
-                  <AlertCircle size={13} color="#ef4444" strokeWidth={2} />
+                  <PlatformIcon name="alert-circle" size={13} color="#ef4444" strokeWidth={2} />
                   <Text style={[styles.conflictText, { color: '#ef4444' }]}>
                     Adjacent day has: <Text style={{ fontFamily: 'Outfit_600SemiBold' }}>{conflictingSplits.join(', ')}</Text> — similar splits highlighted
                   </Text>
@@ -826,7 +822,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                   activeOpacity={0.85}
                 >
                   <Text style={styles.nextBtnText}>Build Workout</Text>
-                  <ChevronRight size={16} color="#fff" strokeWidth={2.5} />
+                  <PlatformIcon name="chevron-right" size={16} color="#fff" strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -845,7 +841,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                   activeOpacity={0.7}
                   disabled={isGenerating}
                 >
-                  <RefreshCw size={13} color={isGenerating ? colors.textMuted : colors.textSecondary} strokeWidth={2} />
+                  <PlatformIcon name="refresh" size={13} color={isGenerating ? colors.textMuted : colors.textSecondary} strokeWidth={2} />
                   <Text style={[styles.regenBtnText, { color: isGenerating ? colors.textMuted : colors.textSecondary }]}>
                     Regenerate
                   </Text>
@@ -853,7 +849,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
               </View>
 
               <Animated.View style={[styles.durationPill, { backgroundColor: `${styleColor}12`, borderColor: `${styleColor}25`, transform: [{ scale: durationAnim }] }]}>
-                <Clock size={13} color={styleColor} strokeWidth={2} />
+                <PlatformIcon name="clock" size={13} color={styleColor} strokeWidth={2} />
                 <Text style={[styles.durationPillText, { color: styleColor }]}>
                   ~{estimateDuration(genExercises.length, ctx.targetDuration)} min
                 </Text>
@@ -894,11 +890,11 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                   <View style={styles.addPanelHeader}>
                     <Text style={[styles.addPanelTitle, { color: colors.text }]}>Add Exercise</Text>
                     <TouchableOpacity onPress={() => { setShowAddPanel(false); setAddQuery(''); }} activeOpacity={0.7}>
-                      <X size={18} color={colors.textSecondary} />
+                      <PlatformIcon name="x" size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
                   <View style={[styles.searchRow, { backgroundColor: isDark ? '#111' : '#ececec', borderColor: colors.border }]}>
-                    <Search size={14} color={colors.textMuted} />
+                    <PlatformIcon name="search" size={14} color={colors.textMuted} />
                     <TextInput
                       style={[styles.searchInput, { color: colors.text }]}
                       value={addQuery}
@@ -909,7 +905,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                     />
                     {addQuery.length > 0 && (
                       <TouchableOpacity onPress={() => setAddQuery('')} activeOpacity={0.7}>
-                        <X size={14} color={colors.textMuted} />
+                        <PlatformIcon name="x" size={14} color={colors.textMuted} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -933,7 +929,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                         </Text>
                       </View>
                       <View style={[styles.addResultIcon, { backgroundColor: `${styleColor}14` }]}>
-                        <Plus size={14} color={styleColor} strokeWidth={2.5} />
+                        <PlatformIcon name="plus" size={14} color={styleColor} strokeWidth={2.5} />
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -942,7 +938,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                 <>
                   {genExercises.length === 0 ? (
                     <View style={styles.emptyExState}>
-                      <Dumbbell size={28} color={colors.textMuted} strokeWidth={1.5} />
+                      <PlatformIcon name="dumbbell" size={28} color={colors.textMuted} strokeWidth={1.5} />
                       <Text style={[styles.emptyExText, { color: colors.textMuted }]}>No exercises — tap Add or Regenerate</Text>
                     </View>
                   ) : (
@@ -953,7 +949,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                     onPress={() => { setShowAddPanel(true); setAddQuery(''); }}
                     activeOpacity={0.7}
                   >
-                    <Plus size={15} color={styleColor} strokeWidth={2.5} />
+                    <PlatformIcon name="plus" size={15} color={styleColor} strokeWidth={2.5} />
                     <Text style={[styles.addExBtnText, { color: styleColor }]}>Add Exercise</Text>
                   </TouchableOpacity>
                 </>
@@ -972,7 +968,7 @@ export default function PlanWorkoutSheet({ visible, targetDate, onClose }: Props
                   onPress={handlePlanIt}
                   activeOpacity={0.85}
                 >
-                  <CheckCircle size={18} color="#fff" strokeWidth={2} />
+                  <PlatformIcon name="check-circle" size={18} color="#fff" strokeWidth={2} />
                   <Text style={styles.planItBtnText}>Plan It</Text>
                 </TouchableOpacity>
               </View>

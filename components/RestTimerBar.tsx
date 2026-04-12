@@ -11,7 +11,7 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { ChevronUp, ChevronDown } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking, useRestTimeRemaining } from '@/context/WorkoutTrackingContext';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -175,9 +175,9 @@ function RestTimerBar() {
             {...panResponder.panHandlers}
           >
             {isMinimized ? (
-              <ChevronUp size={22} color={chevronColor2} strokeWidth={3.5} />
+              <PlatformIcon name="chevron-up" size={22} color={chevronColor2} strokeWidth={3.5} />
             ) : (
-              <ChevronDown size={22} color={chevronColor2} strokeWidth={3.5} />
+              <PlatformIcon name="chevron-down" size={22} color={chevronColor2} strokeWidth={3.5} />
             )}
           </TouchableOpacity>
         </View>
@@ -201,7 +201,7 @@ function RestTimerBar() {
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={styles.expandChevronBtn}
               >
-                <ChevronUp size={20} color={chevronColor2} strokeWidth={3} />
+                <PlatformIcon name="chevron-up" size={20} color={chevronColor2} strokeWidth={3} />
               </TouchableOpacity>
             </>
           ) : (

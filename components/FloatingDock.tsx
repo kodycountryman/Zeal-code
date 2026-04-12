@@ -25,18 +25,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter, usePathname } from 'expo-router';
-import {
-  Home,
-  Dumbbell,
-  Brain,
-  Apple,
-  Plus,
-  X,
-  Hammer,
-  Sparkles,
-  ClipboardList,
-  Crown,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZealTheme } from '@/context/AppContext';
@@ -50,15 +40,15 @@ type TabDef = {
   key: 'home' | 'workout' | 'coach' | 'nutrition';
   label: string;
   route: '/' | '/workout' | '/coach' | '/nutrition';
-  Icon: typeof Home;
+  iconName: AppIconName;
   testID: string;
 };
 
 const TABS: TabDef[] = [
-  { key: 'home', label: 'Home', route: '/', Icon: Home, testID: 'dock-home' },
-  { key: 'workout', label: 'Workout', route: '/workout', Icon: Dumbbell, testID: 'dock-workout' },
-  { key: 'coach', label: 'Coach', route: '/coach', Icon: Brain, testID: 'dock-coach' },
-  { key: 'nutrition', label: 'Nutrition', route: '/nutrition', Icon: Apple, testID: 'dock-nutrition' },
+  { key: 'home', label: 'Home', route: '/', iconName: 'home', testID: 'dock-home' },
+  { key: 'workout', label: 'Workout', route: '/workout', iconName: 'dumbbell', testID: 'dock-workout' },
+  { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
+  { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
 ];
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -239,9 +229,9 @@ export default function FloatingDock() {
     });
 
   const menuItems = [
-    { icon: <Hammer size={20} color={accent} />, label: 'Build Workout', onPress: () => { closeMenu(); setTimeout(() => tracking.setBuildWorkoutVisible(true), 100); }, locked: false },
+    { icon: <PlatformIcon name="hammer" size={20} color={accent} />, label: 'Build Workout', onPress: () => { closeMenu(); setTimeout(() => tracking.setBuildWorkoutVisible(true), 100); }, locked: false },
     {
-      icon: <Sparkles size={20} color={hasPro ? accent : colors.textMuted} />,
+      icon: <PlatformIcon name="sparkles" size={20} color={hasPro ? accent : colors.textMuted} />,
       label: 'Start a Plan',
       onPress: () => {
         if (!hasPro) {
@@ -254,7 +244,7 @@ export default function FloatingDock() {
       },
       locked: !hasPro,
     },
-    { icon: <ClipboardList size={20} color={accent} />, label: 'Log Previous', onPress: () => { closeMenu(); setTimeout(() => tracking.setLogPreviousVisible(true), 100); }, locked: false },
+    { icon: <PlatformIcon name="clipboard-list" size={20} color={accent} />, label: 'Log Previous', onPress: () => { closeMenu(); setTimeout(() => tracking.setLogPreviousVisible(true), 100); }, locked: false },
   ];
 
   const dockBottom = insets.bottom > 0 ? insets.bottom : 16;
@@ -370,9 +360,9 @@ export default function FloatingDock() {
               ]}
             >
               {menuOpen ? (
-                <X size={22} color={getContrastTextColor(accent)} strokeWidth={2.8} />
+                <PlatformIcon name="x" size={22} color={getContrastTextColor(accent)} strokeWidth={2.8} />
               ) : (
-                <Plus size={26} color={getContrastTextColor(accent)} strokeWidth={2.8} />
+                <PlatformIcon name="plus" size={26} color={getContrastTextColor(accent)} strokeWidth={2.8} />
               )}
             </View>
           </TouchableOpacity>
@@ -427,7 +417,7 @@ export default function FloatingDock() {
                       {item.icon}
                     </View>
                     <Text style={[styles.menuPillLabel, { color: colors.text }]}>{item.label}</Text>
-                    {item.locked && <Crown size={14} color={PRO_GOLD} strokeWidth={2} />}
+                    {item.locked && <PlatformIcon name="crown" size={14} color={PRO_GOLD} strokeWidth={2} />}
                   </TouchableOpacity>
                 ))}
               </RNAnimated.View>
@@ -486,8 +476,6 @@ const DockTab = React.forwardRef<any, DockTabProps>(function DockTab(
     return { color };
   });
 
-  const Icon = tab.Icon;
-
   return (
     <AnimatedTouchable
       ref={ref as any}
@@ -498,10 +486,10 @@ const DockTab = React.forwardRef<any, DockTabProps>(function DockTab(
     >
       <Animated.View style={[styles.iconStack, iconContainerStyle]}>
         <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, inactiveIconStyle]}>
-          <Icon size={18} color={inactiveIconColor} strokeWidth={2} />
+          <PlatformIcon name={tab.iconName} size={18} color={inactiveIconColor} strokeWidth={2} />
         </Animated.View>
         <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, activeIconStyle]}>
-          <Icon size={20} color={accent} strokeWidth={2.5} />
+          <PlatformIcon name={tab.iconName} size={20} color={accent} strokeWidth={2.5} />
         </Animated.View>
       </Animated.View>
       <Animated.Text style={[styles.tabLabel, labelStyle]} numberOfLines={1}>

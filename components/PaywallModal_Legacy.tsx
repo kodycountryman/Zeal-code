@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Reanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { X, Crown, Check, Minus, Zap, BarChart3, Dumbbell, CalendarRange, Target, Heart, Layers, Award, ThumbsUp, Bookmark, Play, Lock } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { useSubscription, PaywallVersion } from '@/context/SubscriptionContext';
 import { PRO_GOLD } from '@/services/proGate';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -25,17 +26,17 @@ const TEXT = '#f0f0f0';
 const TEXT_SEC = '#888';
 const GOLD = PRO_GOLD;
 
-const PRO_FEATURES = [
-  { icon: Dumbbell, label: 'All 8 Workout Styles', sub: 'Bodybuilding, CrossFit, HIIT, Hyrox & more' },
-  { icon: CalendarRange, label: 'Full Plan Builder', sub: 'Long-term advanced programming' },
-  { icon: BarChart3, label: 'Full Insights & Radar Chart', sub: 'Deep analytics, unlimited history' },
-  { icon: Zap, label: 'Progressive Overload', sub: 'Advanced load & volume tracking' },
-  { icon: Layers, label: 'Supersets & Circuits', sub: 'Advanced workout structures' },
-  { icon: Heart, label: 'Apple Health Sync', sub: 'Connect workouts to Health app' },
-  { icon: Target, label: 'Equipment Customization', sub: 'Tailor workouts to your gear' },
-  { icon: Bookmark, label: 'Unlimited Saved Workouts', sub: 'Save and organize custom workouts' },
-  { icon: Award, label: 'Achievements & Milestones', sub: 'Track your long-term wins' },
-  { icon: ThumbsUp, label: 'Exercise Preferences', sub: 'Like/dislike for smarter workouts' },
+const PRO_FEATURES: { icon: AppIconName; label: string; sub: string }[] = [
+  { icon: 'dumbbell', label: 'All 8 Workout Styles', sub: 'Bodybuilding, CrossFit, HIIT, Hyrox & more' },
+  { icon: 'calendar-range', label: 'Full Plan Builder', sub: 'Long-term advanced programming' },
+  { icon: 'bar-chart-3', label: 'Full Insights & Radar Chart', sub: 'Deep analytics, unlimited history' },
+  { icon: 'zap', label: 'Progressive Overload', sub: 'Advanced load & volume tracking' },
+  { icon: 'layers', label: 'Supersets & Circuits', sub: 'Advanced workout structures' },
+  { icon: 'heart', label: 'Apple Health Sync', sub: 'Connect workouts to Health app' },
+  { icon: 'target', label: 'Equipment Customization', sub: 'Tailor workouts to your gear' },
+  { icon: 'bookmark', label: 'Unlimited Saved Workouts', sub: 'Save and organize custom workouts' },
+  { icon: 'award', label: 'Achievements & Milestones', sub: 'Track your long-term wins' },
+  { icon: 'thumbs-up', label: 'Exercise Preferences', sub: 'Like/dislike for smarter workouts' },
 ];
 
 const CORE_ITEMS = [
@@ -181,7 +182,7 @@ export default function PaywallModal({
               activeOpacity={0.7}
               testID="paywall-close"
             >
-              <X size={18} color="#666" strokeWidth={2.5} />
+              <PlatformIcon name="x" size={18} color="#666" strokeWidth={2.5} />
             </TouchableOpacity>
 
             <ScrollView
@@ -207,7 +208,7 @@ export default function PaywallModal({
                       { transform: [{ rotate: crownDeg }] },
                     ]}
                   >
-                    <Crown size={40} color={GOLD} strokeWidth={1.5} />
+                    <PlatformIcon name="crown" size={40} color={GOLD} strokeWidth={1.5} />
                   </Animated.View>
                 </View>
 
@@ -237,13 +238,13 @@ export default function PaywallModal({
                     {i > 0 && <View style={styles.featureDivider} />}
                     <View style={styles.featureRow}>
                       <View style={styles.featureIconWrap}>
-                        <feat.icon size={17} color="rgba(255,255,255,0.85)" strokeWidth={2} />
+                        <PlatformIcon name={feat.icon} size={17} color="rgba(255,255,255,0.85)" strokeWidth={2} />
                       </View>
                       <View style={styles.featureText}>
                         <Text style={styles.featureLabel}>{feat.label}</Text>
                         <Text style={styles.featureSub}>{feat.sub}</Text>
                       </View>
-                      <Check size={16} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
+                      <PlatformIcon name="check" size={16} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
                     </View>
                   </View>
                 ))}
@@ -268,14 +269,14 @@ export default function PaywallModal({
                 <View style={styles.priceDetails}>
                   {isTrial ? (
                     <>
-                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>No charge until Day 8</Text></View>
-                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Cancel within 7 days — pay nothing</Text></View>
-                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>$5.99/mo after your free trial ends</Text></View>
+                      <View style={styles.priceDetailRow}><PlatformIcon name="check" size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>No charge until Day 8</Text></View>
+                      <View style={styles.priceDetailRow}><PlatformIcon name="check" size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Cancel within 7 days — pay nothing</Text></View>
+                      <View style={styles.priceDetailRow}><PlatformIcon name="check" size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>$5.99/mo after your free trial ends</Text></View>
                     </>
                   ) : (
                     <>
-                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Billed monthly · Cancel anytime</Text></View>
-                      <View style={styles.priceDetailRow}><Check size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Instant access to all Pro features</Text></View>
+                      <View style={styles.priceDetailRow}><PlatformIcon name="check" size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Billed monthly · Cancel anytime</Text></View>
+                      <View style={styles.priceDetailRow}><PlatformIcon name="check" size={13} color="rgba(255,255,255,0.45)" strokeWidth={2.5} /><Text style={styles.priceDetailLine}>Instant access to all Pro features</Text></View>
                     </>
                   )}
                 </View>
@@ -291,7 +292,7 @@ export default function PaywallModal({
                     </View>
                     {CORE_ITEMS.map((item) => (
                       <View key={item.label} style={styles.compareItem}>
-                        <Check size={12} color="rgba(255,255,255,0.2)" strokeWidth={2.5} />
+                        <PlatformIcon name="check" size={12} color="rgba(255,255,255,0.2)" strokeWidth={2.5} />
                         <Text style={styles.coreItemText}>{item.label}</Text>
                       </View>
                     ))}
@@ -303,12 +304,12 @@ export default function PaywallModal({
                       <Text style={styles.proColSubtitle}>$5.99/mo</Text>
                     </View>
                     <View style={styles.compareItem}>
-                      <Check size={12} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
+                      <PlatformIcon name="check" size={12} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
                       <Text style={styles.proItemEverything}>Everything in Core</Text>
                     </View>
                     {PRO_ITEMS.map((item) => (
                       <View key={item.label} style={styles.compareItem}>
-                        <Check size={12} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
+                        <PlatformIcon name="check" size={12} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
                         <Text style={styles.proItemText}>{item.label}</Text>
                       </View>
                     ))}
@@ -335,8 +336,8 @@ export default function PaywallModal({
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       {isTrial
-                        ? <Play size={16} color="#fff" fill="#fff" strokeWidth={0} />
-                        : <Lock size={16} color="#fff" strokeWidth={2} />
+                        ? <PlatformIcon name="play" size={16} color="#fff" fill="#fff" />
+                        : <PlatformIcon name="lock" size={16} color="#fff" strokeWidth={2} />
                       }
                       <Text style={styles.ctaBtnText}>
                         {isTrial ? 'Start Free Trial' : 'Unlock Zeal Pro'}

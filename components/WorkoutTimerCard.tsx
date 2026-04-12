@@ -20,7 +20,7 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Pause, Play, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking, useRestTimeRemaining } from '@/context/WorkoutTrackingContext';
 
@@ -281,7 +281,7 @@ function WorkoutTimerCard({ accent }: { accent: string }) {
           {/* Chevron (centered) + Cancel (right-aligned) */}
           <View style={styles.chevronCancelRow}>
             <View style={{ flex: 1 }} />
-            <ChevronUp size={18} color={colors.textSecondary} strokeWidth={2.5} />
+            <PlatformIcon name="chevron-up" size={18} color={colors.textSecondary} strokeWidth={2.5} />
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <TouchableOpacity
                 onPress={handleCancel}
@@ -303,7 +303,7 @@ function WorkoutTimerCard({ accent }: { accent: string }) {
             <Text style={[styles.minimizedTime, { color: colors.textSecondary }]}>
               {formatTime(restTimeRemaining)}
             </Text>
-            <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.5} />
+            <PlatformIcon name="chevron-down" size={18} color={colors.textSecondary} strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={{ flex: 1, alignItems: 'flex-end' }}>
             <TouchableOpacity

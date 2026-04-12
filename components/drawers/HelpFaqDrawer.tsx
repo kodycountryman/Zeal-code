@@ -7,7 +7,7 @@ import {
   Animated,
   Linking,
 } from 'react-native';
-import { X, ChevronDown, Star, MessageCircle } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
@@ -189,8 +189,9 @@ export default function HelpFaqDrawer({ visible, onClose }: Props) {
     return (
       <View style={styles.starsRow}>
         {Array.from({ length: 5 }, (_, i) => (
-          <Star
+          <PlatformIcon
             key={i}
+            name="star"
             size={size}
             color="#f59e0b"
             fill={i < count ? '#f59e0b' : 'transparent'}
@@ -206,7 +207,7 @@ export default function HelpFaqDrawer({ visible, onClose }: Props) {
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Help & Info</Text>
         <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn} testID="help-faq-close">
-          <X size={20} color={colors.textSecondary} />
+          <PlatformIcon name="x" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -258,7 +259,8 @@ export default function HelpFaqDrawer({ visible, onClose }: Props) {
                     <Text style={[styles.faqQuestionText, { color: colors.text }]} numberOfLines={2}>
                       {item.question}
                     </Text>
-                    <ChevronDown
+                    <PlatformIcon
+                      name="chevron-down"
                       size={18}
                       color={colors.textMuted}
                       style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}
@@ -281,7 +283,7 @@ export default function HelpFaqDrawer({ visible, onClose }: Props) {
               activeOpacity={0.7}
               testID="feedback-link"
             >
-              <MessageCircle size={18} color={accent} />
+              <PlatformIcon name="message-circle" size={18} color={accent} />
               <Text style={[styles.feedbackText, { color: colors.textSecondary }]}>
                 Have feedback? We'd love to hear it.
               </Text>

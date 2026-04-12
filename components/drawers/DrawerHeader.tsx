@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronLeft, X } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -55,7 +55,7 @@ export default function DrawerHeader({ title, onBack, onClose, rightContent }: D
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <ChevronLeft size={24} color={colors.text} strokeWidth={2.2} />
+          <PlatformIcon name="chevron-left" size={24} color={colors.text} strokeWidth={2.2} />
         </TouchableOpacity>
       ) : onClose ? (
         <TouchableOpacity
@@ -65,7 +65,7 @@ export default function DrawerHeader({ title, onBack, onClose, rightContent }: D
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <View style={[styles.circleBtn, { backgroundColor: 'rgba(128,128,128,0.15)' }]}>
-            <X size={16} color="#888" strokeWidth={2.5} />
+            <PlatformIcon name="x" size={16} color="#888" strokeWidth={2.5} />
           </View>
         </TouchableOpacity>
       ) : (

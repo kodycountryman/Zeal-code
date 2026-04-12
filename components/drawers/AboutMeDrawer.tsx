@@ -21,7 +21,7 @@ import Animated, {
 import WheelPicker from '@/components/WheelPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
-import { Stethoscope, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext, SpecialLifeCase, FitnessLevel, Sex, ActivityLevel } from '@/context/AppContext';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 
@@ -289,7 +289,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
           <TouchableOpacity onPress={() => openPicker(id)} activeOpacity={0.85}>
             <View style={[styles.pickerChip, { borderColor: chipBorder, backgroundColor: chipBg, height: CHIP_H, paddingHorizontal: 16 }]}>
               <Text style={[styles.pickerChipText, { color: wheelText }]}>{displayValue}</Text>
-              <ChevronDown size={14} color={colors.textMuted} style={{ marginLeft: 6 }} />
+              <PlatformIcon name="chevron-down" size={14} color={colors.textMuted} style={{ marginLeft: 6 }} />
             </View>
           </TouchableOpacity>
         )}
@@ -349,7 +349,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                 <Text style={[styles.disclosureSub, { color: colors.textMuted }]}>{computedAge} years old</Text>
               )}
             </View>
-            <ChevronRight size={17} color={colors.textMuted} />
+            <PlatformIcon name="chevron-right" size={17} color={colors.textMuted} />
           </TouchableOpacity>
 
           {/* iOS calendar modal */}
@@ -591,7 +591,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
                     <Text style={[styles.slcLabel, { color: on ? accent : colors.text }]}>{slc.label}</Text>
                     <Text style={[styles.slcSub, { color: colors.textMuted }]}>{slc.sub}</Text>
                   </View>
-                  {on && slc.id !== 'none' && <Stethoscope size={14} color={accent} />}
+                  {on && slc.id !== 'none' && <PlatformIcon name="stethoscope" size={14} color={accent} />}
                 </TouchableOpacity>
                 {!isLast && <View style={[styles.sep, { backgroundColor: dividerColor }]} />}
               </React.Fragment>

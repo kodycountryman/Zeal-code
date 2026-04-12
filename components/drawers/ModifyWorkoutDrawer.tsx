@@ -10,7 +10,7 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
-import { X, Dumbbell, Building2, Bookmark, Check, ChevronDown, ChevronUp, User, Crown } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY, PRO_STYLES_SET } from '@/services/proGate';
 import { useZealTheme, useAppContext, type WorkoutOverride, type LastModifyState } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -290,7 +290,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
         activeOpacity={0.7}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <X size={16} color="#888" strokeWidth={2.5} />
+        <PlatformIcon name="x" size={16} color="#888" strokeWidth={2.5} />
       </TouchableOpacity>
       <View style={styles.headerTitleWrap}>
         <Text style={[styles.title, { color: colors.text }]}>Change Workout</Text>
@@ -351,7 +351,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
               >
                 <View style={styles.chipInner}>
                   <Text style={[styles.chipText, { color: isSelected ? '#fff' : colors.text }]}>{s}</Text>
-                  {isLocked && <Crown size={11} color={PRO_GOLD} strokeWidth={2} />}
+                  {isLocked && <PlatformIcon name="crown" size={11} color={PRO_GOLD} strokeWidth={2} />}
                 </View>
               </TouchableOpacity>
             );
@@ -398,7 +398,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                     {musclesSummary}
                   </Text>
                 )}
-                {musclesOpen ? <ChevronUp size={14} color={colors.textMuted} /> : <ChevronDown size={14} color={colors.textMuted} />}
+                {musclesOpen ? <PlatformIcon name="chevron-up" size={14} color={colors.textMuted} /> : <PlatformIcon name="chevron-down" size={14} color={colors.textMuted} />}
               </View>
             </TouchableOpacity>
 
@@ -451,7 +451,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                 {activeGymLabel}
               </Text>
             )}
-            {equipOpen ? <ChevronUp size={14} color={colors.textMuted} /> : <ChevronDown size={14} color={colors.textMuted} />}
+            {equipOpen ? <PlatformIcon name="chevron-up" size={14} color={colors.textMuted} /> : <PlatformIcon name="chevron-down" size={14} color={colors.textMuted} />}
           </View>
         </TouchableOpacity>
 
@@ -467,13 +467,13 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                 onPress={handleSelectNoEquipment}
                 activeOpacity={0.7}
               >
-                <User size={14} color={gymPreset === 'no_equipment' ? styleAccent : colors.textSecondary} />
+                <PlatformIcon name="user" size={14} color={gymPreset === 'no_equipment' ? styleAccent : colors.textSecondary} />
                 <Text style={[styles.gymPresetBtnText, { color: gymPreset === 'no_equipment' ? styleAccent : colors.text }]}>
                   No Equipment
                 </Text>
                 {gymPreset === 'no_equipment' && (
                   <View style={[styles.gymCheckDot, { backgroundColor: styleAccent }]}>
-                    <Check size={8} color="#fff" strokeWidth={3} />
+                    <PlatformIcon name="check" size={8} color="#fff" strokeWidth={3} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -487,13 +487,13 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                 onPress={handleSelectCommercial}
                 activeOpacity={0.7}
               >
-                <Building2 size={14} color={gymPreset === 'commercial' ? styleAccent : colors.textSecondary} />
+                <PlatformIcon name="building" size={14} color={gymPreset === 'commercial' ? styleAccent : colors.textSecondary} />
                 <Text style={[styles.gymPresetBtnText, { color: gymPreset === 'commercial' ? styleAccent : colors.text }]}>
                   Commercial
                 </Text>
                 {gymPreset === 'commercial' && (
                   <View style={[styles.gymCheckDot, { backgroundColor: styleAccent }]}>
-                    <Check size={8} color="#fff" strokeWidth={3} />
+                    <PlatformIcon name="check" size={8} color="#fff" strokeWidth={3} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -509,14 +509,14 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
               onPress={handleToggleSavedGyms}
               activeOpacity={0.7}
             >
-              <Bookmark size={14} color={(gymPreset !== 'commercial' && gymPreset !== 'no_equipment') || savedGymsOpen ? styleAccent : colors.textSecondary} />
+              <PlatformIcon name="bookmark" size={14} color={(gymPreset !== 'commercial' && gymPreset !== 'no_equipment') || savedGymsOpen ? styleAccent : colors.textSecondary} />
               <Text
                 style={[styles.gymPresetBtnText, { color: (gymPreset !== 'commercial' && gymPreset !== 'no_equipment') || savedGymsOpen ? styleAccent : colors.text, flex: 1 }]}
                 numberOfLines={1}
               >
                 {savedGymsBtnLabel}
               </Text>
-              {savedGymsOpen ? <ChevronUp size={12} color={colors.textMuted} /> : <ChevronDown size={12} color={colors.textMuted} />}
+              {savedGymsOpen ? <PlatformIcon name="chevron-up" size={12} color={colors.textMuted} /> : <PlatformIcon name="chevron-down" size={12} color={colors.textMuted} />}
             </TouchableOpacity>
 
             {savedGymsOpen && (
@@ -536,7 +536,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                       activeOpacity={0.7}
                     >
                       <View style={[styles.savedGymIconWrap, { backgroundColor: isActive ? `${styleAccent}25` : `${colors.border}60` }]}>
-                        <Bookmark size={11} color={isActive ? styleAccent : colors.textSecondary} />
+                        <PlatformIcon name="bookmark" size={11} color={isActive ? styleAccent : colors.textSecondary} />
                       </View>
                       <View style={styles.savedGymInfo}>
                         <Text style={[styles.savedGymName, { color: isActive ? styleAccent : colors.text }]}>{gym.name}</Text>
@@ -544,7 +544,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
                       </View>
                       {isActive && (
                         <View style={[styles.activeIndicator, { backgroundColor: styleAccent }]}>
-                          <Check size={9} color="#fff" strokeWidth={3} />
+                          <PlatformIcon name="check" size={9} color="#fff" strokeWidth={3} />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -560,7 +560,7 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
         {/* ── Added Components ── collapsible ───────────────────── */}
         <TouchableOpacity style={styles.accordionHeader} onPress={toggleComponents} activeOpacity={0.7}>
           <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>ADDED COMPONENTS</Text>
-          {componentsOpen ? <ChevronUp size={14} color={colors.textMuted} /> : <ChevronDown size={14} color={colors.textMuted} />}
+          {componentsOpen ? <PlatformIcon name="chevron-up" size={14} color={colors.textMuted} /> : <PlatformIcon name="chevron-down" size={14} color={colors.textMuted} />}
         </TouchableOpacity>
 
         {componentsOpen && (

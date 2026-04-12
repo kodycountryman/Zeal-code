@@ -2,18 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { LucideIcon } from 'lucide-react-native';
-import {
-  Dumbbell,
-  SlidersHorizontal,
-  Play,
-  Shuffle,
-  Home,
-  BarChart3,
-  User,
-  Plus,
-  PartyPopper,
-} from 'lucide-react-native';
+import type { AppIconName } from '@/constants/iconMap';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,7 +19,7 @@ export interface TourStep {
   targetTestID: string | null;
   title: string;
   body: string;
-  icon: LucideIcon;
+  icon: AppIconName;
   iconColor: string;
   arrowDirection: 'up' | 'down' | null;
   tapHint: string;
@@ -46,7 +35,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'workout-info-card',
     title: 'Your Daily Workout',
     body: 'Zeal generates a fresh workout based on your style, duration, and goals.',
-    icon: Dumbbell,
+    icon: 'dumbbell',
     iconColor: '#3b82f6',
     arrowDirection: 'up',
     tapHint: 'Tap to continue',
@@ -57,7 +46,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'modify-workout-card',
     title: 'Modify Your Workout',
     body: 'Change your style, duration, split, or target muscles anytime.',
-    icon: SlidersHorizontal,
+    icon: 'sliders-horizontal',
     iconColor: '#eab308',
     arrowDirection: 'up',
     tapHint: 'Tap to continue',
@@ -68,7 +57,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'start-workout-card',
     title: 'Start Your Workout',
     body: 'When you\'re ready, tap Start to begin tracking sets, reps, and weight.',
-    icon: Play,
+    icon: 'play',
     iconColor: '#22c55e',
     arrowDirection: 'up',
     tapHint: 'Tap to continue',
@@ -79,7 +68,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'shuffle-workout',
     title: 'Shuffle Exercises',
     body: 'Not feeling an exercise? Shuffle for a new one, or add your own.',
-    icon: Shuffle,
+    icon: 'shuffle',
     iconColor: '#06b6d4',
     arrowDirection: 'up',
     tapHint: 'Tap to continue',
@@ -90,7 +79,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'dock-home',
     title: 'Check Your Dashboard',
     body: 'Tap the Home tab to see your training score, insights, and more.',
-    icon: Home,
+    icon: 'home',
     iconColor: '#f87116',
     arrowDirection: 'down',
     tapHint: 'Tap the Home tab',
@@ -102,7 +91,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'training-score-card',
     title: 'Your Training Score',
     body: 'Your score updates as you train. Tap to see full insights and analytics.',
-    icon: BarChart3,
+    icon: 'bar-chart-3',
     iconColor: '#8b5cf6',
     arrowDirection: 'down',
     tapHint: 'Tap to continue',
@@ -113,7 +102,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'profile-avatar',
     title: 'Your Profile',
     body: 'Set your goals, body data, and fitness level for smarter workouts.',
-    icon: User,
+    icon: 'user',
     iconColor: '#ec4899',
     arrowDirection: 'up',
     tapHint: 'Tap to continue',
@@ -124,7 +113,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: 'dock-plus',
     title: 'The Plus Menu',
     body: 'Start a training plan, build custom workouts, or log previous sessions.',
-    icon: Plus,
+    icon: 'plus',
     iconColor: '#f87116',
     arrowDirection: 'down',
     tapHint: 'Tap to continue',
@@ -135,7 +124,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetTestID: null,
     title: 'You\'re All Set!',
     body: 'Your first workout is waiting. Let\'s go!',
-    icon: PartyPopper,
+    icon: 'party-popper',
     iconColor: '#22c55e',
     arrowDirection: null,
     tapHint: '',

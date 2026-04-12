@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Sparkles, Plus, ArrowRight, X } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useZealTheme } from '@/context/AppContext';
 import { getContrastTextColor } from '@/constants/colors';
@@ -163,7 +163,7 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
                 },
               ]}
             >
-              <Plus size={40} color={getContrastTextColor(accent)} strokeWidth={2.5} />
+              <PlatformIcon name="plus" size={40} color={getContrastTextColor(accent)} strokeWidth={2.5} />
             </View>
           </Animated.View>
         </View>
@@ -191,12 +191,12 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
               onPress={onDismiss}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <X size={16} color={isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)'} />
+              <PlatformIcon name="x" size={16} color={isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)'} />
             </TouchableOpacity>
 
             <View style={styles.tooltipIconRow}>
               <View style={[styles.tooltipIconBg, { backgroundColor: `${accent}18` }]}>
-                <Sparkles size={22} color={accent} strokeWidth={1.8} />
+                <PlatformIcon name="sparkles" size={22} color={accent} strokeWidth={1.8} />
               </View>
             </View>
 
@@ -225,7 +225,7 @@ export default function PlusSpotlight({ visible, onStartPlan, onDismiss }: Props
                   Start a Plan
                 </Text>
                 <View style={styles.startBtnArrow}>
-                  <ArrowRight size={16} color={getContrastTextColor(accent)} strokeWidth={2.5} />
+                  <PlatformIcon name="arrow-right" size={16} color={getContrastTextColor(accent)} strokeWidth={2.5} />
                 </View>
               </TouchableOpacity>
 

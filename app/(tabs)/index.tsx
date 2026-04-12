@@ -47,7 +47,6 @@ import * as Haptics from 'expo-haptics';
 import { mockBibleVerse } from '@/mocks/homeData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown } from 'lucide-react-native';
 import { PRO_GOLD } from '@/services/proGate';
 import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -816,7 +815,7 @@ export default function HomeScreen() {
         <View style={styles.proModalOverlay}>
           <View style={[styles.proModalCard, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}>
             <View style={styles.proModalIconWrap}>
-              <Crown size={28} color={PRO_GOLD} />
+              <PlatformIcon name="crown" size={28} color={PRO_GOLD} />
             </View>
             <View style={styles.proModalTitleRow}>
               <Text style={[styles.proModalTitle, { color: colors.text }]}>Pro Training Style</Text>

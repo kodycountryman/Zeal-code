@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import { Settings, X, ChevronRight, Camera, PersonStanding, BarChart3, Crown, Sparkles } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -107,7 +107,7 @@ export default function AthleteProfileDrawer({
         activeOpacity={0.7}
         style={styles.closeIconBtn}
       >
-        <X size={20} color={colors.textSecondary} />
+        <PlatformIcon name="x" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
     </View>
   );
@@ -129,7 +129,7 @@ export default function AthleteProfileDrawer({
                 <View
                   style={[styles.avatarPlaceholder, { backgroundColor: colors.cardSecondary }]}
                 >
-                  <Camera size={28} color={colors.textSecondary} />
+                  <PlatformIcon name="camera" size={28} color={colors.textSecondary} />
                 </View>
               )}
             </TouchableOpacity>
@@ -176,8 +176,8 @@ export default function AthleteProfileDrawer({
                   >
                     <View style={styles.memberContent}>
                       {hasPro
-                        ? <Sparkles size={12} color={accent} />
-                        : <Crown size={12} color={accent} />}
+                        ? <PlatformIcon name="sparkles" size={12} color={accent} />
+                        : <PlatformIcon name="crown" size={12} color={accent} />}
                       <Text style={[styles.memberText, { color: accent }]}>
                         {hasPro ? 'Zeal Pro' : 'Zeal Core'}
                       </Text>
@@ -249,7 +249,7 @@ export default function AthleteProfileDrawer({
                 testID="achievements-lock-overlay"
               >
                 <View style={styles.achievementsLockBadge}>
-                  <Crown size={20} color={PRO_GOLD} strokeWidth={1.5} />
+                  <PlatformIcon name="crown" size={20} color={PRO_GOLD} strokeWidth={1.5} />
                   <Text style={styles.achievementsLockSub}>Achievements & Milestones</Text>
                 </View>
               </TouchableOpacity>
@@ -263,7 +263,7 @@ export default function AthleteProfileDrawer({
               activeOpacity={0.7}
               testID="profile-about-me"
             >
-              <PersonStanding size={20} color={hasPro ? colors.textSecondary : colors.textMuted} />
+              <PlatformIcon name="person-standing" size={20} color={hasPro ? colors.textSecondary : colors.textMuted} />
               <View style={styles.menuText}>
                 <Text style={[styles.menuTitle, { color: colors.text }]}>About Me</Text>
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
@@ -271,9 +271,9 @@ export default function AthleteProfileDrawer({
                 </Text>
               </View>
               {hasPro ? (
-                <ChevronRight size={18} color={colors.textMuted} />
+                <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
               ) : (
-                <Crown size={14} color={PRO_GOLD} strokeWidth={2} />
+                <PlatformIcon name="crown" size={14} color={PRO_GOLD} strokeWidth={2} />
               )}
             </TouchableOpacity>
 
@@ -283,7 +283,7 @@ export default function AthleteProfileDrawer({
               activeOpacity={0.7}
               testID="profile-insights"
             >
-              <BarChart3 size={20} color={hasPro ? colors.textSecondary : colors.textMuted} />
+              <PlatformIcon name="bar-chart-3" size={20} color={hasPro ? colors.textSecondary : colors.textMuted} />
               <View style={styles.menuText}>
                 <Text style={[styles.menuTitle, { color: colors.text }]}>My Fitness Insights</Text>
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
@@ -291,9 +291,9 @@ export default function AthleteProfileDrawer({
                 </Text>
               </View>
               {hasPro ? (
-                <ChevronRight size={18} color={colors.textMuted} />
+                <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
               ) : (
-                <Crown size={14} color={PRO_GOLD} strokeWidth={2} />
+                <PlatformIcon name="crown" size={14} color={PRO_GOLD} strokeWidth={2} />
               )}
             </TouchableOpacity>
 
@@ -303,14 +303,14 @@ export default function AthleteProfileDrawer({
               activeOpacity={0.7}
               testID="profile-settings-btn"
             >
-              <Settings size={20} color={colors.textSecondary} />
+              <PlatformIcon name="settings" size={20} color={colors.textSecondary} />
               <View style={styles.menuText}>
                 <Text style={[styles.menuTitle, { color: colors.text }]}>Settings</Text>
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
                   Notifications, theme, equipment
                 </Text>
               </View>
-              <ChevronRight size={18} color={colors.textMuted} />
+              <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 

@@ -1,15 +1,15 @@
 import {
-  Activity, AlertCircle, AlertTriangle, ArrowDown, ArrowDownToLine, ArrowLeft,
+  Activity, AlertCircle, AlertTriangle, Apple, ArrowDown, ArrowDownToLine, ArrowLeft,
   ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpDown, Award,
   BarChart2, BarChart3, Bell, BellOff, Bike, BookOpen, Bookmark, Brain, Droplets,
   Building2, Calendar, CalendarPlus, CalendarRange, Camera, Check, CheckCircle2,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Circle, ClipboardList,
-  Clock, Copy, Crown, Download, Dumbbell, FileText, Flag, Flame, Footprints,
+  Clock, Compass, Copy, Crown, Download, Dumbbell, FileText, Flag, Flame, Footprints,
   GripVertical, Hammer, Heart, HeartPulse, HelpCircle, Home, Info, Layers,
   Leaf, Lightbulb, Link2, ListChecks, Lock, LogOut, Medal, MessageCircle, Minus,
   Moon, Mountain, MousePointerClick, Move, Palette, Pause, Pencil, PersonStanding,
-  Play, PlayCircle, Plus, RefreshCw, Repeat2, RotateCcw, Save, Scale, Search,
-  Settings, Settings2, Shield, Skull, SlidersHorizontal, Snowflake, Sparkles,
+  PartyPopper, Play, PlayCircle, Plus, RefreshCw, Repeat2, RotateCcw, Save, Scale, Search,
+  Settings, Settings2, Shield, Shuffle, Skull, SlidersHorizontal, Snowflake, Sparkles,
   Star, Stethoscope, Target, ThumbsDown, ThumbsUp, Timer, Trash2, TrendingDown,
   TrendingUp, Trophy, TreePine, Sun, ImageIcon, Utensils, User, Watch, Waves, Wind, X, Zap,
   type LucideIcon,
@@ -23,7 +23,7 @@ export type AppIconName =
   | 'calendar' | 'calendar-plus' | 'calendar-range' | 'camera' | 'check' | 'check-circle'
   | 'chevron-down'
   | 'chevron-left' | 'chevron-right' | 'chevron-up' | 'circle' | 'clipboard-list'
-  | 'clock' | 'copy' | 'crown' | 'download' | 'dumbbell' | 'file-text' | 'flag' | 'flame'
+  | 'clock' | 'compass' | 'copy' | 'crown' | 'download' | 'dumbbell' | 'file-text' | 'flag' | 'flame'
   | 'footprints' | 'grip-vertical' | 'hammer' | 'heart' | 'heart-pulse' | 'help-circle'
   | 'home' | 'info' | 'layers' | 'leaf' | 'lightbulb' | 'link' | 'list-checks' | 'lock'
   | 'log-out' | 'medal' | 'message-circle' | 'minus' | 'moon' | 'mountain' | 'mouse-pointer-click'
@@ -32,9 +32,10 @@ export type AppIconName =
   | 'settings-2' | 'shield' | 'skull' | 'sliders-horizontal' | 'snowflake' | 'sparkles'
   | 'star' | 'stethoscope' | 'target' | 'thumbs-down' | 'thumbs-up' | 'timer' | 'trash'
   | 'droplets' | 'image' | 'sun' | 'tree-pine' | 'trending-down' | 'trending-up' | 'trophy'
-  | 'user' | 'utensils' | 'watch' | 'waves' | 'wind' | 'x' | 'zap';
+  | 'apple' | 'party-popper' | 'shuffle' | 'user' | 'utensils' | 'watch' | 'waves' | 'wind' | 'x' | 'zap';
 
 export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
+  'apple':                  'apple.logo',
   'bike':                   'bicycle',
   'droplets':               'drop',
   'image':                  'photo',
@@ -76,6 +77,7 @@ export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
   'clipboard-list':         'list.clipboard',
   'copy':                   'doc.on.doc',
   'clock':                  'clock',
+  'compass':                'safari',
   'crown':                  'crown',
   'download':               'arrow.down.circle',
   'dumbbell':               'dumbbell',
@@ -103,6 +105,7 @@ export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
   'moon':                   'moon',
   'mouse-pointer-click':    'hand.tap',
   'move':                   'arrow.up.down.left.right',
+  'party-popper':           'party.popper',
   'palette':                'paintpalette',
   'pause':                  'pause',
   'pencil':                 'pencil',
@@ -118,6 +121,7 @@ export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
   'search':                 'magnifyingglass',
   'settings':               'gearshape',
   'settings-2':             'slider.horizontal.3',
+  'shuffle':                'shuffle',
   'shield':                 'shield',
   'skull':                  'xmark.shield',
   'sliders-horizontal':     'slider.horizontal.3',
@@ -141,6 +145,7 @@ export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
 };
 
 export const LUCIDE_MAP: Record<AppIconName, LucideIcon> = {
+  'apple':              Apple,
   'bike':               Bike,
   'droplets':           Droplets,
   'image':              ImageIcon,
@@ -182,6 +187,7 @@ export const LUCIDE_MAP: Record<AppIconName, LucideIcon> = {
   'clipboard-list':     ClipboardList,
   'copy':               Copy,
   'clock':              Clock,
+  'compass':            Compass,
   'crown':              Crown,
   'download':           Download,
   'dumbbell':           Dumbbell,
@@ -209,6 +215,7 @@ export const LUCIDE_MAP: Record<AppIconName, LucideIcon> = {
   'moon':               Moon,
   'mouse-pointer-click': MousePointerClick,
   'move':               Move,
+  'party-popper':       PartyPopper,
   'palette':            Palette,
   'pause':              Pause,
   'pencil':             Pencil,
@@ -224,6 +231,7 @@ export const LUCIDE_MAP: Record<AppIconName, LucideIcon> = {
   'search':             Search,
   'settings':           Settings,
   'settings-2':         Settings2,
+  'shuffle':            Shuffle,
   'shield':             Shield,
   'skull':              Skull,
   'sliders-horizontal': SlidersHorizontal,

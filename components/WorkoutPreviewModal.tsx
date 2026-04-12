@@ -12,16 +12,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import {
-  X,
-  Dumbbell,
-  ArrowLeftRight,
-  RotateCcw,
-  Circle,
-  Clock,
-  Layers,
-  ChevronRight,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import type { WorkoutExercise } from '@/services/workoutEngine';
@@ -125,11 +116,11 @@ function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }: Props) {
 
   const renderGroupBadge = (type: 'superset' | 'circuit' | 'rounds' | null) => {
     if (!type) return null;
-    const Icon = type === 'superset' ? ArrowLeftRight : type === 'circuit' ? RotateCcw : Circle;
+    const iconName = type === 'superset' ? 'arrow-left-right' as const : type === 'circuit' ? 'rotate-ccw' as const : 'circle' as const;
     const label = type === 'superset' ? 'SUPERSET' : type === 'circuit' ? 'CIRCUIT' : 'ROUNDS';
     return (
       <View style={[styles.groupTag, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
-        <Icon size={10} color={colors.textMuted} />
+        <PlatformIcon name={iconName} size={10} color={colors.textMuted} />
         <Text style={[styles.groupTagText, { color: colors.textSecondary }]}>{label}</Text>
       </View>
     );
@@ -203,13 +194,13 @@ function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }: Props) {
         </View>
 
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7} testID="preview-close-button">
-          <X size={20} color={colors.textSecondary} />
+          <PlatformIcon name="x" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
         {!workout ? (
           <View style={styles.emptyState}>
             <View style={[styles.emptyIcon, { backgroundColor: `${accent}14` }]}>
-              <Dumbbell size={28} color={accent} />
+              <PlatformIcon name="dumbbell" size={28} color={accent} />
             </View>
 
             {isGenerating ? (
@@ -233,7 +224,7 @@ function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }: Props) {
                   testID="preview-go-to-workout-empty"
                 >
                   <Text style={styles.goBtnText}>Go to Workout</Text>
-                  <ChevronRight size={16} color="#fff" />
+                  <PlatformIcon name="chevron-right" size={16} color="#fff" />
                 </TouchableOpacity>
               </>
             )}
@@ -261,17 +252,17 @@ function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }: Props) {
 
               <View style={styles.statsRow}>
                 <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
-                  <Layers size={13} color={colors.textMuted} />
+                  <PlatformIcon name="layers" size={13} color={colors.textMuted} />
                   <Text style={[styles.statText, { color: colors.text }]}>{exerciseCount} exercises</Text>
                 </View>
                 {warmupCount > 0 && (
                   <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
-                    <Dumbbell size={13} color={colors.textMuted} />
+                    <PlatformIcon name="dumbbell" size={13} color={colors.textMuted} />
                     <Text style={[styles.statText, { color: colors.text }]}>{warmupCount} warm-up</Text>
                   </View>
                 )}
                 <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
-                  <Clock size={13} color={colors.textMuted} />
+                  <PlatformIcon name="clock" size={13} color={colors.textMuted} />
                   <Text style={[styles.statText, { color: colors.text }]}>{workout.estimatedDuration ?? '~45'} min</Text>
                 </View>
               </View>
@@ -306,7 +297,7 @@ function WorkoutPreviewModal({ visible, onClose, onGoToWorkout }: Props) {
                 testID="preview-go-to-workout"
               >
                 <Text style={styles.goBtnText}>Go to Workout</Text>
-                <ChevronRight size={16} color="#fff" />
+                <PlatformIcon name="chevron-right" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
           </>

@@ -15,17 +15,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Zap, Calendar, TrendingUp } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { useAppContext } from '@/context/AppContext';
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#f87116';
 const BG = '#0e0e0e';
 
-const BULLETS = [
-  { icon: Zap, text: 'Sessions built from elite coaching science' },
-  { icon: Calendar, text: 'Streak tracking & style-colored calendar' },
-  { icon: TrendingUp, text: 'Adapts to your feedback over time' },
+const BULLETS: { icon: AppIconName; text: string }[] = [
+  { icon: 'zap', text: 'Sessions built from elite coaching science' },
+  { icon: 'calendar', text: 'Streak tracking & style-colored calendar' },
+  { icon: 'trending-up', text: 'Adapts to your feedback over time' },
 ];
 
 export default function LoginScreen() {
@@ -185,10 +186,10 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.bullets}>
-            {BULLETS.map(({ icon: Icon, text }, i) => (
+            {BULLETS.map(({ icon, text }, i) => (
               <View key={i} style={styles.bulletRow}>
                 <View style={styles.bulletIconWrap}>
-                  <Icon size={16} color={ACCENT} strokeWidth={2.5} />
+                  <PlatformIcon name={icon} size={16} color={ACCENT} strokeWidth={2.5} />
                 </View>
                 <Text style={styles.bulletText}>{text}</Text>
               </View>

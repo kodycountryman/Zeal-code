@@ -11,20 +11,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import {
-  Flame,
-  Heart,
-  Dumbbell,
-  MousePointerClick,
-  ListChecks,
-  SlidersHorizontal,
-  Plus,
-  Flag,
-  ChevronRight,
-  X,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { useZealTheme } from '@/context/AppContext';
-import type { LucideIcon } from 'lucide-react-native';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const TOTAL_STEPS = 8;
@@ -39,7 +28,7 @@ interface HighlightRect {
 interface StepConfig {
   title: string;
   body: string;
-  icon: LucideIcon;
+  icon: AppIconName;
   iconColor: string;
 }
 
@@ -47,49 +36,49 @@ const STEPS: StepConfig[] = [
   {
     title: 'Pre-Workout',
     body: 'Your warm-up lives here. Check off each movement before you train.',
-    icon: Flame,
+    icon: 'flame',
     iconColor: '#f87116',
   },
   {
     title: 'Post-Workout',
     body: 'Cool-down and recovery protocols to follow after your session.',
-    icon: Heart,
+    icon: 'heart',
     iconColor: '#ef4444',
   },
   {
     title: 'Workout',
     body: 'Your main workout. All exercises, sets, and reps are here.',
-    icon: Dumbbell,
+    icon: 'dumbbell',
     iconColor: '#3b82f6',
   },
   {
     title: 'Exercise Row',
     body: 'Tap any exercise to open the tracking panel and start logging.',
-    icon: MousePointerClick,
+    icon: 'mouse-pointer-click',
     iconColor: '#22c55e',
   },
   {
     title: 'Log Sets',
     body: 'Scroll the wheels to set weight and reps, then tap Done for each set.',
-    icon: ListChecks,
+    icon: 'list-checks',
     iconColor: '#a855f7',
   },
   {
     title: 'Modify Workout',
     body: 'Change your style, split, duration, or target muscles anytime.',
-    icon: SlidersHorizontal,
+    icon: 'sliders-horizontal',
     iconColor: '#eab308',
   },
   {
     title: 'Add Exercise',
     body: 'Add exercises, supersets, or circuits to customize your workout.',
-    icon: Plus,
+    icon: 'plus',
     iconColor: '#06b6d4',
   },
   {
     title: 'Finish Workout',
     body: 'When you\'re done, tap here to log your session and see your results.',
-    icon: Flag,
+    icon: 'flag',
     iconColor: '#f43f5e',
   },
 ];
@@ -275,7 +264,7 @@ export default function WorkoutWalkthrough({
 
   const rect = stepRects[currentStep];
   const step = STEPS[currentStep];
-  const StepIcon = step.icon;
+  const stepIconName = step.icon;
   const isLast = currentStep === TOTAL_STEPS - 1;
 
   const spotPadding = 8;
@@ -402,7 +391,7 @@ export default function WorkoutWalkthrough({
 
           <View style={styles.tooltipBody}>
             <View style={[styles.tooltipIconWrap, { backgroundColor: `${step.iconColor}15` }]}>
-              <StepIcon size={22} color={step.iconColor} strokeWidth={2} />
+              <PlatformIcon name={stepIconName} size={22} color={step.iconColor} strokeWidth={2} />
             </View>
             <View style={styles.tooltipText}>
               <Text style={[styles.tooltipTitle, { color: isDark ? '#fff' : '#111' }]}>
@@ -449,7 +438,7 @@ export default function WorkoutWalkthrough({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           activeOpacity={0.7}
         >
-          <X size={18} color="rgba(255,255,255,0.5)" />
+          <PlatformIcon name="x" size={18} color="rgba(255,255,255,0.5)" />
         </TouchableOpacity>
       </Animated.View>
     </Modal>

@@ -1,16 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Animated } from 'react-native';
-import { X } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { useZealTheme } from '@/context/AppContext';
 import { TOUR_STEPS, type HighlightRect } from '@/context/AppTourContext';
-import type { LucideIcon } from 'lucide-react-native';
 
 interface Props {
   stepIndex: number;
   title: string;
   body: string;
-  icon: LucideIcon;
+  icon: AppIconName;
   iconColor: string;
   tapHint: string;
   isLast: boolean;
@@ -27,7 +27,7 @@ export default function AppTourTooltip({
   stepIndex,
   title,
   body,
-  icon: StepIcon,
+  icon: stepIcon,
   iconColor,
   tapHint,
   isLast,
@@ -123,7 +123,7 @@ export default function AppTourTooltip({
       {/* Body */}
       <View style={styles.tooltipBody}>
         <View style={[styles.tooltipIconWrap, { backgroundColor: `${iconColor}15` }]}>
-          <StepIcon size={22} color={iconColor} strokeWidth={2} />
+          <PlatformIcon name={stepIcon} size={22} color={iconColor} strokeWidth={2} />
         </View>
         <View style={styles.tooltipText}>
           <Text style={[styles.tooltipTitle, { color: titleColor }]}>{title}</Text>

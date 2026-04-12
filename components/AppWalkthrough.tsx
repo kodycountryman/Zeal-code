@@ -9,15 +9,15 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronRight, X, Home, Zap, BarChart2, TrendingUp } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { LucideIcon } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#f87116';
 
 interface SlideIcon {
-  Icon: LucideIcon;
+  icon: AppIconName;
   color: string;
 }
 
@@ -34,7 +34,7 @@ const SLIDES: {
     title: 'Your Home',
     body: 'Your daily training score, streak, and generated workout — all in one place.',
     accentColor: '#f87116',
-    iconInfo: { Icon: Home, color: '#f87116' },
+    iconInfo: { icon: 'home', color: '#f87116' },
     bgColors: ['#1a0a00', '#141414'],
   },
   {
@@ -42,7 +42,7 @@ const SLIDES: {
     title: 'Generate Workouts',
     body: 'Tap generate for a session built around your goals, equipment, and time.',
     accentColor: '#22c55e',
-    iconInfo: { Icon: Zap, color: '#22c55e' },
+    iconInfo: { icon: 'zap', color: '#22c55e' },
     bgColors: ['#001a08', '#141414'],
   },
   {
@@ -50,7 +50,7 @@ const SLIDES: {
     title: 'Track in Real Time',
     body: 'Log sets, rest between them, and watch your training score build.',
     accentColor: '#3b82f6',
-    iconInfo: { Icon: BarChart2, color: '#3b82f6' },
+    iconInfo: { icon: 'bar-chart', color: '#3b82f6' },
     bgColors: ['#000a1a', '#141414'],
   },
   {
@@ -58,7 +58,7 @@ const SLIDES: {
     title: 'See Your Progress',
     body: 'Your radar chart and insights update after every session.',
     accentColor: '#a855f7',
-    iconInfo: { Icon: TrendingUp, color: '#a855f7' },
+    iconInfo: { icon: 'trending-up', color: '#a855f7' },
     bgColors: ['#10001a', '#141414'],
   },
 ];
@@ -104,7 +104,7 @@ export default function AppWalkthrough({ visible, onDone, showCloseButton = fals
 
   const current = SLIDES[slide];
   const isLast = slide === SLIDES.length - 1;
-  const { Icon, color: iconColor } = current.iconInfo;
+  const { icon: slideIcon, color: iconColor } = current.iconInfo;
 
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent>
@@ -135,14 +135,14 @@ export default function AppWalkthrough({ visible, onDone, showCloseButton = fals
                 onPress={handleClose}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <X size={18} color="rgba(255,255,255,0.6)" />
+                <PlatformIcon name="x" size={18} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             )}
           </View>
 
           <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
             <View style={[styles.iconBlock, { backgroundColor: `${iconColor}14`, borderColor: `${iconColor}28` }]}>
-              <Icon size={52} color={iconColor} strokeWidth={1.8} />
+              <PlatformIcon name={slideIcon} size={52} color={iconColor} strokeWidth={1.8} />
             </View>
 
             <View style={styles.textBlock}>
@@ -181,7 +181,7 @@ export default function AppWalkthrough({ visible, onDone, showCloseButton = fals
                   {isLast ? "Let's Go" : 'Next'}
                 </Text>
                 {!isLast && (
-                  <ChevronRight size={18} color="#fff" strokeWidth={2.5} style={{ marginLeft: 4 }} />
+                  <PlatformIcon name="chevron-right" size={18} color="#fff" strokeWidth={2.5} style={{ marginLeft: 4 }} />
                 )}
               </LinearGradient>
             </TouchableOpacity>

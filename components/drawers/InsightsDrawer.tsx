@@ -13,30 +13,7 @@ import GlassCard from '@/components/GlassCard';
 import StyleTrackerDrawer from '@/components/drawers/StyleTrackerDrawer';
 import MuscleReadinessDrawer from '@/components/drawers/MuscleReadinessDrawer';
 import Svg, { Polygon, Line, Circle as SvgCircle, Polyline } from 'react-native-svg';
-import {
-  X,
-  ChevronDown,
-  ChevronUp,
-  Check,
-  Zap,
-  Trophy,
-  Flame,
-  Dumbbell,
-  Target,
-  Medal,
-  Shield,
-  Award,
-  Crown,
-  Footprints,
-  HeartPulse,
-  Activity,
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  BarChart3,
-  Info,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
@@ -96,18 +73,12 @@ interface Props {
 // ─── Milestones — imported from services/milestonesData ─────
 
 function getMilestoneIcon(iconName: string, color: string, size: number) {
-  const map: Record<string, React.ReactNode> = {
-    zap: <Zap size={size} color={color} />,
-    trophy: <Trophy size={size} color={color} />,
-    flame: <Flame size={size} color={color} />,
-    award: <Award size={size} color={color} />,
-    medal: <Medal size={size} color={color} />,
-    crown: <Crown size={size} color={color} />,
-    shield: <Shield size={size} color={color} />,
-    dumbbell: <Dumbbell size={size} color={color} />,
-    target: <Target size={size} color={color} />,
+  const nameMap: Record<string, string> = {
+    zap: 'zap', trophy: 'trophy', flame: 'flame', award: 'award',
+    medal: 'medal', crown: 'crown', shield: 'shield', dumbbell: 'dumbbell', target: 'target',
   };
-  return map[iconName] ?? <Zap size={size} color={color} />;
+  const name = nameMap[iconName] ?? 'zap';
+  return <PlatformIcon name={name as any} size={size} color={color} />;
 }
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -213,12 +184,8 @@ function RadarChart({ data, colors: themeColors, accent }: { data: RadarPercenti
 // ─── Insight Tip Icon ───────────────────────────────────────
 
 function InsightIcon({ name, color, size = 18 }: { name: string; color: string; size?: number }) {
-  switch (name) {
-    case 'trophy': return <Trophy size={size} color={color} />;
-    case 'heart-pulse': return <HeartPulse size={size} color={color} />;
-    case 'footprints': return <Footprints size={size} color={color} />;
-    default: return <Sparkles size={size} color={color} />;
-  }
+  const iconName = (['trophy', 'heart-pulse', 'footprints'].includes(name) ? name : 'sparkles') as any;
+  return <PlatformIcon name={iconName} size={size} color={color} />;
 }
 
 // ─── Main Component ─────────────────────────────────────────
@@ -490,9 +457,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
   // ─── Render ─────────────────────────────────────────────
   const insightsTabs: { key: InsightsTab; label: string; icon: React.ReactNode }[] = [
-    { key: 'insights', label: 'Insights', icon: <Sparkles size={13} /> },
-    { key: 'achievements', label: 'Achievements', icon: <Trophy size={13} /> },
-    { key: 'stats', label: 'Stats', icon: <BarChart3 size={13} /> },
+    { key: 'insights', label: 'Insights', icon: <PlatformIcon name="sparkles" size={13} /> },
+    { key: 'achievements', label: 'Achievements', icon: <PlatformIcon name="trophy" size={13} /> },
+    { key: 'stats', label: 'Stats', icon: <PlatformIcon name="bar-chart-3" size={13} /> },
   ];
 
   const headerContent = (
@@ -505,7 +472,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           </Text>
         </View>
         <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn}>
-          <X size={22} color={colors.textSecondary} />
+          <PlatformIcon name="x" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -578,7 +545,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
             onPress={() => showProGate('history', openPaywall)}
             activeOpacity={0.8}
           >
-            <Crown size={14} color={PRO_GOLD} strokeWidth={1.8} />
+            <PlatformIcon name="crown" size={14} color={PRO_GOLD} strokeWidth={1.8} />
             <Text style={styles.historyBannerText}>Showing last 7 days — upgrade for full history</Text>
             <Text style={styles.historyBannerArrow}>→</Text>
           </TouchableOpacity>
@@ -625,7 +592,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               {!hasPro && (
                 <TouchableOpacity style={styles.radarOverlay} onPress={() => showProGate('insights', openPaywall)} activeOpacity={0.9}>
                   <View style={styles.radarLockBadge}>
-                    <Crown size={20} color={PRO_GOLD} strokeWidth={1.5} />
+                    <PlatformIcon name="crown" size={20} color={PRO_GOLD} strokeWidth={1.5} />
                     <Text style={styles.radarLockSub}>Strength Profile</Text>
                   </View>
                 </TouchableOpacity>
@@ -802,7 +769,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               <InfoHeader title="TRAINING LOAD" desc={CARD_INFO['TRAINING LOAD'] ?? ''} noMargin />
               {!hasPro && (
                 <TouchableOpacity onPress={() => showProGate('training_load', openPaywall)} activeOpacity={0.7}>
-                  <Crown size={12} color={PRO_GOLD} />
+                  <PlatformIcon name="crown" size={12} color={PRO_GOLD} />
                 </TouchableOpacity>
               )}
             </View>
@@ -826,7 +793,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                     })}
                   </View>
                   <View style={[styles.loadStatus, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                    <BarChart3 size={14} color={accent} />
+                    <PlatformIcon name="bar-chart-3" size={14} color={accent} />
                     <Text style={[styles.loadStatusText, { color: colors.text }]}>{trainingLoad.statusLabel}</Text>
                   </View>
                 </>
@@ -855,12 +822,12 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                       })}
                     </View>
                     <View style={[styles.loadStatus, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                      <BarChart3 size={14} color={accent} />
+                      <PlatformIcon name="bar-chart-3" size={14} color={accent} />
                       <Text style={[styles.loadStatusText, { color: colors.text }]}>Building</Text>
                     </View>
                   </View>
                   <View style={styles.exampleUnlockRow}>
-                    <BarChart3 size={14} color={colors.textMuted} strokeWidth={1.5} />
+                    <PlatformIcon name="bar-chart-3" size={14} color={colors.textMuted} strokeWidth={1.5} />
                     <Text style={[styles.exampleUnlockText, { color: colors.textMuted }]}>Complete workouts to track training load</Text>
                   </View>
                 </View>
@@ -869,7 +836,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
             {!hasPro && (
               <TouchableOpacity style={styles.proOverlaySmall} onPress={() => showProGate('training_load', openPaywall)} activeOpacity={0.9}>
-                <Crown size={14} color={PRO_GOLD} />
+                <PlatformIcon name="crown" size={14} color={PRO_GOLD} />
                 <Text style={styles.proOverlayText}>Full trends with Pro</Text>
               </TouchableOpacity>
             )}
@@ -907,7 +874,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                       </View>
                       <View style={styles.liftRight}>
                         <Text style={[styles.liftE1rm, { color: accent }]}>{[185, 225, 275][i]} lb</Text>
-                        <TrendingUp size={14} color="#22c55e" />
+                        <PlatformIcon name="trending-up" size={14} color="#22c55e" />
                       </View>
                     </View>
                   ))}
@@ -915,7 +882,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
                 {/* Unlock prompt */}
                 <View style={styles.exampleUnlockRow}>
-                  <BarChart3 size={14} color={colors.textMuted} strokeWidth={1.5} />
+                  <PlatformIcon name="bar-chart-3" size={14} color={colors.textMuted} strokeWidth={1.5} />
                   <Text style={[styles.exampleUnlockText, { color: colors.textMuted }]}>Complete a workout to see your real insights</Text>
                 </View>
               </View>
@@ -960,9 +927,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                         </View>
                         <View style={styles.liftRight}>
                           <Text style={[styles.liftE1rm, { color: accent }]}>{lift.e1rm} lb</Text>
-                          {lift.trend === 'up' && <TrendingUp size={14} color="#22c55e" />}
-                          {lift.trend === 'down' && <TrendingDown size={14} color="#ef4444" />}
-                          {lift.trend === 'flat' && <Minus size={14} color={colors.textMuted} />}
+                          {lift.trend === 'up' && <PlatformIcon name="trending-up" size={14} color="#22c55e" />}
+                          {lift.trend === 'down' && <PlatformIcon name="trending-down" size={14} color="#ef4444" />}
+                          {lift.trend === 'flat' && <PlatformIcon name="minus" size={14} color={colors.textMuted} />}
                         </View>
                       </View>
                     ))}
@@ -1018,22 +985,22 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
           <GlassCard>
             <View style={styles.sectionInner}>
               <View style={styles.healthHeader}>
-                <HeartPulse size={12} color="#ef4444" strokeWidth={2} />
+                <PlatformIcon name="heart-pulse" size={12} color="#ef4444" strokeWidth={2} />
                 <InfoHeader title={Platform.OS === 'ios' ? 'APPLE HEALTH — TODAY' : 'HEALTH CONNECT — TODAY'} desc={Platform.OS === 'ios' ? (CARD_INFO['APPLE HEALTH — TODAY'] ?? '') : (CARD_INFO['HEALTH CONNECT — TODAY'] ?? '')} noMargin />
               </View>
               <View style={styles.healthCards}>
                 <View style={[styles.healthCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                  <Footprints size={18} color="#3b82f6" strokeWidth={1.8} />
+                  <PlatformIcon name="footprints" size={18} color="#3b82f6" strokeWidth={1.8} />
                   <Text style={[styles.healthValue, { color: colors.text }]}>{healthLoading ? '—' : healthSteps.toLocaleString()}</Text>
                   <Text style={[styles.healthLabel, { color: colors.textSecondary }]}>Steps</Text>
                 </View>
                 <View style={[styles.healthCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                  <Activity size={18} color="#f87116" strokeWidth={1.8} />
+                  <PlatformIcon name="activity" size={18} color="#f87116" strokeWidth={1.8} />
                   <Text style={[styles.healthValue, { color: colors.text }]}>{healthLoading ? '—' : `${healthCalories}`}</Text>
                   <Text style={[styles.healthLabel, { color: colors.textSecondary }]}>Cal Burned</Text>
                 </View>
                 <View style={[styles.healthCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
-                  <HeartPulse size={18} color="#ef4444" strokeWidth={1.8} />
+                  <PlatformIcon name="heart-pulse" size={18} color="#ef4444" strokeWidth={1.8} />
                   <Text style={[styles.healthValue, { color: colors.text }]}>{healthLoading ? '—' : healthHeartRate !== null ? `${healthHeartRate}` : '—'}</Text>
                   <Text style={[styles.healthLabel, { color: colors.textSecondary }]}>Resting BPM</Text>
                 </View>
@@ -1208,7 +1175,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                             </Svg>
                             <View style={styles.milestoneIconCenter}>
                               {m.completed ? (
-                                <Check size={16} color="#eab308" />
+                                <PlatformIcon name="check" size={16} color="#eab308" />
                               ) : (
                                 getMilestoneIcon(m.icon, colors.textMuted, 16)
                               )}
@@ -1253,7 +1220,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                                 <SvgCircle cx={22} cy={22} r={18} fill="none" stroke={b.earned ? '#eab308' : `${accent}66`} strokeWidth={2.5} strokeDasharray={`${circumference}`} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 22 22)" />
                               </Svg>
                               <View style={styles.badgeIconCenter}>
-                                {b.earned ? <Check size={14} color="#eab308" /> : getMilestoneIcon(b.icon, colors.textMuted, 14)}
+                                {b.earned ? <PlatformIcon name="check" size={14} color="#eab308" /> : getMilestoneIcon(b.icon, colors.textMuted, 14)}
                               </View>
                             </View>
                             <Text style={[styles.badgeName, { color: b.earned ? '#eab308' : colors.text }]} numberOfLines={1}>{b.name}</Text>
@@ -1562,9 +1529,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                           <View style={styles.prRowRight}>
                             <Text style={[styles.prE1rm, { color: accent }]}>~{pr.e1rm} lb</Text>
                             <View style={styles.prTrend}>
-                              {pr.trend === 'up' && <TrendingUp size={10} color="#22c55e" />}
-                              {pr.trend === 'down' && <TrendingDown size={10} color="#ef4444" />}
-                              {pr.trend === 'flat' && <Minus size={10} color={colors.textMuted} />}
+                              {pr.trend === 'up' && <PlatformIcon name="trending-up" size={10} color="#22c55e" />}
+                              {pr.trend === 'down' && <PlatformIcon name="trending-down" size={10} color="#ef4444" />}
+                              {pr.trend === 'flat' && <PlatformIcon name="minus" size={10} color={colors.textMuted} />}
                             </View>
                           </View>
                         </View>
@@ -1575,13 +1542,13 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                 {!prShowAll && groupedPRs.length > 6 && (
                   <TouchableOpacity onPress={() => setPrShowAll(true)} activeOpacity={0.7} style={styles.showAllBtn}>
                     <Text style={[styles.showAllText, { color: accent }]}>Show all {groupedPRs.length} records</Text>
-                    <ChevronDown size={14} color={accent} />
+                    <PlatformIcon name="chevron-down" size={14} color={accent} />
                   </TouchableOpacity>
                 )}
                 {prShowAll && (
                   <TouchableOpacity onPress={() => setPrShowAll(false)} activeOpacity={0.7} style={styles.showAllBtn}>
                     <Text style={[styles.showAllText, { color: accent }]}>Show less</Text>
-                    <ChevronUp size={14} color={accent} />
+                    <PlatformIcon name="chevron-up" size={14} color={accent} />
                   </TouchableOpacity>
                 )}
               </>

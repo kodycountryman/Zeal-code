@@ -8,26 +8,27 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { X, Footprints, Flame, Zap, Dumbbell, Trophy, Target, Medal, Shield, Award, Crown, LucideIcon } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { useZealTheme } from '@/context/AppContext';
 
-const ACHIEVEMENT_ICON_MAP: Record<string, LucideIcon> = {
-  footprints: Footprints,
-  flame: Flame,
-  zap: Zap,
-  dumbbell: Dumbbell,
-  trophy: Trophy,
-  target: Target,
-  medal: Medal,
-  shield: Shield,
-  award: Award,
-  crown: Crown,
+const ACHIEVEMENT_ICON_NAMES: Record<string, AppIconName> = {
+  footprints: 'footprints',
+  flame: 'flame',
+  zap: 'zap',
+  dumbbell: 'dumbbell',
+  trophy: 'trophy',
+  target: 'target',
+  medal: 'medal',
+  shield: 'shield',
+  award: 'award',
+  crown: 'crown',
 };
 
 export function getAchievementIcon(iconName: string, color: string, size: number) {
-  const IconComponent = ACHIEVEMENT_ICON_MAP[iconName];
-  if (!IconComponent) return null;
-  return <IconComponent size={size} color={color} />;
+  const name = ACHIEVEMENT_ICON_NAMES[iconName];
+  if (!name) return null;
+  return <PlatformIcon name={name} size={size} color={color} />;
 }
 
 export interface Achievement {
@@ -145,7 +146,7 @@ export default function AchievementModal({ visible, achievement, onClose }: Prop
               ]}
             >
               <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-                <X size={18} color={colors.textSecondary} />
+                <PlatformIcon name="x" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
 
               <View

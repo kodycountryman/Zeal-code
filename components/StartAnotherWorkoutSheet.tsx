@@ -7,7 +7,7 @@ import {
   Modal,
   Animated,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS, TRAINING_SPLITS } from '@/constants/colors';
 import { WORKOUT_STYLE_KEYS as STYLE_OPTIONS } from '@/constants/workoutStyles';
@@ -76,7 +76,7 @@ export default function StartAnotherWorkoutSheet({ visible, onClose, onComplete 
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} {...panHandlers} />
           <TouchableOpacity style={styles.closeBtn} onPress={animClose} activeOpacity={0.7}>
-            <X size={20} color={colors.textSecondary} />
+            <PlatformIcon name="x" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           {/* Step 1 — Duration */}

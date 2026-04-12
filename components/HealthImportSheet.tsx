@@ -8,17 +8,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import {
-  X,
-  Clock,
-  Flame,
-  Watch,
-  ArrowDownToLine,
-  AlertCircle,
-  CheckCircle2,
-  Copy,
-  ChevronRight,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import PanDownHandle from '@/components/PanDownHandle';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
@@ -96,7 +86,7 @@ function ImportReviewCard({ item, index, total, colors, accent, isDark, onAccept
       <View style={[styles.healthInfoCard, { backgroundColor: inputBg, borderColor: colors.border }]}>
         <View style={styles.healthInfoRow}>
           <View style={[styles.healthIconWrap, { backgroundColor: `${accent}18` }]}>
-            <Watch size={18} color={accent} />
+            <PlatformIcon name="watch" size={18} color={accent} />
           </View>
           <View style={styles.healthInfoText}>
             <Text style={[styles.healthTitle, { color: colors.text }]}>
@@ -110,13 +100,13 @@ function ImportReviewCard({ item, index, total, colors, accent, isDark, onAccept
 
         <View style={styles.healthStatsRow}>
           <View style={styles.healthStat}>
-            <Clock size={13} color={colors.textSecondary} />
+            <PlatformIcon name="clock" size={13} color={colors.textSecondary} />
             <Text style={[styles.healthStatValue, { color: colors.text }]}>{formatTime(item.startDate)}</Text>
             <Text style={[styles.healthStatLabel, { color: colors.textMuted }]}>start</Text>
           </View>
           <View style={[styles.healthStatDivider, { backgroundColor: colors.border }]} />
           <View style={styles.healthStat}>
-            <Clock size={13} color={colors.textSecondary} />
+            <PlatformIcon name="clock" size={13} color={colors.textSecondary} />
             <Text style={[styles.healthStatValue, { color: colors.text }]}>{formatDuration(item.duration)}</Text>
             <Text style={[styles.healthStatLabel, { color: colors.textMuted }]}>duration</Text>
           </View>
@@ -124,7 +114,7 @@ function ImportReviewCard({ item, index, total, colors, accent, isDark, onAccept
             <>
               <View style={[styles.healthStatDivider, { backgroundColor: colors.border }]} />
               <View style={styles.healthStat}>
-                <Flame size={13} color="#f87116" />
+                <PlatformIcon name="flame" size={13} color="#f87116" />
                 <Text style={[styles.healthStatValue, { color: colors.text }]}>{Math.round(item.calories!)}</Text>
                 <Text style={[styles.healthStatLabel, { color: colors.textMuted }]}>kcal</Text>
               </View>
@@ -175,7 +165,7 @@ function ImportReviewCard({ item, index, total, colors, accent, isDark, onAccept
           <Text style={[styles.skipBtnText, { color: colors.textSecondary }]}>Skip</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.addBtn, { backgroundColor: accent }]} onPress={() => onAccept(style, selectedMuscles)} activeOpacity={0.85}>
-          <CheckCircle2 size={16} color="#fff" />
+          <PlatformIcon name="check-circle" size={16} color="#fff" />
           <Text style={styles.addBtnText}>Add to Log</Text>
         </TouchableOpacity>
       </View>
@@ -200,11 +190,11 @@ function DuplicateCard({ dup, colors, isDark, onSame, onKeepBoth, onDismiss }: D
     <View style={[styles.dupCard, { backgroundColor: warnBg, borderColor: 'rgba(245,158,11,0.28)' }]}>
       <View style={styles.dupHeader}>
         <View style={styles.dupHeaderLeft}>
-          <AlertCircle size={16} color="#f59e0b" />
+          <PlatformIcon name="alert-circle" size={16} color="#f59e0b" />
           <Text style={[styles.dupTitle, { color: colors.text }]}>Possible Duplicate</Text>
         </View>
         <TouchableOpacity onPress={onDismiss} activeOpacity={0.7} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-          <X size={16} color={colors.textMuted} />
+          <PlatformIcon name="x" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -230,11 +220,11 @@ function DuplicateCard({ dup, colors, isDark, onSame, onKeepBoth, onDismiss }: D
           )}
         </View>
 
-        <ChevronRight size={16} color={colors.textMuted} />
+        <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
 
         <View style={[styles.dupSession, { backgroundColor: infoBg, borderColor: colors.border }]}>
           <View style={[styles.dupBadge, { backgroundColor: 'rgba(34,197,94,0.12)', marginBottom: 6, flexDirection: 'row', gap: 4 }]}>
-            <Watch size={9} color="#22c55e" />
+            <PlatformIcon name="watch" size={9} color="#22c55e" />
             <Text style={[styles.dupBadgeText, { color: '#22c55e' }]}>
               {dup.healthImport.sourceName?.split(' ')[0]?.toUpperCase() ?? 'HEALTH'}
             </Text>
@@ -257,11 +247,11 @@ function DuplicateCard({ dup, colors, isDark, onSame, onKeepBoth, onDismiss }: D
           onPress={onKeepBoth}
           activeOpacity={0.7}
         >
-          <Copy size={13} color={colors.textSecondary} />
+          <PlatformIcon name="copy" size={13} color={colors.textSecondary} />
           <Text style={[styles.dupKeepBothText, { color: colors.textSecondary }]}>Keep Both</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.dupSameBtn} onPress={onSame} activeOpacity={0.85}>
-          <CheckCircle2 size={14} color="#fff" />
+          <PlatformIcon name="check-circle" size={14} color="#fff" />
           <Text style={styles.dupSameBtnText}>Same Workout</Text>
         </TouchableOpacity>
       </View>
@@ -307,7 +297,7 @@ export default function HealthImportSheet() {
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               <View style={[styles.headerIcon, { backgroundColor: `${accent}15` }]}>
-                <ArrowDownToLine size={16} color={accent} />
+                <PlatformIcon name="arrow-down-to-line" size={16} color={accent} />
               </View>
               <View>
                 <Text style={[styles.sheetTitle, { color: colors.text }]}>Health Sync</Text>
@@ -315,7 +305,7 @@ export default function HealthImportSheet() {
               </View>
             </View>
             <TouchableOpacity onPress={handleClose} activeOpacity={0.7}>
-              <X size={20} color={colors.textSecondary} />
+              <PlatformIcon name="x" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -350,7 +340,7 @@ export default function HealthImportSheet() {
             ) : (
               <View style={styles.allDoneWrap}>
                 <View style={[styles.allDoneIcon, { backgroundColor: `${accent}15` }]}>
-                  <CheckCircle2 size={32} color={accent} />
+                  <PlatformIcon name="check-circle" size={32} color={accent} />
                 </View>
                 <Text style={[styles.allDoneTitle, { color: colors.text }]}>All caught up!</Text>
                 <Text style={[styles.allDoneSub, { color: colors.textSecondary }]}>

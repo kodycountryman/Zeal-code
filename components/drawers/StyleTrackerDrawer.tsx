@@ -3,18 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import GlassCard from '@/components/GlassCard';
 import Svg, { Polyline, Line, Circle as SvgCircle } from 'react-native-svg';
-import {
-  Dumbbell,
-  Flame,
-  Zap,
-  Heart,
-  Activity,
-  Target,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  X,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { TouchableOpacity } from 'react-native';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
@@ -501,7 +490,7 @@ export default function StyleTrackerDrawer({ visible, onClose }: Props) {
         <Text style={[styles.headerTitle, { color: colors.text }]}>Deep Dive</Text>
       </View>
       <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn}>
-        <X size={22} color={colors.textSecondary} />
+        <PlatformIcon name="x" size={22} color={colors.textSecondary} />
       </TouchableOpacity>
     </View>
   );

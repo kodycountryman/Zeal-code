@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import CustomSlider from '@/components/CustomSlider';
 import GlassCard from '@/components/GlassCard';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import { X, ChevronRight, ChevronDown, Palette, Dumbbell, BookOpen, HelpCircle, Crown, Sparkles, HeartPulse, Bell, BellOff, Clock, ChevronUp, LogOut, Skull, Trash2, Shield, FileText, Download, Lightbulb, Compass } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY, PRO_STYLES, PRO_STYLES_SET } from '@/services/proGate';
 import { useZealTheme, useAppContext, type NotifPrefs } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -391,7 +391,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
         activeOpacity={0.7}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <X size={16} color="#888" strokeWidth={2.5} />
+        <PlatformIcon name="x" size={16} color="#888" strokeWidth={2.5} />
       </TouchableOpacity>
       <View style={styles.headerTitleWrap}>
         <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
@@ -442,7 +442,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                     >
                       {s}
                     </Text>
-                    {isLocked && <Crown size={11} color={PRO_GOLD} strokeWidth={2} />}
+                    {isLocked && <PlatformIcon name="crown" size={11} color={PRO_GOLD} strokeWidth={2} />}
                   </View>
                 </TouchableOpacity>
               );
@@ -462,7 +462,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               >
                 {styleDesc}
               </Text>
-              <ChevronDown
+              <PlatformIcon
+                name="chevron-down"
                 size={14}
                 color={colors.textMuted}
                 style={{ transform: [{ rotate: descExpanded ? '180deg' : '0deg' }], marginLeft: 6 }}
@@ -569,8 +570,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
           {[
             {
               iconComponent: hasPro
-                ? <Sparkles size={18} color="#f5c842" />
-                : <Crown size={18} color={PRO_GOLD} />,
+                ? <PlatformIcon name="sparkles" size={18} color="#f5c842" />
+                : <PlatformIcon name="crown" size={18} color={PRO_GOLD} />,
               label: 'Subscription',
               sub: hasPro ? 'Zeal Pro' : 'Upgrade to Pro',
               onPress: () => showProGate('subscription', openPaywall),
@@ -578,11 +579,11 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               testID: 'settings-subscription',
             },
             // COLOR THEME ROW — temporarily hidden (ColorThemeDrawer.tsx preserved, re-add this block to restore)
-            // { iconComponent: <Palette size={18} color={colors.textSecondary} />, label: 'Color Theme', sub: appThemeLabel, onPress: onOpenColorTheme, testID: 'settings-color-theme' },
+            // { iconComponent: <PlatformIcon name="palette" size={18} color={colors.textSecondary} />, label: 'Color Theme', sub: appThemeLabel, onPress: onOpenColorTheme, testID: 'settings-color-theme' },
             {
               iconComponent: hasPro
-                ? <Dumbbell size={18} color={colors.textSecondary} />
-                : <Dumbbell size={18} color={colors.textMuted} />,
+                ? <PlatformIcon name="dumbbell" size={18} color={colors.textSecondary} />
+                : <PlatformIcon name="dumbbell" size={18} color={colors.textMuted} />,
               label: 'Available Equipment',
               sub: hasPro
                 ? (selectedEquipCount > 0 ? `${selectedEquipCount} items selected` : 'No equipment selected')
@@ -592,21 +593,21 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               testID: 'settings-equipment',
             },
             {
-              iconComponent: <BookOpen size={18} color={colors.textSecondary} />,
+              iconComponent: <PlatformIcon name="book-open" size={18} color={colors.textSecondary} />,
               label: 'Exercise Catalog',
               sub: 'Browse exercises & favourites',
               onPress: () => onOpenExerciseCatalog?.(),
               testID: 'settings-catalog',
             },
             {
-              iconComponent: <HelpCircle size={18} color={colors.textSecondary} />,
+              iconComponent: <PlatformIcon name="help-circle" size={18} color={colors.textSecondary} />,
               label: 'Help & FAQ',
               sub: 'FAQ, reviews, workout science',
               onPress: () => onOpenHelpFaq?.(),
               testID: 'settings-faq',
             },
             {
-              iconComponent: <Compass size={18} color={colors.textSecondary} />,
+              iconComponent: <PlatformIcon name="compass" size={18} color={colors.textSecondary} />,
               label: 'App Tour',
               sub: 'Replay the guided walkthrough',
               onPress: () => onReplayTour?.(),
@@ -630,8 +631,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                 <Text style={[styles.menuSub, { color: colors.textSecondary }]}>{item.sub}</Text>
               </View>
               {(item as any).locked
-                ? <Crown size={14} color={PRO_GOLD} strokeWidth={2} />
-                : <ChevronRight size={16} color={colors.textMuted} />}
+                ? <PlatformIcon name="crown" size={14} color={PRO_GOLD} strokeWidth={2} />
+                : <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />}
             </TouchableOpacity>
           ))}
 
@@ -643,8 +644,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               testID="settings-health-sync"
             >
               {ctx.healthConnected
-                ? <HeartPulse size={18} color="#ef4444" />
-                : <HeartPulse size={18} color={hasPro ? colors.textSecondary : colors.textMuted} />}
+                ? <PlatformIcon name="heart-pulse" size={18} color="#ef4444" />
+                : <PlatformIcon name="heart-pulse" size={18} color={hasPro ? colors.textSecondary : colors.textMuted} />}
               <View style={styles.menuText}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={[styles.menuLabel, { color: colors.text }]}>
@@ -675,8 +676,8 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               {healthConnecting
                 ? <ActivityIndicator size="small" color={colors.textSecondary} />
                 : !hasPro
-                  ? <Crown size={14} color={PRO_GOLD} strokeWidth={2} />
-                  : <ChevronRight size={16} color={colors.textMuted} />}
+                  ? <PlatformIcon name="crown" size={14} color={PRO_GOLD} strokeWidth={2} />
+                  : <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />}
             </TouchableOpacity>
           )}
         </GlassCard>
@@ -700,7 +701,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                 activeOpacity={0.7}
               >
                 <View style={styles.notifToggleLabelWrap}>
-                  <Clock size={14} color={localNotif.dailyEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
+                  <PlatformIcon name="clock" size={14} color={localNotif.dailyEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
                   <Text style={[styles.toggleLabel, { color: colors.text }]}>Daily Workout Reminder</Text>
                 </View>
                 <Switch
@@ -717,25 +718,25 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                   <View style={styles.timePickerControls}>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'hour', 1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-up" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.dailyHour % 12 || 12).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'hour', -1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-down" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <Text style={[styles.timeColon, { color: colors.textMuted }]}>:</Text>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'minute', 5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-up" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.dailyMinute).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('daily', 'minute', -5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-down" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
@@ -765,7 +766,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                 activeOpacity={0.7}
               >
                 <View style={styles.notifToggleLabelWrap}>
-                  <Bell size={14} color={localNotif.streakEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
+                  <PlatformIcon name="bell" size={14} color={localNotif.streakEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
                   <Text style={[styles.toggleLabel, { color: colors.text }]}>Streak Reminder</Text>
                 </View>
                 <Switch
@@ -782,25 +783,25 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                   <View style={styles.timePickerControls}>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'hour', 1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-up" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.streakHour % 12 || 12).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'hour', -1)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-down" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <Text style={[styles.timeColon, { color: colors.textMuted }]}>:</Text>
                     <View style={styles.timeUnit}>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'minute', 5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-up" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                       <Text style={[styles.timeValue, { color: colors.text }]}>
                         {String(localNotif.streakMinute).padStart(2, '0')}
                       </Text>
                       <TouchableOpacity onPress={() => handleTimeChange('streak', 'minute', -5)} style={styles.timeArrow} activeOpacity={0.7}>
-                        <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                        <PlatformIcon name="chevron-down" size={16} color={colors.textSecondary} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
@@ -830,7 +831,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                 activeOpacity={0.7}
               >
                 <View style={styles.notifToggleLabelWrap}>
-                  <BellOff size={14} color={localNotif.weeklySummaryEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
+                  <PlatformIcon name="bell-off" size={14} color={localNotif.weeklySummaryEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
                   <View>
                     <Text style={[styles.toggleLabel, { color: colors.text }]}>Weekly Summary</Text>
                     <Text style={[styles.toggleTag, { color: colors.textMuted }]}>Every Sunday evening</Text>
@@ -854,7 +855,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                 activeOpacity={0.7}
               >
                 <View style={styles.notifToggleLabelWrap}>
-                  <Lightbulb size={14} color={localNotif.zealTipsEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
+                  <PlatformIcon name="lightbulb" size={14} color={localNotif.zealTipsEnabled ? colors.text : colors.textMuted} strokeWidth={2} />
                   <View>
                     <Text style={[styles.toggleLabel, { color: colors.text }]}>Zeal Tips</Text>
                     <Text style={[styles.toggleTag, { color: colors.textMuted }]}>In-app coaching hints on app open</Text>
@@ -883,7 +884,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
             activeOpacity={0.7}
             testID="sign-out-btn"
           >
-            <LogOut size={18} color="#ef4444" strokeWidth={2} />
+            <PlatformIcon name="log-out" size={18} color="#ef4444" strokeWidth={2} />
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
 
@@ -895,11 +896,11 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               testID="danger-zone-toggle"
             >
               <View style={styles.dangerHeaderLeft}>
-                <Skull size={18} color="#ef4444" strokeWidth={1.8} />
+                <PlatformIcon name="skull" size={18} color="#ef4444" strokeWidth={1.8} />
                 <Text style={styles.dangerTitle}>Danger Zone</Text>
               </View>
               <Animated.View style={{ transform: [{ rotate: chevronRotateDanger }] }}>
-                <ChevronRight size={18} color="#ef4444" />
+                <PlatformIcon name="chevron-right" size={18} color="#ef4444" />
               </Animated.View>
             </TouchableOpacity>
 
@@ -911,7 +912,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
                 activeOpacity={0.8}
                 testID="delete-account-btn"
               >
-                <Trash2 size={16} color="#fff" strokeWidth={2} />
+                <PlatformIcon name="trash" size={16} color="#fff" strokeWidth={2} />
                 <Text style={styles.deleteBtnText}>Delete Account & All Data</Text>
               </TouchableOpacity>
             </Animated.View>
@@ -927,9 +928,9 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
             activeOpacity={0.7}
             testID="legal-privacy-policy"
           >
-            <Shield size={18} color={colors.textSecondary} strokeWidth={2} />
+            <PlatformIcon name="shield" size={18} color={colors.textSecondary} strokeWidth={2} />
             <Text style={[styles.signOutText, { color: colors.text }]}>Privacy Policy</Text>
-            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+            <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -938,9 +939,9 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
             activeOpacity={0.7}
             testID="legal-terms-of-service"
           >
-            <FileText size={18} color={colors.textSecondary} strokeWidth={2} />
+            <PlatformIcon name="file-text" size={18} color={colors.textSecondary} strokeWidth={2} />
             <Text style={[styles.signOutText, { color: colors.text }]}>Terms of Service</Text>
-            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+            <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -949,9 +950,9 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
             activeOpacity={0.7}
             testID="legal-export-data"
           >
-            <Download size={18} color={colors.textSecondary} strokeWidth={2} />
+            <PlatformIcon name="download" size={18} color={colors.textSecondary} strokeWidth={2} />
             <Text style={[styles.signOutText, { color: colors.text }]}>Export My Data</Text>
-            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+            <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
         </GlassCard>
 

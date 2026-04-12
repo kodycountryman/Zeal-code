@@ -12,7 +12,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Lightbulb, X } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useAppContext, useZealTheme } from '@/context/AppContext';
 import { ZEAL_TIPS } from '@/constants/zealTips';
 import { useAppTour } from '@/context/AppTourContext';
@@ -160,7 +160,7 @@ export default function ZealTipBanner() {
             {/* Header row */}
             <View style={styles.headerRow}>
               <View style={styles.iconWrap}>
-                <Lightbulb size={14} color={ACCENT} strokeWidth={2.5} />
+                <PlatformIcon name="lightbulb" size={14} color={ACCENT} strokeWidth={2.5} />
               </View>
               <Text style={styles.tagLabel}>Zeal Tip</Text>
               <TouchableOpacity
@@ -168,7 +168,7 @@ export default function ZealTipBanner() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.closeBtn}
               >
-                <X size={13} color="rgba(255,255,255,0.4)" strokeWidth={2.5} />
+                <PlatformIcon name="x" size={13} color="rgba(255,255,255,0.4)" strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
 
@@ -197,7 +197,7 @@ export default function ZealTipBanner() {
           <View style={[styles.modalCard, { backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
             {/* Icon */}
             <View style={styles.modalIconWrap}>
-              <Lightbulb size={26} color={ACCENT} strokeWidth={2} />
+              <PlatformIcon name="lightbulb" size={26} color={ACCENT} strokeWidth={2} />
             </View>
 
             {/* Title */}

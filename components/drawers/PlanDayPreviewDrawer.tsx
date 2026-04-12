@@ -7,15 +7,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import {
-  Layers,
-  Clock,
-  Dumbbell,
-  ArrowLeftRight,
-  RotateCcw,
-  Circle,
-  ChevronRight,
-} from 'lucide-react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
@@ -223,11 +214,11 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
   const renderGroupBadge = (type: 'superset' | 'circuit' | 'rounds' | null) => {
     if (!type) return null;
-    const Icon = type === 'superset' ? ArrowLeftRight : type === 'circuit' ? RotateCcw : Circle;
+    const iconName = type === 'superset' ? 'arrow-left-right' : type === 'circuit' ? 'rotate-ccw' : 'circle';
     const label = type === 'superset' ? 'SUPERSET' : type === 'circuit' ? 'CIRCUIT' : 'ROUNDS';
     return (
       <View style={[styles.groupTag, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
-        <Icon size={10} color={colors.textMuted} />
+        <PlatformIcon name={iconName as any} size={10} color={colors.textMuted} />
         <Text style={[styles.groupTagText, { color: colors.textSecondary }]}>{label}</Text>
       </View>
     );
@@ -315,18 +306,18 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         <View style={styles.statsRow}>
           {exerciseCount > 0 && (
             <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
-              <Layers size={13} color={colors.textMuted} />
+              <PlatformIcon name="layers" size={13} color={colors.textMuted} />
               <Text style={[styles.statText, { color: colors.text }]}>{exerciseCount} exercises</Text>
             </View>
           )}
           {warmupCount > 0 && (
             <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
-              <Dumbbell size={13} color={colors.textMuted} />
+              <PlatformIcon name="dumbbell" size={13} color={colors.textMuted} />
               <Text style={[styles.statText, { color: colors.text }]}>{warmupCount} warm-up</Text>
             </View>
           )}
           <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
-            <Clock size={13} color={colors.textMuted} />
+            <PlatformIcon name="clock" size={13} color={colors.textMuted} />
             <Text style={[styles.statText, { color: colors.text }]}>{day.target_duration} min</Text>
           </View>
         </View>
@@ -410,7 +401,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
           activeOpacity={0.85}
         >
           <Text style={styles.startBtnText}>Start This Workout</Text>
-          <ChevronRight size={16} color="#fff" />
+          <PlatformIcon name="chevron-right" size={16} color="#fff" />
         </TouchableOpacity>
 
         <View style={{ height: 20 }} />

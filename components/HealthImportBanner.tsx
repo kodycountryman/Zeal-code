@@ -7,7 +7,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { ArrowDownToLine, AlertCircle, ChevronRight } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
@@ -104,8 +104,8 @@ function HealthImportBanner() {
       >
         <View style={[styles.iconWrap, { backgroundColor: `${bannerColor}20` }]}>
           {hasDups
-            ? <AlertCircle size={16} color={bannerColor} />
-            : <ArrowDownToLine size={16} color={bannerColor} />
+            ? <PlatformIcon name="alert-circle" size={16} color={bannerColor} />
+            : <PlatformIcon name="arrow-down-to-line" size={16} color={bannerColor} />
           }
         </View>
 
@@ -120,7 +120,7 @@ function HealthImportBanner() {
 
         <View style={[styles.reviewChip, { backgroundColor: `${bannerColor}20` }]}>
           <Text style={[styles.reviewText, { color: bannerColor }]}>Review</Text>
-          <ChevronRight size={12} color={bannerColor} />
+          <PlatformIcon name="chevron-right" size={12} color={bannerColor} />
         </View>
       </TouchableOpacity>
     </Animated.View>

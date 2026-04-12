@@ -10,24 +10,7 @@ import {
   UIManager,
 } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import {
-  X,
-  Search,
-  ChevronDown,
-  ChevronRight,
-  ThumbsUp,
-  ThumbsDown,
-  Dumbbell,
-  Zap,
-  Flame,
-  Wind,
-  Target,
-  TrendingUp,
-  Move,
-  Layers,
-  Info,
-  User,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate } from '@/services/proGate';
@@ -152,28 +135,28 @@ function getPrimaryMuscleDisplay(ex: ZealExercise): string {
 function getCategoryIcon(catId: string, color: string) {
   const size = 18;
   switch (catId) {
-    case 'chest':    return <Target size={size} color={color} />;
-    case 'back':     return <Layers size={size} color={color} />;
-    case 'shoulders': return <Zap size={size} color={color} />;
-    case 'arms':     return <Dumbbell size={size} color={color} />;
-    case 'legs':     return <TrendingUp size={size} color={color} />;
-    case 'core':     return <Move size={size} color={color} />;
-    case 'cardio':   return <Flame size={size} color={color} />;
-    case 'mobility': return <Wind size={size} color={color} />;
-    default:         return <Target size={size} color={color} />;
+    case 'chest':    return <PlatformIcon name="target" size={size} color={color} />;
+    case 'back':     return <PlatformIcon name="layers" size={size} color={color} />;
+    case 'shoulders': return <PlatformIcon name="zap" size={size} color={color} />;
+    case 'arms':     return <PlatformIcon name="dumbbell" size={size} color={color} />;
+    case 'legs':     return <PlatformIcon name="trending-up" size={size} color={color} />;
+    case 'core':     return <PlatformIcon name="move" size={size} color={color} />;
+    case 'cardio':   return <PlatformIcon name="flame" size={size} color={color} />;
+    case 'mobility': return <PlatformIcon name="wind" size={size} color={color} />;
+    default:         return <PlatformIcon name="target" size={size} color={color} />;
   }
 }
 
 function getEquipCategoryIcon(catId: string, color: string) {
   const size = 18;
   switch (catId) {
-    case 'barbell':       return <Target size={size} color={color} />;
-    case 'dumbbell_kb':   return <Dumbbell size={size} color={color} />;
-    case 'bodyweight':    return <User size={size} color={color} />;
-    case 'cardio_equip':  return <Flame size={size} color={color} />;
-    case 'machine_cable': return <Layers size={size} color={color} />;
-    case 'other':         return <Zap size={size} color={color} />;
-    default:              return <Target size={size} color={color} />;
+    case 'barbell':       return <PlatformIcon name="target" size={size} color={color} />;
+    case 'dumbbell_kb':   return <PlatformIcon name="dumbbell" size={size} color={color} />;
+    case 'bodyweight':    return <PlatformIcon name="user" size={size} color={color} />;
+    case 'cardio_equip':  return <PlatformIcon name="flame" size={size} color={color} />;
+    case 'machine_cable': return <PlatformIcon name="layers" size={size} color={color} />;
+    case 'other':         return <PlatformIcon name="zap" size={size} color={color} />;
+    default:              return <PlatformIcon name="target" size={size} color={color} />;
   }
 }
 
@@ -380,7 +363,7 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
             <Text style={[styles.exName, { color: isDisliked ? colors.textMuted : colors.text }]} numberOfLines={1}>
               {ex.name}
             </Text>
-            <Info size={13} color={colors.textMuted} strokeWidth={2} />
+            <PlatformIcon name="info" size={13} color={colors.textMuted} strokeWidth={2} />
           </View>
           <View style={styles.exMetaRow}>
             {showMuscle && (
@@ -400,7 +383,7 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
             activeOpacity={0.7}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
-            <ThumbsUp size={16} color={isLiked ? '#fff' : colors.textMuted} strokeWidth={2} />
+            <PlatformIcon name="thumbs-up" size={16} color={isLiked ? '#fff' : colors.textMuted} strokeWidth={2} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.prefBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }, isDisliked && styles.prefBtnDisliked]}
@@ -408,7 +391,7 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
             activeOpacity={0.7}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
-            <ThumbsDown size={16} color={isDisliked ? '#fff' : colors.textMuted} strokeWidth={2} />
+            <PlatformIcon name="thumbs-down" size={16} color={isDisliked ? '#fff' : colors.textMuted} strokeWidth={2} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -424,15 +407,15 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
         activeOpacity={0.7}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <X size={16} color="#888" strokeWidth={2.5} />
+        <PlatformIcon name="x" size={16} color="#888" strokeWidth={2.5} />
       </TouchableOpacity>
       <View style={styles.headerTitleWrap}>
         <Text style={[styles.title, { color: colors.text }]}>Exercise Catalog</Text>
         <View style={styles.subtitleRow}>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{totalCount} exercises · tap </Text>
-          <ThumbsUp size={11} color="#22c55e" strokeWidth={2.5} />
+          <PlatformIcon name="thumbs-up" size={11} color="#22c55e" strokeWidth={2.5} />
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}> / </Text>
-          <ThumbsDown size={11} color="#ef4444" strokeWidth={2.5} />
+          <PlatformIcon name="thumbs-down" size={11} color="#ef4444" strokeWidth={2.5} />
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}> to tune workouts</Text>
         </View>
       </View>
@@ -466,7 +449,7 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
 
           {/* ── Search ── */}
           <View style={[styles.searchContainer, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <Search size={16} color={colors.textSecondary} />
+            <PlatformIcon name="search" size={16} color={colors.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
               placeholder={activeTab === 'muscle' ? 'Search exercises, muscles...' : 'Search exercises, equipment...'}
@@ -477,7 +460,7 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X size={14} color={colors.textSecondary} />
+                <PlatformIcon name="x" size={14} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -485,11 +468,11 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
           {/* ── Legend ── */}
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
-              <ThumbsUp size={11} color="#22c55e" strokeWidth={2.5} />
+              <PlatformIcon name="thumbs-up" size={11} color="#22c55e" strokeWidth={2.5} />
               <Text style={[styles.legendText, { color: colors.textSecondary }]}>Liked — always included</Text>
             </View>
             <View style={styles.legendItem}>
-              <ThumbsDown size={11} color="#ef4444" strokeWidth={2.5} />
+              <PlatformIcon name="thumbs-down" size={11} color="#ef4444" strokeWidth={2.5} />
               <Text style={[styles.legendText, { color: colors.textSecondary }]}>Disliked — never included</Text>
             </View>
           </View>
@@ -499,7 +482,7 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
             <>
               {!hasAnyMuscleResults && (
                 <View style={styles.emptyState}>
-                  <Search size={32} color={colors.textMuted} strokeWidth={1.5} />
+                  <PlatformIcon name="search" size={32} color={colors.textMuted} strokeWidth={1.5} />
                   <Text style={[styles.emptyTitle, { color: colors.text }]}>No exercises found</Text>
                   <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
                     Try a different muscle, name, or equipment type
@@ -531,19 +514,19 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
                           <Text style={[styles.catCount, { color: colors.textSecondary }]}>{totalInCat} exercises</Text>
                           {likedCount > 0 && (
                             <View style={[styles.miniPill, { backgroundColor: '#22c55e20' }]}>
-                              <ThumbsUp size={9} color="#22c55e" strokeWidth={2.5} />
+                              <PlatformIcon name="thumbs-up" size={9} color="#22c55e" strokeWidth={2.5} />
                               <Text style={[styles.miniPillText, { color: '#22c55e' }]}>{likedCount}</Text>
                             </View>
                           )}
                           {dislikedCount > 0 && (
                             <View style={[styles.miniPill, { backgroundColor: '#ef444420' }]}>
-                              <ThumbsDown size={9} color="#ef4444" strokeWidth={2.5} />
+                              <PlatformIcon name="thumbs-down" size={9} color="#ef4444" strokeWidth={2.5} />
                               <Text style={[styles.miniPillText, { color: '#ef4444' }]}>{dislikedCount}</Text>
                             </View>
                           )}
                         </View>
                       </View>
-                      <ChevronRight size={16} color={isExpanded ? accent : colors.textMuted} style={isExpanded ? styles.chevronRotated : undefined} />
+                      <PlatformIcon name="chevron-right" size={16} color={isExpanded ? accent : colors.textMuted} style={isExpanded ? styles.chevronRotated : undefined} />
                     </TouchableOpacity>
 
                     {isExpanded && (
@@ -563,14 +546,14 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
                               >
                                 <View style={[styles.bucketIconWrap, { backgroundColor: isEquipExpanded ? `${accent}18` : iconBg }]}>
                                   {/* small neutral icon per bucket type */}
-                                  {bucket.id === 'barbell' && <Target size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
-                                  {bucket.id === 'machine_cable' && <Layers size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
-                                  {bucket.id === 'dumbbell_kb' && <Dumbbell size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
-                                  {bucket.id === 'bodyweight' && <User size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
+                                  {bucket.id === 'barbell' && <PlatformIcon name="target" size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
+                                  {bucket.id === 'machine_cable' && <PlatformIcon name="layers" size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
+                                  {bucket.id === 'dumbbell_kb' && <PlatformIcon name="dumbbell" size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
+                                  {bucket.id === 'bodyweight' && <PlatformIcon name="user" size={13} color={isEquipExpanded ? accent : colors.textMuted} />}
                                 </View>
                                 <Text style={[styles.bucketLabel, { color: isEquipExpanded ? accent : colors.textSecondary }]}>{bucket.label}</Text>
                                 <Text style={[styles.bucketCount, { color: colors.textMuted }]}>{exercises.length}</Text>
-                                <ChevronDown size={13} color={isEquipExpanded ? accent : colors.textMuted} style={isEquipExpanded ? styles.chevronUp : undefined} />
+                                <PlatformIcon name="chevron-down" size={13} color={isEquipExpanded ? accent : colors.textMuted} style={isEquipExpanded ? styles.chevronUp : undefined} />
                               </TouchableOpacity>
                               {isEquipExpanded && exercises.map((ex, idx) => renderExerciseRow(ex, idx, exercises.length))}
                             </View>
@@ -589,7 +572,7 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
             <>
               {!hasAnyEquipResults && (
                 <View style={styles.emptyState}>
-                  <Search size={32} color={colors.textMuted} strokeWidth={1.5} />
+                  <PlatformIcon name="search" size={32} color={colors.textMuted} strokeWidth={1.5} />
                   <Text style={[styles.emptyTitle, { color: colors.text }]}>No exercises found</Text>
                   <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
                     Try a different exercise name or muscle
@@ -620,19 +603,19 @@ export default function ExerciseCatalogDrawer({ visible, onClose }: Props) {
                           <Text style={[styles.catCount, { color: colors.textSecondary }]}>{exercises.length} exercises</Text>
                           {likedCount > 0 && (
                             <View style={[styles.miniPill, { backgroundColor: '#22c55e20' }]}>
-                              <ThumbsUp size={9} color="#22c55e" strokeWidth={2.5} />
+                              <PlatformIcon name="thumbs-up" size={9} color="#22c55e" strokeWidth={2.5} />
                               <Text style={[styles.miniPillText, { color: '#22c55e' }]}>{likedCount}</Text>
                             </View>
                           )}
                           {dislikedCount > 0 && (
                             <View style={[styles.miniPill, { backgroundColor: '#ef444420' }]}>
-                              <ThumbsDown size={9} color="#ef4444" strokeWidth={2.5} />
+                              <PlatformIcon name="thumbs-down" size={9} color="#ef4444" strokeWidth={2.5} />
                               <Text style={[styles.miniPillText, { color: '#ef4444' }]}>{dislikedCount}</Text>
                             </View>
                           )}
                         </View>
                       </View>
-                      <ChevronRight size={16} color={isExpanded ? accent : colors.textMuted} style={isExpanded ? styles.chevronRotated : undefined} />
+                      <PlatformIcon name="chevron-right" size={16} color={isExpanded ? accent : colors.textMuted} style={isExpanded ? styles.chevronRotated : undefined} />
                     </TouchableOpacity>
 
                     {isExpanded && (

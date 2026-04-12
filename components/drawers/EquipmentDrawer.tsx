@@ -7,7 +7,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { X, ChevronDown, ChevronUp, Plus, Check, User, Building2, Trash2 } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useZealTheme, useAppContext, SavedGym } from '@/context/AppContext';
 import { EQUIPMENT_CATEGORIES, ALL_EQUIPMENT_IDS } from '@/mocks/equipmentData';
@@ -219,7 +219,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
         activeOpacity={0.7}
         hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
       >
-        <X size={18} color={colors.textSecondary} strokeWidth={2} />
+        <PlatformIcon name="x" size={18} color={colors.textSecondary} strokeWidth={2} />
       </TouchableOpacity>
       <View style={styles.headerCenter}>
         <Text style={[styles.title, { color: colors.text }]}>Equipment</Text>
@@ -251,7 +251,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
             onPress={handleNoEquipment}
             activeOpacity={0.7}
           >
-            <User size={18} color={isNoEquipActive ? accent : colors.textMuted} />
+            <PlatformIcon name="user" size={18} color={isNoEquipActive ? accent : colors.textMuted} />
             <View>
               <Text style={[styles.presetTitle, { color: isNoEquipActive ? accent : colors.text }]}>No Equipment</Text>
               <Text style={[styles.presetSub, { color: colors.textMuted }]}>Bodyweight only</Text>
@@ -266,7 +266,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
             onPress={handleCommercialGym}
             activeOpacity={0.7}
           >
-            <Building2 size={18} color={allSelected ? accent : colors.textMuted} />
+            <PlatformIcon name="building" size={18} color={allSelected ? accent : colors.textMuted} />
             <View>
               <Text style={[styles.presetTitle, { color: allSelected ? accent : colors.text }]}>Commercial Gym</Text>
               <Text style={[styles.presetSub, { color: colors.textMuted }]}>All equipment</Text>
@@ -306,7 +306,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
                   styles.gymCheckCircle,
                   { borderColor: isActive ? accent : colors.border, backgroundColor: isActive ? accent : 'transparent' },
                 ]}>
-                  {isActive && <Check size={10} color="#fff" strokeWidth={3} />}
+                  {isActive && <PlatformIcon name="check" size={10} color="#fff" strokeWidth={3} />}
                 </View>
                 <View style={styles.gymInfo}>
                   <Text style={[styles.gymName, { color: colors.text }]}>{gym.name}</Text>
@@ -317,7 +317,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
                   activeOpacity={0.7}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                  <Trash2 size={15} color={colors.textMuted} />
+                  <PlatformIcon name="trash" size={15} color={colors.textMuted} />
                 </TouchableOpacity>
               </TouchableOpacity>
             );
@@ -347,7 +347,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <X size={15} color={colors.textMuted} />
+                <PlatformIcon name="x" size={15} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -359,7 +359,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
               onPress={() => setAddGymMode(true)}
               activeOpacity={0.7}
             >
-              <Plus size={14} color={colors.textSecondary} />
+              <PlatformIcon name="plus" size={14} color={colors.textSecondary} />
               <Text style={[styles.saveGymBtnText, { color: colors.textSecondary }]}>
                 Add New Gym Preset
               </Text>
@@ -400,8 +400,8 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
                     <Text style={[styles.catSelectedCount, { color: accent }]}>{selectedInCat}</Text>
                   )}
                   {isExpanded
-                    ? <ChevronUp size={17} color={colors.textMuted} />
-                    : <ChevronDown size={17} color={colors.textMuted} />
+                    ? <PlatformIcon name="chevron-up" size={17} color={colors.textMuted} />
+                    : <PlatformIcon name="chevron-down" size={17} color={colors.textMuted} />
                   }
                 </View>
               </TouchableOpacity>
@@ -427,7 +427,7 @@ export default function EquipmentDrawer({ visible, onClose }: Props) {
                           styles.checkbox,
                           { borderColor: isOn ? accent : colors.border, backgroundColor: isOn ? accent : 'transparent' },
                         ]}>
-                          {isOn && <Check size={12} color="#fff" strokeWidth={3} />}
+                          {isOn && <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />}
                         </View>
                       </TouchableOpacity>
                     );

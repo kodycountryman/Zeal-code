@@ -7,16 +7,7 @@ import {
 } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import {
-  X,
-  Search,
-  Plus,
-  ArrowLeftRight,
-  RotateCcw,
-  Trash2,
-  CheckCircle2,
-  ChevronRight,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { getZealExerciseDatabase, type ZealExercise } from '@/mocks/exerciseDatabase';
 import type { WorkoutExercise } from '@/services/workoutEngine';
@@ -291,7 +282,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
   // Search bar — rendered in header so it stays fixed and never scrolls away
   const searchBar = (
     <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Search size={14} color={colors.textSecondary} />
+      <PlatformIcon name="search" size={14} color={colors.textSecondary} />
       <BottomSheetTextInput
         style={[styles.searchInput, { color: colors.text }]}
         placeholder={
@@ -308,7 +299,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
       />
       {search.length > 0 && (
         <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
-          <X size={14} color={colors.textSecondary} />
+          <PlatformIcon name="x" size={14} color={colors.textSecondary} />
         </TouchableOpacity>
       )}
     </View>
@@ -323,7 +314,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
           </Text>
           {isSwapMode && (
             <View style={[styles.replacingBadge, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-              <ArrowLeftRight size={10} color={colors.textSecondary} strokeWidth={2.5} />
+              <PlatformIcon name="arrow-left-right" size={10} color={colors.textSecondary} strokeWidth={2.5} />
               <Text style={[styles.replacingText, { color: colors.text }]} numberOfLines={1}>
                 {swapSourceExercise?.name ?? ''}
               </Text>
@@ -331,7 +322,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
           )}
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={18} color={colors.textSecondary} strokeWidth={2} />
+          <PlatformIcon name="x" size={18} color={colors.textSecondary} strokeWidth={2} />
         </TouchableOpacity>
       </View>
 
@@ -341,7 +332,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
             const isActive = activeMode === m;
             const mColor = m === 'exercise' ? accent : m === 'superset' ? '#f87116' : '#8b5cf6';
             const label = m === 'exercise' ? 'Exercise' : m === 'superset' ? 'Superset' : 'Circuit';
-            const Icon = m === 'exercise' ? Plus : m === 'superset' ? ArrowLeftRight : RotateCcw;
+            const iconName = m === 'exercise' ? 'plus' as const : m === 'superset' ? 'arrow-left-right' as const : 'rotate-ccw' as const;
             return (
               <TouchableOpacity
                 key={m}
@@ -353,7 +344,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
                 onPress={() => handleSwitchMode(m)}
                 activeOpacity={0.7}
               >
-                <Icon size={13} color={isActive ? mColor : colors.textSecondary} />
+                <PlatformIcon name={iconName} size={13} color={isActive ? mColor : colors.textSecondary} />
                 <Text style={[styles.modePillText, { color: isActive ? mColor : colors.textSecondary }]}>{label}</Text>
               </TouchableOpacity>
             );
@@ -383,8 +374,8 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
             <View style={styles.pendingHeader}>
               <View style={[styles.pendingBadge, { backgroundColor: `${modeColor}18` }]}>
                 {activeMode === 'superset'
-                  ? <ArrowLeftRight size={12} color={modeColor} />
-                  : <RotateCcw size={12} color={modeColor} />}
+                  ? <PlatformIcon name="arrow-left-right" size={12} color={modeColor} />
+                  : <PlatformIcon name="rotate-ccw" size={12} color={modeColor} />}
                 <Text style={[styles.pendingBadgeText, { color: modeColor }]}>
                   {activeMode === 'superset' ? 'SUPERSET' : 'CIRCUIT'} — {pending.length} exercises
                 </Text>
@@ -398,7 +389,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
                 <Text style={[styles.pendingName, { color: colors.text }]} numberOfLines={1}>{ex.name}</Text>
                 <Text style={[styles.pendingMuscle, { color: colors.textSecondary }]}>{primaryMuscleLabel(ex)}</Text>
                 <TouchableOpacity onPress={() => handleRemovePending(ex.id)} activeOpacity={0.7}>
-                  <Trash2 size={14} color={colors.textMuted} />
+                  <PlatformIcon name="trash" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -412,7 +403,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
               disabled={pending.length < 2}
               activeOpacity={0.85}
             >
-              <CheckCircle2 size={16} color="#fff" />
+              <PlatformIcon name="check-circle" size={16} color="#fff" />
               <Text style={styles.confirmBtnText}>
                 Add {activeMode === 'superset' ? 'Superset' : 'Circuit'} to Workout
               </Text>
@@ -460,7 +451,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
                             {primaryMuscleLabel(ex)}{equipLabel ? ` · ${equipLabel}` : ''}
                           </Text>
                         </View>
-                        <ChevronRight size={14} color={colors.textMuted} strokeWidth={2} />
+                        <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} strokeWidth={2} />
                       </TouchableOpacity>
                     );
                   })}
@@ -490,7 +481,7 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
                               {primaryMuscleLabel(ex)}{equipLabel ? ` · ${equipLabel}` : ''}
                             </Text>
                           </View>
-                          <ChevronRight size={14} color={colors.textMuted} strokeWidth={2} />
+                          <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} strokeWidth={2} />
                         </TouchableOpacity>
                       );
                     })}
@@ -530,9 +521,9 @@ export default function AddToWorkoutSheet({ visible, mode, workoutStyle, muscleG
                     </Text>
                   </View>
                   {isPending ? (
-                    <CheckCircle2 size={16} color={modeColor} />
+                    <PlatformIcon name="check-circle" size={16} color={modeColor} />
                   ) : (
-                    <ChevronRight size={14} color={colors.textMuted} strokeWidth={2} />
+                    <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} strokeWidth={2} />
                   )}
                 </TouchableOpacity>
               );

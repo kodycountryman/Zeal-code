@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Reanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { X, Dumbbell, BarChart3, Calendar, Crown } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { useSubscription, PaywallVersion } from '@/context/SubscriptionContext';
 import { PRO_GOLD } from '@/services/proGate';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -28,23 +29,23 @@ const PRIVACY_URL = 'https://zealplus.app/privacy-policy.html';
 const TRIAL_SUB = "Try everything free for 7 days.\nNo charge until Day 8 — cancel anytime.";
 const NO_TRIAL_SUB = "Everything Zeal offers, for less than\na coffee a week.";
 
-const FEATURES = [
+const FEATURES: { icon: AppIconName; label: string; sub: string }[] = [
   {
-    Icon: Dumbbell,
+    icon: 'dumbbell',
     label: 'All Workout Styles',
     sub: 'CrossFit, HIIT, Hyrox + more',
   },
   {
-    Icon: BarChart3,
+    icon: 'bar-chart-3',
     label: 'Full Analytics & Insights',
     sub: 'Training load, strength, PRs',
   },
   {
-    Icon: Calendar,
+    icon: 'calendar',
     label: 'Custom Training Plans',
     sub: 'Periodized, AI-powered',
   },
-] as const;
+];
 
 interface Props {
   visible: boolean;
@@ -130,13 +131,13 @@ export default function PaywallModal({
               activeOpacity={0.7}
               testID="paywall-close"
             >
-              <X size={16} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
+              <PlatformIcon name="x" size={16} color="rgba(255,255,255,0.45)" strokeWidth={2.5} />
             </TouchableOpacity>
 
             {/* ── Hero ── */}
             <View style={styles.hero}>
               <View style={styles.zealProRow}>
-                <Crown size={14} color={GOLD} strokeWidth={2} />
+                <PlatformIcon name="crown" size={14} color={GOLD} strokeWidth={2} />
                 <Text style={styles.zealProLabel}>ZEAL PRO</Text>
               </View>
               <Text style={styles.headline}>{"Your training,\nfully unlocked."}</Text>
@@ -145,11 +146,11 @@ export default function PaywallModal({
 
             {/* ── Features ── */}
             <View style={styles.featuresBlock}>
-              {FEATURES.map(({ Icon, label, sub }) => (
+              {FEATURES.map(({ icon, label, sub }) => (
                 <View key={label}>
                   <View style={styles.featureDivider} />
                   <View style={styles.featureRow}>
-                    <Icon size={15} color={WHITE} strokeWidth={1.75} />
+                    <PlatformIcon name={icon} size={15} color={WHITE} strokeWidth={1.75} />
                     <Text style={styles.featureLabel}>{label}</Text>
                     <Text style={styles.featureSub}>{sub}</Text>
                   </View>

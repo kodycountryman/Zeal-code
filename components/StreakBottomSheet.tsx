@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { X, Flame } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 
@@ -21,7 +21,7 @@ export default function StreakBottomSheet({ visible, streak, onClose }: Props) {
   const header = (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        <Flame size={28} color={accent} fill={accent} />
+        <PlatformIcon name="flame" size={28} color={accent} fill={accent} />
         <View>
           <Text style={[styles.streakTitle, { color: colors.text }]}>
             {streak}-Day Streak
@@ -32,7 +32,7 @@ export default function StreakBottomSheet({ visible, streak, onClose }: Props) {
         </View>
       </View>
       <TouchableOpacity onPress={onClose} testID="streak-close" style={styles.closeBtn}>
-        <X size={20} color={colors.textSecondary} />
+        <PlatformIcon name="x" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
     </View>
   );

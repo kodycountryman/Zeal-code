@@ -15,27 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import {
-  ArrowLeft,
-  Check,
-  Dumbbell,
-  Building2,
-  Home,
-  User,
-  Bell,
-  TrendingUp,
-  Flame,
-  Activity,
-  Leaf,
-  Trophy,
-  Heart,
-  Wind,
-  Zap,
-  Target,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react-native';
-import type { LucideIcon } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppContext } from '@/context/AppContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -72,13 +53,13 @@ const HEIGHTS_IN = Array.from({ length: 12 }, (_, i) => i);
 const WEIGHTS_LBS = Array.from({ length: 321 }, (_, i) => i + 80);
 const WEIGHTS_KG = Array.from({ length: 181 }, (_, i) => Math.round((i + 36) * 0.453592 * 10) / 10).filter((v, i, a) => a.indexOf(v) === i);
 
-const GOALS: { key: Goal; Icon: LucideIcon }[] = [
-  { key: 'Build Muscle', Icon: Dumbbell },
-  { key: 'Get Stronger', Icon: TrendingUp },
-  { key: 'Lose Weight', Icon: Flame },
-  { key: 'Better Conditioning', Icon: Activity },
-  { key: 'Improve Flexibility', Icon: Leaf },
-  { key: 'Sport Performance', Icon: Trophy },
+const GOALS: { key: Goal; icon: AppIconName }[] = [
+  { key: 'Build Muscle', icon: 'dumbbell' },
+  { key: 'Get Stronger', icon: 'trending-up' },
+  { key: 'Lose Weight', icon: 'flame' },
+  { key: 'Better Conditioning', icon: 'activity' },
+  { key: 'Improve Flexibility', icon: 'leaf' },
+  { key: 'Sport Performance', icon: 'trophy' },
 ];
 
 
@@ -316,7 +297,7 @@ export default function OnboardingScreen() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               testID="onboarding-back"
             >
-              <ArrowLeft size={20} color={TEXT} strokeWidth={2} />
+              <PlatformIcon name="arrow-left" size={20} color={TEXT} strokeWidth={2} />
             </TouchableOpacity>
           ) : (
             <View style={styles.backBtn} />
@@ -744,7 +725,7 @@ function StepGoal({ value, onChange }: { value: Goal | null; onChange: (v: Goal)
               activeOpacity={0.75}
             >
               <View style={[styles.goalIconWrap, sel && styles.goalIconWrapActive]}>
-                <g.Icon size={22} color={sel ? ACCENT : 'rgba(255,255,255,0.5)'} strokeWidth={2} />
+                <PlatformIcon name={g.icon} size={22} color={sel ? ACCENT : 'rgba(255,255,255,0.5)'} strokeWidth={2} />
               </View>
               <Text style={[styles.goalLabel, sel && styles.goalLabelActive]}>{g.key}</Text>
             </TouchableOpacity>
@@ -800,9 +781,9 @@ function StepGymType({
   onChange: (v: EquipmentPreset) => void;
 }) {
   const OPTIONS = [
-    { key: 'commercial' as const, label: 'Commercial Gym', desc: 'Full machines, cables, barbells', Icon: Building2 },
-    { key: 'home' as const, label: 'Home Gym', desc: 'Select your equipment in the next step', Icon: Home },
-    { key: 'crossfit' as const, label: 'CrossFit Gym', desc: 'Barbells, conditioning, functional movements', Icon: Zap },
+    { key: 'commercial' as const, label: 'Commercial Gym', desc: 'Full machines, cables, barbells', icon: 'building' as AppIconName },
+    { key: 'home' as const, label: 'Home Gym', desc: 'Select your equipment in the next step', icon: 'home' as AppIconName },
+    { key: 'crossfit' as const, label: 'CrossFit Gym', desc: 'Barbells, conditioning, functional movements', icon: 'zap' as AppIconName },
   ];
   return (
     <View style={styles.stepInner}>
@@ -821,7 +802,7 @@ function StepGymType({
               activeOpacity={0.75}
             >
               <View style={[styles.equipIconWrap, sel && { backgroundColor: ACCENT + '22' }]}>
-                <o.Icon size={18} color={sel ? ACCENT : 'rgba(255,255,255,0.5)'} strokeWidth={2} />
+                <PlatformIcon name={o.icon} size={18} color={sel ? ACCENT : 'rgba(255,255,255,0.5)'} strokeWidth={2} />
               </View>
               <View style={styles.selectCardTextCol}>
                 <Text style={[styles.selectCardLabel, sel && styles.selectCardLabelActive]}>
@@ -889,8 +870,8 @@ function StepHomeEquipment({
                     </Text>
                   )}
                   {isExpanded
-                    ? <ChevronUp size={17} color={TEXT2} />
-                    : <ChevronDown size={17} color={TEXT2} />
+                    ? <PlatformIcon name="chevron-up" size={17} color={TEXT2} />
+                    : <PlatformIcon name="chevron-down" size={17} color={TEXT2} />
                   }
                 </View>
               </TouchableOpacity>
@@ -910,7 +891,7 @@ function StepHomeEquipment({
                       styles.homeEquipCheckbox,
                       { borderColor: isOn ? ACCENT : BORDER, backgroundColor: isOn ? ACCENT : 'transparent' },
                     ]}>
-                      {isOn && <Check size={12} color="#fff" strokeWidth={3} />}
+                      {isOn && <PlatformIcon name="check" size={12} color="#fff" strokeWidth={3} />}
                     </View>
                   </TouchableOpacity>
                 );
@@ -943,7 +924,7 @@ function StepWorkoutComponents({
     label: string;
     desc: string;
     time: string;
-    Icon: React.ComponentType<{ size: number; color: string; strokeWidth: number }>;
+    icon: AppIconName;
     iconColor: string;
     enabled: boolean;
     onToggle: () => void;
@@ -952,7 +933,7 @@ function StepWorkoutComponents({
       label: 'Warm-Up',
       desc: 'Dynamic stretches and activation priming',
       time: '+5 min',
-      Icon: Flame,
+      icon: 'flame',
       iconColor: '#f87116',
       enabled: warmUp,
       onToggle: onToggleWarmUp,
@@ -961,7 +942,7 @@ function StepWorkoutComponents({
       label: 'Cool-Down',
       desc: 'Static stretching to ease post-workout',
       time: '+5 min',
-      Icon: Wind,
+      icon: 'wind',
       iconColor: '#60a5fa',
       enabled: coolDown,
       onToggle: onToggleCoolDown,
@@ -970,7 +951,7 @@ function StepWorkoutComponents({
       label: 'Recovery',
       desc: 'Foam rolling and soft tissue work',
       time: '+5 min',
-      Icon: Zap,
+      icon: 'zap',
       iconColor: '#a78bfa',
       enabled: recovery,
       onToggle: onToggleRecovery,
@@ -979,7 +960,7 @@ function StepWorkoutComponents({
       label: 'Cardio Finisher',
       desc: 'High-intensity intervals at the end',
       time: '+10 min',
-      Icon: Activity,
+      icon: 'activity',
       iconColor: '#34d399',
       enabled: cardio,
       onToggle: onToggleCardio,
@@ -988,7 +969,7 @@ function StepWorkoutComponents({
       label: 'Core Finisher',
       desc: 'Targeted core movement to close each session',
       time: '+5 min',
-      Icon: Target,
+      icon: 'target',
       iconColor: '#fb923c',
       enabled: coreFinisher,
       onToggle: onToggleCoreFinisher,
@@ -1024,7 +1005,7 @@ function StepWorkoutComponents({
                 { backgroundColor: c.iconColor + '18' },
                 c.enabled && { backgroundColor: c.iconColor + '28' },
               ]}>
-                <c.Icon size={20} color={c.iconColor} strokeWidth={2} />
+                <PlatformIcon name={c.icon} size={20} color={c.iconColor} strokeWidth={2} />
               </View>
               <View style={styles.componentTextCol}>
                 <Text style={[
@@ -1048,7 +1029,7 @@ function StepWorkoutComponents({
                     ? { backgroundColor: c.iconColor, borderColor: c.iconColor }
                     : {},
                 ]}>
-                  {c.enabled && <Check size={11} color="#fff" strokeWidth={3} />}
+                  {c.enabled && <PlatformIcon name="check" size={11} color="#fff" strokeWidth={3} />}
                 </View>
               </View>
             </TouchableOpacity>
@@ -1075,7 +1056,7 @@ function StepNotifications({
       </View>
       <View style={styles.permissionIconWrap}>
         <View style={styles.permissionIconCircle}>
-          <Bell size={52} color={ACCENT} strokeWidth={1.5} />
+          <PlatformIcon name="bell" size={52} color={ACCENT} strokeWidth={1.5} />
         </View>
       </View>
       <View style={styles.permissionBtnBlock}>
@@ -1119,7 +1100,7 @@ function StepHealthData({
       </View>
       <View style={styles.permissionIconWrap}>
         <View style={[styles.permissionIconCircle, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
-          <Heart size={52} color="#ef4444" strokeWidth={1.5} />
+          <PlatformIcon name="heart" size={52} color="#ef4444" strokeWidth={1.5} />
         </View>
       </View>
       <View style={styles.permissionBtnBlock}>

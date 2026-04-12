@@ -8,7 +8,7 @@ import {
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import CustomSlider from '@/components/CustomSlider';
 import { useAppContext, useZealTheme } from '@/context/AppContext';
-import { Pencil, Check } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 
 // ── colour helper (red → yellow → green) ──────────────────────────────────
 function readinessColor(value: number): string {
@@ -84,7 +84,7 @@ export default function MuscleReadinessDrawer({ visible, onClose }: Props) {
           onPress={saveEdit}
           activeOpacity={0.7}
         >
-          <Check size={13} color="#22c55e" strokeWidth={2.5} />
+          <PlatformIcon name="check" size={13} color="#22c55e" strokeWidth={2.5} />
           <Text style={[styles.editBtnText, { color: '#22c55e' }]}>Done</Text>
         </TouchableOpacity>
       ) : (
@@ -93,7 +93,7 @@ export default function MuscleReadinessDrawer({ visible, onClose }: Props) {
           onPress={startEdit}
           activeOpacity={0.7}
         >
-          <Pencil size={12} color={colors.textMuted} strokeWidth={2} />
+          <PlatformIcon name="pencil" size={12} color={colors.textMuted} strokeWidth={2} />
           <Text style={[styles.editBtnText, { color: colors.textMuted }]}>Edit</Text>
         </TouchableOpacity>
       )}

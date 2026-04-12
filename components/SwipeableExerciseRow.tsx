@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, memo } from 'react';
 import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Info, ArrowLeftRight, Trash2 } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -127,17 +127,17 @@ function SwipeableExerciseRow({
       return (<View style={styles.actionsContainer}>
         <ActionButton
           progress={progress}
-          icon={<Info size={22} color="rgba(10,132,255,0.9)" strokeWidth={2} />}
+          icon={<PlatformIcon name="info" size={22} color="rgba(10,132,255,0.9)" strokeWidth={2} />}
           onPress={handleInfo}
         />
         <ActionButton
           progress={progress}
-          icon={<ArrowLeftRight size={22} color="rgba(255,159,10,0.9)" strokeWidth={2} />}
+          icon={<PlatformIcon name="arrow-left-right" size={22} color="rgba(255,159,10,0.9)" strokeWidth={2} />}
           onPress={handleSwap}
         />
         <ActionButton
           progress={progress}
-          icon={<Trash2 size={22} color="rgba(255,69,58,0.9)" strokeWidth={2} />}
+          icon={<PlatformIcon name="trash" size={22} color="rgba(255,69,58,0.9)" strokeWidth={2} />}
           onPress={handleDelete}
         />
       </View>);

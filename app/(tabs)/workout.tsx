@@ -29,36 +29,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import {
-  Play,
-  ChevronRight,
-  ChevronDown,
-  Flame,
-  Link2,
-  RefreshCw,
-  ArrowLeftRight,
-  X,
-  Plus,
-  Heart,
-  Zap,
-  Snowflake,
-  Activity,
-  Check,
-  User,
-  RotateCcw,
-  Circle,
-  Timer,
-  Dumbbell,
-  Wind,
-  CheckCircle2,
-  Target,
-  Footprints,
-  Info,
-  Minus,
-  SlidersHorizontal,
-  TrendingUp,
-  TrendingDown,
-} from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import { useZealTheme, useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -395,7 +365,7 @@ function SetCheckmarkCircle({ done, accent, borderColor, onPress, isNextUp }: Se
         alignItems: 'center', justifyContent: 'center',
       }}>
         <Animated.View style={iconStyle}>
-          <Check size={18} color="#fff" strokeWidth={3} />
+          <PlatformIcon name="check" size={18} color="#fff" strokeWidth={3} />
         </Animated.View>
       </View>
     </TouchableOpacity>
@@ -2186,7 +2156,7 @@ export default function WorkoutScreen() {
         hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
         style={({ pressed }) => [{ paddingLeft: 8, paddingVertical: 8 }, pressed && { opacity: 0.8 }]}
       >
-        <ChevronDown
+        <PlatformIcon name="chevron-down"
           size={22}
           color={isCompleted ? colors.textMuted : '#ffffff'}
           strokeWidth={2.8}
@@ -2272,7 +2242,7 @@ export default function WorkoutScreen() {
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                 >
-                  <Info size={14} color={colors.textMuted} strokeWidth={2} />
+                  <PlatformIcon name="info" size={14} color={colors.textMuted} strokeWidth={2} />
                   <Text style={{ fontSize: 11, fontFamily: 'Outfit_500Medium', color: colors.textMuted }}>Details</Text>
                 </TouchableOpacity>
                 {isRepsOnly && (
@@ -2423,7 +2393,7 @@ export default function WorkoutScreen() {
                                 textColor={colors.text}
                                 visibleItems={1}
                               />
-                              {chipInteractive && <ChevronDown size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
+                              {chipInteractive && <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
                             </View>
                           </TouchableOpacity>
                         )
@@ -2487,7 +2457,7 @@ export default function WorkoutScreen() {
                               visibleItems={1}
                               formatValue={isHoldForTime ? formatHoldTime : undefined}
                             />
-                            {chipInteractive && <ChevronDown size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
+                            {chipInteractive && <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
                           </View>
                         </TouchableOpacity>
                       )}
@@ -2500,7 +2470,7 @@ export default function WorkoutScreen() {
                           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                           activeOpacity={0.6}
                         >
-                          <Minus size={15} color="#ef4444" />
+                          <PlatformIcon name="minus" size={15} color="#ef4444" />
                         </TouchableOpacity>
                       ) : (
                         <View style={styles.trackSetDoneBtn} />
@@ -2563,7 +2533,7 @@ export default function WorkoutScreen() {
                 activeOpacity={0.7}
                 style={[styles.trackBtn, { borderColor: colors.border }]}
               >
-                <Plus size={11} color={colors.textSecondary} />
+                <PlatformIcon name="plus" size={11} color={colors.textSecondary} />
                 <Text style={[styles.trackBtnText, { color: colors.textSecondary }]}>Add Set</Text>
               </TouchableOpacity>
             </View>
@@ -2617,7 +2587,7 @@ export default function WorkoutScreen() {
               onPress={() => handleMarkExerciseDone(ex.id, ex)}
               activeOpacity={0.8}
             >
-              <Check size={12} color={getContrastTextColor(isCrossFit ? '#06b6d4' : '#60a5fa')} />
+              <PlatformIcon name="check" size={12} color={getContrastTextColor(isCrossFit ? '#06b6d4' : '#60a5fa')} />
               <Text style={[styles.trackDoneBtnText, { color: getContrastTextColor(isCrossFit ? '#06b6d4' : '#60a5fa') }]}>Save</Text>
             </TouchableOpacity>
           </View>
@@ -2664,7 +2634,7 @@ export default function WorkoutScreen() {
               onPress={() => handleMarkExerciseDone(ex.id, ex)}
               activeOpacity={0.8}
             >
-              <Check size={12} color={getContrastTextColor('#8b5cf6')} />
+              <PlatformIcon name="check" size={12} color={getContrastTextColor('#8b5cf6')} />
               <Text style={[styles.trackDoneBtnText, { color: getContrastTextColor('#8b5cf6') }]}>Save</Text>
             </TouchableOpacity>
           </View>
@@ -2694,7 +2664,7 @@ export default function WorkoutScreen() {
               onPress={() => handleMarkExerciseDone(ex.id, ex)}
               activeOpacity={0.8}
             >
-              <Check size={12} color={getContrastTextColor('#eab308')} />
+              <PlatformIcon name="check" size={12} color={getContrastTextColor('#eab308')} />
               <Text style={[styles.trackDoneBtnText, { color: getContrastTextColor('#eab308') }]}>Save</Text>
             </TouchableOpacity>
           </View>
@@ -2737,7 +2707,7 @@ export default function WorkoutScreen() {
           onPress={() => handleMarkExerciseDone(ex.id, ex)}
           activeOpacity={0.8}
         >
-          <Check size={12} color="#fff" />
+          <PlatformIcon name="check" size={12} color="#fff" />
           <Text style={styles.trackDoneBtnText}>Complete</Text>
         </TouchableOpacity>
       </View>
@@ -2753,13 +2723,13 @@ export default function WorkoutScreen() {
       let icon: React.ReactNode;
       let label: string;
       if (ex.groupType === 'superset') {
-        icon = <Link2 size={13} color={colors.textSecondary} />;
+        icon = <PlatformIcon name="link" size={13} color={colors.textSecondary} />;
         label = 'Superset';
       } else if (ex.groupType === 'circuit') {
-        icon = <RotateCcw size={13} color={colors.textSecondary} />;
+        icon = <PlatformIcon name="rotate-ccw" size={13} color={colors.textSecondary} />;
         label = 'Circuit';
       } else {
-        icon = <Circle size={13} color={colors.textSecondary} />;
+        icon = <PlatformIcon name="circle" size={13} color={colors.textSecondary} />;
         label = 'Rounds';
       }
       return (
@@ -2785,7 +2755,7 @@ export default function WorkoutScreen() {
             isSuperset && { borderLeftWidth: 2, borderLeftColor: `${currentAccent}66` },
           ]}
         >
-          <Link2
+          <PlatformIcon name="link"
             size={14}
             color={`${currentAccent}66`}
             style={{ transform: [{ rotate: '90deg' }] }}
@@ -2806,7 +2776,7 @@ export default function WorkoutScreen() {
       <>
         <View style={[styles.exerciseInfo, isCompleted && { opacity: 0.5 }]}>
           <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {isCompleted && <Check size={14} color="#22c55e" strokeWidth={2.5} />}
+            {isCompleted && <PlatformIcon name="check" size={14} color="#22c55e" strokeWidth={2.5} />}
             <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>{ex.name}</Text>
           </TouchableOpacity>
           {!isCompleted && (
@@ -2829,7 +2799,7 @@ export default function WorkoutScreen() {
       <>
         <View style={[styles.exerciseInfo, isCompleted && { opacity: 0.5 }]}>
           <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {isCompleted && <Check size={14} color="#22c55e" strokeWidth={2.5} />}
+            {isCompleted && <PlatformIcon name="check" size={14} color="#22c55e" strokeWidth={2.5} />}
             <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>{ex.name}</Text>
           </TouchableOpacity>
           {!isCompleted && (
@@ -2851,7 +2821,7 @@ export default function WorkoutScreen() {
       <>
         <View style={[styles.exerciseInfo, isCompleted && { opacity: 0.5 }]}>
           <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(ex)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {isCompleted && <Check size={14} color="#22c55e" strokeWidth={2.5} />}
+            {isCompleted && <PlatformIcon name="check" size={14} color="#22c55e" strokeWidth={2.5} />}
             <Text style={[styles.exerciseName, { color: isCompleted ? colors.textMuted : colors.text, fontFamily: isCompleted ? 'Outfit_500Medium' : (isExpanded ? 'Outfit_700Bold' : 'Outfit_600SemiBold') }]}>{ex.name}</Text>
           </TouchableOpacity>
           {!isCompleted && (
@@ -2954,7 +2924,7 @@ export default function WorkoutScreen() {
               onPress={() => setInfoLabel('STRENGTH')}
               activeOpacity={0.7}
             >
-              <Dumbbell size={15} color={colors.textSecondary} />
+              <PlatformIcon name="dumbbell" size={15} color={colors.textSecondary} />
               <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>Strength</Text>
             </TouchableOpacity>
             {cfData.strength.map((ex, exIdx) => {
@@ -3006,7 +2976,7 @@ export default function WorkoutScreen() {
               activeOpacity={0.7}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Zap size={15} color={colors.textSecondary} />
+                <PlatformIcon name="zap" size={15} color={colors.textSecondary} />
                 <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>WOD</Text>
               </View>
               {(() => {
@@ -3121,7 +3091,7 @@ export default function WorkoutScreen() {
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFill}
                 />
-                <Footprints size={16} color={colors.textSecondary} />
+                <PlatformIcon name="footprints" size={16} color={colors.textSecondary} />
                 <Text style={[styles.hyroxRunText, { color: colors.textSecondary }]}>
                   RUN — {ex.reps}
                 </Text>
@@ -3190,7 +3160,7 @@ export default function WorkoutScreen() {
           onPress={() => setInfoLabel(`CIRCUIT — ${hiitRounds} ROUNDS`)}
           activeOpacity={0.7}
         >
-          <RotateCcw size={15} color={colors.textSecondary} />
+          <PlatformIcon name="rotate-ccw" size={15} color={colors.textSecondary} />
           <Text style={[styles.hiitCircuitLabel, { color: colors.textSecondary }]}>
             CIRCUIT — {hiitRounds} ROUNDS
           </Text>
@@ -3340,7 +3310,7 @@ export default function WorkoutScreen() {
                     activeOpacity={0.7}
                   >
                     {isDone ? (
-                      <Check size={15} color={currentAccent} />
+                      <PlatformIcon name="check" size={15} color={currentAccent} />
                     ) : null}
                   </TouchableOpacity>
                 </View>
@@ -3578,7 +3548,7 @@ export default function WorkoutScreen() {
             {ctx.userPhotoUri ? (
               <Image source={{ uri: ctx.userPhotoUri }} style={styles.avatarImage} />
             ) : (
-              <User size={17} color={colors.textSecondary} strokeWidth={1.8} />
+              <PlatformIcon name="user" size={17} color={colors.textSecondary} strokeWidth={1.8} />
             )}
           </TouchableOpacity>
           <View style={styles.wordmarkRow}>
@@ -3612,7 +3582,7 @@ export default function WorkoutScreen() {
               }}
             >
               <TopBarElapsedTimer elapsed={workoutElapsed} isPaused={tracking.isPaused} />
-              <RotateCcw size={16} color="rgba(255,255,255,0.55)" strokeWidth={2} />
+              <PlatformIcon name="rotate-ccw" size={16} color="rgba(255,255,255,0.55)" strokeWidth={2} />
             </TouchableOpacity>
           )}
           <Text style={[styles.dateText, { color: colors.textSecondary }]}>{formatDate()}</Text>
@@ -3806,7 +3776,7 @@ export default function WorkoutScreen() {
         {(!hasCompletedToday || postWorkoutDismissed) && !hasPro && !planLapseBannerDismissed && ctx.activePlan && PRO_STYLES_SET.has(ctx.activePlan.style) && !tracking.isWorkoutActive && (
           <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
             <View style={styles.coreStyleBannerContent}>
-              <Info size={14} color="#f59e0b" />
+              <PlatformIcon name="info" size={14} color="#f59e0b" />
               <Text style={[styles.coreStyleBannerText, { color: colors.text }]}>
                 {'Your plan uses '}
                 <Text style={{ fontWeight: '700' as const }}>{ctx.activePlan.style}</Text>
@@ -3820,7 +3790,7 @@ export default function WorkoutScreen() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.7}
             >
-              <X size={16} color={colors.textMuted} />
+              <PlatformIcon name="x" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}
@@ -3828,7 +3798,7 @@ export default function WorkoutScreen() {
         {(!hasCompletedToday || postWorkoutDismissed) && !hasPro && !coreStyleBannerDismissed && PRO_STYLES_SET.has(ctx.workoutStyle) && !tracking.isWorkoutActive && (
           <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
             <View style={styles.coreStyleBannerContent}>
-              <Info size={14} color={colors.textSecondary} />
+              <PlatformIcon name="info" size={14} color={colors.textSecondary} />
               <Text style={[styles.coreStyleBannerText, { color: colors.text }]}>
                 You selected{' '}
                 <Text style={{ fontWeight: '700' as const, color: colors.text }}>{ctx.workoutStyle}</Text>
@@ -3844,7 +3814,7 @@ export default function WorkoutScreen() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.7}
             >
-              <X size={16} color={colors.textMuted} />
+              <PlatformIcon name="x" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}
@@ -3872,7 +3842,7 @@ export default function WorkoutScreen() {
                     onPress={() => setStartAnotherVisible(true)}
                     activeOpacity={0.7}
                   >
-                    <SlidersHorizontal size={14} color={currentAccent} />
+                    <PlatformIcon name="sliders-horizontal" size={14} color={currentAccent} />
                     <Text style={[styles.workoutModifyBtnText, { color: currentAccent }]}>Custom</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -3884,7 +3854,7 @@ export default function WorkoutScreen() {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Zap size={15} color="#fff" fill="#fff" />
+                    <PlatformIcon name="zap" size={15} color="#fff" fill="#fff" />
                     <Text style={styles.workoutStartBtnText}>Quick Workout</Text>
                   </TouchableOpacity>
                 </View>
@@ -3916,7 +3886,7 @@ export default function WorkoutScreen() {
                     onPress={() => setStartAnotherVisible(true)}
                     activeOpacity={0.7}
                   >
-                    <SlidersHorizontal size={14} color={currentAccent} />
+                    <PlatformIcon name="sliders-horizontal" size={14} color={currentAccent} />
                     <Text style={[styles.workoutModifyBtnText, { color: currentAccent }]}>Custom</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -3928,7 +3898,7 @@ export default function WorkoutScreen() {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Zap size={15} color="#fff" fill="#fff" />
+                    <PlatformIcon name="zap" size={15} color="#fff" fill="#fff" />
                     <Text style={styles.workoutStartBtnText}>Quick Workout</Text>
                   </TouchableOpacity>
                 </View>
@@ -3957,7 +3927,7 @@ export default function WorkoutScreen() {
                       activeOpacity={0.7}
                       testID="shuffle-workout"
                     >
-                      <RefreshCw size={11} color={currentAccent} strokeWidth={2.5} />
+                      <PlatformIcon name="refresh" size={11} color={currentAccent} strokeWidth={2.5} />
                       <Text style={[styles.shuffleBtnText, { color: currentAccent }]}>Shuffle</Text>
                     </TouchableOpacity>
                   </View>
@@ -4023,7 +3993,7 @@ export default function WorkoutScreen() {
                         activeOpacity={0.7}
                         testID="modify-workout-card"
                       >
-                        <SlidersHorizontal size={14} color={colors.textMuted} />
+                        <PlatformIcon name="sliders-horizontal" size={14} color={colors.textMuted} />
                         <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Modify</Text>
                       </TouchableOpacity>
                     )}
@@ -4039,7 +4009,7 @@ export default function WorkoutScreen() {
                       activeOpacity={1}
                       testID="start-workout-card"
                     >
-                      <Play size={15} color="#fff" fill="#fff" />
+                      <PlatformIcon name="play" size={15} color="#fff" fill="#fff" />
                       <Text style={styles.workoutStartBtnText}>Start Workout</Text>
                     </TouchableOpacity>
                   </Animated.View>
@@ -4089,7 +4059,7 @@ export default function WorkoutScreen() {
                 activeOpacity={0.7}
                 testID="tab-pre-workout"
               >
-                <Flame size={15} color={activePanel === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
+                <PlatformIcon name="flame" size={15} color={activePanel === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
                 <Text style={[styles.tabLabel, {
                   color: activePanel === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
                   fontFamily: activePanel === 0 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
@@ -4107,7 +4077,7 @@ export default function WorkoutScreen() {
                 activeOpacity={0.7}
                 testID="tab-workout"
               >
-                <Dumbbell size={15} color={activePanel === 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
+                <PlatformIcon name="dumbbell" size={15} color={activePanel === 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
                 <Text style={[styles.tabLabel, {
                   color: activePanel === 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
                   fontFamily: activePanel === 1 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
@@ -4125,7 +4095,7 @@ export default function WorkoutScreen() {
                 activeOpacity={0.7}
                 testID="tab-post-workout"
               >
-                <Heart size={15} color={activePanel === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
+                <PlatformIcon name="heart" size={15} color={activePanel === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)'} />
                 <Text style={[styles.tabLabel, {
                   color: activePanel === 2 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.3)',
                   fontFamily: activePanel === 2 ? 'Outfit_600SemiBold' : 'Outfit_500Medium',
@@ -4206,13 +4176,13 @@ export default function WorkoutScreen() {
             <View style={[styles.checklistAccentBar, { backgroundColor: '#f87116' }]} />
             <View style={[styles.checklistSectionHeader, warmupChecked.size === (workout?.warmup?.length ?? 0) && warmupChecked.size > 0 && { opacity: 0.5 }]}>
               <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(248,113,22,0.15)' }]}>
-                <Flame size={13} color="#f87116" />
+                <PlatformIcon name="flame" size={13} color="#f87116" />
               </View>
               <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>WARM-UP</Text>
               <View style={{ flex: 1 }} />
               {warmupChecked.size === (workout?.warmup?.length ?? 0) && warmupChecked.size > 0 ? (
                 <View style={styles.checklistProgressPillDone}>
-                  <Check size={11} color="#fff" />
+                  <PlatformIcon name="check" size={11} color="#fff" />
                 </View>
               ) : (
                 <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
@@ -4240,7 +4210,7 @@ export default function WorkoutScreen() {
                     { borderColor: isChecked ? '#f87116' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
                     isChecked && { backgroundColor: 'rgba(248,113,22,0.15)' },
                   ]}>
-                    {isChecked && <Check size={11} color="#f87116" strokeWidth={3} />}
+                    {isChecked && <PlatformIcon name="check" size={11} color="#f87116" strokeWidth={3} />}
                   </View>
                   <View style={styles.checklistRowInfo}>
                     <Text style={[
@@ -4258,7 +4228,7 @@ export default function WorkoutScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <View style={styles.checklistInfoPill}>
-                      <Info size={13} color={colors.textMuted} />
+                      <PlatformIcon name="info" size={13} color={colors.textMuted} />
                     </View>
                   </TouchableOpacity>
                 </TouchableOpacity>
@@ -4284,7 +4254,7 @@ export default function WorkoutScreen() {
               activeOpacity={0.7}
             >
               <View style={[styles.coreFinisherIconBadge, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
-                <Target size={13} color="rgba(34,197,94,0.7)" />
+                <PlatformIcon name="target" size={13} color="rgba(34,197,94,0.7)" />
               </View>
               <Text style={[styles.coreFinisherLabel, { color: 'rgba(255,255,255,0.9)' }]}>Core Finisher</Text>
             </TouchableOpacity>
@@ -4357,7 +4327,7 @@ export default function WorkoutScreen() {
           ]}>
             <View style={[styles.cardioStandaloneHeader, { borderBottomWidth: 1, borderBottomColor: 'rgba(139,92,246,0.2)' }]}>
               <View style={[styles.cardioStandaloneIconBadge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
-                <Activity size={13} color="#8b5cf6" />
+                <PlatformIcon name="activity" size={13} color="#8b5cf6" />
               </View>
               <TouchableOpacity onPress={() => setInfoLabel('Cardio')} activeOpacity={0.7}>
                 <Text style={[styles.cardioStandaloneLabel, { color: colors.text }]}>Cardio</Text>
@@ -4443,13 +4413,13 @@ export default function WorkoutScreen() {
             <View style={[styles.checklistAccentBar, { backgroundColor: '#06b6d4' }]} />
             <View style={[styles.checklistSectionHeader, cooldownChecked.size === workout.cooldown.length && cooldownChecked.size > 0 && { opacity: 0.5 }]}>
               <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(6,182,212,0.15)' }]}>
-                <Snowflake size={13} color="#06b6d4" />
+                <PlatformIcon name="snowflake" size={13} color="#06b6d4" />
               </View>
               <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>COOL-DOWN</Text>
               <View style={{ flex: 1 }} />
               {cooldownChecked.size === workout.cooldown.length && cooldownChecked.size > 0 ? (
                 <View style={styles.checklistProgressPillDone}>
-                  <Check size={11} color="#fff" />
+                  <PlatformIcon name="check" size={11} color="#fff" />
                 </View>
               ) : (
                 <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
@@ -4480,7 +4450,7 @@ export default function WorkoutScreen() {
                     { borderColor: isChecked ? '#06b6d4' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
                     isChecked && { backgroundColor: 'rgba(6,182,212,0.15)' },
                   ]}>
-                    {isChecked && <Check size={11} color="#06b6d4" strokeWidth={3} />}
+                    {isChecked && <PlatformIcon name="check" size={11} color="#06b6d4" strokeWidth={3} />}
                   </View>
                   <View style={styles.checklistRowInfo}>
                     <Text style={[
@@ -4498,7 +4468,7 @@ export default function WorkoutScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <View style={styles.checklistInfoPill}>
-                      <Info size={13} color={colors.textMuted} />
+                      <PlatformIcon name="info" size={13} color={colors.textMuted} />
                     </View>
                   </TouchableOpacity>
                 </TouchableOpacity>
@@ -4518,13 +4488,13 @@ export default function WorkoutScreen() {
             <View style={[styles.checklistAccentBar, { backgroundColor: '#8b5cf6' }]} />
             <View style={[styles.checklistSectionHeader, recoveryChecked.size === workout.recovery.length && recoveryChecked.size > 0 && { opacity: 0.5 }]}>
               <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
-                <Heart size={13} color="#8b5cf6" />
+                <PlatformIcon name="heart" size={13} color="#8b5cf6" />
               </View>
               <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>RECOVERY</Text>
               <View style={{ flex: 1 }} />
               {recoveryChecked.size === workout.recovery.length && recoveryChecked.size > 0 ? (
                 <View style={styles.checklistProgressPillDone}>
-                  <Check size={11} color="#fff" />
+                  <PlatformIcon name="check" size={11} color="#fff" />
                 </View>
               ) : (
                 <View style={[styles.checklistProgressPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
@@ -4554,7 +4524,7 @@ export default function WorkoutScreen() {
                     { borderColor: isChecked ? '#8b5cf6' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' },
                     isChecked && { backgroundColor: 'rgba(139,92,246,0.15)' },
                   ]}>
-                    {isChecked && <Check size={11} color="#8b5cf6" strokeWidth={3} />}
+                    {isChecked && <PlatformIcon name="check" size={11} color="#8b5cf6" strokeWidth={3} />}
                   </View>
                   <View style={styles.checklistRowInfo}>
                     <Text style={[
@@ -4572,7 +4542,7 @@ export default function WorkoutScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <View style={styles.checklistInfoPill}>
-                      <Info size={13} color={colors.textMuted} />
+                      <PlatformIcon name="info" size={13} color={colors.textMuted} />
                     </View>
                   </TouchableOpacity>
                 </TouchableOpacity>
@@ -4594,7 +4564,7 @@ export default function WorkoutScreen() {
                         onPress={() => setAddMenuVisible(!addMenuVisible)}
                         activeOpacity={0.7}
                       >
-                        <Plus size={20} color={currentAccent} />
+                        <PlatformIcon name="plus" size={20} color={currentAccent} />
                       </TouchableOpacity>
                     </View>
                     {addMenuVisible && (
@@ -4604,9 +4574,9 @@ export default function WorkoutScreen() {
                         ) : null}
                         <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
                         {([
-                          { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
-                          { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
-                          { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                          { label: 'Add Exercise', icon: <PlatformIcon name="plus" size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                          { label: 'Create Superset', icon: <PlatformIcon name="link" size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                          { label: 'Create Circuit', icon: <PlatformIcon name="refresh" size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
                         ]).map((item, idx) => (
                           <TouchableOpacity
                             key={idx}
@@ -4631,7 +4601,7 @@ export default function WorkoutScreen() {
                         activeOpacity={1}
                         testID="complete-workout-cooldown"
                       >
-                        <Check size={18} color={getContrastTextColor(currentAccent)} />
+                        <PlatformIcon name="check" size={18} color={getContrastTextColor(currentAccent)} />
                         <Text style={[styles.completeBtnText, { color: getContrastTextColor(currentAccent) }]}>Finish Workout</Text>
                       </TouchableOpacity>
                     </Animated.View>
@@ -4645,7 +4615,7 @@ export default function WorkoutScreen() {
                       onPress={() => setAddMenuVisible(!addMenuVisible)}
                       activeOpacity={0.7}
                     >
-                      <Plus size={15} color={currentAccent} />
+                      <PlatformIcon name="plus" size={15} color={currentAccent} />
                       <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
                     </TouchableOpacity>
                   </View>
@@ -4656,9 +4626,9 @@ export default function WorkoutScreen() {
                       ) : null}
                       <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
                       {([
-                        { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
-                        { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
-                        { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                        { label: 'Add Exercise', icon: <PlatformIcon name="plus" size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                        { label: 'Create Superset', icon: <PlatformIcon name="link" size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                        { label: 'Create Circuit', icon: <PlatformIcon name="refresh" size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
                       ]).map((item, idx) => (
                         <TouchableOpacity
                           key={idx}
@@ -4691,7 +4661,7 @@ export default function WorkoutScreen() {
                         onPress={() => setAddMenuVisible(!addMenuVisible)}
                         activeOpacity={0.7}
                       >
-                        <Plus size={20} color={currentAccent} />
+                        <PlatformIcon name="plus" size={20} color={currentAccent} />
                       </TouchableOpacity>
                     </View>
                     {addMenuVisible && (
@@ -4701,9 +4671,9 @@ export default function WorkoutScreen() {
                         ) : null}
                         <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
                         {([
-                          { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
-                          { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
-                          { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                          { label: 'Add Exercise', icon: <PlatformIcon name="plus" size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                          { label: 'Create Superset', icon: <PlatformIcon name="link" size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                          { label: 'Create Circuit', icon: <PlatformIcon name="refresh" size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
                         ]).map((item, idx) => (
                           <TouchableOpacity
                             key={idx}
@@ -4728,7 +4698,7 @@ export default function WorkoutScreen() {
                         activeOpacity={1}
                         testID="complete-workout"
                       >
-                        <Check size={18} color={getContrastTextColor(currentAccent)} />
+                        <PlatformIcon name="check" size={18} color={getContrastTextColor(currentAccent)} />
                         <Text style={[styles.completeBtnText, { color: getContrastTextColor(currentAccent) }]}>Finish Workout</Text>
                       </TouchableOpacity>
                     </Animated.View>
@@ -4742,7 +4712,7 @@ export default function WorkoutScreen() {
                       onPress={() => setAddMenuVisible(!addMenuVisible)}
                       activeOpacity={0.7}
                     >
-                      <Plus size={15} color={currentAccent} />
+                      <PlatformIcon name="plus" size={15} color={currentAccent} />
                       <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
                     </TouchableOpacity>
                   </View>
@@ -4753,9 +4723,9 @@ export default function WorkoutScreen() {
                       ) : null}
                       <View style={[styles.addMenuSurface, { backgroundColor: isDark ? 'rgba(20,20,20,0.70)' : 'rgba(255,255,255,0.92)' }]} />
                       {([
-                        { label: 'Add Exercise', icon: <Plus size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
-                        { label: 'Create Superset', icon: <Link2 size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
-                        { label: 'Create Circuit', icon: <RefreshCw size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
+                        { label: 'Add Exercise', icon: <PlatformIcon name="plus" size={14} color={colors.textMuted} />, mode: 'exercise' as AddMode },
+                        { label: 'Create Superset', icon: <PlatformIcon name="link" size={14} color={colors.textMuted} />, mode: 'superset' as AddMode },
+                        { label: 'Create Circuit', icon: <PlatformIcon name="refresh" size={14} color={colors.textMuted} />, mode: 'circuit' as AddMode },
                       ]).map((item, idx) => (
                         <TouchableOpacity
                           key={idx}
@@ -4972,11 +4942,11 @@ export default function WorkoutScreen() {
           <View style={[styles.warmupModalSheet, { backgroundColor: colors.card }]}>
             <View style={[styles.infoHandle, { backgroundColor: colors.border }]} />
             <View style={styles.warmupModalHeader}>
-              <Flame size={18} color="#f87116" />
+              <PlatformIcon name="flame" size={18} color="#f87116" />
               <Text style={[styles.infoTitle, { color: colors.text }]}>Warm-Up</Text>
               <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={() => setInfoLabel('Warm-Up')} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Info size={16} color="#f87116" />
+                <PlatformIcon name="info" size={16} color="#f87116" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.warmupModalScroll} showsVerticalScrollIndicator={false}>
@@ -4994,7 +4964,7 @@ export default function WorkoutScreen() {
                       { borderColor: isChecked ? '#22c55e' : colors.border },
                       isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
                     ]}>
-                      {isChecked && <Check size={14} color="#22c55e" />}
+                      {isChecked && <PlatformIcon name="check" size={14} color="#22c55e" />}
                     </View>
                     <View style={styles.warmupModalItemInfo}>
                       <Text style={[
@@ -5011,7 +4981,7 @@ export default function WorkoutScreen() {
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Info size={17} color={colors.textMuted} />
+                      <PlatformIcon name="info" size={17} color={colors.textMuted} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                 );
@@ -5022,7 +4992,7 @@ export default function WorkoutScreen() {
               onPress={handleWarmupDone}
               activeOpacity={0.85}
             >
-              <Check size={16} color="#fff" />
+              <PlatformIcon name="check" size={16} color="#fff" />
               <Text style={styles.warmupModalDoneBtnText}>Done with Warm-Up</Text>
             </TouchableOpacity>
           </View>
@@ -5044,11 +5014,11 @@ export default function WorkoutScreen() {
           <View style={[styles.warmupModalSheet, { backgroundColor: colors.card }]}>
             <View style={[styles.infoHandle, { backgroundColor: colors.border }]} />
             <View style={styles.warmupModalHeader}>
-              <Snowflake size={18} color="#06b6d4" />
+              <PlatformIcon name="snowflake" size={18} color="#06b6d4" />
               <Text style={[styles.infoTitle, { color: colors.text }]}>Cool-Down</Text>
               <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={() => { setCooldownModalVisible(false); setInfoLabel('Cool-Down'); }} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Info size={16} color="#06b6d4" />
+                <PlatformIcon name="info" size={16} color="#06b6d4" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.warmupModalScroll} showsVerticalScrollIndicator={false}>
@@ -5071,7 +5041,7 @@ export default function WorkoutScreen() {
                       { borderColor: isChecked ? '#22c55e' : colors.border },
                       isChecked && { backgroundColor: 'rgba(34,197,94,0.15)' },
                     ]}>
-                      {isChecked && <Check size={14} color="#22c55e" />}
+                      {isChecked && <PlatformIcon name="check" size={14} color="#22c55e" />}
                     </View>
                     <View style={styles.warmupModalItemInfo}>
                       <Text style={[
@@ -5088,7 +5058,7 @@ export default function WorkoutScreen() {
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Info size={17} color={colors.textMuted} />
+                      <PlatformIcon name="info" size={17} color={colors.textMuted} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                 );
@@ -5099,7 +5069,7 @@ export default function WorkoutScreen() {
               onPress={() => { setCooldownComplete(cooldownChecked.size === (workout?.cooldown.length ?? 0)); setCooldownModalVisible(false); }}
               activeOpacity={0.85}
             >
-              <Check size={16} color="#fff" />
+              <PlatformIcon name="check" size={16} color="#fff" />
               <Text style={styles.warmupModalDoneBtnText}>Done with Cool-Down</Text>
             </TouchableOpacity>
           </View>
@@ -5121,11 +5091,11 @@ export default function WorkoutScreen() {
           <View style={[styles.warmupModalSheet, { backgroundColor: colors.card }]}>
             <View style={[styles.infoHandle, { backgroundColor: colors.border }]} />
             <View style={styles.warmupModalHeader}>
-              <Heart size={18} color="#ef4444" />
+              <PlatformIcon name="heart" size={18} color="#ef4444" />
               <Text style={[styles.infoTitle, { color: colors.text }]}>Recovery</Text>
               <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={() => { setRecoveryModalVisible(false); setInfoLabel('Recovery'); }} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Info size={16} color="#ef4444" />
+                <PlatformIcon name="info" size={16} color="#ef4444" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.warmupModalScroll} showsVerticalScrollIndicator={false}>
@@ -5148,7 +5118,7 @@ export default function WorkoutScreen() {
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Info size={17} color={colors.textMuted} />
+                    <PlatformIcon name="info" size={17} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -5158,7 +5128,7 @@ export default function WorkoutScreen() {
               onPress={() => setRecoveryModalVisible(false)}
               activeOpacity={0.85}
             >
-              <Check size={16} color="#fff" />
+              <PlatformIcon name="check" size={16} color="#fff" />
               <Text style={styles.warmupModalDoneBtnText}>Done with Recovery</Text>
             </TouchableOpacity>
           </View>
@@ -5183,11 +5153,11 @@ export default function WorkoutScreen() {
                 <View style={styles.richDetailHeader}>
                   <View style={[styles.richDetailIconWrap, { backgroundColor: `${itemDetail.color}20` }]}>
                     {itemType === 'warmup' ? (
-                      <Flame size={18} color={itemDetail.color} />
+                      <PlatformIcon name="flame" size={18} color={itemDetail.color} />
                     ) : itemType === 'cooldown' ? (
-                      <Snowflake size={18} color={itemDetail.color} />
+                      <PlatformIcon name="snowflake" size={18} color={itemDetail.color} />
                     ) : (
-                      <Heart size={18} color={itemDetail.color} />
+                      <PlatformIcon name="heart" size={18} color={itemDetail.color} />
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
@@ -5202,7 +5172,7 @@ export default function WorkoutScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     activeOpacity={0.7}
                   >
-                    <X size={16} color={colors.textMuted} />
+                    <PlatformIcon name="x" size={16} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
                 <ScrollView
@@ -5215,7 +5185,7 @@ export default function WorkoutScreen() {
                   </Text>
 
                   <View style={styles.richDetailSectionRow}>
-                    <Target size={13} color={itemDetail.color} />
+                    <PlatformIcon name="target" size={13} color={itemDetail.color} />
                     <Text style={[styles.richDetailSectionLabel, { color: colors.text }]}>SETUP</Text>
                   </View>
                   <View style={[styles.richDetailBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
@@ -5223,7 +5193,7 @@ export default function WorkoutScreen() {
                   </View>
 
                   <View style={styles.richDetailSectionRow}>
-                    <Info size={13} color={itemDetail.color} />
+                    <PlatformIcon name="info" size={13} color={itemDetail.color} />
                     <Text style={[styles.richDetailSectionLabel, { color: colors.text }]}>
                       {itemType === 'recovery' ? 'HOW TO DO IT' : 'HOW TO PERFORM'}
                     </Text>
@@ -5242,7 +5212,7 @@ export default function WorkoutScreen() {
                   {itemDetail.benefit ? (
                     <>
                       <View style={styles.richDetailSectionRow}>
-                        <Zap size={13} color={itemDetail.color} />
+                        <PlatformIcon name="zap" size={13} color={itemDetail.color} />
                         <Text style={[styles.richDetailSectionLabel, { color: colors.text }]}>WHY IT MATTERS</Text>
                       </View>
                       <View style={[styles.richDetailBox, { backgroundColor: `${itemDetail.color}12` }]}>
@@ -5276,7 +5246,7 @@ export default function WorkoutScreen() {
               return (
                 <>
                   <View style={styles.infoTitleRow}>
-                    <Info size={16} color={colors.textSecondary} />
+                    <PlatformIcon name="info" size={16} color={colors.textSecondary} />
                     <Text style={[styles.infoTitle, { color: colors.text }]}>{info.title}</Text>
                   </View>
                   <Text style={[styles.infoBody, { color: colors.textSecondary }]}>{info.body}</Text>
@@ -5337,7 +5307,7 @@ export default function WorkoutScreen() {
                 { transform: [{ scale: dumbbellPulseAnim }] },
               ]}>
                 <RNAnimated.View style={{ transform: [{ rotate: dumbbellSpin }] }}>
-                  <Dumbbell size={42} color={currentAccent} strokeWidth={1.8} />
+                  <PlatformIcon name="dumbbell" size={42} color={currentAccent} strokeWidth={1.8} />
                 </RNAnimated.View>
               </RNAnimated.View>
               <Text style={[generatingStyles.title, { color: isDark ? '#fff' : '#111' }]}>

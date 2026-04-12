@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
-import { X, Zap, Palette } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext, AppTheme } from '@/context/AppContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
@@ -65,11 +65,11 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
         activeOpacity={0.7}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <X size={16} color="#888" strokeWidth={2.5} />
+        <PlatformIcon name="x" size={16} color="#888" strokeWidth={2.5} />
       </TouchableOpacity>
       <View style={styles.headerLeft}>
         <View style={[styles.headerIcon, { backgroundColor: `${accent}22` }]}>
-          <Palette size={16} color={accent} />
+          <PlatformIcon name="palette" size={16} color={accent} />
         </View>
         <Text style={[styles.title, { color: colors.text }]}>Color Theme</Text>
       </View>
@@ -139,7 +139,7 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
                 style={styles.neonPreview}
               >
                 <View style={styles.neonTitleRow}>
-                  <Zap size={18} color="#00e5ff" />
+                  <PlatformIcon name="zap" size={18} color="#00e5ff" />
                   <Text style={[styles.neonPreviewText, { color: '#00e5ff' }]}>NEON</Text>
                 </View>
                 <Text style={styles.neonSub}>Electric cyan on deep dark</Text>

@@ -9,20 +9,7 @@ import {
 } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import {
-  X,
-  Search,
-  Plus,
-  ArrowLeftRight,
-  RotateCcw,
-  GripVertical,
-  Trash2,
-  Pencil,
-  Clock,
-  ChevronUp,
-  ChevronDown,
-  Crown,
-} from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 
 import { useZealTheme, useAppContext, type SavedWorkout } from '@/context/AppContext';
@@ -209,7 +196,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Workouts</Text>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={16} color="#888" strokeWidth={2.5} />
+          <PlatformIcon name="x" size={16} color="#888" strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
 
@@ -252,7 +239,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                 onPress={() => handleSetAddMode('exercise')}
                 activeOpacity={0.7}
               >
-                <Plus size={14} color={accent} />
+                <PlatformIcon name="plus" size={14} color={accent} />
                 <Text style={[styles.actionBtnText, { color: colors.text }]}>Exercise</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -260,18 +247,18 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                 onPress={() => hasPro ? handleSetAddMode('superset') : showProGate('supersets', openPaywall)}
                 activeOpacity={0.7}
               >
-                <ArrowLeftRight size={14} color={hasPro ? accent : colors.textMuted} />
+                <PlatformIcon name="arrow-left-right" size={14} color={hasPro ? accent : colors.textMuted} />
                 <Text style={[styles.actionBtnText, { color: colors.text }]}>Superset</Text>
-                {!hasPro && <Crown size={11} color={PRO_GOLD} strokeWidth={2} />}
+                {!hasPro && <PlatformIcon name="crown" size={11} color={PRO_GOLD} strokeWidth={2} />}
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionBtn, { borderColor: addMode === 'circuit' ? accent : colors.border }, addMode === 'circuit' && { backgroundColor: `${accent}18` }, !hasPro && { opacity: PRO_LOCKED_OPACITY }]}
                 onPress={() => hasPro ? handleSetAddMode('circuit') : showProGate('supersets', openPaywall)}
                 activeOpacity={0.7}
               >
-                <RotateCcw size={14} color={hasPro ? accent : colors.textMuted} />
+                <PlatformIcon name="rotate-ccw" size={14} color={hasPro ? accent : colors.textMuted} />
                 <Text style={[styles.actionBtnText, { color: colors.text }]}>Circuit</Text>
-                {!hasPro && <Crown size={11} color={PRO_GOLD} strokeWidth={2} />}
+                {!hasPro && <PlatformIcon name="crown" size={11} color={PRO_GOLD} strokeWidth={2} />}
               </TouchableOpacity>
             </View>
 
@@ -280,7 +267,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                 {addMode !== 'exercise' && (
                   <View style={styles.groupHeader}>
                     <View style={[styles.groupBadge, { backgroundColor: `${accent}18` }]}>
-                      {addMode === 'superset' ? <ArrowLeftRight size={12} color={accent} /> : <RotateCcw size={12} color={accent} />}
+                      {addMode === 'superset' ? <PlatformIcon name="arrow-left-right" size={12} color={accent} /> : <PlatformIcon name="rotate-ccw" size={12} color={accent} />}
                       <Text style={[styles.groupBadgeText, { color: accent }]}>{addMode === 'superset' ? 'Superset' : 'Circuit'}</Text>
                     </View>
                     <TouchableOpacity
@@ -290,13 +277,13 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                       <Text style={[styles.groupLabelText, { color: accent }]}>{addMode === 'superset' ? 'SUPERSET' : 'CIRCUIT'}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => { setAddMode(null); setGroupLabel(''); }} activeOpacity={0.7}>
-                      <X size={14} color={colors.textSecondary} />
+                      <PlatformIcon name="x" size={14} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
                 )}
 
                 <View style={[styles.searchContainer, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-                  <Search size={14} color={colors.textSecondary} />
+                  <PlatformIcon name="search" size={14} color={colors.textSecondary} />
                   <BottomSheetTextInput
                     style={[styles.searchInput, { color: colors.text }]}
                     placeholder={addMode === 'exercise' ? 'Search exercises...' : `Add to ${addMode === 'superset' ? 'Superset' : 'Circuit'}...`}
@@ -307,7 +294,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                   />
                   {exerciseSearch.length > 0 && (
                     <TouchableOpacity onPress={() => setExerciseSearch('')} activeOpacity={0.7}>
-                      <X size={14} color={colors.textSecondary} />
+                      <PlatformIcon name="x" size={14} color={colors.textSecondary} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -348,16 +335,16 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                           style={[styles.reorderBtn, idx === 0 && { opacity: 0.25 }]}
                           disabled={idx === 0}
                         >
-                          <ChevronUp size={14} color={colors.textSecondary} />
+                          <PlatformIcon name="chevron-up" size={14} color={colors.textSecondary} />
                         </TouchableOpacity>
-                        <GripVertical size={14} color={colors.textMuted} />
+                        <PlatformIcon name="grip-vertical" size={14} color={colors.textMuted} />
                         <TouchableOpacity
                           onPress={() => handleMoveDown(idx)}
                           activeOpacity={0.6}
                           style={[styles.reorderBtn, idx === exercises.length - 1 && { opacity: 0.25 }]}
                           disabled={idx === exercises.length - 1}
                         >
-                          <ChevronDown size={14} color={colors.textSecondary} />
+                          <PlatformIcon name="chevron-down" size={14} color={colors.textSecondary} />
                         </TouchableOpacity>
                       </View>
                       <View style={{ flex: 1 }}>
@@ -368,7 +355,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                       </View>
                     </View>
                     <TouchableOpacity onPress={() => handleRemoveExercise(ex.id)} activeOpacity={0.7}>
-                      <X size={16} color={colors.textMuted} />
+                      <PlatformIcon name="x" size={16} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -395,7 +382,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
         {tab === 'saved' && (
           <View style={styles.savedContent}>
             <View style={[styles.searchContainer, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-              <Search size={14} color={colors.textSecondary} />
+              <PlatformIcon name="search" size={14} color={colors.textSecondary} />
               <TextInput
                 style={[styles.searchInput, { color: colors.text }]}
                 placeholder="Search workouts..."
@@ -428,7 +415,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                 onPress={() => showProGate('savedWorkouts', openPaywall)}
                 activeOpacity={0.8}
               >
-                <Crown size={15} color={PRO_GOLD} />
+                <PlatformIcon name="crown" size={15} color={PRO_GOLD} />
                 <Text style={styles.proNudgeText}>Upgrade to save unlimited workouts</Text>
                 <Text style={styles.proNudgeArrow}>→</Text>
               </TouchableOpacity>
@@ -449,7 +436,7 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                         <Text style={[styles.savedCardSub, { color: colors.textSecondary }]}>·</Text>
                         <Text style={[styles.savedCardSub, { color: colors.textSecondary }]}>{workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''}</Text>
                         <Text style={[styles.savedCardSub, { color: colors.textSecondary }]}>·</Text>
-                        <Clock size={10} color={colors.textSecondary} />
+                        <PlatformIcon name="clock" size={10} color={colors.textSecondary} />
                         <Text style={[styles.savedCardSub, { color: colors.textSecondary }]}>
                           {new Date(workout.lastUsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </Text>
@@ -457,10 +444,10 @@ export default function BuildWorkoutDrawer({ visible, onClose, onLoadWorkout }: 
                     </View>
                     <View style={styles.savedCardActions}>
                       <TouchableOpacity onPress={() => handleEditSaved(workout)} activeOpacity={0.7} style={styles.iconBtn}>
-                        <Pencil size={14} color={colors.textSecondary} />
+                        <PlatformIcon name="pencil" size={14} color={colors.textSecondary} />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => handleDeleteSaved(workout.id)} activeOpacity={0.7} style={styles.iconBtn}>
-                        <Trash2 size={14} color="#ef4444" />
+                        <PlatformIcon name="trash" size={14} color="#ef4444" />
                       </TouchableOpacity>
                     </View>
                   </View>

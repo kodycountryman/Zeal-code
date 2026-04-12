@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
-import { ThumbsUp, ThumbsDown, TrendingUp, Zap } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import ExerciseAnimationView from '@/components/ExerciseAnimationView';
 import Svg, { Polyline, Circle as SvgCircle } from 'react-native-svg';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
@@ -433,7 +433,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <ThumbsUp size={15} color={isLiked ? '#22c55e' : colors.textMuted} strokeWidth={2} />
+              <PlatformIcon name="thumbs-up" size={15} color={isLiked ? '#22c55e' : colors.textMuted} strokeWidth={2} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.prefBtn, isDisliked && { backgroundColor: '#ef444420' }]}
@@ -441,14 +441,14 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <ThumbsDown size={15} color={isDisliked ? '#ef4444' : colors.textMuted} strokeWidth={2} />
+              <PlatformIcon name="thumbs-down" size={15} color={isDisliked ? '#ef4444' : colors.textMuted} strokeWidth={2} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* ── 1RM Trend ── */}
         <View style={styles.sectionRow}>
-          <TrendingUp size={13} color={styleAccent} />
+          <PlatformIcon name="trending-up" size={13} color={styleAccent} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>1RM TREND</Text>
           {!hasHistory && (
             <Text style={[styles.noHistoryInline, { color: colors.textMuted }]}>
@@ -486,7 +486,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
         <View style={[styles.infoBox, { backgroundColor: colors.cardSecondary }]}>
           {/* Header row inside the card */}
           <View style={styles.executionHeaderRow}>
-            <Zap size={13} color={styleAccent} />
+            <PlatformIcon name="zap" size={13} color={styleAccent} />
             <Text style={[styles.sectionTitle, { color: colors.text }]}>EXECUTION</Text>
             <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>· {equipDisplay}</Text>
           </View>

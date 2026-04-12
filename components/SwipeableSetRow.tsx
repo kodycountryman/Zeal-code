@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, memo } from 'react';
 import { View, Pressable, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Trash2 } from 'lucide-react-native';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -55,7 +55,7 @@ function DeleteButton({
       onPress={onPress}
     >
       <Animated.View style={animStyle}>
-        <Trash2 size={17} color="rgba(255,69,58,0.9)" strokeWidth={2} />
+        <PlatformIcon name="trash" size={17} color="rgba(255,69,58,0.9)" strokeWidth={2} />
       </Animated.View>
     </Pressable>
   );
