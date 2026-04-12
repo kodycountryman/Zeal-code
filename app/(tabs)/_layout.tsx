@@ -42,6 +42,8 @@ function TabsWithPaywall() {
       >
         <Tabs.Screen name="index" />
         <Tabs.Screen name="workout" />
+        <Tabs.Screen name="coach" />
+        <Tabs.Screen name="nutrition" />
       </Tabs>
       <ConnectedPaywallModal />
       <ZealTipBanner />
