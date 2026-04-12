@@ -11,18 +11,22 @@ interface Props {
   goal: number;
   color: string;
   icon: AppIconName;
+  /** Optional unit suffix shown after the value (e.g., "g", "cal") */
+  unit?: string;
 }
 
-export default function MacroCard({ label, value, goal, color, icon }: Props) {
-  const { isDark } = useZealTheme();
+export default function MacroCard({ label, value, goal, color, icon, unit }: Props) {
+  const { colors, isDark } = useZealTheme();
   const pct = macroPercentage(value, goal);
   const over = isOverGoal(value, goal);
   const progress = Math.min(pct, 100);
 
-  // Position the dot along the top border (4px inset from each side)
-  const dotPositionPct = `${progress}%`;
+  const fillBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)';
+  const valueColor = over ? '#ef4444' : colors.text;
+  const secondaryColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.50)';
 
-  const fillBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)';
+  const displayValue = Math.round(value);
+  const displayText = unit ? `${displayValue}${unit}` : `${displayValue}`;
 
   return (
     <View style={[styles.card, { borderColor: color, backgroundColor: fillBg }]}>
@@ -32,35 +36,31 @@ export default function MacroCard({ label, value, goal, color, icon }: Props) {
           styles.dot,
           {
             backgroundColor: color,
-            left: `${progress}%` as any,
+            left: `${4 + progress * 0.92}%` as any,
           },
         ]}
       />
 
-      <PlatformIcon name={icon} size={20} color={color} />
+      <PlatformIcon name={icon} size={24} color={color} />
 
       <Text
-        style={[
-          styles.value,
-          { color: over ? '#ef4444' : color },
-        ]}
+        style={[styles.value, { color: valueColor }]}
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
       >
-        {Math.round(value)}
+        {displayText}
       </Text>
 
-      <Text style={[styles.pctLabel, { color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)' }]}>
+      <Text style={[styles.pctLabel, { color: secondaryColor }]}>
         {pct}%
       </Text>
 
       <Text
-        style={[
-          styles.label,
-          { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)' },
-        ]}
+        style={[styles.label, { color }]}
         numberOfLines={1}
       >
-        {label}
+        {label.toUpperCase()}
       </Text>
     </View>
   );
@@ -71,10 +71,11 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 2,
     borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
+    paddingTop: 18,
+    paddingBottom: 14,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -84,25 +85,24 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    marginLeft: -5, // center the dot on its left position
+    marginLeft: -5,
   },
   value: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 22,
-    lineHeight: 26,
+    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: 28,
+    lineHeight: 32,
     marginTop: 4,
   },
   pctLabel: {
-    fontFamily: 'Outfit_500Medium',
-    fontSize: 12,
-    lineHeight: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 13,
+    lineHeight: 16,
   },
   label: {
-    fontFamily: 'Outfit_500Medium',
-    fontSize: 11,
-    lineHeight: 13,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 10,
+    lineHeight: 12,
     marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
 });

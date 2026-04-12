@@ -47,8 +47,8 @@ type TabDef = {
 const TABS: TabDef[] = [
   { key: 'home', label: 'Home', route: '/', iconName: 'home', testID: 'dock-home' },
   { key: 'workout', label: 'Workout', route: '/workout', iconName: 'dumbbell', testID: 'dock-workout' },
-  { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
   { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
+  { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
 ];
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
