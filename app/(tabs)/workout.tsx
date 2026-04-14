@@ -1752,8 +1752,18 @@ export default function WorkoutScreen() {
     if (swapTargetExercise !== null && exercises.length === 1) {
       __DEV__ && console.log('[WorkoutScreen] Swapping exercise:', swapTargetExercise.name, '->', exercises[0].name);
       const inCoreFinisher = workout.coreFinisher?.some(ex => ex.id === swapTargetExercise.id);
+      const inCardio = swapTargetExercise.id.startsWith('cardio-');
       let updated: GeneratedWorkout;
-      if (inCoreFinisher) {
+      if (inCardio) {
+        const cardioIdx = parseInt(swapTargetExercise.id.replace('cardio-', ''), 10);
+        const existingCardio = workout.cardio[cardioIdx];
+        updated = {
+          ...workout,
+          cardio: workout.cardio.map((c, i) =>
+            i === cardioIdx ? { ...existingCardio, name: exercises[0].name } : c
+          ),
+        };
+      } else if (inCoreFinisher) {
         updated = {
           ...workout,
           coreFinisher: workout.coreFinisher!.map(ex =>
@@ -4352,7 +4362,10 @@ export default function WorkoutScreen() {
                 suggestedWeight: 'BW',
                 lastSessionWeight: '',
                 lastSessionReps: '',
-                exerciseRef: null,
+                exerciseRef: {
+                  movement_pattern: 'cardio',
+                  equipment_required: [],
+                },
               };
               const isExpanded = expandedTrack === cardioEx.id;
               const isCompleted = tracking.exerciseLogs[cardioEx.id]?.completed === true;
@@ -4363,7 +4376,7 @@ export default function WorkoutScreen() {
                     isOpen={swipeOpenId === cardioEx.id}
                     onOpen={setSwipeOpenId}
                     onInfo={() => handleExerciseTap(cardioEx)}
-                    onSwap={() => {}}
+                    onSwap={() => handleSwapExercise(cardioEx)}
                     onDelete={() => {
                       if (!workout) return;
                       setWorkout({ ...workout, cardio: workout.cardio.filter((_, i) => i !== idx) });
@@ -4385,6 +4398,9 @@ export default function WorkoutScreen() {
                             {c.duration}{c.rpe ? ` · RPE ${c.rpe}` : ''}
                           </Text>
                         )}
+                        {c.protocol ? (
+                          <Text style={[styles.cardioProtocol, { color: colors.textSecondary }]} numberOfLines={2}>{c.protocol}</Text>
+                        ) : null}
                         {c.notes ? (
                           <Text style={[styles.cardioNotes, { color: colors.textMuted }]} numberOfLines={1}>&quot;{c.notes}&quot;</Text>
                         ) : null}
@@ -6150,6 +6166,12 @@ const styles = StyleSheet.create({
   cardioMeta: {
     fontSize: 11,
     opacity: 0.55,
+  },
+  cardioProtocol: {
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
+    marginTop: 2,
+    lineHeight: 15,
   },
   cardioNotes: {
     fontSize: 10,

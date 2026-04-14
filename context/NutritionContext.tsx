@@ -6,7 +6,7 @@
  */
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   DailyLog,
   MealEntry,
@@ -52,9 +52,18 @@ const [NutritionProvider, useNutrition] = createContextHook(() => {
   // ── Drawer visibility ──
   const [foodSearchVisible, setFoodSearchVisible] = useState(false);
   const [manualFoodEntryVisible, setManualFoodEntryVisible] = useState(false);
+  const [addFoodSheetVisible, setAddFoodSheetVisible] = useState(false);
+  const [aiFoodResultVisible, setAiFoodResultVisible] = useState(false);
   const [goalSetupVisible, setGoalSetupVisible] = useState(false);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
   const [selectedMealEntry, setSelectedMealEntry] = useState<MealEntry | null>(null);
+
+  // ── Action callbacks (registered by nutrition screen, called by drawers) ──
+  const actionCallbacksRef = useRef<{
+    onScanFood?: () => void;
+    onScanBarcode?: () => void;
+    onVoiceFood?: () => void;
+  }>({});
 
   // ── Hydration from AsyncStorage ──
   useEffect(() => {
@@ -310,12 +319,24 @@ const [NutritionProvider, useNutrition] = createContextHook(() => {
       setFoodSearchVisible,
       manualFoodEntryVisible,
       setManualFoodEntryVisible,
+      addFoodSheetVisible,
+      setAddFoodSheetVisible,
+      aiFoodResultVisible,
+      setAiFoodResultVisible,
       goalSetupVisible,
       setGoalSetupVisible,
       selectedMealType,
       setSelectedMealType,
       selectedMealEntry,
       setSelectedMealEntry,
+
+      // Action callbacks (scanner/voice triggers)
+      registerActionCallbacks: (cbs: typeof actionCallbacksRef.current) => {
+        actionCallbacksRef.current = cbs;
+      },
+      triggerScanFood: () => actionCallbacksRef.current.onScanFood?.(),
+      triggerScanBarcode: () => actionCallbacksRef.current.onScanBarcode?.(),
+      triggerVoiceFood: () => actionCallbacksRef.current.onVoiceFood?.(),
 
       // Actions
       setSelectedDate,
@@ -331,8 +352,8 @@ const [NutritionProvider, useNutrition] = createContextHook(() => {
     }),
     [
       loaded, goals, todayLog, selectedDate, customFoods, recentFoods, dailyLogs,
-      foodSearchVisible, manualFoodEntryVisible, goalSetupVisible,
-      selectedMealType, selectedMealEntry,
+      foodSearchVisible, manualFoodEntryVisible, addFoodSheetVisible, aiFoodResultVisible,
+      goalSetupVisible, selectedMealType, selectedMealEntry,
       addMealEntry, removeMealEntry, addWater, removeLastWater,
       updateGoals, saveCustomFood, deleteCustomFood, copyMealsFromDate, getDailyLog,
     ],

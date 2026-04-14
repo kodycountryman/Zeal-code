@@ -247,8 +247,8 @@ export default function OnboardingScreen() {
     } catch (e) {
       __DEV__ && console.log('[Onboarding] Health error:', e);
     }
-    setWalkthroughVisible(true);
-  }, [ctx]);
+    handleWalkthroughDone();
+  }, [ctx, handleWalkthroughDone]);
 
   const effectiveWeight = weightUnit === 'lbs' ? weightLbs : Math.round(weightLbs * 0.453592);
   const weightValues = weightUnit === 'lbs' ? WEIGHTS_LBS : WEIGHTS_KG.map((v) => Math.round(v));
@@ -383,7 +383,6 @@ export default function OnboardingScreen() {
           {step === 13 && (
             <StepHealthData
               onConnect={handleConnectHealth}
-              onSkip={() => setWalkthroughVisible(true)}
             />
           )}
         </Animated.View>
@@ -1084,10 +1083,9 @@ function StepNotifications({
 }
 
 function StepHealthData({
-  onConnect, onSkip,
+  onConnect,
 }: {
   onConnect: () => void;
-  onSkip: () => void;
 }) {
   const healthName = Platform.OS === 'ios' ? 'Apple Health' : Platform.OS === 'android' ? 'Health Connect' : 'Health Data';
   return (
@@ -1116,11 +1114,8 @@ function StepHealthData({
             end={{ x: 1, y: 0 }}
             style={styles.permissionBtnGradient}
           >
-            <Text style={styles.permissionBtnText}>Connect {healthName}</Text>
+            <Text style={styles.permissionBtnText}>Continue</Text>
           </LinearGradient>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.skipLink}>Skip for now</Text>
         </TouchableOpacity>
       </View>
     </View>

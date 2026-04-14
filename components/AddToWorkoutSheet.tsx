@@ -102,11 +102,46 @@ function scoreForSwap(candidate: ZealExercise, source: ZealExercise): number {
   return score;
 }
 
+const CARDIO_SWAP_POOL = [
+  'Rowing Machine', 'Assault Bike', 'Treadmill Run', 'Jump Rope',
+  'Battle Ropes', 'Ski Erg', 'Elliptical', 'Cycling', 'Sled Push',
+  'Stairmaster', 'Fan Bike', 'Air Bike', 'Bear Crawl',
+];
+
 function getRecommendations(source: WorkoutExercise): ZealExercise[] {
   const sourceRef: ZealExercise | null = source.exerciseRef ?? null;
+  const db = getZealExerciseDatabase();
+
+  // Cardio-specific swap: find cardio exercises by movement pattern + hardcoded pool
+  if (source.type === 'cardio' || source.muscleGroup === 'Cardio') {
+    const sourceName = source.name.toLowerCase();
+    const cardioResults = db.filter(ex =>
+      ex.name.toLowerCase() !== sourceName &&
+      (ex.movement_pattern === 'cardio' ||
+       CARDIO_SWAP_POOL.some(name => ex.name.toLowerCase().includes(name.toLowerCase())))
+    );
+    if (cardioResults.length > 0) return cardioResults.slice(0, 12);
+    // Fallback: return synthetic entries from the hardcoded pool
+    return CARDIO_SWAP_POOL
+      .filter(name => !sourceName.includes(name.toLowerCase()))
+      .slice(0, 10)
+      .map((name, i) => ({
+        id: `cardio_swap_${i}`,
+        name,
+        primary_muscles: ['cardio'] as any,
+        secondary_muscles: [] as any,
+        movement_pattern: 'cardio' as any,
+        equipment_required: [] as any,
+        is_compound: false,
+        difficulty_tier: 'intermediate' as any,
+        rep_range_floor: 1,
+        rep_range_ceiling: 1,
+        substitutes: [] as any,
+        variation_family: '' as any,
+      } as ZealExercise));
+  }
 
   if (sourceRef && typeof sourceRef === 'object' && 'primary_muscles' in sourceRef) {
-    const db = getZealExerciseDatabase();
     return db
       .map(ex => ({ ex, score: scoreForSwap(ex, sourceRef) }))
       .filter(({ score }) => score > 0)
@@ -116,7 +151,6 @@ function getRecommendations(source: WorkoutExercise): ZealExercise[] {
   }
 
   const muscleQuery = source.muscleGroup.split(',')[0].trim().toLowerCase();
-  const db = getZealExerciseDatabase();
   return db
     .filter(ex =>
       ex.name !== source.name &&

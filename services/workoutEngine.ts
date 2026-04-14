@@ -30,6 +30,7 @@ export interface CardioItem {
   format: string;
   rpe: string;
   notes: string;
+  protocol?: string;
 }
 
 export interface WarmupItem {
@@ -2507,6 +2508,7 @@ function generateCardioItems(
       format: `Intervals (${ex1} & ${ex2})`,
       rpe: '7',
       notes: 'Quick wrists, soft knees',
+      protocol: '40s all-out effort → 20s easy/rest — repeat for 10 min',
     });
     if (ex1 !== ex2) {
       items.push({
@@ -2515,6 +2517,7 @@ function generateCardioItems(
         format: 'Intervals',
         rpe: '6-7',
         notes: 'Stay relaxed, steady pace',
+        protocol: 'Alternate 1 min moderate / 1 min easy — repeat for 10 min',
       });
     }
   } else {
@@ -2524,6 +2527,9 @@ function generateCardioItems(
       format,
       rpe: format === 'Tempo' ? '7-8' : '5-6',
       notes: format === 'Tempo' ? 'Push the pace, controlled effort' : 'Easy, conversational pace',
+      protocol: format === 'Tempo'
+        ? 'Sustained hard effort for 20 min — stay at RPE 7-8 throughout'
+        : 'Maintain a consistent, conversational pace for 20 min',
     });
   }
   return items;
@@ -2895,6 +2901,13 @@ export function buildWarmupCooldownRecovery(
 // from the exercise DB synchronously — reliable, instant, equipment-aware.
 
 const CORE_FINISHER_MUSCLES = new Set(['core', 'obliques', 'transverse_abdominis']);
+const EXCLUDED_CORE_PATTERNS = new Set(['mobility', 'stretch']);
+const PREFERRED_CORE_IDS = new Set([
+  'plank', 'hanging_leg_raise', 'russian_twist', 'ab_wheel_rollout',
+  'bicycle_crunch', 'mountain_climber', 'dead_bug', 'cable_woodchop',
+  'hollow_body_hold', 'toes_to_bar', 'side_plank', 'knees_to_elbow',
+  'pallof_press', 'medicine_ball_slam',
+]);
 
 export function generateCoreFinisherFromEngine(params: {
   fitnessLevel: string;
@@ -2904,9 +2917,10 @@ export function generateCoreFinisherFromEngine(params: {
   const seed = getDaySeed();
   const rng = seededRandom(seed);
 
-  // Filter to core-primary exercises
+  // Filter to core-primary exercises, excluding mobility/stretch patterns
   const corePool = db.filter(ex =>
-    ex.primary_muscles.some(m => CORE_FINISHER_MUSCLES.has(m as string))
+    ex.primary_muscles.some(m => CORE_FINISHER_MUSCLES.has(m as string)) &&
+    !EXCLUDED_CORE_PATTERNS.has(ex.movement_pattern as string)
   );
 
   // Filter by available equipment (allow if bodyweight-only OR all required gear is available)
@@ -2920,8 +2934,13 @@ export function generateCoreFinisherFromEngine(params: {
     ? equipFiltered.filter(ex => ex.difficulty_tier !== 'advanced')
     : equipFiltered;
 
-  const pool = byDifficulty.length >= 2 ? byDifficulty : (equipFiltered.length >= 2 ? equipFiltered : corePool);
-  const selected = shuffleArray(pool, rng).slice(0, 4);
+  // Prioritize popular core exercises, then non-Pilates, then Pilates
+  const base = byDifficulty.length >= 2 ? byDifficulty : (equipFiltered.length >= 2 ? equipFiltered : corePool);
+  const preferred = base.filter(ex => PREFERRED_CORE_IDS.has(ex.id as string));
+  const standard = base.filter(ex => !PREFERRED_CORE_IDS.has(ex.id as string) && ex.movement_pattern !== 'pilates');
+  const pilates = base.filter(ex => !PREFERRED_CORE_IDS.has(ex.id as string) && ex.movement_pattern === 'pilates');
+  const pool = [...shuffleArray(preferred, rng), ...shuffleArray(standard, rng), ...shuffleArray(pilates, rng)];
+  const selected = pool.slice(0, 4);
 
   const isAdvanced = params.fitnessLevel === 'advanced';
   const isIntermediate = params.fitnessLevel === 'intermediate';

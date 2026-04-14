@@ -1,5 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  Alert,
+  Keyboard,
+  Platform,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useZealTheme } from '@/context/AppContext';
 import GlassCard from '@/components/GlassCard';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -13,9 +23,39 @@ interface Props {
 
 export default function WaterTracker({ currentMl, goalMl, onAdd, onUndo }: Props) {
   const { colors, accent, isDark } = useZealTheme();
+  const [customVisible, setCustomVisible] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
 
   const fillPct = Math.min((currentMl / Math.max(goalMl, 1)) * 100, 100);
   const barBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+
+  const handleUndo = useCallback(() => {
+    Alert.alert('Undo Water', 'Remove the last water entry?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Undo', style: 'destructive', onPress: onUndo },
+    ]);
+  }, [onUndo]);
+
+  const hapticTap = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, []);
+
+  const handleQuickAdd = useCallback((ml: number) => {
+    hapticTap();
+    onAdd(ml);
+  }, [hapticTap, onAdd]);
+
+  const handleCustomAdd = useCallback(() => {
+    const ml = parseInt(customAmount, 10);
+    if (!ml || ml <= 0) return;
+    Keyboard.dismiss();
+    hapticTap();
+    onAdd(ml);
+    setCustomAmount('');
+    setCustomVisible(false);
+  }, [customAmount, onAdd, hapticTap]);
 
   return (
     <GlassCard style={styles.card}>
@@ -52,7 +92,7 @@ export default function WaterTracker({ currentMl, goalMl, onAdd, onUndo }: Props
               { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' },
               pressed && { opacity: 0.6 },
             ]}
-            onPress={() => onAdd(250)}
+            onPress={() => handleQuickAdd(250)}
           >
             <PlatformIcon name="plus" size={14} color={accent} />
             <Text style={[styles.addBtnText, { color: colors.text }]}>250ml</Text>
@@ -64,21 +104,63 @@ export default function WaterTracker({ currentMl, goalMl, onAdd, onUndo }: Props
               { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' },
               pressed && { opacity: 0.6 },
             ]}
-            onPress={() => onAdd(500)}
+            onPress={() => handleQuickAdd(500)}
           >
             <PlatformIcon name="plus" size={14} color={accent} />
             <Text style={[styles.addBtnText, { color: colors.text }]}>500ml</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.addBtn,
+              { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' },
+              pressed && { opacity: 0.6 },
+            ]}
+            onPress={() => setCustomVisible((v) => !v)}
+          >
+            <PlatformIcon name="pencil" size={14} color={accent} />
+            <Text style={[styles.addBtnText, { color: colors.text }]}>Custom</Text>
           </Pressable>
         </View>
 
         <Pressable
           style={({ pressed }) => [pressed && { opacity: 0.5 }]}
-          onPress={onUndo}
+          onPress={handleUndo}
           hitSlop={8}
         >
           <Text style={[styles.undoText, { color: colors.textMuted }]}>Undo</Text>
         </Pressable>
       </View>
+
+      {/* Custom Amount Input */}
+      {customVisible && (
+        <View style={styles.customRow}>
+          <TextInput
+            style={[
+              styles.customInput,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : colors.cardSecondary,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            value={customAmount}
+            onChangeText={setCustomAmount}
+            placeholder="Amount in ml"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            onSubmitEditing={handleCustomAdd}
+            autoFocus
+          />
+          <Pressable
+            style={[styles.customAddBtn, { backgroundColor: accent }]}
+            onPress={handleCustomAdd}
+          >
+            <PlatformIcon name="plus" size={16} color="#fff" />
+          </Pressable>
+        </View>
+      )}
     </GlassCard>
   );
 }
@@ -144,5 +226,26 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
     fontSize: 13,
     lineHeight: 16,
+  },
+  customRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  customInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: 'Outfit_500Medium',
+  },
+  customAddBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

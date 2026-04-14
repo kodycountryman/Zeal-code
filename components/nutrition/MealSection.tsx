@@ -1,140 +1,107 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, LayoutAnimation, UIManager, Platform } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useZealTheme } from '@/context/AppContext';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import MealEntryRow from '@/components/nutrition/MealEntryRow';
+import GlassCard from '@/components/GlassCard';
 import { mealCalories } from '@/services/nutritionUtils';
+import type { AppIconName } from '@/constants/iconMap';
 import type { MealEntry, MealType } from '@/types/nutrition';
 import { MEAL_LABELS } from '@/types/nutrition';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// ─── Meal icon mapping ──────────────────────────────────
+
+const MEAL_ICONS: Record<MealType, { name: AppIconName; color: string }> = {
+  breakfast: { name: 'sun', color: '#f59e0b' },
+  lunch: { name: 'utensils', color: '#22c55e' },
+  dinner: { name: 'moon', color: '#6366f1' },
+  snacks: { name: 'zap', color: '#ec4899' },
+};
 
 interface Props {
   mealType: MealType;
   entries: MealEntry[];
-  onAddFood: () => void;
-  onTapEntry: (entry: MealEntry) => void;
-  onDeleteEntry: (entryId: string) => void;
+  onPress: () => void;
 }
 
-export default function MealSection({
-  mealType,
-  entries,
-  onAddFood,
-  onTapEntry,
-  onDeleteEntry,
-}: Props) {
+export default function MealSection({ mealType, entries, onPress }: Props) {
   const { colors, isDark } = useZealTheme();
-  const [collapsed, setCollapsed] = useState(false);
-
-  const toggleCollapse = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setCollapsed((prev) => !prev);
-  }, []);
 
   const totalCal = mealCalories(entries);
-  const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+  const icon = MEAL_ICONS[mealType];
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.card,
-          borderColor,
-        },
-      ]}
-    >
-      {/* Header */}
-      <Pressable style={styles.header} onPress={toggleCollapse}>
-        <View style={styles.headerLeft}>
-          <PlatformIcon
-            name={collapsed ? 'chevron-right' : 'chevron-down'}
-            size={16}
-            color={colors.textMuted}
-          />
-          <Text style={[styles.mealLabel, { color: colors.text }]}>
-            {MEAL_LABELS[mealType]}
-          </Text>
+    <GlassCard style={styles.tile}>
+      <Pressable
+        style={styles.inner}
+        onPress={onPress}
+        android_ripple={{ color: 'rgba(255,255,255,0.06)' }}
+      >
+        {/* Icon + Label */}
+        <View style={styles.topRow}>
+          <View style={[styles.iconCircle, { backgroundColor: icon.color + '18' }]}>
+            <PlatformIcon name={icon.name} size={20} color={icon.color} />
+          </View>
+          <PlatformIcon name="plus" size={16} color={colors.textMuted} />
         </View>
-        <Text style={[styles.totalCal, { color: colors.textSecondary }]}>
-          {totalCal > 0 ? `${totalCal} cal` : ''}
+
+        <Text style={[styles.mealLabel, { color: colors.text }]}>
+          {MEAL_LABELS[mealType]}
         </Text>
-      </Pressable>
 
-      {/* Content */}
-      {!collapsed && (
-        <>
-          {entries.map((entry) => (
-            <MealEntryRow
-              key={entry.id}
-              entry={entry}
-              onTap={() => onTapEntry(entry)}
-              onDelete={() => onDeleteEntry(entry.id)}
-            />
-          ))}
-
-          {/* Add Food Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.addButton,
-              pressed && { opacity: 0.6 },
-            ]}
-            onPress={onAddFood}
-          >
-            <PlatformIcon name="plus" size={16} color={colors.textMuted} />
-            <Text style={[styles.addText, { color: colors.textMuted }]}>
-              Add Food
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          <Text style={[styles.calText, { color: colors.textSecondary }]}>
+            {totalCal > 0 ? `${totalCal} cal` : '0 cal'}
+          </Text>
+          {entries.length > 0 && (
+            <Text style={[styles.countText, { color: colors.textMuted }]}>
+              {entries.length} item{entries.length !== 1 ? 's' : ''}
             </Text>
-          </Pressable>
-        </>
-      )}
-    </View>
+          )}
+        </View>
+      </Pressable>
+    </GlassCard>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderWidth: 1,
-    borderRadius: 20,
+  tile: {
+    flex: 1,
+    padding: 0,
     overflow: 'hidden',
   },
-  header: {
+  inner: {
+    padding: 14,
+    gap: 8,
+  },
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
   },
-  headerLeft: {
-    flexDirection: 'row',
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
   },
   mealLabel: {
     fontFamily: 'Outfit_600SemiBold',
-    fontSize: 16,
-    lineHeight: 20,
-  },
-  totalCal: {
-    fontFamily: 'Outfit_500Medium',
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 18,
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  statsRow: {
+    gap: 2,
   },
-  addText: {
+  calText: {
     fontFamily: 'Outfit_500Medium',
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  countText: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 12,
+    lineHeight: 14,
   },
 });

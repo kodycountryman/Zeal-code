@@ -52,9 +52,15 @@ export default function MacroCard({ label, value, goal, color, icon, unit }: Pro
         {displayText}
       </Text>
 
-      <Text style={[styles.pctLabel, { color: secondaryColor }]}>
-        {pct}%
-      </Text>
+      {/* Percentage + over-goal warning */}
+      <View style={styles.pctRow}>
+        {over && (
+          <PlatformIcon name="alert-triangle" size={12} color="#ef4444" />
+        )}
+        <Text style={[styles.pctLabel, { color: over ? '#ef4444' : secondaryColor }]}>
+          {pct}%
+        </Text>
+      </View>
 
       <Text
         style={[styles.label, { color }]}
@@ -92,6 +98,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 32,
     marginTop: 4,
+  },
+  pctRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   pctLabel: {
     fontFamily: 'Outfit_600SemiBold',

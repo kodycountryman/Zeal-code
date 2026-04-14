@@ -1,12 +1,16 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useZealTheme } from '@/context/AppContext';
 import { useNutrition } from '@/context/NutritionContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -18,14 +22,28 @@ import ZealBackground from '@/components/ZealBackground';
 import ComingSoon from '@/components/ComingSoon';
 import { Apple, Camera, Flame, Droplets } from 'lucide-react-native';
 
-// Nutrition components (created in parallel)
+// Nutrition components
 import MacroSummaryRow from '@/components/nutrition/MacroSummaryRow';
 import MealSection from '@/components/nutrition/MealSection';
 import WaterTracker from '@/components/nutrition/WaterTracker';
 import DayNavigator from '@/components/nutrition/DayNavigator';
+import BarcodeScanner from '@/components/nutrition/BarcodeScanner';
 
 // Drawers
 import ManualFoodEntrySheet from '@/components/drawers/ManualFoodEntrySheet';
+import AddFoodActionSheet from '@/components/drawers/AddFoodActionSheet';
+import AIFoodResultSheet from '@/components/drawers/AIFoodResultSheet';
+import VoiceFoodSheet from '@/components/drawers/VoiceFoodSheet';
+import NutritionGoalSheet from '@/components/drawers/NutritionGoalSheet';
+import MealDetailSheet from '@/components/drawers/MealDetailSheet';
+
+import type { MealType } from '@/types/nutrition';
+
+// Utilities
+import { addDays } from '@/services/nutritionUtils';
+
+// AI Scanner
+import { scanFood, type AIFoodResult } from '@/services/aiFoodScanner';
 
 // ═══════════════════════════════════════════════════════
 // NutritionScreen — Daily nutrition tracking view
@@ -44,7 +62,6 @@ export default function NutritionScreen() {
 // ─── Free-tier fallback ────────────────────────────────
 
 function FreeFallback({ openPaywall }: { openPaywall: () => void }) {
-  // Show the pro gate alert once when the free user lands on this tab
   useEffect(() => {
     showProGate('nutrition', openPaywall);
   }, [openPaywall]);
@@ -86,31 +103,102 @@ function NutritionDailyView() {
     selectedDate,
     setSelectedDate,
     setSelectedMealType,
-    setManualFoodEntryVisible,
+    setAddFoodSheetVisible,
+    setAiFoodResultVisible,
     addMealEntry,
     removeMealEntry,
     addWater,
     removeLastWater,
-    goalSetupVisible,
     setGoalSetupVisible,
+    registerActionCallbacks,
+    copyMealsFromDate,
+    getDailyLog,
   } = useNutrition();
 
-  const handleAddFood = useCallback(
-    (mealType: typeof MEAL_TYPES[number]) => {
+  const [barcodeVisible, setBarcodeVisible] = useState(false);
+  const [voiceSheetVisible, setVoiceSheetVisible] = useState(false);
+  const [mealDetailVisible, setMealDetailVisible] = useState(false);
+  const [detailMealType, setDetailMealType] = useState<MealType | null>(null);
+  const [aiResult, setAiResult] = useState<AIFoodResult | null>(null);
+  const [aiScanning, setAiScanning] = useState(false);
+
+  // ── Meal tile tap → detail if entries exist, else add food ──
+  const handleMealPress = useCallback(
+    (mealType: MealType) => {
       setSelectedMealType(mealType);
-      setManualFoodEntryVisible(true);
+      const entries = todayLog.meals.filter((m) => m.mealType === mealType);
+      if (entries.length > 0) {
+        setDetailMealType(mealType);
+        setMealDetailVisible(true);
+      } else {
+        setAddFoodSheetVisible(true);
+      }
     },
-    [setSelectedMealType, setManualFoodEntryVisible],
+    [setSelectedMealType, setAddFoodSheetVisible, todayLog],
   );
 
+  // ── Open add food from meal detail ──
+  const handleAddFoodFromDetail = useCallback(() => {
+    setAddFoodSheetVisible(true);
+  }, [setAddFoodSheetVisible]);
+
+  // ── AI food scan flow ──
+  const handleScanFood = useCallback(async () => {
+    setAiScanning(true);
+    try {
+      const result = await scanFood();
+      if (result) {
+        setAiResult(result);
+        setAiFoodResultVisible(true);
+      }
+    } catch (e) {
+      Alert.alert('Scan Failed', 'Could not analyze the photo. Please try again.');
+    } finally {
+      setAiScanning(false);
+    }
+  }, [setAiFoodResultVisible]);
+
+  // ── Barcode scan flow ──
+  const handleScanBarcode = useCallback(() => {
+    setBarcodeVisible(true);
+  }, []);
+
+  // ── Voice log flow ──
+  const handleVoiceFood = useCallback(() => {
+    setVoiceSheetVisible(true);
+  }, []);
+
+  const handleVoiceResult = useCallback((result: AIFoodResult) => {
+    setAiResult(result);
+    setAiFoodResultVisible(true);
+  }, [setAiFoodResultVisible]);
+
+  // Register action callbacks in context (replaces global variable pattern)
+  useEffect(() => {
+    registerActionCallbacks({
+      onScanFood: handleScanFood,
+      onScanBarcode: handleScanBarcode,
+      onVoiceFood: handleVoiceFood,
+    });
+    return () => registerActionCallbacks({});
+  }, [registerActionCallbacks, handleScanFood, handleScanBarcode, handleVoiceFood]);
+
   const handleGearPress = useCallback(() => {
-    // Future: open goal setup drawer
     setGoalSetupVisible(true);
-    __DEV__ && console.log('[Nutrition] Goal setup tapped');
   }, [setGoalSetupVisible]);
 
+  // ── Copy meals from yesterday ──
+  const yesterdayStr = useMemo(() => addDays(selectedDate, -1), [selectedDate]);
+  const yesterdayLog = getDailyLog(yesterdayStr);
+  const showCopyYesterday = todayLog.meals.length === 0 && yesterdayLog.meals.length > 0;
+
+  const handleCopyYesterday = useCallback(() => {
+    copyMealsFromDate(yesterdayStr, selectedDate);
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [copyMealsFromDate, yesterdayStr, selectedDate]);
+
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ZealBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* ── Screen Header ── */}
@@ -139,19 +227,47 @@ function NutritionDailyView() {
             <MacroSummaryRow totals={todayLog.totals} goals={goals.macros} />
           </GlassCard>
 
-          {/* ── Meal Sections ── */}
-          {MEAL_TYPES.map((mealType) => (
-            <MealSection
-              key={mealType}
-              mealType={mealType}
-              entries={todayLog.meals.filter((m) => m.mealType === mealType)}
-              onAddFood={() => handleAddFood(mealType)}
-              onTapEntry={() => {
-                /* future: open food detail */
-              }}
-              onDeleteEntry={(id) => removeMealEntry(id)}
-            />
-          ))}
+          {/* ── Meal Grid (2x2) ── */}
+          <View style={styles.mealGrid}>
+            <View style={styles.mealRow}>
+              <MealSection
+                mealType="breakfast"
+                entries={todayLog.meals.filter((m) => m.mealType === 'breakfast')}
+                onPress={() => handleMealPress('breakfast')}
+              />
+              <MealSection
+                mealType="lunch"
+                entries={todayLog.meals.filter((m) => m.mealType === 'lunch')}
+                onPress={() => handleMealPress('lunch')}
+              />
+            </View>
+            <View style={styles.mealRow}>
+              <MealSection
+                mealType="dinner"
+                entries={todayLog.meals.filter((m) => m.mealType === 'dinner')}
+                onPress={() => handleMealPress('dinner')}
+              />
+              <MealSection
+                mealType="snacks"
+                entries={todayLog.meals.filter((m) => m.mealType === 'snacks')}
+                onPress={() => handleMealPress('snacks')}
+              />
+            </View>
+          </View>
+
+          {/* ── Copy from yesterday ── */}
+          {showCopyYesterday && (
+            <TouchableOpacity
+              style={[styles.copyBtn, { borderColor: colors.border }]}
+              onPress={handleCopyYesterday}
+              activeOpacity={0.7}
+            >
+              <PlatformIcon name="copy" size={16} color={colors.textMuted} />
+              <Text style={[styles.copyBtnText, { color: colors.textSecondary }]}>
+                Copy meals from yesterday ({yesterdayLog.meals.length} items)
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* ── Water Tracker ── */}
           <WaterTracker
@@ -164,10 +280,34 @@ function NutritionDailyView() {
           {/* ── Dock clearance ── */}
           <View style={styles.bottomSpacer} />
         </ScrollView>
+
+        {/* ── AI Scanning overlay ── */}
+        {aiScanning && (
+          <View style={styles.scanOverlay}>
+            <ActivityIndicator color={accent} size="large" />
+            <Text style={[styles.scanText, { color: colors.text }]}>Analyzing food...</Text>
+          </View>
+        )}
       </SafeAreaView>
 
       {/* ── Drawers ── */}
+      <AddFoodActionSheet />
       <ManualFoodEntrySheet />
+      <NutritionGoalSheet />
+      <MealDetailSheet
+        visible={mealDetailVisible}
+        mealType={detailMealType}
+        entries={detailMealType ? todayLog.meals.filter((m) => m.mealType === detailMealType) : []}
+        onClose={() => setMealDetailVisible(false)}
+        onAddFood={handleAddFoodFromDetail}
+      />
+      <AIFoodResultSheet result={aiResult} onClose={() => setAiResult(null)} />
+      <BarcodeScanner visible={barcodeVisible} onClose={() => setBarcodeVisible(false)} />
+      <VoiceFoodSheet
+        visible={voiceSheetVisible}
+        onClose={() => setVoiceSheetVisible(false)}
+        onResult={handleVoiceResult}
+      />
     </View>
   );
 }
@@ -205,7 +345,39 @@ const styles = StyleSheet.create({
   macroCard: {
     padding: 16,
   },
+  mealGrid: {
+    gap: 12,
+  },
+  mealRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: 14,
+    borderStyle: 'dashed',
+  },
+  copyBtnText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 14,
+  },
   bottomSpacer: {
     height: 160,
+  },
+  scanOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  scanText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 16,
   },
 });

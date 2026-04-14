@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   Keyboard,
+  Pressable,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme } from '@/context/AppContext';
 import { useNutrition } from '@/context/NutritionContext';
 import { MEAL_LABELS } from '@/types/nutrition';
-import type { ServingSize } from '@/types/nutrition';
+import type { FoodItem, ServingSize } from '@/types/nutrition';
+import { searchAll } from '@/services/foodSearch';
 
 // ─── Helpers ──────────────────────────────────────────
 
@@ -31,6 +35,8 @@ export default function ManualFoodEntrySheet() {
     selectedMealType,
     saveCustomFood,
     addMealEntry,
+    recentFoods,
+    customFoods,
   } = useNutrition();
 
   // Form state
@@ -44,6 +50,13 @@ export default function ManualFoodEntrySheet() {
   const [carbs, setCarbs] = useState('');
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<FoodItem[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
   const mealLabel = selectedMealType ? MEAL_LABELS[selectedMealType] : 'Meal';
 
   const resetForm = useCallback(() => {
@@ -56,12 +69,84 @@ export default function ManualFoodEntrySheet() {
     setFat('');
     setCarbs('');
     setErrors({});
+    setSuggestions([]);
+    setShowSuggestions(false);
   }, []);
 
   const handleClose = useCallback(() => {
     setManualFoodEntryVisible(false);
     resetForm();
   }, [setManualFoodEntryVisible, resetForm]);
+
+  // ── Autocomplete search ──
+  const handleNameChange = useCallback(
+    (text: string) => {
+      setName(text);
+      setErrors((e) => ({ ...e, name: false }));
+
+      // Cancel pending debounce + in-flight request
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+
+      if (text.trim().length < 3) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setSearching(false);
+        return;
+      }
+
+      setSearching(true);
+      debounceRef.current = setTimeout(() => {
+        const controller = new AbortController();
+        abortRef.current = controller;
+
+        searchAll(text, recentFoods, customFoods, controller.signal)
+          .then((results) => {
+            // Only update if this request wasn't aborted
+            if (!controller.signal.aborted) {
+              setSuggestions(results);
+              setShowSuggestions(results.length > 0);
+              setSearching(false);
+            }
+          })
+          .catch(() => {
+            if (!controller.signal.aborted) {
+              setSuggestions([]);
+              setShowSuggestions(false);
+              setSearching(false);
+            }
+          });
+      }, 300);
+    },
+    [recentFoods, customFoods],
+  );
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
+  // ── Select suggestion → fill form ──
+  const handleSelectSuggestion = useCallback((food: FoodItem) => {
+    const serving = food.servingSizes[0];
+    const per100 = food.nutrientsPer100g;
+    const factor = serving ? serving.grams / 100 : 1;
+
+    setName(food.name);
+    setBrand(food.brand ?? '');
+    setServingLabel(serving?.label ?? '');
+    setServingGrams(serving ? String(serving.grams) : '100');
+    setCalories(String(Math.round(per100.calories * factor)));
+    setProtein(String(Math.round(per100.protein * factor * 10) / 10));
+    setFat(String(Math.round(per100.fat * factor * 10) / 10));
+    setCarbs(String(Math.round(per100.carbs * factor * 10) / 10));
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setErrors({});
+  }, []);
 
   const handleSubmit = useCallback(() => {
     // Validate required fields
@@ -77,46 +162,65 @@ export default function ManualFoodEntrySheet() {
 
     Keyboard.dismiss();
 
-    const gramsVal = parseNum(servingGrams);
-    const calsVal = parseNum(calories);
-    const proteinVal = parseNum(protein);
-    const fatVal = parseNum(fat);
-    const carbsVal = parseNum(carbs);
+    const gramsVal = Math.min(Math.max(parseNum(servingGrams), 0.1), 5000);
+    const calsVal = Math.max(parseNum(calories), 0);
+    const proteinVal = Math.max(parseNum(protein), 0);
+    const fatVal = Math.max(parseNum(fat), 0);
+    const carbsVal = Math.max(parseNum(carbs), 0);
 
-    // Build the serving size
-    const serving: ServingSize = {
-      label: servingLabel.trim() || `${gramsVal}g`,
-      grams: gramsVal,
-    };
-
-    // Convert to per-100g for canonical storage
-    const factor = gramsVal > 0 ? 100 / gramsVal : 1;
-
-    const customFood = saveCustomFood({
-      name: name.trim(),
-      brand: brand.trim() || undefined,
-      servingSizes: [serving],
-      nutrientsPer100g: {
-        calories: calsVal * factor,
-        protein: proteinVal * factor,
-        fat: fatVal * factor,
-        carbs: carbsVal * factor,
-      },
-      source: 'custom',
-    });
-
-    if (selectedMealType) {
-      addMealEntry(customFood, selectedMealType, {
-        servingSize: serving,
-        quantity: 1,
-      });
+    // Macro consistency check
+    const macroCals = Math.round(proteinVal * 4 + carbsVal * 4 + fatVal * 9);
+    if (calsVal > 0 && macroCals > 0 && Math.abs(macroCals - calsVal) / calsVal > 0.3) {
+      Alert.alert(
+        'Macro Mismatch',
+        `Your macros add up to ~${macroCals} cal but you entered ${Math.round(calsVal)} cal. Double-check your values.`,
+        [
+          { text: 'Fix It', style: 'cancel' },
+          { text: 'Log Anyway', onPress: () => doSubmit(gramsVal, calsVal, proteinVal, fatVal, carbsVal) },
+        ],
+      );
+      return;
     }
 
-    handleClose();
+    doSubmit(gramsVal, calsVal, proteinVal, fatVal, carbsVal);
   }, [
-    name, brand, servingLabel, servingGrams, calories, protein, fat, carbs,
+    name, servingGrams, calories, protein, fat, carbs, servingLabel, brand,
     selectedMealType, saveCustomFood, addMealEntry, handleClose,
   ]);
+
+  const doSubmit = useCallback(
+    (gramsVal: number, calsVal: number, proteinVal: number, fatVal: number, carbsVal: number) => {
+      const serving: ServingSize = {
+        label: servingLabel.trim() || `${gramsVal}g`,
+        grams: gramsVal,
+      };
+
+      const factor = gramsVal > 0 ? 100 / gramsVal : 1;
+
+      const customFood = saveCustomFood({
+        name: name.trim(),
+        brand: brand.trim() || undefined,
+        servingSizes: [serving],
+        nutrientsPer100g: {
+          calories: calsVal * factor,
+          protein: proteinVal * factor,
+          fat: fatVal * factor,
+          carbs: carbsVal * factor,
+        },
+        source: 'custom',
+      });
+
+      if (selectedMealType) {
+        addMealEntry(customFood, selectedMealType, {
+          servingSize: serving,
+          quantity: 1,
+        });
+      }
+
+      handleClose();
+    },
+    [name, brand, servingLabel, selectedMealType, saveCustomFood, addMealEntry, handleClose],
+  );
 
   // ── Input style builder ──
 
@@ -141,7 +245,7 @@ export default function ManualFoodEntrySheet() {
       visible={manualFoodEntryVisible}
       onClose={handleClose}
       hasTextInput
-      snapPoints={['92%']}
+      snapPoints={['100%']}
       header={
         <DrawerHeader title="Create Food" onClose={handleClose} />
       }
@@ -164,15 +268,72 @@ export default function ManualFoodEntrySheet() {
 
           <View style={styles.fieldGroup}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Food Name *</Text>
-            <TextInput
-              style={inputStyle('name')}
-              value={name}
-              onChangeText={(t) => { setName(t); setErrors((e) => ({ ...e, name: false })); }}
-              placeholder="e.g. Greek Yogurt"
-              placeholderTextColor={placeholderColor}
-              returnKeyType="next"
-              autoCapitalize="words"
-            />
+            <View>
+              <TextInput
+                style={inputStyle('name')}
+                value={name}
+                onChangeText={handleNameChange}
+                placeholder="e.g. Greek Yogurt"
+                placeholderTextColor={placeholderColor}
+                returnKeyType="next"
+                autoCapitalize="words"
+              />
+              {searching && (
+                <View style={styles.searchingIndicator}>
+                  <ActivityIndicator size="small" color={colors.textMuted} />
+                </View>
+              )}
+            </View>
+
+            {/* ── Autocomplete Suggestions ── */}
+            {showSuggestions && suggestions.length > 0 && (
+              <View style={[styles.suggestionsWrap, { backgroundColor: isDark ? '#1e1e1e' : '#fff', borderColor: colors.border }]}>
+                {suggestions.map((food, idx) => {
+                  const serving = food.servingSizes[0];
+                  const factor = serving ? serving.grams / 100 : 1;
+                  const cal = Math.round(food.nutrientsPer100g.calories * factor);
+
+                  return (
+                    <Pressable
+                      key={food.id + idx}
+                      style={({ pressed }) => [
+                        styles.suggestionRow,
+                        idx < suggestions.length - 1 && { borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' },
+                        pressed && { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)' },
+                      ]}
+                      onPress={() => handleSelectSuggestion(food)}
+                    >
+                      <View style={styles.suggestionInfo}>
+                        <View style={styles.suggestionNameRow}>
+                          <Text style={[styles.suggestionName, { color: colors.text }]} numberOfLines={1}>
+                            {food.name}
+                          </Text>
+                          <View style={[
+                            styles.sourceBadge,
+                            { backgroundColor: food.source === 'custom' ? '#22c55e20' : food.source === 'openfoodfacts' ? '#3b82f620' : '#f59e0b20' },
+                          ]}>
+                            <Text style={[
+                              styles.sourceBadgeText,
+                              { color: food.source === 'custom' ? '#22c55e' : food.source === 'openfoodfacts' ? '#3b82f6' : '#f59e0b' },
+                            ]}>
+                              {food.source === 'custom' ? 'Custom' : food.source === 'openfoodfacts' ? 'USDA' : 'Recent'}
+                            </Text>
+                          </View>
+                        </View>
+                        {food.brand ? (
+                          <Text style={[styles.suggestionBrand, { color: colors.textMuted }]} numberOfLines={1}>
+                            {food.brand}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text style={[styles.suggestionCal, { color: colors.textSecondary }]}>
+                        {cal} cal
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -340,5 +501,60 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.2,
+  },
+  // ── Autocomplete ──
+  searchingIndicator: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+  },
+  suggestionsWrap: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  suggestionInfo: {
+    flex: 1,
+    gap: 1,
+  },
+  suggestionNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  suggestionName: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 14,
+    lineHeight: 18,
+    flexShrink: 1,
+  },
+  sourceBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  sourceBadgeText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  suggestionBrand: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 12,
+    lineHeight: 14,
+  },
+  suggestionCal: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 13,
+    lineHeight: 16,
   },
 });

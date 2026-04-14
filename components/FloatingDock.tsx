@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   View,
@@ -44,11 +44,12 @@ type TabDef = {
   testID: string;
 };
 
+// Hidden nutrition + coach for v1 App Store submission — restore for v2
 const TABS: TabDef[] = [
   { key: 'home', label: 'Home', route: '/', iconName: 'home', testID: 'dock-home' },
   { key: 'workout', label: 'Workout', route: '/workout', iconName: 'dumbbell', testID: 'dock-workout' },
-  { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
-  { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
+  // { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
+  // { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
 ];
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -87,8 +88,8 @@ export default function FloatingDock() {
 
   const dockBlurTint = isDark ? 'dark' : 'light';
   const dockBorderColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
-  const dockInnerStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)';
-  const inactiveIconColor = isDark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.42)';
+  // Inner stroke removed — Apple doesn't double-border
+  const inactiveIconColor = isDark ? 'rgba(255,255,255,0.50)' : 'rgba(0,0,0,0.50)';
 
   // ───── Active tab index (derived from pathname) ─────
   const activeIndex = useMemo(() => {
@@ -99,50 +100,67 @@ export default function FloatingDock() {
     return idx === -1 ? 0 : idx;
   }, [pathname]);
 
-  // ───── Pill layout (measured via onLayout) ─────
-  const [pillInnerWidth, setPillInnerWidth] = useState(0);
-  const tabWidth = pillInnerWidth / TABS.length;
+  // ───── Tab layout measurement (same pattern as workout.tsx segment control) ─────
+  // Measure each tab's actual x offset and width via onLayout — no padding math needed.
+  const [tabXOffsets, setTabXOffsets] = useState<number[]>(TABS.map(() => 0));
+  const [tabItemWidth, setTabItemWidth] = useState(0);
+
+  const handleTabLayout = useCallback((index: number, x: number, width: number) => {
+    setTabXOffsets((prev) => {
+      const next = [...prev];
+      next[index] = x;
+      return next;
+    });
+    if (width > 0) setTabItemWidth(width);
+    if (!hasMeasured.current && width > 0) {
+      bubbleX.value = activeIndex;
+      hasMeasured.current = true;
+    }
+  }, [activeIndex, bubbleX]);
+
+  // For drag gesture: derive tabWidth from measured width
+  const tabWidth = tabItemWidth;
 
   // ───── Shared values driving the bubble ─────
-  // bubbleX is measured in "slot units" (0..TABS.length-1) so it's layout-independent.
-  // We multiply by tabWidth inside useAnimatedStyle for the actual px translation.
   const bubbleX = useSharedValue<number>(activeIndex);
-  // Dragging flag — when true, suppress the useEffect snap so the user's finger owns the bubble.
   const isDragging = useSharedValue<boolean>(false);
-  // Start-of-pan snapshot
   const dragStart = useSharedValue<number>(0);
-  // Plain-JS mirror of the ref so onLayout only snaps once on first measure
   const hasMeasured = useRef(false);
 
-  // When the route changes (via tap, deep link, or drag-release), spring bubble to that tab.
-  // Skip animation on the very first measurement so the bubble mounts exactly under the active tab.
+  // When the route changes, spring bubble to that tab.
   useEffect(() => {
     if (!hasMeasured.current) return;
     if (isDragging.value) return;
     bubbleX.value = withSpring(activeIndex, SWIFT_REANIMATED_SPRING);
   }, [activeIndex, bubbleX, isDragging]);
 
-  const onPillLayout = (e: LayoutChangeEvent) => {
-    // Measure the BlurView's inner content width (= layout.width - horizontal padding).
-    // paddingHorizontal: 4 on each side → subtract 8.
-    const w = e.nativeEvent.layout.width - 8;
-    if (w > 0 && w !== pillInnerWidth) {
-      setPillInnerWidth(w);
-      if (!hasMeasured.current) {
-        // First measure — snap without animation so mount doesn't spring from 0
-        bubbleX.value = activeIndex;
-        hasMeasured.current = true;
-      }
-    }
-  };
+  // ───── Bubble animated style — uses measured x offsets directly ─────
+  // No left inset: pill's overflow:hidden + borderRadius clips Home bubble's left corner naturally.
+  // Right inset only: shrinks the bubble 3px on the Workout (rightmost) tab so it doesn't
+  // visually break through the pill's right border.
+  const PILL_LEFT_INSET = 1;
+  const PILL_RIGHT_INSET = 3;
 
-  // ───── Bubble animated style (translateX in px) ─────
   const bubbleAnimatedStyle = useAnimatedStyle(() => {
+    const inputRange = TABS.map((_, i) => i);
+    const x = interpolate(bubbleX.value, inputRange, tabXOffsets, Extrapolation.CLAMP);
+    const leftAdjust = interpolate(
+      bubbleX.value,
+      inputRange,
+      TABS.map((_, i) => (i === 0 ? PILL_LEFT_INSET : 0)),
+      Extrapolation.CLAMP,
+    );
+    const rightAdjust = interpolate(
+      bubbleX.value,
+      inputRange,
+      TABS.map((_, i) => (i === TABS.length - 1 ? PILL_RIGHT_INSET : 0)),
+      Extrapolation.CLAMP,
+    );
     return {
-      transform: [{ translateX: bubbleX.value * tabWidth }],
-      width: tabWidth > 0 ? tabWidth : 0,
+      transform: [{ translateX: x + leftAdjust }],
+      width: tabItemWidth > 0 ? tabItemWidth - leftAdjust - rightAdjust : 0,
     };
-  }, [tabWidth]);
+  }, [tabXOffsets, tabItemWidth]);
 
   // ───── Menu helpers (unchanged) ─────
   const openMenu = () => {
@@ -228,23 +246,26 @@ export default function FloatingDock() {
       }
     });
 
+  // Close animation takes 180ms — delay all drawer opens to 220ms so menu is fully gone
+  const MENU_CLOSE_DELAY = 220;
+
   const menuItems = [
-    { icon: <PlatformIcon name="hammer" size={20} color={accent} />, label: 'Build Workout', onPress: () => { closeMenu(); setTimeout(() => tracking.setBuildWorkoutVisible(true), 100); }, locked: false },
+    { icon: <PlatformIcon name="hammer" size={20} color={accent} />, label: 'Build Workout', onPress: () => { closeMenu(); setTimeout(() => tracking.setBuildWorkoutVisible(true), MENU_CLOSE_DELAY); }, locked: false },
     {
       icon: <PlatformIcon name="sparkles" size={20} color={hasPro ? accent : colors.textMuted} />,
       label: 'Start a Plan',
       onPress: () => {
         if (!hasPro) {
           closeMenu();
-          setTimeout(() => showProGate('planBuilder', openPaywall), 200);
+          setTimeout(() => showProGate('planBuilder', openPaywall), MENU_CLOSE_DELAY);
           return;
         }
         closeMenu();
-        setTimeout(() => tracking.setWorkoutPlanVisible(true), 100);
+        setTimeout(() => tracking.setWorkoutPlanVisible(true), MENU_CLOSE_DELAY);
       },
       locked: !hasPro,
     },
-    { icon: <PlatformIcon name="clipboard-list" size={20} color={accent} />, label: 'Log Previous', onPress: () => { closeMenu(); setTimeout(() => tracking.setLogPreviousVisible(true), 100); }, locked: false },
+    { icon: <PlatformIcon name="clipboard-list" size={20} color={accent} />, label: 'Log Previous', onPress: () => { closeMenu(); setTimeout(() => tracking.setLogPreviousVisible(true), MENU_CLOSE_DELAY); }, locked: false },
   ];
 
   const dockBottom = insets.bottom > 0 ? insets.bottom : 16;
@@ -271,20 +292,9 @@ export default function FloatingDock() {
                 intensity={isDark ? 70 : 55}
                 tint={dockBlurTint}
                 style={[styles.pill, { borderColor: dockBorderColor }]}
-                onLayout={onPillLayout}
               >
-                {/* Subtle inner stroke for glass refraction effect */}
-                <View
-                  pointerEvents="none"
-                  style={[
-                    StyleSheet.absoluteFillObject,
-                    styles.pillInnerStroke,
-                    { borderColor: dockInnerStroke },
-                  ]}
-                />
-
                 {/* Single shared bubble — absolutely positioned, translated by shared value */}
-                {tabWidth > 0 && (
+                {tabItemWidth > 0 && (
                   <Animated.View
                     pointerEvents="none"
                     style={[
@@ -292,28 +302,15 @@ export default function FloatingDock() {
                       bubbleAnimatedStyle,
                       {
                         backgroundColor: isDark
-                          ? 'rgba(255,255,255,0.14)'
-                          : 'rgba(255,255,255,0.65)',
+                          ? 'rgba(255,255,255,0.20)'
+                          : 'rgba(255,255,255,0.70)',
                         borderColor: isDark
-                          ? 'rgba(255,255,255,0.22)'
-                          : 'rgba(255,255,255,0.85)',
+                          ? 'rgba(255,255,255,0.12)'
+                          : 'rgba(255,255,255,0.50)',
                         shadowColor: accent,
                       },
                     ]}
-                  >
-                    {/* Top-left glass highlight */}
-                    <LinearGradient
-                      colors={
-                        isDark
-                          ? ['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0)']
-                          : ['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.30)', 'rgba(255,255,255,0)']
-                      }
-                      locations={[0, 0.5, 1]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={StyleSheet.absoluteFillObject as any}
-                    />
-                  </Animated.View>
+                  />
                 )}
 
                 {/* Tabs */}
@@ -334,6 +331,8 @@ export default function FloatingDock() {
                       accent={accent}
                       inactiveIconColor={inactiveIconColor}
                       onPress={() => handleTabTap(index)}
+                      onTabLayout={handleTabLayout}
+                      contentShiftX={tab.key === 'workout' ? 1.5 : 0}
                     />
                   );
                 })}
@@ -341,7 +340,7 @@ export default function FloatingDock() {
             </GestureDetector>
           </View>
 
-          {/* ───── Right: Standalone glass + button ───── */}
+          {/* ───── Right: Glass pill FAB — matches tab pill height ───── */}
           <TouchableOpacity
             ref={tourPlusRef as any}
             onPress={handlePlusPress}
@@ -349,22 +348,20 @@ export default function FloatingDock() {
             activeOpacity={0.85}
             style={styles.plusTouchable}
           >
-            <View
+            <BlurView
+              intensity={isDark ? 70 : 55}
+              tint={dockBlurTint}
               style={[
                 styles.plusButton,
-                {
-                  backgroundColor: accent,
-                  shadowColor: accent,
-                  borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.6)',
-                },
+                { borderColor: dockBorderColor, shadowColor: '#000' },
               ]}
             >
               {menuOpen ? (
-                <PlatformIcon name="x" size={22} color={getContrastTextColor(accent)} strokeWidth={2.8} />
+                <PlatformIcon name="x" size={22} color={accent} strokeWidth={2.8} />
               ) : (
-                <PlatformIcon name="plus" size={26} color={getContrastTextColor(accent)} strokeWidth={2.8} />
+                <PlatformIcon name="plus" size={26} color={accent} strokeWidth={2.8} />
               )}
-            </View>
+            </BlurView>
           </TouchableOpacity>
         </View>
       </View>
@@ -379,14 +376,17 @@ export default function FloatingDock() {
           onRequestClose={closeMenu}
         >
           <Pressable style={styles.modalOverlay} onPress={closeMenu}>
-            {Platform.OS !== 'web' ? (
-              <BlurView
-                intensity={isDark ? 55 : 40}
-                tint={isDark ? 'dark' : 'light'}
-                style={StyleSheet.absoluteFill}
-              />
-            ) : null}
-            <View style={[styles.modalDark, StyleSheet.absoluteFill]} />
+            {/* Backdrop fades in/out with the same animation as the items */}
+            <RNAnimated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
+              {Platform.OS !== 'web' ? (
+                <BlurView
+                  intensity={isDark ? 55 : 40}
+                  tint={isDark ? 'dark' : 'light'}
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
+              <View style={[styles.modalDark, StyleSheet.absoluteFill]} />
+            </RNAnimated.View>
 
             <View style={styles.menuContent} pointerEvents="box-none">
               <RNAnimated.View
@@ -405,15 +405,15 @@ export default function FloatingDock() {
                     style={[
                       styles.menuPill,
                       {
-                        backgroundColor: isDark ? 'rgba(30,30,30,0.96)' : 'rgba(255,255,255,0.96)',
-                        borderColor: isDark ? '#333' : '#e5e5e5',
+                        backgroundColor: isDark ? 'rgba(28,28,30,0.92)' : 'rgba(255,255,255,0.92)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
                       },
                       item.locked && { opacity: PRO_LOCKED_OPACITY },
                     ]}
                     onPress={item.onPress}
-                    activeOpacity={0.8}
+                    activeOpacity={0.75}
                   >
-                    <View style={[styles.menuPillIcon, { backgroundColor: `${accent}18` }]}>
+                    <View style={[styles.menuPillIcon, { backgroundColor: `${accent}20` }]}>
                       {item.icon}
                     </View>
                     <Text style={[styles.menuPillLabel, { color: colors.text }]}>{item.label}</Text>
@@ -440,10 +440,12 @@ type DockTabProps = {
   accent: string;
   inactiveIconColor: string;
   onPress: () => void;
+  onTabLayout: (index: number, x: number, width: number) => void;
+  contentShiftX?: number;
 };
 
 const DockTab = React.forwardRef<any, DockTabProps>(function DockTab(
-  { tab, index, bubbleX, accent, inactiveIconColor, onPress },
+  { tab, index, bubbleX, accent, inactiveIconColor, onPress, onTabLayout, contentShiftX = 0 },
   ref,
 ) {
   // closeness: 1 when bubble sits directly on this tab, 0 when one-or-more slots away
@@ -452,10 +454,10 @@ const DockTab = React.forwardRef<any, DockTabProps>(function DockTab(
     return Math.max(0, 1 - dist);
   });
 
-  const iconContainerStyle = useAnimatedStyle(() => {
-    const scale = interpolate(closeness.value, [0, 1], [1, 1.08], Extrapolation.CLAMP);
-    return { transform: [{ scale }] };
-  });
+  // No scale animation — Apple keeps icons at constant size
+  const iconContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 }],
+  }));
 
   // Reanimated cannot animate Lucide icon colors (they're props, not style).
   // We fake it by overlaying a second tinted View via useAnimatedStyle opacity,
@@ -483,18 +485,24 @@ const DockTab = React.forwardRef<any, DockTabProps>(function DockTab(
       onPress={onPress}
       testID={tab.testID}
       activeOpacity={0.75}
+      onLayout={(e: LayoutChangeEvent) => {
+        const { x, width } = e.nativeEvent.layout;
+        onTabLayout(index, x, width);
+      }}
     >
-      <Animated.View style={[styles.iconStack, iconContainerStyle]}>
-        <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, inactiveIconStyle]}>
-          <PlatformIcon name={tab.iconName} size={18} color={inactiveIconColor} strokeWidth={2} />
+      <View style={[styles.tabContent, contentShiftX ? { transform: [{ translateX: contentShiftX }] } : undefined]}>
+        <Animated.View style={[styles.iconStack, iconContainerStyle]}>
+          <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, inactiveIconStyle]}>
+            <PlatformIcon name={tab.iconName} size={22} color={inactiveIconColor} strokeWidth={1.8} />
+          </Animated.View>
+          <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, activeIconStyle]}>
+            <PlatformIcon name={tab.iconName} size={22} color={accent} strokeWidth={2} fill={accent} />
+          </Animated.View>
         </Animated.View>
-        <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, activeIconStyle]}>
-          <PlatformIcon name={tab.iconName} size={20} color={accent} strokeWidth={2.5} />
-        </Animated.View>
-      </Animated.View>
-      <Animated.Text style={[styles.tabLabel, labelStyle]} numberOfLines={1}>
-        {tab.label}
-      </Animated.Text>
+        <Animated.Text style={[styles.tabLabel, labelStyle]} numberOfLines={1}>
+          {tab.label}
+        </Animated.Text>
+      </View>
     </AnimatedTouchable>
   );
 });
@@ -517,46 +525,43 @@ const styles = StyleSheet.create({
   // ───── Dock row layout (pill on left + plus on right) ─────
   dockRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 12,
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
 
   // ───── Glass pill (4 tabs) ─────
   pillContainer: {
-    flex: 1,
+    // Content-sized — pill wraps around its tabs
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 3,
-    paddingVertical: 4,
+    paddingHorizontal: 0,
+    paddingVertical: 5,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.24,
-    shadowRadius: 16,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
     elevation: 10,
   },
-  pillInnerStroke: {
-    borderRadius: 999,
-    borderWidth: 1,
-    margin: 1,
-  },
   tab: {
-    flex: 1,
+    width: 90,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
     paddingVertical: 4,
-    paddingHorizontal: 4,
     position: 'relative',
   },
+  tabContent: {
+    alignItems: 'center',
+    gap: 2,
+  },
   iconStack: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -567,19 +572,19 @@ const styles = StyleSheet.create({
   activeBubble: {
     position: 'absolute',
     top: 2,
-    left: 2,
+    left: 0,
     bottom: 2,
     // width comes from bubbleAnimatedStyle
     borderRadius: 999,
     borderWidth: 1,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
     elevation: 4,
   },
   tabLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 0.2,
   },
@@ -589,16 +594,17 @@ const styles = StyleSheet.create({
     // hit area sizing handled by plusButton
   },
   plusButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    aspectRatio: 1,
+    flex: 1,
+    borderRadius: 999,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 12,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 10,
   },
 
   // ───── Action menu ─────
@@ -622,28 +628,28 @@ const styles = StyleSheet.create({
   menuPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    borderRadius: 22,
+    gap: 16,
+    borderRadius: 999,
     borderWidth: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 10,
+    elevation: 8,
   },
   menuPillIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   menuPillLabel: {
     fontSize: 16,
-    fontFamily: 'Outfit_700Bold',
+    fontFamily: 'Outfit_600SemiBold',
     flex: 1,
   },
 });
