@@ -284,7 +284,7 @@ export default function RunHistoryDrawer({ visible, onClose }: Props) {
             <View style={[styles.totalsRow, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
               <View style={styles.totalBox}>
                 <Text style={[styles.totalValue, { color: accent }]}>{filterTotals.count}</Text>
-                <Text style={[styles.totalLabel, { color: colors.textMuted }]}>RUNS</Text>
+                <Text style={[styles.totalLabel, { color: colors.textMuted }]}>Runs</Text>
               </View>
               <View style={[styles.totalsDivider, { backgroundColor: colors.border }]} />
               <View style={styles.totalBox}>
@@ -292,13 +292,13 @@ export default function RunHistoryDrawer({ visible, onClose }: Props) {
                   {formatDist(filterTotals.totalMeters, units).split(' ')[0]}
                 </Text>
                 <Text style={[styles.totalLabel, { color: colors.textMuted }]}>
-                  {units === 'metric' ? 'KM' : 'MI'}
+                  {units === 'metric' ? 'km' : 'mi'}
                 </Text>
               </View>
               <View style={[styles.totalsDivider, { backgroundColor: colors.border }]} />
               <View style={styles.totalBox}>
                 <Text style={[styles.totalValue, { color: accent }]}>{formatDuration(filterTotals.totalSeconds)}</Text>
-                <Text style={[styles.totalLabel, { color: colors.textMuted }]}>TIME</Text>
+                <Text style={[styles.totalLabel, { color: colors.textMuted }]}>Time</Text>
               </View>
             </View>
 

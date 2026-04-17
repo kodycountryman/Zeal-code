@@ -439,7 +439,7 @@ export default function RunScreen() {
 
             {run.liveMetrics.splits.length > 0 && (
               <GlassCard style={styles.sectionCard}>
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SPLITS</Text>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Splits</Text>
                 <SplitTable splits={run.liveMetrics.splits} units={run.preferences.units} />
               </GlassCard>
             )}
@@ -534,17 +534,17 @@ export default function RunScreen() {
           <GlassCard style={styles.statsCard}>
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>THIS WEEK</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>This Week</Text>
                 <Text style={[styles.statValue, { color: colors.text }]}>{recentStats.thisWeek}</Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>TOTAL RUNS</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Runs</Text>
                 <Text style={[styles.statValue, { color: colors.text }]}>{recentStats.totalRuns}</Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>BEST PACE</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Best Pace</Text>
                 <Text style={[styles.statValue, { color: colors.text }]}>
                   {run.runPRs.find(p => p.type === 'fastest_mile')
                     ? formatPace(run.runPRs.find(p => p.type === 'fastest_mile')!.value)
@@ -560,7 +560,7 @@ export default function RunScreen() {
             const todayPrescription = ctx.getTodayPrescription();
             const isRunToday = todayPrescription && !todayPrescription.is_rest && todayPrescription.activity_type === 'run';
             const isStrengthToday = todayPrescription && !todayPrescription.is_rest && todayPrescription.activity_type === 'strength';
-            const planLabel = isHybrid ? 'ACTIVE HYBRID PLAN' : 'ACTIVE RUN PLAN';
+            const planLabel = isHybrid ? 'Active Hybrid Plan' : 'Active Run Plan';
             return (
               <GlassCard style={styles.sectionCard}>
                 <View style={styles.planCardHeader}>
@@ -582,7 +582,7 @@ export default function RunScreen() {
                   <View style={[styles.todayRunRow, { backgroundColor: `${accent}10`, borderColor: `${accent}25` }]}>
                     <PlatformIcon name="figure-run" size={18} color={accent} />
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.todayRunLabel, { color: accent }]}>TODAY'S RUN</Text>
+                      <Text style={[styles.todayRunLabel, { color: accent }]}>Today's Run</Text>
                       <Text style={[styles.todayRunDescription, { color: colors.text }]} numberOfLines={2}>
                         {todayPrescription.run_description ?? todayPrescription.session_type}
                       </Text>
@@ -673,7 +673,7 @@ export default function RunScreen() {
 
           {/* Outdoor / Treadmill mode toggle */}
           <GlassCard style={styles.sectionCard}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>WHERE</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Where</Text>
             <View style={styles.modeToggleRow}>
               <Chip
                 variant="selectable"
@@ -703,7 +703,7 @@ export default function RunScreen() {
 
           {/* Run type selector */}
           <GlassCard style={styles.sectionCard}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RUN TYPE</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Run Type</Text>
             <View style={styles.runTypeGrid}>
               {RUN_TYPE_OPTIONS.map((opt) => (
                 <Chip
@@ -725,7 +725,7 @@ export default function RunScreen() {
             >
               <GlassCard style={styles.sectionCard}>
                 <View style={styles.cardHeaderRow}>
-                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>LAST RUN</Text>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Last Run</Text>
                   <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} />
                 </View>
                 <View style={styles.lastRunRow}>
@@ -737,11 +737,11 @@ export default function RunScreen() {
                   </View>
                   <View style={styles.lastRunMeta}>
                     <View style={styles.lastRunMetaItem}>
-                      <Text style={[styles.lastRunMetaLabel, { color: colors.textMuted }]}>TIME</Text>
+                      <Text style={[styles.lastRunMetaLabel, { color: colors.textMuted }]}>Time</Text>
                       <Text style={[styles.lastRunMetaValue, { color: colors.text }]}>{formatDuration(lastRun.durationSeconds)}</Text>
                     </View>
                     <View style={styles.lastRunMetaItem}>
-                      <Text style={[styles.lastRunMetaLabel, { color: colors.textMuted }]}>PACE</Text>
+                      <Text style={[styles.lastRunMetaLabel, { color: colors.textMuted }]}>Pace</Text>
                       <Text style={[styles.lastRunMetaValue, { color: colors.text }]}>
                         {formatPaceForUnit(lastRun.averagePaceSecondsPerMeter, lastRun.splitUnit)}
                       </Text>
@@ -756,7 +756,7 @@ export default function RunScreen() {
           {run.runHistory.length > 0 && (
             <GlassCard style={styles.sectionCard}>
               <View style={styles.cardHeaderRow}>
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>MILEAGE</Text>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Mileage</Text>
                 <TouchableOpacity onPress={() => setHistoryDrawerVisible(true)} activeOpacity={0.7}>
                   <Text style={[styles.viewAllLink, { color: accent }]}>View all runs</Text>
                 </TouchableOpacity>
@@ -986,10 +986,11 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     marginVertical: 2,
   },
+  // Canonical section label (see STYLE.md § 6). Title Case, no dot prefix.
   statLabel: {
-    fontSize: 9,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
   },
   statValue: {
     fontSize: 16,
@@ -1001,9 +1002,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1062,9 +1063,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   todayRunLabel: {
-    fontSize: 10,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
   },
   todayRunDescription: {
     fontSize: 14,
@@ -1133,9 +1134,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   lastRunMetaLabel: {
-    fontSize: 9,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.6,
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
   },
   lastRunMetaValue: {
     fontSize: 13,

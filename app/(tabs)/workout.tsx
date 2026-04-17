@@ -3698,7 +3698,7 @@ export default function WorkoutScreen() {
 
             {/* Plan / schedule section */}
             <View style={styles.postWorkoutSection}>
-              <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>PLANNING</Text>
+              <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>Planning</Text>
 
               {/* Active plan — rich card with week progress dots */}
               {pwPlan && (
@@ -4498,7 +4498,7 @@ export default function WorkoutScreen() {
               <View style={[styles.checklistSectionIconBadge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
                 <PlatformIcon name="heart" size={13} color="#8b5cf6" />
               </View>
-              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>RECOVERY</Text>
+              <Text style={[styles.checklistSectionLabel, { color: colors.text }]}>Recovery</Text>
               <View style={{ flex: 1 }} />
               {recoveryChecked.size === workout.recovery.length && recoveryChecked.size > 0 ? (
                 <View style={styles.checklistProgressPillDone}>
@@ -5192,7 +5192,7 @@ export default function WorkoutScreen() {
 
                   <View style={styles.richDetailSectionRow}>
                     <PlatformIcon name="target" size={13} color={itemDetail.color} />
-                    <Text style={[styles.richDetailSectionLabel, { color: colors.text }]}>SETUP</Text>
+                    <Text style={[styles.richDetailSectionLabel, { color: colors.text }]}>Setup</Text>
                   </View>
                   <View style={[styles.richDetailBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
                     <Text style={[styles.richDetailBoxText, { color: colors.textSecondary }]}>{detail.setup}</Text>
@@ -5663,10 +5663,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
   },
-  sectionLabel: {
-    fontSize: 15,
-    fontFamily: 'PlayfairDisplay_700Bold',
-  },
   optionalBadge: {
     borderWidth: 1,
     borderRadius: 8,
@@ -5904,7 +5900,7 @@ const styles = StyleSheet.create({
   },
   cfSectionLabel: {
     fontSize: 12,
-    fontFamily: 'Outfit_500Medium',
+    fontFamily: 'Outfit_600SemiBold',
     letterSpacing: 0,
     flexShrink: 1,
   },
@@ -6299,9 +6295,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center' as const,
   },
   checklistSectionLabel: {
-    fontSize: 11,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 1.5,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
   },
   checklistProgressPill: {
     paddingHorizontal: 8,
@@ -6811,9 +6807,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   richDetailSectionLabel: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    letterSpacing: 1,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold' as const,
+    letterSpacing: 0,
   },
   richDetailBox: {
     borderRadius: 12,
@@ -6979,9 +6975,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   postWorkoutSectionLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: 'Outfit_600SemiBold',
-    letterSpacing: 0.9,
+    letterSpacing: 0,
     paddingLeft: 2,
   },
   postWorkoutActionRow: {

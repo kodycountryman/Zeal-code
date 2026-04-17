@@ -535,7 +535,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
           {/* Divider between training config and component toggles */}
           <View style={[styles.sectionDivider, { backgroundColor: colors.border }]} />
 
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>COMPONENTS</Text>
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Components</Text>
           {[
             { label: 'Warm-Up', tag: '+5m', val: localWarmUp, set: setLocalWarmUp },
             { label: 'Cool-Down', tag: '+5m', val: localCoolDown, set: setLocalCoolDown },

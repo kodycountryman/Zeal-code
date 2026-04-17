@@ -671,7 +671,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
           ) : (
             <View style={styles.progressSection}>
               <View style={styles.progressHeader}>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>PROGRESS</Text>
+                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>Progress</Text>
                 <Text style={[styles.progressWeek, { color: colors.textSecondary }]}>
                   Week {currentWeek} of {plan.planLength}
                 </Text>
@@ -726,7 +726,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
             >
               <View style={[styles.todayAccentBar, { backgroundColor: `${styleColor}60` }]} />
               <View style={styles.todayBody}>
-                <Text style={[styles.todayLabel, { color: styleColor }]}>TODAY</Text>
+                <Text style={[styles.todayLabel, { color: styleColor }]}>Today</Text>
                 {todayPrescription.is_rest ? (
                   <View style={styles.todayMain}>
                     <PlatformIcon name="moon" size={18} color={colors.textSecondary} />
@@ -796,7 +796,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
           <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 10 }} />
 
           {/* ── Upcoming section header ── */}
-          <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
+          <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>Upcoming</Text>
 
           {/* ── Current phase info row ── */}
           {selectedWeek?.notes ? (
@@ -908,7 +908,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
           {/* ── Adherence analytics ──────────────────────── */}
           {!isPlanComplete && completedCount > 0 && (
             <View style={[styles.adherenceCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 10 }]}>ADHERENCE</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 10 }]}>Adherence</Text>
               <View style={styles.adherenceRow}>
                 <View style={styles.adherenceStat}>
                   <Text style={[styles.adherenceNum, { color: '#22c55e' }]}>{completedCount}</Text>
@@ -942,7 +942,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
               <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: isEditMode ? `${styleColor}50` : colors.border }]}>
                 <View style={styles.statHeader}>
                   <PlatformIcon name="dumbbell" size={12} color={accent} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>STYLE</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Style</Text>
                 </View>
                 <Text style={[styles.statValue, { color: editStyle && editStyle !== plan.style ? styleColor : colors.text }]}>
                   {editStyle ?? plan.style}
@@ -956,7 +956,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
               <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
                 <View style={styles.statHeader}>
                   <PlatformIcon name="target" size={12} color={accent} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GOAL</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Goal</Text>
                 </View>
                 <Text style={[styles.statValue, { color: colors.text }]}>{plan.goal}</Text>
               </View>
@@ -967,7 +967,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
               <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: isEditMode ? `${styleColor}50` : colors.border }]}>
                 <View style={styles.statHeader}>
                   <PlatformIcon name="star" size={12} color={accent} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>LEVEL</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Level</Text>
                 </View>
                 <Text style={[styles.statValue, { color: editLevel && editLevel !== plan.experienceLevel ? styleColor : colors.text }]}>
                   {(editLevel ?? plan.experienceLevel).charAt(0).toUpperCase() + (editLevel ?? plan.experienceLevel).slice(1)}
@@ -982,7 +982,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
                 <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
                   <View style={styles.statHeader}>
                     <PlatformIcon name="layers" size={12} color={accent} />
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>EQUIPMENT</Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Equipment</Text>
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>
                     {Object.values(plan.equipment).filter(v => v > 0).length === 0
@@ -998,7 +998,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
               <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
                 <View style={styles.statHeader}>
                   <PlatformIcon name="calendar" size={12} color={accent} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>START</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Start</Text>
                 </View>
                 <Text style={[styles.statValue, { color: colors.text }]}>{formatDateShort(plan.startDate)}</Text>
               </View>
@@ -1034,7 +1034,7 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
               <View style={[styles.statCell, { backgroundColor: colors.cardSecondary, borderColor: isEditMode ? `${styleColor}50` : colors.border }]}>
                 <View style={styles.statHeader}>
                   <PlatformIcon name="clock" size={12} color={accent} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DURATION</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Duration</Text>
                 </View>
                 <Text style={[styles.statValue, { color: editDuration && editDuration !== plan.sessionDuration ? styleColor : colors.text }]}>
                   {editDuration ?? plan.sessionDuration} min

@@ -115,7 +115,7 @@ export default function MuscleReadinessDrawer({ visible, onClose }: Props) {
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
         }]}>
           <View style={styles.overallRow}>
-            <Text style={[styles.overallLabel, { color: colors.textMuted }]}>OVERALL</Text>
+            <Text style={[styles.overallLabel, { color: colors.textMuted }]}>Overall</Text>
             <Text style={[styles.overallValue, { color: overallColor }]}>{liveOverall}%</Text>
           </View>
           <View style={styles.overallTrack}>

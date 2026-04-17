@@ -1202,7 +1202,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
 
             {phaseSegments.length > 0 && (
               <View style={styles.timelineSection}>
-                <Text style={[styles.timelineSectionLabel, { color: colors.textSecondary }]}>PERIODIZATION</Text>
+                <Text style={[styles.timelineSectionLabel, { color: colors.textSecondary }]}>Periodization</Text>
                 <PhaseTimeline segments={phaseSegments} accentColor={goalAccent} />
               </View>
             )}

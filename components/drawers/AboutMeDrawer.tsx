@@ -314,7 +314,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
       <View style={styles.content}>
 
         {/* ── IDENTITY ── */}
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>IDENTITY</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Identity</Text>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
 
           {/* Name */}
@@ -404,7 +404,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         {/* ── BODY METRICS ── */}
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>BODY METRICS</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Body Metrics</Text>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
 
           {/* Height */}
@@ -494,7 +494,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         {/* ── FITNESS PROFILE ── */}
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>FITNESS PROFILE</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Fitness Profile</Text>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
 
           {/* Fitness Level */}
@@ -545,7 +545,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         {/* ── TRAINING GOALS ── */}
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>TRAINING GOALS</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Training Goals</Text>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.fieldPad}>
             <Text style={[styles.fieldCaption, { color: colors.textSecondary, marginTop: 0 }]}>Select all that apply</Text>
@@ -568,7 +568,7 @@ export default function AboutMeDrawer({ visible, onClose }: Props) {
         </View>
 
         {/* ── SPECIAL LIFE CASE ── */}
-        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>HEALTH CONSIDERATIONS</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Health Considerations</Text>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           {SPECIAL_LIFE_CASES.map((slc, idx) => {
             const on = localSLC === slc.id;
@@ -663,9 +663,9 @@ const styles = StyleSheet.create({
 
   // ── Section structure ────────────────────────────────────────────────────
   sectionLabel: {
-    fontSize: 11,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 1.2,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
     marginBottom: 8,
     marginTop: 16,
     paddingHorizontal: 4,

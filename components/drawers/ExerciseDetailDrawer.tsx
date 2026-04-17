@@ -487,7 +487,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
           {/* Header row inside the card */}
           <View style={styles.executionHeaderRow}>
             <PlatformIcon name="zap" size={13} color={styleAccent} />
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>EXECUTION</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Execution</Text>
             <Text style={[styles.equipmentLabel, { color: colors.textMuted }]}>· {equipDisplay}</Text>
           </View>
           <View style={[styles.executionDivider, { backgroundColor: colors.border }]} />

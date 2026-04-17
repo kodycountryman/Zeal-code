@@ -1153,7 +1153,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               {/* ── Milestones section ── */}
               {milestoneProgress.length > 0 && (
                 <>
-                  <Text style={[styles.badgeCatLabel, { color: colors.textMuted }]}>MILESTONES</Text>
+                  <Text style={[styles.badgeCatLabel, { color: colors.textMuted }]}>Milestones</Text>
                   <View style={styles.milestoneGrid}>
                     {milestoneProgress.map((m) => {
                       const progress = m.target > 0 ? m.current / m.target : 0;
@@ -1203,9 +1203,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                 const catBadges = badges.filter(b => b.category === cat);
                 if (catBadges.length === 0) return null;
                 const catLabels: Record<string, string> = {
-                  volume: 'VOLUME', duration: 'DURATION', style: 'STYLE EXPLORER',
-                  strength: 'STRENGTH', consistency: 'CONSISTENCY', pattern: 'PATTERN',
-                  progression: 'PROGRESSION', endurance: 'ENDURANCE',
+                  volume: 'Volume', duration: 'Duration', style: 'Style Explorer',
+                  strength: 'Strength', consistency: 'Consistency', pattern: 'Pattern',
+                  progression: 'Progression', endurance: 'Endurance',
                 };
                 return (
                   <View key={cat} style={styles.badgeCatGroup}>
@@ -1417,7 +1417,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
             {/* ── Projections ── */}
             {(projections.monthPace || projections.strengthProjection) && (
               <View style={styles.nerdsGroup}>
-                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>PROJECTIONS</Text>
+                <Text style={[styles.nerdsGroupLabel, { color: mutedLabel }]}>Projections</Text>
                 {projections.monthPace && (
                   <View style={[styles.projectionCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
                     <Text style={[styles.projectionText, { color: colors.text }]}>
@@ -2143,7 +2143,7 @@ const styles = StyleSheet.create({
   // Stats for Nerds
   nerdsContent: { padding: 16, gap: 20 },
   nerdsGroup: { gap: 8 },
-  nerdsGroupLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
+  nerdsGroupLabel: { fontSize: 12, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0 },
   nerdsStatGrid: { flexDirection: 'row', alignItems: 'center' },
   nerdsStat: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   nerdsStatDivider: { width: 1, height: 32, opacity: 0.5 },
@@ -2242,7 +2242,7 @@ const styles = StyleSheet.create({
 
   // Badges
   badgeCatGroup: { gap: 6, marginTop: 8 },
-  badgeCatLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
+  badgeCatLabel: { fontSize: 12, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap' },
   badgeItem: { width: '33.33%', alignItems: 'center', paddingVertical: 8, gap: 3 },
   badgeRing: { position: 'relative', width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

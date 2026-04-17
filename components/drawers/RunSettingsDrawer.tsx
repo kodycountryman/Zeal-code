@@ -157,7 +157,7 @@ export default function RunSettingsDrawer({ visible, onClose }: Props) {
       >
         {/* ── Units ────────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>UNITS</Text>
+          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Units</Text>
           <View style={styles.segmentControl}>
             {(['imperial', 'metric'] as RunUnits[]).map((u) => {
               const selected = prefs.units === u;
@@ -205,7 +205,7 @@ export default function RunSettingsDrawer({ visible, onClose }: Props) {
           {prefs.autoPauseEnabled && (
             <>
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
-              <Text style={[styles.subLabel, { color: colors.textMuted }]}>SENSITIVITY</Text>
+              <Text style={[styles.subLabel, { color: colors.textMuted }]}>Sensitivity</Text>
               <View style={{ gap: 6 }}>
                 {AUTO_PAUSE_TIERS.map((tier) => {
                   const selected = Math.abs(prefs.autoPauseSpeedThresholdMps - tier.value) < 0.05;
@@ -255,7 +255,7 @@ export default function RunSettingsDrawer({ visible, onClose }: Props) {
 
         {/* ── Display ──────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>DISPLAY</Text>
+          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Display</Text>
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.rowTitle, { color: colors.text }]}>Keep screen awake</Text>
@@ -272,7 +272,7 @@ export default function RunSettingsDrawer({ visible, onClose }: Props) {
 
         {/* ── Privacy ──────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>PRIVACY</Text>
+          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Privacy</Text>
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.rowTitle, { color: colors.text }]}>Mask route start/end</Text>
@@ -336,7 +336,7 @@ export default function RunSettingsDrawer({ visible, onClose }: Props) {
 
         {/* ── Permissions ──────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>PERMISSIONS</Text>
+          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Permissions</Text>
           <Text style={[styles.helperText, { color: colors.textMuted }]}>
             Run tracking requires location access. "Always Allow" lets tracking continue when the screen is locked.
           </Text>
@@ -386,14 +386,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardLabel: {
-    fontSize: 10,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
   },
   subLabel: {
-    fontSize: 9,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
     marginTop: -2,
   },
   row: {

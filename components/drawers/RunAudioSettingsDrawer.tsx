@@ -123,7 +123,7 @@ export default function RunAudioSettingsDrawer({ visible, onClose }: Props) {
         {/* ── Voice picker ────────────────────────────────────────── */}
         {voices.length > 0 && (
           <View style={[styles.card, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
-            <Text style={[styles.cardLabel, { color: colors.textMuted }]}>VOICE</Text>
+            <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Voice</Text>
             <View style={{ gap: 6 }}>
               <TouchableOpacity
                 style={[
@@ -234,9 +234,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardLabel: {
-    fontSize: 10,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
   },
   row: {
     flexDirection: 'row',
