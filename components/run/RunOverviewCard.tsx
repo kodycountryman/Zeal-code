@@ -12,6 +12,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useRun } from '@/context/RunContext';
 import GlassCard from '@/components/GlassCard';
+import Chip from '@/components/Chip';
 import { useRouter } from 'expo-router';
 import { formatPace, paceToSecondsPerMile, paceToSecondsPerKm } from '@/services/runTrackingService';
 import { METERS_PER_MILE, METERS_PER_KM, RunUnits } from '@/types/run';
@@ -189,18 +190,9 @@ function RunOverviewCard({ todayPrescription, variant = 'solid', onPress }: Prop
           </Text>
 
           <View style={styles.metaRow}>
-            {paceText && (
-              <View style={[styles.chip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-                <PlatformIcon name="zap" size={11} color={colors.textSecondary} />
-                <Text style={[styles.chipText, { color: colors.textSecondary }]}>{paceText}</Text>
-              </View>
-            )}
+            {paceText && <Chip variant="neutral" icon="zap" label={paceText} />}
             {todayPrescription?.run_type && !todayPrescription.run_description && (
-              <View style={[styles.chip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-                <Text style={[styles.chipText, { color: colors.textSecondary }]}>
-                  {todayPrescription.run_type.replace(/_/g, ' ')}
-                </Text>
-              </View>
+              <Chip variant="neutral" label={todayPrescription.run_type.replace(/_/g, ' ')} />
             )}
           </View>
 
@@ -330,18 +322,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  chipText: {
-    fontSize: 12,
-    fontFamily: 'Outfit_300Light',
   },
   weeklyRow: {
     gap: 5,

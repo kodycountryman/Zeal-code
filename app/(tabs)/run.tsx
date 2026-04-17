@@ -37,6 +37,7 @@ import { type RunBadge } from '@/services/runBadges';
 import RunAudioSettingsDrawer from '@/components/drawers/RunAudioSettingsDrawer';
 import RunSettingsDrawer from '@/components/drawers/RunSettingsDrawer';
 import TabHeader from '@/components/TabHeader';
+import Chip from '@/components/Chip';
 import IntervalRunner from '@/components/run/IntervalRunner';
 import { useRouter } from 'expo-router';
 import { healthService } from '@/services/healthService';
@@ -490,22 +491,28 @@ export default function RunScreen() {
                 <TouchableOpacity
                   onPress={() => run.updatePreferences({ units: 'imperial' })}
                   style={[
-                    styles.unitsButton,
+                    styles.unitsPill,
                     run.preferences.units === 'imperial' && { backgroundColor: `${accent}20` },
                   ]}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Miles"
+                  accessibilityState={{ selected: run.preferences.units === 'imperial' }}
                 >
-                  <Text style={[styles.unitsButtonText, { color: run.preferences.units === 'imperial' ? accent : colors.textMuted }]}>mi</Text>
+                  <Text style={[styles.unitsPillText, { color: run.preferences.units === 'imperial' ? accent : colors.textMuted }]}>mi</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => run.updatePreferences({ units: 'metric' })}
                   style={[
-                    styles.unitsButton,
+                    styles.unitsPill,
                     run.preferences.units === 'metric' && { backgroundColor: `${accent}20` },
                   ]}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Kilometers"
+                  accessibilityState={{ selected: run.preferences.units === 'metric' }}
                 >
-                  <Text style={[styles.unitsButtonText, { color: run.preferences.units === 'metric' ? accent : colors.textMuted }]}>km</Text>
+                  <Text style={[styles.unitsPillText, { color: run.preferences.units === 'metric' ? accent : colors.textMuted }]}>km</Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -668,32 +675,24 @@ export default function RunScreen() {
           <GlassCard style={styles.sectionCard}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>WHERE</Text>
             <View style={styles.modeToggleRow}>
-              {(['outdoor', 'treadmill'] as const).map((mode) => {
-                const selected = selectedSourceMode === mode;
-                const label = mode === 'outdoor' ? 'Outdoor' : 'Treadmill';
-                const icon = mode === 'outdoor' ? 'compass' : 'zap';
-                return (
-                  <TouchableOpacity
-                    key={mode}
-                    onPress={() => setSelectedSourceMode(mode)}
-                    style={[
-                      styles.modeToggleBtn,
-                      {
-                        backgroundColor: selected ? `${accent}20` : 'transparent',
-                        borderColor: selected ? accent : colors.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${label} mode${selected ? ', selected' : ''}`}
-                  >
-                    <PlatformIcon name={icon} size={14} color={selected ? accent : colors.textSecondary} />
-                    <Text style={[styles.modeToggleText, { color: selected ? accent : colors.text }]}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              <Chip
+                variant="selectable"
+                icon="compass"
+                label="Outdoor"
+                selected={selectedSourceMode === 'outdoor'}
+                onPress={() => setSelectedSourceMode('outdoor')}
+                style={{ flex: 1 }}
+                accessibilityLabel="Outdoor mode"
+              />
+              <Chip
+                variant="selectable"
+                icon="zap"
+                label="Treadmill"
+                selected={selectedSourceMode === 'treadmill'}
+                onPress={() => setSelectedSourceMode('treadmill')}
+                style={{ flex: 1 }}
+                accessibilityLabel="Treadmill mode"
+              />
             </View>
             {selectedSourceMode === 'treadmill' && (
               <Text style={[styles.modeHint, { color: colors.textMuted }]}>
@@ -706,27 +705,15 @@ export default function RunScreen() {
           <GlassCard style={styles.sectionCard}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RUN TYPE</Text>
             <View style={styles.runTypeGrid}>
-              {RUN_TYPE_OPTIONS.map((opt) => {
-                const selected = selectedRunType === opt.value;
-                return (
-                  <TouchableOpacity
-                    key={opt.value}
-                    onPress={() => setSelectedRunType(opt.value)}
-                    style={[
-                      styles.runTypePill,
-                      {
-                        backgroundColor: selected ? `${accent}20` : 'transparent',
-                        borderColor: selected ? accent : colors.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.runTypePillText, { color: selected ? accent : colors.text }]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {RUN_TYPE_OPTIONS.map((opt) => (
+                <Chip
+                  key={opt.value}
+                  variant="selectable"
+                  label={opt.label}
+                  selected={selectedRunType === opt.value}
+                  onPress={() => setSelectedRunType(opt.value)}
+                />
+              ))}
             </View>
           </GlassCard>
 
@@ -934,12 +921,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: 'rgba(128,128,128,0.1)',
   },
-  unitsButton: {
+  // Compact micro-pill used inside the TabHeader's right slot. Smaller than
+  // the standard Chip selectable variant so it fits the 32px header height.
+  unitsPill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
   },
-  unitsButtonText: {
+  unitsPillText: {
     fontSize: 12,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 0.5,
@@ -1031,33 +1020,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  runTypePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  runTypePillText: {
-    fontSize: 13,
-    fontFamily: 'Outfit_600SemiBold',
-  },
   modeToggleRow: {
     flexDirection: 'row',
     gap: 8,
-  },
-  modeToggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  modeToggleText: {
-    fontSize: 14,
-    fontFamily: 'Outfit_700Bold',
   },
   modeHint: {
     fontSize: 11,

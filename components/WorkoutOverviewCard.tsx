@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
+import Chip from '@/components/Chip';
 import type { WorkoutPlan } from '@/context/AppContext';
 import type { WorkoutLog } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -194,26 +195,10 @@ function WorkoutOverviewCard({
 
       {!isRestDay && (
         <View style={styles.metaRow}>
-          <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-            <PlatformIcon name="clock" size={11} color={colors.textSecondary} />
-            <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{duration}</Text>
-          </View>
-          {workoutStyle ? (
-            <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-              <PlatformIcon name="zap" size={11} color={colors.textSecondary} />
-              <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{workoutStyle}</Text>
-            </View>
-          ) : null}
-          {exerciseCount ? (
-            <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-              <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>~{exerciseCount} exercises</Text>
-            </View>
-          ) : null}
-          {formatLabel ? (
-            <View style={[styles.metaChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
-              <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{formatLabel}</Text>
-            </View>
-          ) : null}
+          <Chip variant="neutral" icon="clock" label={duration} />
+          {workoutStyle ? <Chip variant="neutral" icon="zap" label={workoutStyle} /> : null}
+          {exerciseCount ? <Chip variant="neutral" label={`~${exerciseCount} exercises`} /> : null}
+          {formatLabel ? <Chip variant="neutral" label={formatLabel} /> : null}
         </View>
       )}
 
@@ -293,18 +278,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     marginTop: 2,
-  },
-  metaChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  metaChipText: {
-    fontSize: 12,
-    fontFamily: 'Outfit_300Light',
   },
   restSubline: {
     fontSize: 13,

@@ -74,6 +74,7 @@ import WheelGuideModal from '@/components/WheelGuideModal';
 import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import TabHeader from '@/components/TabHeader';
+import Chip from '@/components/Chip';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassCard from '@/components/GlassCard';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -3914,9 +3915,7 @@ export default function WorkoutScreen() {
                   <View style={styles.workoutInfoLabelRow}>
                     <View style={styles.workoutInfoLabelLeft}>
                       <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today's Workout</Text>
-                      <View style={[styles.workoutStyleChip, { backgroundColor: `${colors.textMuted}18`, borderWidth: 1, borderColor: `${colors.textMuted}30` }]}>
-                        <Text style={[styles.workoutStyleChipText, { color: colors.textSecondary }]}>{currentStyle}</Text>
-                      </View>
+                      <Chip variant="neutral" label={currentStyle} />
                     </View>
                     <View style={{ flex: 1 }} />
                     <TouchableOpacity
@@ -5569,19 +5568,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     flexWrap: 'wrap' as const,
     gap: 6,
-  },
-  workoutStyleChip: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 5,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  workoutStyleChipText: {
-    fontSize: 10,
-    fontFamily: 'Outfit_500Medium',
-    letterSpacing: 0.2,
   },
   workoutInfoChip: {
     flexDirection: 'row' as const,
