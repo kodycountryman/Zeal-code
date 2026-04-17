@@ -19,6 +19,44 @@
 
 ---
 
+## 1.5. The `TabHeader` Component
+
+**Use `<TabHeader>` from `components/TabHeader.tsx` at the top of every tab screen.**
+
+```tsx
+<SafeAreaView edges={['top']}>
+  <TabHeader
+    title="Run"                       // dynamic page title
+    onAvatarPress={() => openProfile()}
+    rightSlot={<UnitsToggle />}       // optional right-side meta
+    centerOverlay={<FloatingTimer />} // optional absolutely-positioned center
+  />
+</SafeAreaView>
+```
+
+Layout: `[avatar] [page title]                                      [rightSlot]`
+
+- Avatar: 34×34, `borderRadius: 17`, `borderWidth: 1.5`
+- Title: `fontSize: 20, Outfit_800ExtraBold, letterSpacing: -0.5`
+- Padding: `paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10`
+
+### The "zeal" wordmark
+
+The orange "zeal" wordmark ONLY appears on:
+- Splash screen
+- Onboarding
+- Paywall
+
+It does NOT appear in tab headers. Page identity comes from the `title` prop.
+
+### Active-run / post-run sub-headers
+
+Inside the Run tab, the active-run and post-run states use their own
+sub-header layout (live status indicators, "Run Complete" title) — NOT
+`<TabHeader>`. Those are mode-specific chrome, not tab navigation.
+
+---
+
 ## 2. The `GlassCard` Component
 
 **All cards use `GlassCard`.** Never recreate card surfaces with raw `View`.
@@ -124,50 +162,79 @@ Never introduce a new font weight or family.
 
 ## 6. Section Labels
 
-Two distinct contexts with different rules:
+**One canonical style. Title Case. No dot prefix. No ALL CAPS. No sentence case.**
 
-### Home card labels (above a card title like "TODAY'S WORKOUT")
 ```ts
 fontSize: 12,
-fontFamily: 'Outfit_500Medium',
-letterSpacing: 0,
-color: colors.textSecondary,  // or rgba(..., 0.5)
-```
-These are intentionally small and muted — they set context above a large metric.
-
-### Drawer section headers (grouping rows inside a bottom sheet)
-```ts
-fontSize: 13,
 fontFamily: 'Outfit_600SemiBold',
-fontWeight: '600',
-letterSpacing: 0.2,
-color: colors.textSecondary,
-// Sentence case — "Training", "General", "About Me"
-// NEVER uppercase
+letterSpacing: 0,
+color: colors.textSecondary,  // or colors.textMuted for softer context
+// Title Case: "Where", "Run Type", "Last Run", "This Week", "Next Up"
 ```
+
+The ALL CAPS convention that appeared in newer screens (Run tab, drawers) was
+deliberately retired during the design-unification pass — it read as "spec
+sheet" against the app's native-iOS tone. Sentence case was also retired to
+eliminate the three-way split between ALL CAPS, Title Case, and lowercase.
+
+Acronyms retain their casing: WOD, BMI, HR, PR, etc. Anything a user would
+read as an initialism stays uppercase regardless of the Title Case rule.
+
+### Contexts (all use the same style above)
+- Card labels above a big metric ("Today's Workout", "Next Up", "Training Score")
+- Stat labels above a number ("This Week", "Total Runs", "Best Pace")
+- Section headers in drawers ("Identity", "Body Metrics", "Privacy")
+
+### Pulse-dot label prefix
+The orange `pulseDot` used by `WorkoutOverviewCard` / `RunOverviewCard` is a
+rendered `<View>` — NOT a text prefix. Do not fake it with bullet characters.
+
+### The "section label" style key
+Any local stylesheet can define `sectionLabel` with the spec above. No shared
+component is needed. When you see an existing key like `cardLabel`, `subLabel`,
+`statLabel`, `todayRunLabel` — they all converge on the same canonical values.
 
 ---
 
 ## 7. Chips
 
-### Drawer chips (Fitness Level, Goals, Sex, Style, etc.)
+**Use `<Chip>` from `components/Chip.tsx` for all display/single-select chips.**
+Never recreate chip surfaces inline.
+
+```tsx
+<Chip variant="neutral" icon="clock" label="60 min" />
+<Chip variant="selectable" label="Easy Run" selected={...} onPress={...} />
+```
+
+### Two canonical variants (both in `Chip.tsx`)
+
+**`neutral`** — display-only pills (home card meta, overview card chips)
+```ts
+paddingHorizontal: 10,
+paddingVertical: 5,
+borderRadius: 8,
+backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+// no border
+// text: fontSize 12, Outfit_500Medium, colors.textSecondary
+```
+
+**`selectable`** — interactive single-select (run type, mode toggle, drawer single-select)
 ```ts
 paddingHorizontal: 14,
 paddingVertical: 8,
 borderRadius: 20,
 borderWidth: 1,
-// Inactive:
-backgroundColor: colors.cardSecondary,
-borderColor: colors.border,
-// Selected (single-select):
-backgroundColor: colors.text,
-borderColor: colors.text,
-// Selected text:
-color: colors.card,
-fontWeight: '700',
+// unselected: backgroundColor 'transparent', borderColor colors.border, text colors.text
+// selected:   backgroundColor `${accent}20`, borderColor accent,    text accent
+// text: fontSize 13, Outfit_600SemiBold
 ```
 
-### Multi-select chips (muscles, equipment) — use tinted border, not solid fill
+### Multi-select tinted-border chips (muscles, equipment) — bespoke, stays inline
+
+Multi-select chips do NOT go through `<Chip>`. They're a semantically distinct
+pattern (multiple simultaneously-active selections) that needs a quieter selected
+state than the single-select fill:
+
 ```ts
 // Selected:
 backgroundColor: `${accent}18`,
@@ -175,15 +242,65 @@ borderColor: accent,
 borderWidth: 1.5,
 color: accent,
 ```
-Solid fill on multi-select creates visual noise when multiple are active simultaneously.
+Solid fill on multi-select creates visual noise when multiple are active at once.
 
-### Home card meta chips (small, inside cards)
+### Compact micro-pills (header-sized toggles)
+
+The mi/km toggle in the Run tab header is too small for `<Chip variant="selectable">`
+(which has `paddingVertical: 8`). Use an inline micro-pill that matches the
+32-px header height:
+
 ```ts
-paddingHorizontal: 10,
-paddingVertical: 5,
-borderRadius: 8,
-backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+paddingHorizontal: 12,
+paddingVertical: 6,
+borderRadius: 14,
+// selected: backgroundColor `${accent}20`, text accent
+// unselected: no background, text colors.textMuted
+// text: fontSize 12, Outfit_700Bold, letterSpacing 0.5
 ```
+Wrap two of these in a rounded container (`borderRadius: 18`, bg `rgba(128,128,128,0.1)`)
+so they read as a segmented control.
+
+---
+
+## 7.5. Buttons
+
+**Use `<Button>` from `components/Button.tsx` for all CTAs. Never recreate inline.**
+
+```tsx
+<Button variant="primary" icon="play" label="Start Workout" onPress={...} />
+<Button variant="secondary" label="Plan" fullWidth onPress={...} />
+<Button variant="tertiary" size="sm" icon="refresh" label="Shuffle" onPress={...} />
+<Button variant="secondary" destructive label="Delete Run" onPress={...} />
+```
+
+### Three canonical variants
+
+| Variant | Use for | Background | Border | Text | Radius |
+|---|---|---|---|---|---|
+| `primary` | Main CTA (Start Workout, Save Run) | `accent` | — | `#fff` | 16 |
+| `secondary` | Alternate paired with primary (Plan, Modify, Cancel) | transparent | `colors.border` 1px | `colors.text` | 16 |
+| `tertiary` | Small inline accent action (Shuffle, Add Exercise) | `${accent}12` | `accent` 1px | `accent` | 10 |
+
+### Sizes
+| Size | paddingVertical | paddingHorizontal | fontSize | iconSize | gap |
+|---|---|---|---|---|---|
+| `sm` | 5  | 9  | 11 | 11 | 4 |
+| `md` (default) | 13 | 16 | 14 | 15 | 7 |
+| `lg` | 16 | 20 | 16 | 17 | 8 |
+
+### Options
+- `icon` — any `AppIconName` shown as the leading glyph
+- `fullWidth` — stretches to parent width
+- `destructive` — primary turns red-filled; secondary/tertiary get red text + red-tinted border
+- `loading` — shows a spinner in place of the icon
+- `onPressIn` / `onPressOut` — for parent-driven scale animations (e.g. Start Workout's spring)
+
+### Bespoke exception: `components/run/RunControls.tsx`
+
+The Start/Pause/Stop circles (124/88/56 px) are a bespoke run-controls component,
+NOT generic buttons. They have a pulse animation, a locked-run gesture, and
+status-aware colors. Do not migrate them to `<Button>`.
 
 ---
 
@@ -232,6 +349,17 @@ borderColor: colors.border,
 color: colors.text,
 selectionColor: colors.text,   // never accent
 ```
+
+### Workout set-input chips
+
+The weight/reps chips in `app/(tabs)/workout.tsx` follow this convention. They
+had a heavier treatment in earlier builds (35%-muted border + distinct translucent
+bg) — these were normalized during the design-unification pass. When editing
+them, preserve:
+- `borderColor: colors.border` (unselected) / `${currentAccent}88` (expanded)
+- `backgroundColor: colors.cardSecondary`
+- `CHIP_H: 44` collapsed, `PICKER_H: 132` expanded (these are tuned for WheelPicker)
+- Orange left-bar accent on the next-up row (strong "your next set" affordance)
 
 ---
 
@@ -375,11 +503,13 @@ Strict luxury monochrome:
 ## 19. Before Every Edit Checklist
 
 1. Does this card belong on the home screen? Use `GlassCard`. In a drawer? Use plain `View + colors.card`.
-2. Is this a section label? Use `fontSize: 13, Outfit_600SemiBold`, sentence case. Never uppercase.
-3. Is this a chip? Single-select → `colors.text` fill. Multi-select → tinted border.
-4. Am I using `accent`? Only allowed on CTAs and Training-section-specific indicators.
-5. Does my border radius match Section 4?
-6. Does my font size/family match Section 5?
-7. Am I adding a tappable exercise name? Wire to `handleExerciseTap`.
-8. Am I adding a chevron? Wire to `handleToggleTrackPanel`.
-9. Does this change affect Pre/Workout/Post tabs? Apply to all three.
+2. Adding a tab header? Use `<TabHeader>`. Never recreate the avatar/title row inline.
+3. Adding a section label? `fontSize: 12, Outfit_600SemiBold`, Title Case. Never ALL CAPS, sentence case, or lowercase.
+4. Adding a chip? Use `<Chip variant="neutral" />` or `<Chip variant="selectable" />`. Multi-select stays bespoke (tinted border).
+5. Adding a button? Use `<Button variant="primary|secondary|tertiary" />`. Never an inline `TouchableOpacity` with custom background + padding + font for a CTA.
+6. Am I using `accent`? Only allowed on CTAs and Training-section-specific indicators.
+7. Does my border radius match Section 4?
+8. Does my font size/family match Section 5?
+9. Am I adding a tappable exercise name? Wire to `handleExerciseTap`.
+10. Am I adding a chevron? Wire to `handleToggleTrackPanel`.
+11. Does this change affect Pre/Workout/Post tabs? Apply to all three.
