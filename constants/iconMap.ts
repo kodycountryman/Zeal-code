@@ -24,7 +24,7 @@ export type AppIconName =
   | 'chevron-down'
   | 'chevron-left' | 'chevron-right' | 'chevron-up' | 'circle' | 'clipboard-list'
   | 'clock' | 'compass' | 'copy' | 'crown' | 'download' | 'dumbbell' | 'file-text' | 'flag' | 'flame'
-  | 'footprints' | 'grip-vertical' | 'hammer' | 'heart' | 'heart-pulse' | 'help-circle'
+  | 'figure-run' | 'footprints' | 'grip-vertical' | 'hammer' | 'heart' | 'heart-pulse' | 'help-circle'
   | 'home' | 'info' | 'layers' | 'leaf' | 'lightbulb' | 'link' | 'list-checks' | 'lock'
   | 'log-out' | 'medal' | 'message-circle' | 'minus' | 'moon' | 'mountain' | 'mouse-pointer-click'
   | 'move' | 'palette' | 'pause' | 'pencil' | 'person-standing' | 'play' | 'play-circle'
@@ -84,6 +84,7 @@ export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
   'file-text':              'doc.text',
   'flag':                   'flag',
   'flame':                  'flame',
+  'figure-run':             'figure.run',
   'footprints':             'figure.walk',
   'grip-vertical':          'line.3.horizontal',
   'hammer':                 'hammer',
@@ -194,6 +195,7 @@ export const LUCIDE_MAP: Record<AppIconName, LucideIcon> = {
   'file-text':          FileText,
   'flag':               Flag,
   'flame':              Flame,
+  'figure-run':         Footprints,
   'footprints':         Footprints,
   'grip-vertical':      GripVertical,
   'hammer':             Hammer,

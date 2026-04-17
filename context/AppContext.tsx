@@ -89,6 +89,22 @@ export interface WorkoutPlan {
   equipment?: Record<string, number>;
   pausedAt?: string;  // ISO date when plan was paused; undefined = active
   is75Hard?: boolean; // true when this plan backs a 75 Hard challenge
+  mode?: 'strength' | 'run' | 'hybrid'; // plan type — defaults to 'strength' when absent
+  /** For run plans: optional target race finish time (seconds). */
+  targetRaceTimeSeconds?: number;
+  /** For run plans: target pace used to calibrate prescriptions (sec/mile). */
+  targetPaceSecPerMile?: number;
+  // ── Hybrid-only fields ──────────────────────────────────────────────
+  /** For hybrid plans: which run goal drives the run side. */
+  runGoalId?: PlanGoal;
+  /** For hybrid plans: strength style label (e.g., 'Strength', 'Bodybuilding'). */
+  strengthStyle?: string;
+  /** For hybrid plans: strength split name (e.g., 'Push / Pull / Legs'). */
+  strengthSplit?: string;
+  /** For hybrid plans: how many strength days per week. */
+  strengthDays?: number;
+  /** For hybrid plans: how many run days per week. */
+  runDays?: number;
 }
 
 export interface PlanGenerationProgress {

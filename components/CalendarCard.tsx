@@ -59,6 +59,8 @@ interface Props {
   onDayPress?: (dateStr: string, dayOffset: number) => void;
   completedDates?: Set<string>;
   plannedWorkouts?: PlannedWorkout[];
+  /** Set of dates (YYYY-MM-DD) on which a run was completed. Renders a blue dot. */
+  completedRunDates?: Set<string>;
   variant?: 'solid' | 'glass';
 }
 
@@ -69,6 +71,7 @@ export default function CalendarCard({
   onDayPress,
   completedDates,
   plannedWorkouts,
+  completedRunDates,
   variant = 'solid',
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
@@ -131,8 +134,10 @@ export default function CalendarCard({
           >
             {days.map((day, idx) => {
               const isCompleted = completedDates?.has(day.fullDate) ?? false;
+              const isRunCompleted = completedRunDates?.has(day.fullDate) ?? false;
               const planned = plannedMap[day.fullDate];
               const plannedColor = planned ? (WORKOUT_STYLE_COLORS[planned.style] ?? accent) : null;
+              const RUN_DOT_COLOR = '#3b82f6';
 
               return (
                 <View key={day.fullDate} style={styles.dayWithDivider}>
@@ -162,12 +167,12 @@ export default function CalendarCard({
                       style={[
                         styles.dayNumContainer,
                         day.isToday && { backgroundColor: accent },
-                        !day.isToday && isCompleted && {
+                        !day.isToday && (isCompleted || isRunCompleted) && {
                           backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
                         },
                       ]}
                     >
-                      {isCompleted && !day.isToday ? (
+                      {(isCompleted || isRunCompleted) && !day.isToday ? (
                         <PlatformIcon name="check" size={14} color={colors.textSecondary} strokeWidth={2.5} />
                       ) : (
                         <Text
@@ -188,11 +193,16 @@ export default function CalendarCard({
                     </View>
 
                     <View style={styles.dotRow}>
+                      {/* Render run + planned-workout dots side by side; falls back to placeholder when neither */}
+                      {isRunCompleted ? (
+                        <View style={[styles.plannedDot, { backgroundColor: RUN_DOT_COLOR, marginRight: plannedColor ? 3 : 0 }]} />
+                      ) : null}
                       {plannedColor ? (
                         <View style={[styles.plannedDot, { backgroundColor: plannedColor }]} />
-                      ) : (
+                      ) : null}
+                      {!isRunCompleted && !plannedColor ? (
                         <View style={styles.dotPlaceholder} />
-                      )}
+                      ) : null}
                     </View>
                   </TouchableOpacity>
 

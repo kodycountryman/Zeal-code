@@ -42,6 +42,7 @@ import HelpFaqDrawer from '@/components/drawers/HelpFaqDrawer';
 import WorkoutPreviewModal from '@/components/WorkoutPreviewModal';
 import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
 import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
+import RunLogDrawer from '@/components/drawers/RunLogDrawer';
 import type { DayPrescription } from '@/services/planEngine';
 import * as Haptics from 'expo-haptics';
 import { mockBibleVerse } from '@/mocks/homeData';
@@ -52,8 +53,10 @@ import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PRO_STYLES_SET } from '@/services/proGate';
 import { useSeventyFiveHard } from '@/context/SeventyFiveHardContext';
+import { useRun } from '@/context/RunContext';
 import SeventyFiveHardBanner from '@/components/SeventyFiveHardBanner';
 import OutdoorWorkoutCard from '@/components/OutdoorWorkoutCard';
+import RunOverviewCard from '@/components/run/RunOverviewCard';
 import SeventyFiveHardChecklist from '@/components/SeventyFiveHardChecklist';
 import { useTourTarget, useAppTour } from '@/context/AppTourContext';
 
@@ -85,6 +88,12 @@ export default function HomeScreen() {
   const tracking = useWorkoutTracking();
   const { hasPro, openPaywall } = useSubscription();
   const seventyFiveHard = useSeventyFiveHard();
+  const run = useRun();
+  const completedRunDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of run.runHistory) set.add(r.date);
+    return set;
+  }, [run.runHistory]);
   const router = useRouter();
   const tourProfileRef = useTourTarget('profile-avatar');
   const tourScoreRef = useTourTarget('training-score-card');
@@ -130,7 +139,9 @@ export default function HomeScreen() {
     d90:  FadeInUp.delay(90).springify().damping(18).stiffness(160),
     d150: FadeInUp.delay(150).springify().damping(18).stiffness(160),
     d210: FadeInUp.delay(210).springify().damping(18).stiffness(160),
+    d240: FadeInUp.delay(240).springify().damping(18).stiffness(160),
     d270: FadeInUp.delay(270).springify().damping(18).stiffness(160),
+    d300: FadeInUp.delay(300).springify().damping(18).stiffness(160),
     d330: FadeInUp.delay(330).springify().damping(18).stiffness(160),
     d390: FadeInUp.delay(390).springify().damping(18).stiffness(160),
   }), []);
@@ -239,6 +250,8 @@ export default function HomeScreen() {
   const [planSheetDate, setPlanSheetDate] = useState<string | null>(null);
   const [planDayPreviewVisible, setPlanDayPreviewVisible] = useState(false);
   const [planDayPreviewDay, setPlanDayPreviewDay] = useState<DayPrescription | null>(null);
+  const [runLogVisible, setRunLogVisible] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -354,6 +367,14 @@ export default function HomeScreen() {
       tracking.setWorkoutLogDetailVisible(true);
       return;
     }
+    // No workout — check for completed runs on this date. Most-recent first
+    // since runHistory is stored in reverse-chronological order.
+    const runOnDay = run.runHistory.find(r => r.date === dateStr);
+    if (runOnDay) {
+      setSelectedRunId(runOnDay.id);
+      setRunLogVisible(true);
+      return;
+    }
     // If active plan, find the prescription for this date and show preview
     if (ctx.activePlan && ctx.planSchedule) {
       for (const week of (ctx.planSchedule as any).weeks ?? []) {
@@ -372,7 +393,7 @@ export default function HomeScreen() {
       setPlanSheetVisible(true);
       return;
     }
-  }, [tracking, ctx.activePlan, ctx.planSchedule]);
+  }, [tracking, ctx.activePlan, ctx.planSchedule, run.runHistory]);
 
   const handleViewTodayLog = useCallback(() => {
     if (latestTodayLog) {
@@ -464,6 +485,7 @@ export default function HomeScreen() {
               onDayPress={handleDayPress}
               completedDates={completedDates}
               plannedWorkouts={allPlannedWorkouts}
+              completedRunDates={completedRunDates}
               variant={isDark ? 'glass' : 'solid'}
             />
           </Animated.View>
@@ -496,6 +518,14 @@ export default function HomeScreen() {
           {/* Workout 2 — Outdoor workout */}
           <Animated.View key="75h-outdoor" entering={cardAnims.d270}>
             <OutdoorWorkoutCard variant={isDark ? 'glass' : 'solid'} />
+          </Animated.View>
+
+          {/* Run overview (only renders when there's a planned run today or run history) */}
+          <Animated.View key="75h-run" entering={cardAnims.d300}>
+            <RunOverviewCard
+              todayPrescription={todayPrescription}
+              variant={isDark ? 'glass' : 'solid'}
+            />
           </Animated.View>
 
           {/* Daily checklist */}
@@ -552,6 +582,7 @@ export default function HomeScreen() {
               onDayPress={handleDayPress}
               completedDates={completedDates}
               plannedWorkouts={allPlannedWorkouts}
+              completedRunDates={completedRunDates}
               variant={isDark ? 'glass' : 'solid'}
             />
           </Animated.View>
@@ -620,6 +651,13 @@ export default function HomeScreen() {
               />
             </Animated.View>
           )}
+
+          <Animated.View entering={cardAnims.d240}>
+            <RunOverviewCard
+              todayPrescription={todayPrescription}
+              variant={isDark ? 'glass' : 'solid'}
+            />
+          </Animated.View>
 
           <Animated.View entering={cardAnims.d270}>
             <View ref={tourScoreRef} collapsable={false}>
@@ -803,6 +841,15 @@ export default function HomeScreen() {
           setPlanDayPreviewDay(null);
         }}
         day={planDayPreviewDay}
+      />
+
+      <RunLogDrawer
+        visible={runLogVisible}
+        onClose={() => {
+          setRunLogVisible(false);
+          setSelectedRunId(null);
+        }}
+        runId={selectedRunId}
       />
 
       {/* Pro style onboarding modal */}

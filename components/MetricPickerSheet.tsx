@@ -33,10 +33,11 @@ interface Props {
 
 const GROUP_LABELS: Record<MetricGroup, string> = {
   workout: 'WORKOUT DATA',
+  run: 'RUN DATA',
   health: 'HEALTH DATA',
 };
 
-const GROUPS: MetricGroup[] = ['workout', 'health'];
+const GROUPS: MetricGroup[] = ['workout', 'run', 'health'];
 
 export default function MetricPickerSheet({
   visible,

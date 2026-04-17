@@ -42,6 +42,7 @@ function TabsWithPaywall() {
       >
         <Tabs.Screen name="index" />
         <Tabs.Screen name="workout" />
+        <Tabs.Screen name="run" />
         {/* Hidden for v1 App Store submission — uncomment for v2 */}
         {/* <Tabs.Screen name="nutrition" /> */}
         {/* <Tabs.Screen name="coach" /> */}

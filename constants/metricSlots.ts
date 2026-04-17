@@ -18,6 +18,10 @@ export type MetricSlotKey =
   | 'longestStreak'
   | 'exercisesThisWeek'
   | 'consistencyPct'
+  // Run data
+  | 'weeklyMileage'
+  | 'runStreak'
+  | 'runsThisMonth'
   // Health data (requires Apple Health / Health Connect)
   | 'caloriesToday'
   | 'stepsToday'
@@ -26,7 +30,7 @@ export type MetricSlotKey =
   // Body metrics
   | 'bodyWeight';
 
-export type MetricGroup = 'workout' | 'health';
+export type MetricGroup = 'workout' | 'health' | 'run';
 
 export interface MetricSlotDefinition {
   key: MetricSlotKey;
@@ -129,6 +133,31 @@ export const METRIC_REGISTRY: MetricSlotDefinition[] = [
     icon: 'trending-up',
     group: 'workout',
     description: 'Sessions hit vs target over the last 4 weeks',
+  },
+  // — Run group —
+  {
+    key: 'weeklyMileage',
+    label: 'Weekly Mileage',
+    shortLabel: 'Mileage',
+    icon: 'figure-run',
+    group: 'run',
+    description: 'Total run distance this week',
+  },
+  {
+    key: 'runStreak',
+    label: 'Run Streak',
+    shortLabel: 'Run Streak',
+    icon: 'flame',
+    group: 'run',
+    description: 'Consecutive days with at least one run',
+  },
+  {
+    key: 'runsThisMonth',
+    label: 'Runs This Month',
+    shortLabel: 'Runs',
+    icon: 'figure-run',
+    group: 'run',
+    description: 'Total runs logged this calendar month',
   },
   // — Health group —
   {
@@ -233,6 +262,12 @@ export interface MetricSlotInput {
   exercisesThisWeekCount: number;
   consistencyPct: number;
   bodyWeight: number | null;
+  // Run-mode fields
+  runWeeklyDistanceMeters: number;
+  runStreakDays: number;
+  runsThisMonthCount: number;
+  /** 'imperial' | 'metric' — controls mileage display unit */
+  runUnits: 'imperial' | 'metric';
 }
 
 export interface ResolvedMetricValue {
@@ -368,6 +403,41 @@ export function resolveMetricValue(
       return {
         value: data.bodyWeight !== null ? String(data.bodyWeight) : '—',
         unit: 'lbs',
+        needsHealth: false,
+      };
+
+    case 'weeklyMileage': {
+      const m = data.runWeeklyDistanceMeters;
+      if (m <= 0) {
+        return { value: '0', unit: data.runUnits === 'metric' ? 'km this week' : 'mi this week', needsHealth: false };
+      }
+      if (data.runUnits === 'metric') {
+        const km = m / 1000;
+        return {
+          value: km >= 100 ? String(Math.round(km)) : km.toFixed(1),
+          unit: 'km this week',
+          needsHealth: false,
+        };
+      }
+      const mi = m / 1609.344;
+      return {
+        value: mi >= 100 ? String(Math.round(mi)) : mi.toFixed(1),
+        unit: 'mi this week',
+        needsHealth: false,
+      };
+    }
+
+    case 'runStreak':
+      return {
+        value: String(data.runStreakDays),
+        unit: data.runStreakDays === 1 ? 'day run streak' : 'day run streak',
+        needsHealth: false,
+      };
+
+    case 'runsThisMonth':
+      return {
+        value: String(data.runsThisMonthCount),
+        unit: 'runs this month',
         needsHealth: false,
       };
 

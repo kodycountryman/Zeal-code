@@ -12,6 +12,11 @@ import { SubscriptionProvider, useSubscription } from "@/context/SubscriptionCon
 import { WorkoutTrackingProvider, useWorkoutTracking } from "@/context/WorkoutTrackingContext";
 import { SeventyFiveHardProvider } from "@/context/SeventyFiveHardContext";
 import { NutritionProvider } from "@/context/NutritionContext";
+import { RunProvider } from "@/context/RunContext";
+// Register the background run-tracking task at module-scope before any call
+// to Location.startLocationUpdatesAsync. This side-effect import is REQUIRED —
+// TaskManager.defineTask must run before the OS tries to wake the JS runtime.
+import "@/services/runBackgroundTask";
 import {
   initNotificationService,
   ACTION_SKIP,
@@ -172,11 +177,13 @@ export default function RootLayout() {
               <WorkoutTrackingProvider>
                 <SeventyFiveHardProvider>
                   <NutritionProvider>
-                  <BottomSheetModalProvider>
-                    <NotificationHandler />
-                    <AutoGenerateTodayWorkout />
-                    <RootLayoutNav />
-                  </BottomSheetModalProvider>
+                    <RunProvider>
+                      <BottomSheetModalProvider>
+                        <NotificationHandler />
+                        <AutoGenerateTodayWorkout />
+                        <RootLayoutNav />
+                      </BottomSheetModalProvider>
+                    </RunProvider>
                   </NutritionProvider>
                 </SeventyFiveHardProvider>
               </WorkoutTrackingProvider>

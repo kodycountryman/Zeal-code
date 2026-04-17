@@ -19,6 +19,8 @@ import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import { MILESTONES, computeMilestoneProgress } from '@/services/milestonesData';
 import AchievementModal, { type Achievement } from '@/components/drawers/AchievementModal';
+import RunInsights from '@/components/run/RunInsights';
+import RunLogDrawer from '@/components/drawers/RunLogDrawer';
 import { healthService } from '@/services/healthService';
 import { useWorkoutTracking, type WorkoutLog, type PersonalRecord } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
@@ -212,15 +214,17 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   const [detailItem, setDetailItem] = useState<Achievement | null>(null);
 
   // ─── Tab bar state ──────────────────────────────────────
-  type InsightsTab = 'insights' | 'achievements' | 'stats';
+  type InsightsTab = 'insights' | 'achievements' | 'stats' | 'running';
   const [activeInsightsTab, setActiveInsightsTab] = useState<InsightsTab>('insights');
+  const [runLogId, setRunLogId] = useState<string | null>(null);
+  const [runLogVisible, setRunLogVisible] = useState(false);
   const pillAnim = useRef(new Animated.Value(0)).current;
   const [tabItemWidth, setTabItemWidth] = useState(0);
-  const [tabXOffsets, setTabXOffsets] = useState<[number, number, number]>([0, 0, 0]);
+  const [tabXOffsets, setTabXOffsets] = useState<[number, number, number, number]>([0, 0, 0, 0]);
 
   const switchTab = useCallback((tab: InsightsTab) => {
     setActiveInsightsTab(tab);
-    const idx = tab === 'insights' ? 0 : tab === 'achievements' ? 1 : 2;
+    const idx = tab === 'insights' ? 0 : tab === 'achievements' ? 1 : tab === 'stats' ? 2 : 3;
     Animated.spring(pillAnim, { toValue: idx, useNativeDriver: true, friction: 20, tension: 200 }).start();
   }, [pillAnim]);
 
@@ -458,8 +462,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   // ─── Render ─────────────────────────────────────────────
   const insightsTabs: { key: InsightsTab; label: string; icon: React.ReactNode }[] = [
     { key: 'insights', label: 'Insights', icon: <PlatformIcon name="sparkles" size={13} /> },
-    { key: 'achievements', label: 'Achievements', icon: <PlatformIcon name="trophy" size={13} /> },
+    { key: 'achievements', label: 'Awards', icon: <PlatformIcon name="trophy" size={13} /> },
     { key: 'stats', label: 'Stats', icon: <PlatformIcon name="bar-chart-3" size={13} /> },
+    { key: 'running', label: 'Running', icon: <PlatformIcon name="figure-run" size={13} /> },
   ];
 
   const headerContent = (
@@ -468,7 +473,10 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         <View>
           <Text style={[styles.headerLabel, { color: mutedLabel }]}>YOUR PROGRESS</Text>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {activeInsightsTab === 'insights' ? 'Insights' : activeInsightsTab === 'achievements' ? 'Achievements' : 'Stats for Nerds'}
+            {activeInsightsTab === 'insights' ? 'Insights'
+              : activeInsightsTab === 'achievements' ? 'Achievements'
+              : activeInsightsTab === 'stats' ? 'Stats for Nerds'
+              : 'Running'}
           </Text>
         </View>
         <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn}>
@@ -485,7 +493,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               width: tabItemWidth,
               transform: [{
                 translateX: pillAnim.interpolate({
-                  inputRange: [0, 1, 2],
+                  inputRange: [0, 1, 2, 3],
                   outputRange: tabXOffsets,
                 }),
               }],
@@ -501,7 +509,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               onLayout={(e) => {
                 const { x, width } = e.nativeEvent.layout;
                 setTabXOffsets(prev => {
-                  const next = [...prev] as [number, number, number];
+                  const next = [...prev] as [number, number, number, number];
                   next[i] = x;
                   return next;
                 });
@@ -1788,9 +1796,29 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
         </>}
 
+        {activeInsightsTab === 'running' && (
+          <View style={{ marginHorizontal: -16 }}>
+            <RunInsights
+              onOpenRun={(id) => {
+                setRunLogId(id);
+                setRunLogVisible(true);
+              }}
+            />
+          </View>
+        )}
+
         <View style={{ height: 60 }} />
       </View>
     </BaseDrawer>
+
+    <RunLogDrawer
+      visible={runLogVisible}
+      runId={runLogId}
+      onClose={() => {
+        setRunLogVisible(false);
+        setRunLogId(null);
+      }}
+    />
 
     <StyleTrackerDrawer
       visible={trackerVisible}

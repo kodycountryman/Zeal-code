@@ -7,7 +7,27 @@ export type PlanGoal =
   | 'improve_endurance'
   | 'general_fitness'
   | 'event_preparation'
-  | 'improve_mobility';
+  | 'improve_mobility'
+  | 'run_5k'
+  | 'run_10k'
+  | 'run_half_marathon'
+  | 'run_marathon'
+  | 'run_general'
+  | 'hybrid_lift_run';
+
+/**
+ * Returns true when a PlanGoal is a run-mode training plan.
+ * Used by the plan engine to branch into run-specific scheduling.
+ */
+export function isRunPlanGoal(goal: PlanGoal): boolean {
+  return goal === 'run_5k' || goal === 'run_10k' ||
+    goal === 'run_half_marathon' || goal === 'run_marathon' ||
+    goal === 'run_general';
+}
+
+export function isHybridPlanGoal(goal: PlanGoal): boolean {
+  return goal === 'hybrid_lift_run';
+}
 
 export type PlanPhase =
   | 'foundation'
@@ -112,6 +132,159 @@ const FOUR_WEEK_GENERAL: PhaseWeek[] = [
   { week_number: 4, phase: 'deload', volume_level: 'deload', intensity_rpe: 5, volume_modifier: 0.60, intensity_modifier: 0.68, is_deload: true, notes: 'Recover & adapt' },
 ];
 
+// ─── Run Plan Phase Templates ──────────────────────────────────────────────
+// Running requires gentler volume progression than strength (10% rule) and
+// more emphasis on deload/recovery weeks to manage injury risk.
+
+const FOUR_WEEK_RUN_5K: PhaseWeek[] = [
+  { week_number: 1, phase: 'foundation', volume_level: 'moderate', intensity_rpe: 5, volume_modifier: 0.85, intensity_modifier: 0.70, is_deload: false, notes: 'Easy aerobic base — all miles conversational' },
+  { week_number: 2, phase: 'build', volume_level: 'high', intensity_rpe: 6, volume_modifier: 1.0, intensity_modifier: 0.78, is_deload: false, notes: 'Add strides and short tempo' },
+  { week_number: 3, phase: 'intensify', volume_level: 'high', intensity_rpe: 7, volume_modifier: 1.05, intensity_modifier: 0.85, is_deload: false, notes: 'Race-pace intervals + tempo' },
+  { week_number: 4, phase: 'deload', volume_level: 'deload', intensity_rpe: 4, volume_modifier: 0.55, intensity_modifier: 0.65, is_deload: true, notes: 'Recovery week — all easy' },
+];
+
+const FOUR_WEEK_RUN_10K: PhaseWeek[] = [
+  { week_number: 1, phase: 'foundation', volume_level: 'moderate', intensity_rpe: 5, volume_modifier: 0.85, intensity_modifier: 0.70, is_deload: false, notes: 'Build aerobic foundation' },
+  { week_number: 2, phase: 'build', volume_level: 'high', intensity_rpe: 6, volume_modifier: 1.0, intensity_modifier: 0.78, is_deload: false, notes: 'Tempo + long run progression' },
+  { week_number: 3, phase: 'intensify', volume_level: 'high', intensity_rpe: 7, volume_modifier: 1.08, intensity_modifier: 0.85, is_deload: false, notes: 'Cruise intervals at threshold' },
+  { week_number: 4, phase: 'deload', volume_level: 'deload', intensity_rpe: 4, volume_modifier: 0.55, intensity_modifier: 0.65, is_deload: true, notes: 'Recovery week' },
+];
+
+const FOUR_WEEK_RUN_HALF: PhaseWeek[] = [
+  { week_number: 1, phase: 'foundation', volume_level: 'moderate', intensity_rpe: 5, volume_modifier: 0.85, intensity_modifier: 0.70, is_deload: false, notes: 'Easy miles + 1 quality session' },
+  { week_number: 2, phase: 'build', volume_level: 'high', intensity_rpe: 6, volume_modifier: 1.0, intensity_modifier: 0.75, is_deload: false, notes: 'Tempo + progressive long run' },
+  { week_number: 3, phase: 'intensify', volume_level: 'very_high', intensity_rpe: 7, volume_modifier: 1.10, intensity_modifier: 0.82, is_deload: false, notes: 'Half-marathon pace work' },
+  { week_number: 4, phase: 'deload', volume_level: 'deload', intensity_rpe: 4, volume_modifier: 0.55, intensity_modifier: 0.60, is_deload: true, notes: 'Recovery week' },
+];
+
+const FOUR_WEEK_RUN_MARATHON: PhaseWeek[] = [
+  { week_number: 1, phase: 'foundation', volume_level: 'moderate', intensity_rpe: 5, volume_modifier: 0.85, intensity_modifier: 0.68, is_deload: false, notes: 'Build aerobic base, gentle miles' },
+  { week_number: 2, phase: 'build', volume_level: 'high', intensity_rpe: 6, volume_modifier: 1.0, intensity_modifier: 0.72, is_deload: false, notes: 'Long run progression + tempo' },
+  { week_number: 3, phase: 'intensify', volume_level: 'very_high', intensity_rpe: 7, volume_modifier: 1.10, intensity_modifier: 0.78, is_deload: false, notes: 'Marathon-pace segments, peak long run' },
+  { week_number: 4, phase: 'deload', volume_level: 'deload', intensity_rpe: 4, volume_modifier: 0.55, intensity_modifier: 0.60, is_deload: true, notes: 'Recovery week — reset for next block' },
+];
+
+const FOUR_WEEK_RUN_GENERAL: PhaseWeek[] = [
+  { week_number: 1, phase: 'foundation', volume_level: 'moderate', intensity_rpe: 5, volume_modifier: 0.90, intensity_modifier: 0.72, is_deload: false, notes: 'Easy base week' },
+  { week_number: 2, phase: 'build', volume_level: 'high', intensity_rpe: 6, volume_modifier: 1.0, intensity_modifier: 0.78, is_deload: false, notes: 'Tempo week' },
+  { week_number: 3, phase: 'intensify', volume_level: 'high', intensity_rpe: 7, volume_modifier: 1.05, intensity_modifier: 0.82, is_deload: false, notes: 'Speed week — intervals' },
+  { week_number: 4, phase: 'deload', volume_level: 'deload', intensity_rpe: 4, volume_modifier: 0.60, intensity_modifier: 0.65, is_deload: true, notes: 'Recovery week' },
+];
+
+// ─── Run Plan Configuration ────────────────────────────────────────────────
+// Each run goal has a default plan length, days/week, target race distance,
+// and typical weekly mileage progression. Used by the builder + engine.
+
+export type RunType =
+  | 'easy'
+  | 'tempo'
+  | 'threshold'
+  | 'long_run'
+  | 'interval'
+  | 'recovery'
+  | 'race_pace'
+  | 'fartlek'
+  | 'hill_repeats'
+  | 'progression'
+  | 'race';
+
+export interface RunPlanConfig {
+  id: PlanGoal;
+  label: string;
+  shortLabel: string;
+  description: string;
+  icon: string;
+  defaultWeeks: 4 | 8 | 10 | 12 | 16;
+  defaultDaysPerWeek: 3 | 4 | 5 | 6;
+  raceDistanceMiles: number | null; // null for general running
+  longRunPeakMiles: number; // peak long-run distance in the program
+  /** Approximate starting weekly mileage in miles, scaled by experience level */
+  startingWeeklyMilesByLevel: { beginner: number; intermediate: number; advanced: number };
+  /** Approximate peak weekly mileage before taper */
+  peakWeeklyMilesByLevel: { beginner: number; intermediate: number; advanced: number };
+  event?: string; // matches PLAN_EVENTS entry if this goal maps to a race event
+}
+
+export const RUN_PLAN_CONFIGS: Record<Extract<PlanGoal, 'run_5k' | 'run_10k' | 'run_half_marathon' | 'run_marathon' | 'run_general'>, RunPlanConfig> = {
+  run_5k: {
+    id: 'run_5k',
+    label: '5K Training',
+    shortLabel: '5K',
+    description: 'Train for a 5K race — 3-4 runs/week with speed work.',
+    icon: 'figure-run',
+    defaultWeeks: 8,
+    defaultDaysPerWeek: 4,
+    raceDistanceMiles: 3.1,
+    longRunPeakMiles: 5,
+    startingWeeklyMilesByLevel: { beginner: 8,  intermediate: 15, advanced: 22 },
+    peakWeeklyMilesByLevel:     { beginner: 15, intermediate: 25, advanced: 35 },
+    event: '5K',
+  },
+  run_10k: {
+    id: 'run_10k',
+    label: '10K Training',
+    shortLabel: '10K',
+    description: 'Build to a 10K race with tempo + long runs.',
+    icon: 'figure-run',
+    defaultWeeks: 10,
+    defaultDaysPerWeek: 4,
+    raceDistanceMiles: 6.2,
+    longRunPeakMiles: 8,
+    startingWeeklyMilesByLevel: { beginner: 10, intermediate: 18, advanced: 28 },
+    peakWeeklyMilesByLevel:     { beginner: 20, intermediate: 32, advanced: 45 },
+    event: '10K',
+  },
+  run_half_marathon: {
+    id: 'run_half_marathon',
+    label: 'Half Marathon',
+    shortLabel: 'Half',
+    description: '12-week plan with progressive long runs to 12 miles.',
+    icon: 'figure-run',
+    defaultWeeks: 12,
+    defaultDaysPerWeek: 4,
+    raceDistanceMiles: 13.1,
+    longRunPeakMiles: 12,
+    startingWeeklyMilesByLevel: { beginner: 12, intermediate: 22, advanced: 32 },
+    peakWeeklyMilesByLevel:     { beginner: 25, intermediate: 40, advanced: 55 },
+    event: 'Half Marathon',
+  },
+  run_marathon: {
+    id: 'run_marathon',
+    label: 'Marathon',
+    shortLabel: 'Marathon',
+    description: '16-week marathon build, peak 20-mile long run.',
+    icon: 'figure-run',
+    defaultWeeks: 16,
+    defaultDaysPerWeek: 5,
+    raceDistanceMiles: 26.2,
+    longRunPeakMiles: 20,
+    startingWeeklyMilesByLevel: { beginner: 18, intermediate: 28, advanced: 40 },
+    peakWeeklyMilesByLevel:     { beginner: 35, intermediate: 50, advanced: 70 },
+    event: 'Marathon',
+  },
+  run_general: {
+    id: 'run_general',
+    label: 'General Running',
+    shortLabel: 'General',
+    description: 'Ongoing fitness — rotating easy/tempo/speed/recovery weeks.',
+    icon: 'figure-run',
+    defaultWeeks: 8,
+    defaultDaysPerWeek: 4,
+    raceDistanceMiles: null,
+    longRunPeakMiles: 6,
+    startingWeeklyMilesByLevel: { beginner: 8,  intermediate: 15, advanced: 25 },
+    peakWeeklyMilesByLevel:     { beginner: 16, intermediate: 28, advanced: 42 },
+  },
+};
+
+export const RUN_PLAN_GOAL_OPTIONS: RunPlanConfig[] = [
+  RUN_PLAN_CONFIGS.run_5k,
+  RUN_PLAN_CONFIGS.run_10k,
+  RUN_PLAN_CONFIGS.run_half_marathon,
+  RUN_PLAN_CONFIGS.run_marathon,
+  RUN_PLAN_CONFIGS.run_general,
+];
+
 function repeat4WeekBlock(block: PhaseWeek[], times: number): PhaseWeek[] {
   const result: PhaseWeek[] = [];
   for (let cycle = 0; cycle < times; cycle++) {
@@ -148,6 +321,13 @@ function getBaseBlock(goal: PlanGoal): PhaseWeek[] {
     case 'general_fitness': return FOUR_WEEK_GENERAL;
     case 'event_preparation': return FOUR_WEEK_STRENGTH;
     case 'improve_mobility': return FOUR_WEEK_ENDURANCE;
+    case 'run_5k': return FOUR_WEEK_RUN_5K;
+    case 'run_10k': return FOUR_WEEK_RUN_10K;
+    case 'run_half_marathon': return FOUR_WEEK_RUN_HALF;
+    case 'run_marathon': return FOUR_WEEK_RUN_MARATHON;
+    case 'run_general': return FOUR_WEEK_RUN_GENERAL;
+    // Hybrid — generic balanced block, overridden by run sub-goal in engine
+    case 'hybrid_lift_run': return FOUR_WEEK_GENERAL;
     default: return FOUR_WEEK_GENERAL;
   }
 }
@@ -285,3 +465,307 @@ export const MISSED_DAY_RULES = {
   repeat_week_threshold_days: 7,
   restart_phase_threshold_days: 14,
 } as const;
+
+// ═══════════════════════════════════════════════════════════════════════
+// HYBRID PLAN CONFIGURATION (lift + run)
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface HybridPlanConfig {
+  id: string;
+  label: string;
+  shortLabel: string;
+  description: string;
+  icon: string;
+  strengthStyle: string;              // 'Strength' | 'Bodybuilding' | 'General Fitness'
+  strengthSplit: string;              // one of SPLIT_NAME_TO_ROTATION keys
+  runGoal: Extract<PlanGoal, 'run_5k' | 'run_10k' | 'run_half_marathon' | 'run_marathon' | 'run_general'>;
+  defaultWeeks: 4 | 8 | 10 | 12 | 16;
+  defaultTotalDays: number;
+  defaultStrengthDays: number;
+  defaultRunDays: number;
+}
+
+export const HYBRID_PLAN_PRESETS: HybridPlanConfig[] = [
+  {
+    id: 'hybrid_strength_5k',
+    label: 'Strength + 5K',
+    shortLabel: 'Lift + 5K',
+    description: '8 weeks — Push/Pull/Legs + speed-focused running',
+    icon: 'figure-run',
+    strengthStyle: 'Strength',
+    strengthSplit: 'Push / Pull / Legs',
+    runGoal: 'run_5k',
+    defaultWeeks: 8,
+    defaultTotalDays: 5,
+    defaultStrengthDays: 3,
+    defaultRunDays: 2,
+  },
+  {
+    id: 'hybrid_bb_half',
+    label: 'Bodybuilding + Half Marathon',
+    shortLabel: 'BB + Half',
+    description: '12 weeks — Upper/Lower split + endurance running',
+    icon: 'figure-run',
+    strengthStyle: 'Bodybuilding',
+    strengthSplit: 'Upper / Lower',
+    runGoal: 'run_half_marathon',
+    defaultWeeks: 12,
+    defaultTotalDays: 6,
+    defaultStrengthDays: 3,
+    defaultRunDays: 3,
+  },
+  {
+    id: 'hybrid_general_fitness',
+    label: 'General Fitness Hybrid',
+    shortLabel: 'Fitness Hybrid',
+    description: '8 weeks — Full-body lifts + easy/tempo running',
+    icon: 'figure-run',
+    strengthStyle: 'Strength',
+    strengthSplit: 'Full Body',
+    runGoal: 'run_general',
+    defaultWeeks: 8,
+    defaultTotalDays: 5,
+    defaultStrengthDays: 3,
+    defaultRunDays: 2,
+  },
+  {
+    id: 'hybrid_race_prep',
+    label: 'Marathon + Strength',
+    shortLabel: 'Marathon Hybrid',
+    description: '16 weeks — maintenance lifts + full marathon program',
+    icon: 'figure-run',
+    strengthStyle: 'Strength',
+    strengthSplit: 'Upper / Lower',
+    runGoal: 'run_marathon',
+    defaultWeeks: 16,
+    defaultTotalDays: 6,
+    defaultStrengthDays: 3,
+    defaultRunDays: 3,
+  },
+  {
+    id: 'hybrid_strength_10k',
+    label: 'Strength + 10K',
+    shortLabel: 'Lift + 10K',
+    description: '10 weeks — PPL strength + 10K race prep',
+    icon: 'figure-run',
+    strengthStyle: 'Strength',
+    strengthSplit: 'Push / Pull / Legs',
+    runGoal: 'run_10k',
+    defaultWeeks: 10,
+    defaultTotalDays: 5,
+    defaultStrengthDays: 3,
+    defaultRunDays: 2,
+  },
+];
+
+// ─── Weekly Template Allocator ──────────────────────────────────────────
+// Decides which day-of-week is strength / run / rest, with smart placement
+// rules: long run on Sunday, hard run ≥2 days from leg day, ≥1 rest/week.
+
+export interface HybridSlot {
+  day_of_week: number; // 0=Sun..6=Sat
+  activity_type: 'strength' | 'run' | 'rest';
+  /** For run slots — which run type to prescribe. */
+  run_type?: RunType;
+  /** For strength slots — optional explicit session override (e.g. 'Legs', 'Push'). */
+  strength_session?: string;
+}
+
+/** The rotations we know how to smart-place — maps split name to its session array. */
+const HYBRID_STRENGTH_ROTATIONS: Record<string, string[]> = {
+  'Full Body': ['Full Body'],
+  'Upper / Lower': ['Upper', 'Lower'],
+  'Push / Pull / Legs': ['Push', 'Pull', 'Legs'],
+  'Upper / Lower / Full': ['Upper', 'Lower', 'Full Body'],
+};
+
+/** Identifies the "legs" session label in a rotation, if any. */
+function findLegsLabel(rotation: string[]): string | null {
+  for (const s of rotation) {
+    const lower = s.toLowerCase();
+    if (lower === 'legs' || lower === 'lower' || lower === 'lower body') return s;
+  }
+  return null;
+}
+
+/**
+ * Build a 7-slot hybrid weekly template.
+ *
+ * Invariants:
+ *   - Long run on Sunday when runDays ≥ 1
+ *   - Tempo/interval run (hard run) ≥ 1 rest day from any legs/lower strength day
+ *   - At least 1 rest day per week
+ *   - strengthDays + runDays + restDays === 7
+ */
+export function buildHybridWeeklyTemplate(
+  strengthDays: number,
+  runDays: number,
+  strengthSplit: string,
+  runGoal: PlanGoal,
+): HybridSlot[] {
+  const rotation = HYBRID_STRENGTH_ROTATIONS[strengthSplit] ?? ['Full Body'];
+  const legsLabel = findLegsLabel(rotation);
+
+  const hasSpeedFocus = runGoal === 'run_5k' || runGoal === 'run_10k' || runGoal === 'run_general';
+
+  // Hand-crafted templates keyed by (strengthDays, runDays, split)
+  const key = `${strengthDays}S_${runDays}R`;
+
+  // ─── 2S + 2R (4 days total) ──────────────────────────────────────────
+  if (key === '2S_2R') {
+    return [
+      { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+      { day_of_week: 1, activity_type: 'rest' },
+      { day_of_week: 2, activity_type: 'strength', strength_session: rotation[0] },
+      { day_of_week: 3, activity_type: 'rest' },
+      { day_of_week: 4, activity_type: 'run', run_type: 'easy' },
+      { day_of_week: 5, activity_type: 'strength', strength_session: rotation[1 % rotation.length] },
+      { day_of_week: 6, activity_type: 'rest' },
+    ];
+  }
+
+  // ─── 3S + 2R (5 days total) — typical hybrid ─────────────────────────
+  if (key === '3S_2R') {
+    // Place legs on Tuesday (5 days from Sun long run), upper on Thu/Sat
+    if (legsLabel && rotation.length >= 2) {
+      const nonLegs = rotation.filter(s => s !== legsLabel);
+      return [
+        { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+        { day_of_week: 1, activity_type: 'rest' },
+        { day_of_week: 2, activity_type: 'strength', strength_session: legsLabel },
+        { day_of_week: 3, activity_type: 'run', run_type: 'easy' },
+        { day_of_week: 4, activity_type: 'strength', strength_session: nonLegs[0] },
+        { day_of_week: 5, activity_type: 'rest' },
+        { day_of_week: 6, activity_type: 'strength', strength_session: nonLegs[1 % nonLegs.length] ?? nonLegs[0] },
+      ];
+    }
+    // Full Body — cycle naturally
+    return [
+      { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+      { day_of_week: 1, activity_type: 'rest' },
+      { day_of_week: 2, activity_type: 'strength', strength_session: rotation[0] },
+      { day_of_week: 3, activity_type: 'run', run_type: 'easy' },
+      { day_of_week: 4, activity_type: 'strength', strength_session: rotation[1 % rotation.length] },
+      { day_of_week: 5, activity_type: 'rest' },
+      { day_of_week: 6, activity_type: 'strength', strength_session: rotation[2 % rotation.length] },
+    ];
+  }
+
+  // ─── 2S + 3R (5 days total) — run-priority hybrid ────────────────────
+  if (key === '2S_3R') {
+    const hardRun: RunType = hasSpeedFocus ? 'interval' : 'tempo';
+    return [
+      { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+      { day_of_week: 1, activity_type: 'strength', strength_session: rotation[0] },
+      { day_of_week: 2, activity_type: 'rest' },
+      { day_of_week: 3, activity_type: 'run', run_type: 'easy' },
+      { day_of_week: 4, activity_type: 'strength', strength_session: rotation[1 % rotation.length] },
+      { day_of_week: 5, activity_type: 'rest' },
+      { day_of_week: 6, activity_type: 'run', run_type: hardRun },
+    ];
+  }
+
+  // ─── 3S + 3R (6 days total) — balanced race-prep ─────────────────────
+  if (key === '3S_3R') {
+    const hardRun: RunType = hasSpeedFocus ? 'interval' : 'tempo';
+    if (legsLabel && rotation.length >= 2) {
+      const nonLegs = rotation.filter(s => s !== legsLabel);
+      return [
+        { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+        { day_of_week: 1, activity_type: 'strength', strength_session: nonLegs[0] },
+        { day_of_week: 2, activity_type: 'run', run_type: 'easy' },
+        { day_of_week: 3, activity_type: 'strength', strength_session: legsLabel },
+        { day_of_week: 4, activity_type: 'rest' },
+        { day_of_week: 5, activity_type: 'run', run_type: hardRun },
+        { day_of_week: 6, activity_type: 'strength', strength_session: nonLegs[1 % nonLegs.length] ?? nonLegs[0] },
+      ];
+    }
+    return [
+      { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+      { day_of_week: 1, activity_type: 'strength', strength_session: rotation[0] },
+      { day_of_week: 2, activity_type: 'run', run_type: 'easy' },
+      { day_of_week: 3, activity_type: 'strength', strength_session: rotation[1 % rotation.length] },
+      { day_of_week: 4, activity_type: 'rest' },
+      { day_of_week: 5, activity_type: 'run', run_type: hardRun },
+      { day_of_week: 6, activity_type: 'strength', strength_session: rotation[2 % rotation.length] },
+    ];
+  }
+
+  // ─── 4S + 2R (6 days total) — strength-priority hybrid ───────────────
+  if (key === '4S_2R') {
+    // Place legs mid-week, keep Sat light for long run Sun
+    if (legsLabel && rotation.length >= 2) {
+      const nonLegs = rotation.filter(s => s !== legsLabel);
+      return [
+        { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+        { day_of_week: 1, activity_type: 'strength', strength_session: nonLegs[0] },
+        { day_of_week: 2, activity_type: 'strength', strength_session: legsLabel },
+        { day_of_week: 3, activity_type: 'run', run_type: 'easy' },
+        { day_of_week: 4, activity_type: 'strength', strength_session: nonLegs[1 % nonLegs.length] ?? nonLegs[0] },
+        { day_of_week: 5, activity_type: 'rest' },
+        { day_of_week: 6, activity_type: 'strength', strength_session: nonLegs[0] }, // Upper-focus Sat before long run
+      ];
+    }
+    return [
+      { day_of_week: 0, activity_type: 'run', run_type: 'long_run' },
+      { day_of_week: 1, activity_type: 'strength', strength_session: rotation[0] },
+      { day_of_week: 2, activity_type: 'strength', strength_session: rotation[1 % rotation.length] },
+      { day_of_week: 3, activity_type: 'run', run_type: 'easy' },
+      { day_of_week: 4, activity_type: 'strength', strength_session: rotation[2 % rotation.length] },
+      { day_of_week: 5, activity_type: 'rest' },
+      { day_of_week: 6, activity_type: 'strength', strength_session: rotation[3 % rotation.length] },
+    ];
+  }
+
+  // ─── Fallback algorithmic allocator ──────────────────────────────────
+  // Used for combos not covered above (1S+2R, 2S+1R, 4S+3R, etc).
+  return fallbackHybridTemplate(strengthDays, runDays, rotation, hasSpeedFocus);
+}
+
+function fallbackHybridTemplate(
+  strengthDays: number,
+  runDays: number,
+  rotation: string[],
+  hasSpeedFocus: boolean,
+): HybridSlot[] {
+  const slots: HybridSlot[] = Array.from({ length: 7 }, (_, i) => ({
+    day_of_week: i,
+    activity_type: 'rest' as const,
+  }));
+
+  // 1. Long run Sunday
+  let runsLeft = runDays;
+  if (runsLeft >= 1) {
+    slots[0] = { day_of_week: 0, activity_type: 'run', run_type: 'long_run' };
+    runsLeft--;
+  }
+
+  // 2. Easy/Hard runs — spread Wed, then Fri, then Tue
+  const runPreference = [3, 5, 2, 4];
+  const hardRun: RunType = hasSpeedFocus ? 'interval' : 'tempo';
+  const runTypes: RunType[] = runsLeft >= 2 ? ['easy', hardRun] : ['easy'];
+  for (let i = 0; i < runsLeft && i < runPreference.length; i++) {
+    const dow = runPreference[i];
+    if (slots[dow].activity_type === 'rest') {
+      slots[dow] = { day_of_week: dow, activity_type: 'run', run_type: runTypes[i] ?? 'easy' };
+    }
+  }
+
+  // 3. Fill strength slots in preferred slots
+  const strengthPreference = [2, 4, 6, 1, 3, 5];
+  let rotIdx = 0;
+  for (const dow of strengthPreference) {
+    if (strengthDays <= 0) break;
+    if (slots[dow].activity_type === 'rest') {
+      slots[dow] = {
+        day_of_week: dow,
+        activity_type: 'strength',
+        strength_session: rotation[rotIdx % rotation.length],
+      };
+      rotIdx++;
+      strengthDays--;
+    }
+  }
+
+  return slots;
+}

@@ -51,7 +51,9 @@
       "WebFetch(domain:exercisedb.p.rapidapi.com)",
       "Read(//usr/local/bin/**)",
       "Read(//opt/homebrew/bin/**)",
-      "Bash(/usr/local/bin/node -e \":*)"
+      "Bash(/usr/local/bin/node -e \":*)",
+      "Bash(curl -s \"https://us.openfoodfacts.org/cgi/search.pl?search_terms=Peanut+Butter&json=1&page_size=3&fields=code,product_name,brands,nutriments&tagtype_0=countries&tag_contains_0=contains&tag_0=united-states\")",
+      "Bash(xargs ls:*)"
     ]
   },
   "hooks": {

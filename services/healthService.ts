@@ -13,6 +13,27 @@ export interface WorkoutWriteData {
   duration: number;
 }
 
+export interface RunWriteData {
+  startDate: Date;
+  endDate: Date;
+  /** Total distance in meters. */
+  distanceMeters: number;
+  /** Total active duration in minutes. */
+  duration: number;
+  calories?: number;
+  /** Run subtype: 'running' (default), 'walking', or 'hiking'. */
+  runType?: 'running' | 'walking' | 'hiking';
+  /** Optional GPS route samples for HKWorkoutRoute (iOS). */
+  route?: { latitude: number; longitude: number; altitude: number | null; timestamp: number }[];
+}
+
+export interface RunSession extends HealthWorkoutSession {
+  /** Distance in meters, when reported by Health source. */
+  distanceMeters?: number;
+  /** Average heart rate during the run (bpm). */
+  averageHeartRate?: number;
+}
+
 export interface HealthData {
   steps: number;
   activeCalories: number;
@@ -419,6 +440,106 @@ class HealthService {
       }
     }
     return false;
+  }
+
+  // ─── Run-Specific Methods ──────────────────────────────────────────────
+
+  /**
+   * Write a run/walk/hike to Apple Health or Health Connect, including distance.
+   * Returns true on success.
+   */
+  async writeRunWorkout(data: RunWriteData): Promise<boolean> {
+    if (!this._initialized || !this._permissionsGranted) {
+      __DEV__ && console.log('[HealthService] writeRunWorkout skipped — not connected');
+      return false;
+    }
+    this._ensureLoaded();
+    const runType = data.runType ?? 'running';
+    __DEV__ && console.log('[HealthService] Writing run:', runType, data.distanceMeters, 'm', data.duration, 'min');
+
+    if (Platform.OS === 'ios' && this._appleHealthKit) {
+      return new Promise((resolve) => {
+        const options = {
+          type: this._mapRunTypeIOS(runType),
+          startDate: data.startDate.toISOString(),
+          endDate: data.endDate.toISOString(),
+          duration: data.duration,
+          energyBurned: data.calories ?? 0,
+          energyBurnedUnit: 'calorie',
+          distance: data.distanceMeters,
+          distanceUnit: 'meter',
+        };
+        this._appleHealthKit.saveWorkout(options, (err: any, result: any) => {
+          if (err) {
+            __DEV__ && console.log('[HealthService] writeRunWorkout iOS error:', err);
+            resolve(false);
+          } else {
+            __DEV__ && console.log('[HealthService] writeRunWorkout iOS success:', result);
+            resolve(true);
+          }
+        });
+      });
+    }
+
+    if (Platform.OS === 'android' && this._healthConnect) {
+      try {
+        const { insertRecords } = this._healthConnect;
+        const exerciseTypeCode = this._mapRunTypeAndroid(runType);
+        await insertRecords([
+          {
+            recordType: 'ExerciseSession',
+            startTime: data.startDate.toISOString(),
+            endTime: data.endDate.toISOString(),
+            exerciseType: exerciseTypeCode,
+            title: this._runTypeTitle(runType),
+          },
+          {
+            recordType: 'Distance',
+            startTime: data.startDate.toISOString(),
+            endTime: data.endDate.toISOString(),
+            distance: { value: data.distanceMeters, unit: 'meters' },
+          },
+        ]);
+        __DEV__ && console.log('[HealthService] writeRunWorkout Android success');
+        return true;
+      } catch (e) {
+        __DEV__ && console.log('[HealthService] writeRunWorkout Android error:', e);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Read recent run/walk/hike sessions from Health Kit / Health Connect.
+   * Returns sessions ordered most-recent first.
+   */
+  async getRecentRuns(days: number = 30): Promise<RunSession[]> {
+    const all = await this.getRecentWorkouts(days);
+    const isRunLike = (activity: string) => {
+      const a = activity.toLowerCase();
+      return a.includes('run') || a.includes('walk') || a.includes('hik');
+    };
+    return all.filter(s => isRunLike(s.activityType));
+  }
+
+  private _runTypeTitle(runType: 'running' | 'walking' | 'hiking'): string {
+    if (runType === 'walking') return 'Walk';
+    if (runType === 'hiking') return 'Hike';
+    return 'Run';
+  }
+
+  private _mapRunTypeIOS(runType: 'running' | 'walking' | 'hiking'): string {
+    if (runType === 'walking') return 'Walking';
+    if (runType === 'hiking') return 'Hiking';
+    return 'Running';
+  }
+
+  private _mapRunTypeAndroid(runType: 'running' | 'walking' | 'hiking'): number {
+    // Health Connect ExerciseType numeric codes
+    if (runType === 'walking') return 79;
+    if (runType === 'hiking') return 36;
+    return 56; // running
   }
 
   private _mapActivityTypeIOS(style: string): string {

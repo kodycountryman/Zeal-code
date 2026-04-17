@@ -69,6 +69,18 @@ export const PRO_FEATURE_INFO: Record<string, ProFeatureInfo> = {
     title: 'Nutrition Tracker',
     message: 'Log meals, track macros, scan barcodes, and get AI-powered food estimates with Zeal Pro.',
   },
+  runPlans: {
+    title: 'Run Training Plans',
+    message: 'Build periodized 5K, 10K, half marathon, marathon, and hybrid lift+run plans tuned to your goal pace.',
+  },
+  runAudioCoaching: {
+    title: 'Audio Coaching',
+    message: 'Spoken split summaries, pace alerts, halfway cheers, and interval cues during every run.',
+  },
+  runAdvancedAnalytics: {
+    title: 'Advanced Run Analytics',
+    message: 'Race-time predictions, heart-rate zones, training load, fastest-split leaderboards, and pace trends.',
+  },
 };
 
 export function showProGate(

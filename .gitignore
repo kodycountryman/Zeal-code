@@ -44,3 +44,9 @@ core
 node_modules
 .expo
 .claude/worktrees/
+
+# MCP server config — contains API keys, never commit
+.mcp.json
+
+# Local ASO screenshot scratch dir (has its own .git)
+.aso-screenshots/

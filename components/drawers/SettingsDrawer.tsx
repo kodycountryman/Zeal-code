@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import CustomSlider from '@/components/CustomSlider';
 import GlassCard from '@/components/GlassCard';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
+import RunSettingsDrawer from '@/components/drawers/RunSettingsDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY, PRO_STYLES, PRO_STYLES_SET } from '@/services/proGate';
 import { useZealTheme, useAppContext, type NotifPrefs } from '@/context/AppContext';
@@ -101,6 +102,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
   const healthPulse = useRef(new Animated.Value(1)).current;
   const [dangerOpen, setDangerOpen] = useState(false);
   const dangerAnim = useRef(new Animated.Value(0)).current;
+  const [runSettingsVisible, setRunSettingsVisible] = useState(false);
 
   const [notifPermStatus, setNotifPermStatus] = useState<NotifPermissionStatus>('undetermined');
   const [localNotif, setLocalNotif] = useState<NotifPrefs>(ctx.notifPrefs);
@@ -593,6 +595,13 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               testID: 'settings-equipment',
             },
             {
+              iconComponent: <PlatformIcon name="figure-run" size={18} color={colors.textSecondary} />,
+              label: 'Run Settings',
+              sub: 'Units, auto-pause, audio coaching, HR zones',
+              onPress: () => setRunSettingsVisible(true),
+              testID: 'settings-run',
+            },
+            {
               iconComponent: <PlatformIcon name="book-open" size={18} color={colors.textSecondary} />,
               label: 'Exercise Catalog',
               sub: 'Browse exercises & favourites',
@@ -959,6 +968,11 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
         <View style={{ height: 24 }} />
       </View>
     </BaseDrawer>
+
+    <RunSettingsDrawer
+      visible={runSettingsVisible}
+      onClose={() => setRunSettingsVisible(false)}
+    />
 
     </>
   );

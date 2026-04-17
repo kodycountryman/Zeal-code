@@ -741,10 +741,16 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
                   </View>
                 ) : (
                   <View style={styles.todayMain}>
-                    <PlatformIcon name="dumbbell" size={18} color={styleColor} />
+                    <PlatformIcon
+                      name={todayPrescription.activity_type === 'run' ? 'figure-run' : 'dumbbell'}
+                      size={18}
+                      color={todayPrescription.activity_type === 'run' ? '#3b82f6' : styleColor}
+                    />
                     <View style={[styles.todayTextBlock, { flex: 1 }]}>
                       <Text style={[styles.todaySession, { color: colors.text }]} numberOfLines={1}>
-                        {todayPrescription.session_type || todayPrescription.style}
+                        {todayPrescription.activity_type === 'run'
+                          ? (todayPrescription.run_description ?? todayPrescription.session_type ?? 'Run')
+                          : (todayPrescription.session_type || todayPrescription.style)}
                       </Text>
                       <View style={styles.todayMetaRow}>
                         <PlatformIcon name="clock" size={11} color={colors.textMuted} />
@@ -765,20 +771,26 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
           ) : null}
 
           {/* ── Start today CTA ──────── */}
-          {!isPlanComplete && todayPrescription && !todayPrescription.is_rest && (
-            <TouchableOpacity
-              style={[styles.startTodayBtn, { backgroundColor: styleColor }]}
-              onPress={() => {
-                tracking.ensureTodayWorkoutGenerated();
-                onClose();
-                setTimeout(() => router.push('/(tabs)/workout' as any), 350);
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.startTodayBtnText}>Start Today's Workout</Text>
-              <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 14 }} />
-            </TouchableOpacity>
-          )}
+          {!isPlanComplete && todayPrescription && !todayPrescription.is_rest && (() => {
+            const isRunToday = todayPrescription.activity_type === 'run';
+            const ctaBg = isRunToday ? '#3b82f6' : styleColor;
+            const ctaLabel = isRunToday ? "Start Today's Run" : "Start Today's Workout";
+            const ctaRoute = isRunToday ? '/run' : '/(tabs)/workout';
+            return (
+              <TouchableOpacity
+                style={[styles.startTodayBtn, { backgroundColor: ctaBg }]}
+                onPress={() => {
+                  if (!isRunToday) tracking.ensureTodayWorkoutGenerated();
+                  onClose();
+                  setTimeout(() => router.push(ctaRoute as any), 350);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.startTodayBtnText}>{ctaLabel}</Text>
+                <PlatformIcon name="chevron-right" size={15} color="rgba(255,255,255,0.7)" style={{ marginRight: 14 }} />
+              </TouchableOpacity>
+            );
+          })()}
 
           {/* ── Divider ── */}
           <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 10 }} />
@@ -844,9 +856,15 @@ export default function ActivePlanDrawer({ visible, onClose, onStartNewPlan, onE
                       ) : (
                         <View style={styles.trainingContent}>
                           <View style={styles.dayStyleRow}>
-                            <PlatformIcon name="dumbbell" size={11} color={isToday ? accent : textColor} />
+                            <PlatformIcon
+                              name={day.activity_type === 'run' ? 'figure-run' : 'dumbbell'}
+                              size={11}
+                              color={isToday ? accent : (day.activity_type === 'run' ? '#3b82f6' : textColor)}
+                            />
                             <Text style={[styles.dayStyleText, { color: isToday ? accent : textColor }]} numberOfLines={1}>
-                              {day.session_type || day.style}
+                              {day.activity_type === 'run'
+                                ? (day.run_description ?? day.session_type ?? 'Run')
+                                : (day.session_type || day.style)}
                             </Text>
                           </View>
                           <View style={styles.dayMetaRow}>

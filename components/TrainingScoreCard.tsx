@@ -8,6 +8,7 @@ import {
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { useRun } from '@/context/RunContext';
 import GlassCard from '@/components/GlassCard';
 import MetricSlot from '@/components/MetricSlot';
 import MetricPickerSheet from '@/components/MetricPickerSheet';
@@ -61,6 +62,7 @@ function TrainingScoreCard({
 
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
+  const run = useRun();
   const { slots, updateSlot } = useMetricSlots();
   const [pickerSlotIndex, setPickerSlotIndex] = useState<number | null>(null);
   const [detailSlotIndex, setDetailSlotIndex] = useState<number | null>(null);
@@ -160,6 +162,27 @@ function TrainingScoreCard({
       ? Math.min(100, Math.round((sessionsLast4Wks / (targetTotal * 4)) * 100))
       : 0;
 
+    // ── Run-mode aggregates ────────────────────────────────────────────
+    // Current run streak — consecutive days ending today (or yesterday) with
+    // at least one logged run.
+    const runDates = new Set(run.runHistory.map(r => r.date));
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+    let cursorDate = new Date(todayDate);
+    if (!runDates.has(todayStr)) cursorDate.setDate(cursorDate.getDate() - 1);
+    let runStreakDays = 0;
+    while (true) {
+      const ds = `${cursorDate.getFullYear()}-${String(cursorDate.getMonth() + 1).padStart(2, '0')}-${String(cursorDate.getDate()).padStart(2, '0')}`;
+      if (!runDates.has(ds)) break;
+      runStreakDays += 1;
+      cursorDate.setDate(cursorDate.getDate() - 1);
+    }
+
+    // Runs in current calendar month
+    const monthPrefix = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}`;
+    const runsThisMonthCount = run.runHistory.filter(r => r.date.startsWith(monthPrefix)).length;
+
     return {
       workoutHistory: history,
       weeklyHoursMin,
@@ -175,9 +198,14 @@ function TrainingScoreCard({
       exercisesThisWeekCount,
       consistencyPct,
       bodyWeight: ctx.weight ?? null,
+      runWeeklyDistanceMeters: run.stats.weeklyDistanceMeters,
+      runStreakDays,
+      runsThisMonthCount,
+      runUnits: run.preferences.units,
     };
   }, [tracking.workoutHistory, weeklyHoursMin, ctx.streak, ctx.healthConnected,
-      ctx.weight, targetDone, targetTotal, calories, steps, heartRate]);
+      ctx.weight, targetDone, targetTotal, calories, steps, heartRate,
+      run.runHistory, run.stats.weeklyDistanceMeters, run.preferences.units]);
 
   const handleSlotPress = useCallback((index: number) => {
     const key = slots[index];

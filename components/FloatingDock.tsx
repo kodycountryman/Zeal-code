@@ -37,9 +37,9 @@ import { useSubscription } from '@/context/SubscriptionContext';
 import { SWIFT_SPRING, SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 type TabDef = {
-  key: 'home' | 'workout' | 'coach' | 'nutrition';
+  key: 'home' | 'workout' | 'run' | 'coach' | 'nutrition';
   label: string;
-  route: '/' | '/workout' | '/coach' | '/nutrition';
+  route: '/' | '/workout' | '/run' | '/coach' | '/nutrition';
   iconName: AppIconName;
   testID: string;
 };
@@ -48,6 +48,7 @@ type TabDef = {
 const TABS: TabDef[] = [
   { key: 'home', label: 'Home', route: '/', iconName: 'home', testID: 'dock-home' },
   { key: 'workout', label: 'Workout', route: '/workout', iconName: 'dumbbell', testID: 'dock-workout' },
+  { key: 'run', label: 'Run', route: '/run', iconName: 'figure-run', testID: 'dock-run' },
   // { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
   // { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
 ];
@@ -194,7 +195,7 @@ export default function FloatingDock() {
     const tab = TABS[index];
     if (!tab) return;
     closeMenu();
-    router.push(tab.route);
+    router.push(tab.route as any);
   };
 
   const fireSelectionHaptic = () => {
@@ -251,6 +252,12 @@ export default function FloatingDock() {
 
   const menuItems = [
     { icon: <PlatformIcon name="hammer" size={20} color={accent} />, label: 'Build Workout', onPress: () => { closeMenu(); setTimeout(() => tracking.setBuildWorkoutVisible(true), MENU_CLOSE_DELAY); }, locked: false },
+    {
+      icon: <PlatformIcon name="figure-run" size={20} color={accent} />,
+      label: 'Start a Run',
+      onPress: () => { closeMenu(); setTimeout(() => router.push('/run' as any), MENU_CLOSE_DELAY); },
+      locked: false,
+    },
     {
       icon: <PlatformIcon name="sparkles" size={20} color={hasPro ? accent : colors.textMuted} />,
       label: 'Start a Plan',

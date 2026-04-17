@@ -9,6 +9,10 @@ export const NOTIF_ID_REST_COMPLETE = 'zeal_rest_complete';
 export const NOTIF_ID_DAILY_REMINDER = 'zeal_daily_reminder';
 export const NOTIF_ID_STREAK_REMINDER = 'zeal_streak_reminder';
 export const NOTIF_ID_WEEKLY_SUMMARY = 'zeal_weekly_summary';
+export const NOTIF_ID_RUN_REMINDER = 'zeal_run_reminder';
+export const NOTIF_ID_RUN_PRE_REMINDER = 'zeal_run_pre_reminder';
+export const NOTIF_ID_RUN_STREAK_REMINDER = 'zeal_run_streak_reminder';
+export const NOTIF_ID_RUN_MILESTONE = 'zeal_run_milestone';
 
 export const ACTION_SKIP = 'SKIP_REST';
 export const ACTION_MINUS_15 = 'MINUS_15';
@@ -266,6 +270,12 @@ export async function scheduleWeeklySummary(stats: {
   workouts: number;
   hoursStr: string;
   sets: number;
+  /** Optional run stats — included in the summary body when present */
+  runs?: number;
+  /** Pre-formatted distance string, e.g. "12.4 mi" or "20.1 km" */
+  runDistanceStr?: string;
+  /** Pre-formatted average pace, e.g. "8:42/mi" — omit if no runs */
+  avgPaceStr?: string;
 }): Promise<void> {
   const Notifications = await getNotificationsModule();
   if (!Notifications) return;
@@ -282,10 +292,23 @@ export async function scheduleWeeklySummary(stats: {
     const secondsUntil = Math.floor((nextSunday.getTime() - now.getTime()) / 1000);
     if (secondsUntil <= 0) return;
 
-    const body =
-      stats.workouts > 0
-        ? `${stats.workouts} workout${stats.workouts !== 1 ? 's' : ''} · ${stats.hoursStr} trained · ${stats.sets} sets logged. Keep it going.`
-        : "A new week is a fresh start. Let's build something great.";
+    const hasStrength = stats.workouts > 0;
+    const hasRuns = (stats.runs ?? 0) > 0;
+    let body: string;
+    if (hasStrength && hasRuns) {
+      const runFragment = stats.avgPaceStr
+        ? `${stats.runs} run${stats.runs !== 1 ? 's' : ''} · ${stats.runDistanceStr} · ${stats.avgPaceStr}`
+        : `${stats.runs} run${stats.runs !== 1 ? 's' : ''} · ${stats.runDistanceStr}`;
+      body = `${stats.workouts} workout${stats.workouts !== 1 ? 's' : ''} · ${stats.hoursStr} · ${stats.sets} sets\n${runFragment}`;
+    } else if (hasStrength) {
+      body = `${stats.workouts} workout${stats.workouts !== 1 ? 's' : ''} · ${stats.hoursStr} trained · ${stats.sets} sets logged. Keep it going.`;
+    } else if (hasRuns) {
+      body = stats.avgPaceStr
+        ? `${stats.runs} run${stats.runs !== 1 ? 's' : ''} · ${stats.runDistanceStr} · avg ${stats.avgPaceStr}. Keep building.`
+        : `${stats.runs} run${stats.runs !== 1 ? 's' : ''} · ${stats.runDistanceStr}. Keep building.`;
+    } else {
+      body = "A new week is a fresh start. Let's build something great.";
+    }
 
     await Notifications.scheduleNotificationAsync({
       identifier: NOTIF_ID_WEEKLY_SUMMARY,
@@ -313,5 +336,165 @@ export async function cancelWeeklySummary(): Promise<void> {
     await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_WEEKLY_SUMMARY).catch(() => {});
   } catch (e) {
     __DEV__ && console.log('[NotifService] cancelWeeklySummary error:', e);
+  }
+}
+
+// ─── Run-Mode Notifications ───────────────────────────────────────────────
+
+/**
+ * Schedule a one-shot reminder for a planned run. Used by the run plan engine
+ * to fire "Time for your run!" at the runner's preferred time on a plan day.
+ *
+ * `dateTime` should be the target moment in the future. Idempotent — replaces
+ * any previously-scheduled run reminder.
+ */
+export async function scheduleRunReminder(dateTime: Date, runDescription: string): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+  try {
+    const secondsUntil = Math.floor((dateTime.getTime() - Date.now()) / 1000);
+    if (secondsUntil <= 0) return;
+
+    await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_RUN_REMINDER).catch(() => {});
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: NOTIF_ID_RUN_REMINDER,
+      content: {
+        title: '🏃  Time for your run',
+        body: runDescription || 'Your run is ready when you are. Tap to start.',
+        sound: true,
+        data: { type: 'run_reminder' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntil,
+      },
+    });
+    __DEV__ && console.log('[NotifService] Run reminder scheduled in', secondsUntil, 's');
+  } catch (e) {
+    __DEV__ && console.log('[NotifService] scheduleRunReminder error:', e);
+  }
+}
+
+/**
+ * Schedule the "30 minutes out" pre-run reminder, separate from the main one
+ * so the user gets two pings: one well in advance, one as the time approaches.
+ */
+export async function scheduleRunPreReminder(runDateTime: Date, runDescription: string): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+  try {
+    const PRE_OFFSET_SEC = 30 * 60;
+    const secondsUntilPre = Math.floor((runDateTime.getTime() - Date.now()) / 1000) - PRE_OFFSET_SEC;
+    if (secondsUntilPre <= 0) return;
+
+    await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_RUN_PRE_REMINDER).catch(() => {});
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: NOTIF_ID_RUN_PRE_REMINDER,
+      content: {
+        title: '⏱  Run in 30 min',
+        body: `Heads up — ${runDescription || 'your run'} is coming up in half an hour.`,
+        sound: true,
+        data: { type: 'run_pre_reminder' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilPre,
+      },
+    });
+  } catch (e) {
+    __DEV__ && console.log('[NotifService] scheduleRunPreReminder error:', e);
+  }
+}
+
+export async function cancelRunReminders(): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_RUN_REMINDER).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_RUN_PRE_REMINDER).catch(() => {});
+  } catch (e) {
+    __DEV__ && console.log('[NotifService] cancelRunReminders error:', e);
+  }
+}
+
+/**
+ * Schedule a recurring daily run-streak reminder. Fires at the given local
+ * time every day; the body is generic so it can be re-used regardless of
+ * whether the streak is intact or not. The handler should silently skip
+ * displaying it if the user has already run today (or use streakActive=false
+ * to convey that to the user).
+ */
+export async function scheduleRunStreakReminder(hour: number, minute: number): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_RUN_STREAK_REMINDER).catch(() => {});
+    await Notifications.scheduleNotificationAsync({
+      identifier: NOTIF_ID_RUN_STREAK_REMINDER,
+      content: {
+        title: '🔥  Don\'t break your run streak',
+        body: 'You haven\'t run yet today. Lace up — even a short one keeps the streak alive.',
+        sound: true,
+        data: { type: 'run_streak_reminder' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+      },
+    });
+    __DEV__ && console.log('[NotifService] Run streak reminder set for', hour, ':', minute);
+  } catch (e) {
+    __DEV__ && console.log('[NotifService] scheduleRunStreakReminder error:', e);
+  }
+}
+
+export async function cancelRunStreakReminder(): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(NOTIF_ID_RUN_STREAK_REMINDER).catch(() => {});
+  } catch (e) {
+    __DEV__ && console.log('[NotifService] cancelRunStreakReminder error:', e);
+  }
+}
+
+/**
+ * Fire an immediate milestone notification for a newly-earned PR or badge.
+ * Body is the celebration message; this is non-scheduled — it appears right
+ * after a run save when the user closes the app or switches away.
+ *
+ * Use a unique trailing key in the identifier so multiple milestones in the
+ * same run don't overwrite each other.
+ */
+export async function presentRunMilestoneNotification(
+  title: string,
+  body: string,
+  uniqueKey: string,
+): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier: `${NOTIF_ID_RUN_MILESTONE}_${uniqueKey}`,
+      content: {
+        title,
+        body,
+        sound: true,
+        data: { type: 'run_milestone', key: uniqueKey },
+      },
+      // 1-second trigger so the notification fires even when the app is foregrounded
+      // (foreground notifications still respect iOS's display rules; the small
+      // delay also lets the post-run summary modal show first if open).
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 1,
+      },
+    });
+    __DEV__ && console.log('[NotifService] Milestone notification queued:', title);
+  } catch (e) {
+    __DEV__ && console.log('[NotifService] presentRunMilestoneNotification error:', e);
   }
 }
