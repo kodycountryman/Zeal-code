@@ -14,11 +14,7 @@ import PanDownHandle from '@/components/PanDownHandle';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import type { HealthImportItem, DuplicateCandidate } from '@/context/WorkoutTrackingContext';
 
-import { WORKOUT_STYLE_KEYS as WORKOUT_STYLES } from '@/constants/workoutStyles';
-const MUSCLE_GROUPS = [
-  'Chest', 'Lats', 'Back', 'Traps', 'Shoulders', 'Rear Delts',
-  'Biceps', 'Triceps', 'Forearms', 'Core', 'Quads', 'Hamstrings', 'Glutes', 'Calves',
-];
+import { WORKOUT_STYLE_KEYS as WORKOUT_STYLES, MUSCLE_GROUPS } from '@/constants/workoutStyles';
 
 function formatTime(iso: string): string {
   const d = new Date(iso);

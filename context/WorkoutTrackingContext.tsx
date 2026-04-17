@@ -92,6 +92,18 @@ export interface WorkoutLog {
   muscleGroups?: string[];
   muscleSetCounts?: Record<string, number>; // muscle name → completed sets
   startTime?: string;
+  // ── Advanced manual-log fields (populated by LogPreviousWorkoutDrawer) ──
+  /** ISO timestamp — paired with startTime when user captures both. */
+  endTime?: string;
+  /** bpm — optional wearable metric backfilled in Advanced mode. */
+  averageHeartRate?: number | null;
+  /** bpm — optional wearable metric backfilled in Advanced mode. */
+  maxHeartRate?: number | null;
+  /** Meters — unit-agnostic storage (RunLog does the same). Form converts
+   *  from user's preferred mi/km at save time. */
+  distanceMeters?: number | null;
+  /** Free-text reflection — Advanced mode only. */
+  notes?: string;
 }
 
 export interface HealthImportItem {
@@ -544,6 +556,9 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     };
   }, [ensureTodayWorkoutGenerated]);
 
+  // Visibility for the Log Previous Workout drawer (FAB menu entry). Lives
+  // in context so the FAB in FloatingDock can trigger a drawer mounted on Home.
+  const [logPreviousVisible, setLogPreviousVisible] = useState<boolean>(false);
   const [calendarModalVisible, setCalendarModalVisible] = useState<boolean>(false);
   const [workoutLogDetailVisible, setWorkoutLogDetailVisible] = useState<boolean>(false);
   const [buildWorkoutVisible, setBuildWorkoutVisible] = useState<boolean>(false);
@@ -1338,6 +1353,88 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     prepareSaveStep(starMap[difficulty], rpe, wellChips);
   }, [prepareSaveStep]);
 
+  /**
+   * Persist a retroactive "Log Previous Workout" entry to workoutHistory.
+   *
+   * Models acceptHealthImport's shape: build a WorkoutLog with isManualLog
+   * = true, push to history, persist to AsyncStorage, then bump streak
+   * and weekly-hours side effects. Exercises array stays empty — this
+   * is a summary log, not a rebuild of the live tracker.
+   *
+   * RPE is mapped to a difficulty level so existing difficulty-driven UI
+   * (calendar badge colors, Insights filters) renders these logs sensibly:
+   *   RPE 1–3 → easy, 4–6 → moderate, 7–8 → hard, 9–10 → brutal.
+   */
+  const logPreviousWorkout = useCallback((input: {
+    date: string;
+    style: string;
+    duration: number;
+    muscleGroups: string[];
+    rpe: number;
+    calories?: number;
+    startTime?: string;
+    endTime?: string;
+    averageHeartRate?: number;
+    maxHeartRate?: number;
+    distanceMeters?: number;
+    notes?: string;
+  }) => {
+    let difficulty: DifficultyLevel;
+    if (input.rpe <= 3) difficulty = 'easy';
+    else if (input.rpe <= 6) difficulty = 'moderate';
+    else if (input.rpe <= 8) difficulty = 'hard';
+    else difficulty = 'brutal';
+
+    const logEntry: WorkoutLog = {
+      id: generateId(),
+      date: input.date,
+      workoutName: `${input.style} Session`,
+      workoutStyle: input.style,
+      split: '',
+      duration: input.duration,
+      exercises: [],
+      totalSets: 0,
+      totalVolume: 0,
+      prsHit: 0,
+      trainingScore: 0,
+      difficulty,
+      starRating: 3,
+      rpe: input.rpe,
+      whatWentWell: [],
+      isManualLog: true,
+      muscleGroups: input.muscleGroups,
+      calories: input.calories,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      averageHeartRate: input.averageHeartRate ?? null,
+      maxHeartRate: input.maxHeartRate ?? null,
+      distanceMeters: input.distanceMeters ?? null,
+      notes: input.notes,
+    };
+
+    const newHistory = [logEntry, ...workoutHistory];
+    setWorkoutHistory(newHistory);
+    AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
+
+    // Streak is derived from the set of distinct workout dates — adding any
+    // new date (past or present) recomputes correctly.
+    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
+    ctx.setStreak(newStreak);
+    ctx.setLastStreakDate(getTodayStr());
+
+    // Only bump weekly-hours when the logged date falls in the current week;
+    // older logs are valid history but don't change "this week".
+    const weekStart = getWeekStart();
+    if (new Date(input.date) >= new Date(weekStart)) {
+      const newMinutes = weeklyHoursMin + input.duration;
+      setWeeklyHoursMin(newMinutes);
+      AsyncStorage.setItem(WEEKLY_HOURS_KEY, JSON.stringify({ weekStart, minutes: newMinutes })).catch(console.warn);
+      const hoursVal = Math.round(newMinutes / 60 * 10) / 10;
+      ctx.setHoursTrainedToday(hoursVal >= 1 ? `${hoursVal}h` : `${newMinutes}m`);
+      ctx.saveState();
+    }
+  }, [workoutHistory, weeklyHoursMin, ctx]);
+
   const markImportSeen = useCallback((importId: string) => {
     void AsyncStorage.getItem(SEEN_HEALTH_IMPORTS_KEY).then(raw => {
       const seen: string[] = raw ? JSON.parse(raw) : [];
@@ -1646,6 +1743,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setCurrentGeneratedWorkout,
     isGeneratingWorkout,
     ensureTodayWorkoutGenerated,
+    logPreviousVisible,
+    setLogPreviousVisible,
     calendarModalVisible,
     setCalendarModalVisible,
     workoutLogDetailVisible,
@@ -1693,6 +1792,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     dismissPostWorkout,
     discardWorkout,
     completeWorkout,
+    logPreviousWorkout,
     removeWorkoutLog,
     getLogForDate,
     getLogsForDate,
@@ -1713,7 +1813,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     restTimeTotal, showRestTimer, isTimerMinimized, setIsTimerMinimized, autoRestTimer, handleSetAutoRestTimer, exerciseLogs, expandedExercise,
     postWorkoutStep, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell,
     sessionScoreBreakdown, sessionPRs, confirmedPRs, workoutHistory, prHistory, activeWorkout,
-    calendarModalVisible, workoutLogDetailVisible,
+    logPreviousVisible, calendarModalVisible, workoutLogDetailVisible,
     buildWorkoutVisible, workoutPlanVisible, planChooserVisible, exerciseCatalogVisible, activePlanVisible,
     selectedLogId, selectedLog, completedExerciseCount, liveTrainingScore,
     readinessPercent, weeklyHoursMin, todayLogs,
@@ -1724,7 +1824,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout, prepareSaveStep,
     saveWorkout, dismissPostWorkout, discardWorkout, completeWorkout,
-    removeWorkoutLog, getLogForDate, getLogsForDate,
+    logPreviousWorkout, removeWorkoutLog, getLogForDate, getLogsForDate,
     getExerciseSuggestion, getLastSetsForExercise,
     pendingHealthImports, duplicateCandidates, healthImportReviewVisible, setHealthImportReviewVisible,
     acceptHealthImport, dismissHealthImport, mergeDuplicate, keepBothDuplicate, dismissDuplicate,

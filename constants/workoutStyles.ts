@@ -18,3 +18,16 @@ export const WORKOUT_STYLE_LIST: { key: string; desc: string }[] = [
 
 /** Just the key strings — use wherever a plain string[] is needed. */
 export const WORKOUT_STYLE_KEYS: string[] = WORKOUT_STYLE_LIST.map(s => s.key);
+
+/**
+ * Canonical muscle-group list used across the app. Keep this aligned with
+ * what HealthImportSheet and LogPreviousWorkoutDrawer render as chips, and
+ * with the exercise-engine muscle buckets so analytics cross-reference
+ * cleanly. Add or remove a muscle here and it propagates everywhere.
+ */
+export const MUSCLE_GROUPS = [
+  'Chest', 'Lats', 'Back', 'Traps', 'Shoulders', 'Rear Delts',
+  'Biceps', 'Triceps', 'Forearms', 'Core', 'Quads', 'Hamstrings', 'Glutes', 'Calves',
+] as const;
+
+export type MuscleGroup = typeof MUSCLE_GROUPS[number];
