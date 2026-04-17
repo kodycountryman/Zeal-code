@@ -41,6 +41,10 @@ function TabsWithPaywall() {
         tabBar={() => <FloatingDock />}
       >
         <Tabs.Screen name="index" />
+        <Tabs.Screen name="train" />
+        {/* Legacy routes — still mounted so router.push('/workout') etc. from */}
+        {/* pre-Train-tab call sites continue to work. They redirect to /train. */}
+        {/* Scheduled for deletion in Phase 6 of the Train unification. */}
         <Tabs.Screen name="workout" />
         <Tabs.Screen name="run" />
         {/* Hidden for v1 App Store submission — uncomment for v2 */}

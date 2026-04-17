@@ -37,9 +37,9 @@ import { useSubscription } from '@/context/SubscriptionContext';
 import { SWIFT_SPRING, SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 type TabDef = {
-  key: 'home' | 'workout' | 'run' | 'coach' | 'nutrition';
+  key: 'home' | 'train' | 'coach' | 'nutrition';
   label: string;
-  route: '/' | '/workout' | '/run' | '/coach' | '/nutrition';
+  route: '/' | '/train' | '/coach' | '/nutrition';
   iconName: AppIconName;
   testID: string;
 };
@@ -47,8 +47,7 @@ type TabDef = {
 // Hidden nutrition + coach for v1 App Store submission — restore for v2
 const TABS: TabDef[] = [
   { key: 'home', label: 'Home', route: '/', iconName: 'home', testID: 'dock-home' },
-  { key: 'workout', label: 'Workout', route: '/workout', iconName: 'dumbbell', testID: 'dock-workout' },
-  { key: 'run', label: 'Run', route: '/run', iconName: 'figure-run', testID: 'dock-run' },
+  { key: 'train', label: 'Train', route: '/train', iconName: 'dumbbell', testID: 'dock-train' },
   // { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
   // { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
 ];
@@ -70,7 +69,7 @@ export default function FloatingDock() {
 
   // AppTour refs — keep the test IDs so the tour still finds these targets.
   const tourHomeRef = useTourTarget('dock-home');
-  const tourWorkoutRef = useTourTarget('dock-workout');
+  const tourTrainRef = useTourTarget('dock-train');
   const tourPlusRef = useTourTarget('dock-plus');
 
   // ───── Theme-derived colors ─────
@@ -96,6 +95,12 @@ export default function FloatingDock() {
   const activeIndex = useMemo(() => {
     const idx = TABS.findIndex((t) => {
       if (t.route === '/') return pathname === '/' || pathname === '/index';
+      // Legacy /workout and /run paths still exist as redirect shims during the
+      // Train-tab transition — treat them as if they were /train so the dock
+      // highlights the right tab during the redirect frame.
+      if (t.route === '/train') {
+        return pathname === '/train' || pathname === '/workout' || pathname === '/run';
+      }
       return pathname === t.route;
     });
     return idx === -1 ? 0 : idx;
@@ -255,7 +260,7 @@ export default function FloatingDock() {
     {
       icon: <PlatformIcon name="figure-run" size={20} color={accent} />,
       label: 'Start a Run',
-      onPress: () => { closeMenu(); setTimeout(() => router.push('/run' as any), MENU_CLOSE_DELAY); },
+      onPress: () => { closeMenu(); setTimeout(() => router.push('/train?mode=run' as any), MENU_CLOSE_DELAY); },
       locked: false,
     },
     {
@@ -325,8 +330,8 @@ export default function FloatingDock() {
                   const ref =
                     tab.key === 'home'
                       ? (tourHomeRef as any)
-                      : tab.key === 'workout'
-                        ? (tourWorkoutRef as any)
+                      : tab.key === 'train'
+                        ? (tourTrainRef as any)
                         : undefined;
                   return (
                     <DockTab
@@ -339,7 +344,7 @@ export default function FloatingDock() {
                       inactiveIconColor={inactiveIconColor}
                       onPress={() => handleTabTap(index)}
                       onTabLayout={handleTabLayout}
-                      contentShiftX={tab.key === 'workout' ? 1.5 : 0}
+                      contentShiftX={tab.key === 'train' ? 1.5 : 0}
                     />
                   );
                 })}
