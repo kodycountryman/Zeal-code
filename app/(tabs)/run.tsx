@@ -38,6 +38,7 @@ import RunAudioSettingsDrawer from '@/components/drawers/RunAudioSettingsDrawer'
 import RunSettingsDrawer from '@/components/drawers/RunSettingsDrawer';
 import TabHeader from '@/components/TabHeader';
 import Chip from '@/components/Chip';
+import ModeToggleIcons from '@/components/train/ModeToggleIcons';
 import IntervalRunner from '@/components/run/IntervalRunner';
 import { useRouter } from 'expo-router';
 import { healthService } from '@/services/healthService';
@@ -471,53 +472,59 @@ export default function RunScreen() {
       <ZealBackground />
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <TabHeader
-          title="Run"
+          title="Train"
           // TODO(profile): once AthleteProfileDrawer is wired into Run, swap this to setProfileVisible(true)
           onAvatarPress={() => setRunSettingsVisible(true)}
           avatarTestID="run-profile-avatar"
-          rightSlot={
-            <>
-              <TouchableOpacity
-                style={[styles.audioBtn, { borderColor: colors.border }]}
-                onPress={() => setRunSettingsVisible(true)}
-                activeOpacity={0.7}
-                testID="run-settings-button"
-                accessibilityRole="button"
-                accessibilityLabel="Run settings"
-              >
-                <PlatformIcon name="settings" size={15} color={colors.textSecondary} />
-              </TouchableOpacity>
-              <View style={styles.unitsToggle}>
-                <TouchableOpacity
-                  onPress={() => run.updatePreferences({ units: 'imperial' })}
-                  style={[
-                    styles.unitsPill,
-                    run.preferences.units === 'imperial' && { backgroundColor: `${accent}20` },
-                  ]}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel="Miles"
-                  accessibilityState={{ selected: run.preferences.units === 'imperial' }}
-                >
-                  <Text style={[styles.unitsPillText, { color: run.preferences.units === 'imperial' ? accent : colors.textMuted }]}>mi</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => run.updatePreferences({ units: 'metric' })}
-                  style={[
-                    styles.unitsPill,
-                    run.preferences.units === 'metric' && { backgroundColor: `${accent}20` },
-                  ]}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel="Kilometers"
-                  accessibilityState={{ selected: run.preferences.units === 'metric' }}
-                >
-                  <Text style={[styles.unitsPillText, { color: run.preferences.units === 'metric' ? accent : colors.textMuted }]}>km</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          }
+          rightSlot={<ModeToggleIcons />}
         />
+
+        {/* Run-specific controls — mi/km toggle + settings cog. Live below the
+            header now that the rightSlot carries the mode toggle icons.
+            Compact strip, right-aligned, disappears during active runs to
+            give the metrics display full breathing room. */}
+        {!isActive && (
+          <View style={styles.runControlsStrip}>
+            <View style={styles.unitsToggle}>
+              <TouchableOpacity
+                onPress={() => run.updatePreferences({ units: 'imperial' })}
+                style={[
+                  styles.unitsPill,
+                  run.preferences.units === 'imperial' && { backgroundColor: `${accent}20` },
+                ]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Miles"
+                accessibilityState={{ selected: run.preferences.units === 'imperial' }}
+              >
+                <Text style={[styles.unitsPillText, { color: run.preferences.units === 'imperial' ? accent : colors.textMuted }]}>mi</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => run.updatePreferences({ units: 'metric' })}
+                style={[
+                  styles.unitsPill,
+                  run.preferences.units === 'metric' && { backgroundColor: `${accent}20` },
+                ]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Kilometers"
+                accessibilityState={{ selected: run.preferences.units === 'metric' }}
+              >
+                <Text style={[styles.unitsPillText, { color: run.preferences.units === 'metric' ? accent : colors.textMuted }]}>km</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={[styles.audioBtn, { borderColor: colors.border }]}
+              onPress={() => setRunSettingsVisible(true)}
+              activeOpacity={0.7}
+              testID="run-settings-button"
+              accessibilityRole="button"
+              accessibilityLabel="Run settings"
+            >
+              <PlatformIcon name="settings" size={15} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Recovery hint if there's an orphaned run */}
@@ -913,6 +920,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Run-specific controls strip that lives below the Train TabHeader.
+  // Hidden during active runs so metrics get full breathing room.
+  runControlsStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
   },
   unitsToggle: {
     flexDirection: 'row',

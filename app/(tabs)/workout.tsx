@@ -76,6 +76,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import TabHeader from '@/components/TabHeader';
 import Chip from '@/components/Chip';
 import Button from '@/components/Button';
+import ModeToggleIcons from '@/components/train/ModeToggleIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassCard from '@/components/GlassCard';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -3551,12 +3552,10 @@ export default function WorkoutScreen() {
 
       <SafeAreaView edges={['top']}>
         <TabHeader
-          title="Workout"
+          title="Train"
           onAvatarPress={() => setProfileVisible(true)}
           avatarTestID="workout-profile-avatar"
-          rightSlot={
-            <Text style={[styles.dateText, { color: colors.textSecondary }]}>{formatDate()}</Text>
-          }
+          rightSlot={<ModeToggleIcons />}
           centerOverlay={
             tracking.isWorkoutActive ? (
               <TouchableOpacity
