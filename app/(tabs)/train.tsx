@@ -22,6 +22,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTrain } from '@/context/TrainContext';
+import MiniSessionBar from '@/components/train/MiniSessionBar';
 import WorkoutScreen from './workout';
 import RunScreen from './run';
 
@@ -80,6 +81,9 @@ export default function TrainScreen() {
     <GestureDetector gesture={swipeGesture}>
       <View style={styles.root} collapsable={false}>
         {mode === 'run' ? <RunScreen /> : <WorkoutScreen />}
+        {/* Floats above the active screen, below the dock. Self-hides when
+            no cross-mode session is active. */}
+        <MiniSessionBar />
       </View>
     </GestureDetector>
   );
