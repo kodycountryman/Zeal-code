@@ -35,6 +35,9 @@ import LogPreviousWorkout from '@/components/LogPreviousWorkout';
 import InsightsDrawer from '@/components/drawers/InsightsDrawer';
 import BuildWorkoutDrawer from '@/components/drawers/BuildWorkoutDrawer';
 import WorkoutPlanDrawer from '@/components/drawers/WorkoutPlanDrawer';
+import PlanTypeChooserSheet from '@/components/drawers/PlanTypeChooserSheet';
+import RunPlanBuilderDrawer from '@/components/drawers/RunPlanBuilderDrawer';
+import HybridPlanBuilderDrawer from '@/components/drawers/HybridPlanBuilderDrawer';
 import ExerciseCatalogDrawer from '@/components/drawers/ExerciseCatalogDrawer';
 import ActivePlanDrawer from '@/components/drawers/ActivePlanDrawer';
 import HelpFaqDrawer from '@/components/drawers/HelpFaqDrawer';
@@ -269,6 +272,12 @@ export default function HomeScreen() {
 
   const [anotherWorkoutVisible, setAnotherWorkoutVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | undefined>(undefined);
+  // Local visibility for the Run + Hybrid builders routed through the new
+  // PlanTypeChooserSheet. Strength builder keeps its existing global
+  // tracking.workoutPlanVisible flag so the FAB and ActivePlanDrawer
+  // edit-flow keep working unchanged.
+  const [runPlanBuilderVisible, setRunPlanBuilderVisible] = useState(false);
+  const [hybridPlanBuilderVisible, setHybridPlanBuilderVisible] = useState(false);
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
@@ -771,6 +780,33 @@ export default function HomeScreen() {
         editPlan={editingPlan}
       />
 
+      <PlanTypeChooserSheet
+        visible={tracking.planChooserVisible}
+        onClose={() => tracking.setPlanChooserVisible(false)}
+        onSelectStrength={() => {
+          tracking.setPlanChooserVisible(false);
+          setTimeout(() => tracking.setWorkoutPlanVisible(true), 250);
+        }}
+        onSelectRun={() => {
+          tracking.setPlanChooserVisible(false);
+          setTimeout(() => setRunPlanBuilderVisible(true), 250);
+        }}
+        onSelectHybrid={() => {
+          tracking.setPlanChooserVisible(false);
+          setTimeout(() => setHybridPlanBuilderVisible(true), 250);
+        }}
+      />
+
+      <RunPlanBuilderDrawer
+        visible={runPlanBuilderVisible}
+        onClose={() => setRunPlanBuilderVisible(false)}
+      />
+
+      <HybridPlanBuilderDrawer
+        visible={hybridPlanBuilderVisible}
+        onClose={() => setHybridPlanBuilderVisible(false)}
+      />
+
       <ExerciseCatalogDrawer
         visible={tracking.exerciseCatalogVisible}
         onClose={() => tracking.setExerciseCatalogVisible(false)}
@@ -781,7 +817,7 @@ export default function HomeScreen() {
         visible={tracking.activePlanVisible}
         initialTab={activePlanInitialTab}
         onClose={() => { tracking.setActivePlanVisible(false); setActivePlanInitialTab(undefined); }}
-        onStartNewPlan={() => tracking.setWorkoutPlanVisible(true)}
+        onStartNewPlan={() => tracking.setPlanChooserVisible(true)}
         onEditPlan={() => {
           setEditingPlan(ctx.activePlan ?? undefined);
           tracking.setWorkoutPlanVisible(true);

@@ -29,6 +29,8 @@ import TreadmillPanel from '@/components/run/TreadmillPanel';
 import RunSummary from '@/components/run/RunSummary';
 import RunPlanBuilderDrawer from '@/components/drawers/RunPlanBuilderDrawer';
 import HybridPlanBuilderDrawer from '@/components/drawers/HybridPlanBuilderDrawer';
+import WorkoutPlanDrawer from '@/components/drawers/WorkoutPlanDrawer';
+import PlanTypeChooserSheet from '@/components/drawers/PlanTypeChooserSheet';
 import RunHistoryDrawer from '@/components/drawers/RunHistoryDrawer';
 import RunLogDrawer from '@/components/drawers/RunLogDrawer';
 import MileageTracker from '@/components/run/MileageTracker';
@@ -106,6 +108,8 @@ export default function RunScreen() {
   const [prModalVisible, setPRModalVisible] = useState(false);
   const [planBuilderVisible, setPlanBuilderVisible] = useState(false);
   const [hybridBuilderVisible, setHybridBuilderVisible] = useState(false);
+  const [workoutPlanVisible, setWorkoutPlanVisible] = useState(false);
+  const [planChooserVisible, setPlanChooserVisible] = useState(false);
   const [isSavingRun, setIsSavingRun] = useState(false);
   const [healthSavedToastVisible, setHealthSavedToastVisible] = useState(false);
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
@@ -632,50 +636,28 @@ export default function RunScreen() {
               </GlassCard>
             );
           })() : (
-            <View style={{ gap: 10 }}>
-              <TouchableOpacity
-                style={[styles.newPlanCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}
-                onPress={() => setPlanBuilderVisible(true)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.newPlanIconWrap, { backgroundColor: `${accent}20` }]}>
-                  <PlatformIcon name="sparkles" size={18} color={accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.newPlanTitle, { color: colors.text }]}>Start a Run Plan</Text>
-                  <Text style={[styles.newPlanSub, { color: colors.textSecondary }]}>
-                    5K, 10K, Half Marathon, Marathon, or general training
-                  </Text>
-                </View>
-                <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.newPlanCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}
-                onPress={() => {
-                  if (!hasPro) {
-                    showProGate('runPlans', openPaywall);
-                    return;
-                  }
-                  setHybridBuilderVisible(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.newPlanIconWrap, { backgroundColor: '#3b82f620' }]}>
-                  <PlatformIcon name="dumbbell" size={18} color="#3b82f6" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.newPlanTitleRow}>
-                    <Text style={[styles.newPlanTitle, { color: colors.text }]}>Start a Hybrid Plan</Text>
-                    {!hasPro && <PlatformIcon name="crown" size={12} color="#d4a93e" />}
-                  </View>
-                  <Text style={[styles.newPlanSub, { color: colors.textSecondary }]}>
-                    Combine strength training with run programming
-                  </Text>
-                </View>
-                <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
+            /* Single "Start a Plan" card — opens PlanTypeChooserSheet which
+               routes to the Strength / Run / Hybrid builder drawer based on
+               user selection. Pro gate on Hybrid lives inside the chooser. */
+            <TouchableOpacity
+              style={[styles.newPlanCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}
+              onPress={() => setPlanChooserVisible(true)}
+              activeOpacity={0.8}
+              testID="run-start-plan-card"
+              accessibilityRole="button"
+              accessibilityLabel="Start a Plan"
+            >
+              <View style={[styles.newPlanIconWrap, { backgroundColor: `${accent}20` }]}>
+                <PlatformIcon name="sparkles" size={18} color={accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.newPlanTitle, { color: colors.text }]}>Start a Plan</Text>
+                <Text style={[styles.newPlanSub, { color: colors.textSecondary }]}>
+                  Strength, Run, or Hybrid — pick a goal and we'll build your schedule.
+                </Text>
+              </View>
+              <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
           )}
 
           {/* Outdoor / Treadmill mode is now a persisted preference, editable
@@ -776,6 +758,32 @@ export default function RunScreen() {
           />
         </View>
       </SafeAreaView>
+
+      {/* Plan type chooser — tap "Start a Plan" opens this; selection routes
+          to Strength / Run / Hybrid builder after a brief delay to avoid
+          stacked-sheet animation jank. */}
+      <PlanTypeChooserSheet
+        visible={planChooserVisible}
+        onClose={() => setPlanChooserVisible(false)}
+        onSelectStrength={() => {
+          setPlanChooserVisible(false);
+          setTimeout(() => setWorkoutPlanVisible(true), 250);
+        }}
+        onSelectRun={() => {
+          setPlanChooserVisible(false);
+          setTimeout(() => setPlanBuilderVisible(true), 250);
+        }}
+        onSelectHybrid={() => {
+          setPlanChooserVisible(false);
+          setTimeout(() => setHybridBuilderVisible(true), 250);
+        }}
+      />
+
+      {/* Strength plan builder (previously only on Home) */}
+      <WorkoutPlanDrawer
+        visible={workoutPlanVisible}
+        onClose={() => setWorkoutPlanVisible(false)}
+      />
 
       {/* Run plan builder */}
       <RunPlanBuilderDrawer

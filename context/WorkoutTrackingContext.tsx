@@ -549,6 +549,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const [workoutLogDetailVisible, setWorkoutLogDetailVisible] = useState<boolean>(false);
   const [buildWorkoutVisible, setBuildWorkoutVisible] = useState<boolean>(false);
   const [workoutPlanVisible, setWorkoutPlanVisible] = useState<boolean>(false);
+  // Plan type chooser — gates access to all three builder drawers (strength,
+  // run, hybrid). Home + FAB + Run tab all open this same chooser so the
+  // "Start a Plan" entry point is unified across the app.
+  const [planChooserVisible, setPlanChooserVisible] = useState<boolean>(false);
   const [exerciseCatalogVisible, setExerciseCatalogVisible] = useState<boolean>(false);
   const [activePlanVisible, setActivePlanVisible] = useState<boolean>(false);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
@@ -1706,6 +1710,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setBuildWorkoutVisible,
     workoutPlanVisible,
     setWorkoutPlanVisible,
+    planChooserVisible,
+    setPlanChooserVisible,
     exerciseCatalogVisible,
     setExerciseCatalogVisible,
     activePlanVisible,
@@ -1765,7 +1771,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     postWorkoutStep, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell,
     sessionScoreBreakdown, sessionPRs, confirmedPRs, workoutHistory, prHistory, activeWorkout,
     logPreviousVisible, calendarModalVisible, workoutLogDetailVisible,
-    buildWorkoutVisible, workoutPlanVisible, exerciseCatalogVisible, activePlanVisible,
+    buildWorkoutVisible, workoutPlanVisible, planChooserVisible, exerciseCatalogVisible, activePlanVisible,
     selectedLogId, selectedLog, completedExerciseCount, liveTrainingScore,
     readinessPercent, weeklyHoursMin, todayLogs,
     currentGeneratedWorkout, setCurrentGeneratedWorkout,

@@ -273,7 +273,10 @@ export default function FloatingDock() {
           return;
         }
         closeMenu();
-        setTimeout(() => tracking.setWorkoutPlanVisible(true), MENU_CLOSE_DELAY);
+        // Opens the unified PlanTypeChooserSheet (mounted on the Home tab).
+        // User picks Strength / Run / Hybrid from the sheet, which routes
+        // to the appropriate builder drawer.
+        setTimeout(() => tracking.setPlanChooserVisible(true), MENU_CLOSE_DELAY);
       },
       locked: !hasPro,
     },
