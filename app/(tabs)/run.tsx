@@ -36,6 +36,7 @@ import AchievementModal, { type Achievement } from '@/components/drawers/Achieve
 import { type RunBadge } from '@/services/runBadges';
 import RunAudioSettingsDrawer from '@/components/drawers/RunAudioSettingsDrawer';
 import RunSettingsDrawer from '@/components/drawers/RunSettingsDrawer';
+import TabHeader from '@/components/TabHeader';
 import IntervalRunner from '@/components/run/IntervalRunner';
 import { useRouter } from 'expo-router';
 import { healthService } from '@/services/healthService';
@@ -468,43 +469,48 @@ export default function RunScreen() {
       <AmbientGlow color={accent} />
       <ZealBackground />
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        <View style={styles.topBar}>
-          <Text style={[styles.titleHero, { color: colors.text }]}>Run</Text>
-          <View style={styles.topBarRight}>
-            <TouchableOpacity
-              style={[styles.audioBtn, { borderColor: colors.border }]}
-              onPress={() => setRunSettingsVisible(true)}
-              activeOpacity={0.7}
-              testID="run-settings-button"
-              accessibilityRole="button"
-              accessibilityLabel="Run settings"
-            >
-              <PlatformIcon name="settings" size={15} color={colors.textSecondary} />
-            </TouchableOpacity>
-          <View style={styles.unitsToggle}>
-            <TouchableOpacity
-              onPress={() => run.updatePreferences({ units: 'imperial' })}
-              style={[
-                styles.unitsButton,
-                run.preferences.units === 'imperial' && { backgroundColor: `${accent}20` },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.unitsButtonText, { color: run.preferences.units === 'imperial' ? accent : colors.textMuted }]}>mi</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => run.updatePreferences({ units: 'metric' })}
-              style={[
-                styles.unitsButton,
-                run.preferences.units === 'metric' && { backgroundColor: `${accent}20` },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.unitsButtonText, { color: run.preferences.units === 'metric' ? accent : colors.textMuted }]}>km</Text>
-            </TouchableOpacity>
-          </View>
-          </View>
-        </View>
+        <TabHeader
+          title="Run"
+          // TODO(profile): once AthleteProfileDrawer is wired into Run, swap this to setProfileVisible(true)
+          onAvatarPress={() => setRunSettingsVisible(true)}
+          avatarTestID="run-profile-avatar"
+          rightSlot={
+            <>
+              <TouchableOpacity
+                style={[styles.audioBtn, { borderColor: colors.border }]}
+                onPress={() => setRunSettingsVisible(true)}
+                activeOpacity={0.7}
+                testID="run-settings-button"
+                accessibilityRole="button"
+                accessibilityLabel="Run settings"
+              >
+                <PlatformIcon name="settings" size={15} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <View style={styles.unitsToggle}>
+                <TouchableOpacity
+                  onPress={() => run.updatePreferences({ units: 'imperial' })}
+                  style={[
+                    styles.unitsButton,
+                    run.preferences.units === 'imperial' && { backgroundColor: `${accent}20` },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.unitsButtonText, { color: run.preferences.units === 'imperial' ? accent : colors.textMuted }]}>mi</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => run.updatePreferences({ units: 'metric' })}
+                  style={[
+                    styles.unitsButton,
+                    run.preferences.units === 'metric' && { backgroundColor: `${accent}20` },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.unitsButtonText, { color: run.preferences.units === 'metric' ? accent : colors.textMuted }]}>km</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          }
+        />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Recovery hint if there's an orphaned run */}
@@ -898,6 +904,13 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
+  summaryTitle: {
+    fontSize: 24,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.5,
+  },
+  // Layout used by the active-run + post-run sub-headers (NOT the tab header — that's <TabHeader />).
+  // Active run shows live status indicators here; post-run shows the "Run Complete" title.
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -905,21 +918,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 10,
-  },
-  titleHero: {
-    fontSize: 32,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -1,
-  },
-  summaryTitle: {
-    fontSize: 24,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.5,
-  },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   audioBtn: {
     width: 32,

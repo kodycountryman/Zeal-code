@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,6 +56,7 @@ import { useRun } from '@/context/RunContext';
 import SeventyFiveHardBanner from '@/components/SeventyFiveHardBanner';
 import OutdoorWorkoutCard from '@/components/OutdoorWorkoutCard';
 import RunOverviewCard from '@/components/run/RunOverviewCard';
+import TabHeader from '@/components/TabHeader';
 import SeventyFiveHardChecklist from '@/components/SeventyFiveHardChecklist';
 import { useTourTarget, useAppTour } from '@/context/AppTourContext';
 
@@ -271,7 +271,6 @@ export default function HomeScreen() {
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | undefined>(undefined);
 
   const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const ZEAL_ORANGE = '#f87116';
 
   const miniCardShadow = !isDark ? {
     shadowColor: '#000',
@@ -420,32 +419,12 @@ export default function HomeScreen() {
       {isZeal && <ZealBackground />}
 
       <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
-        <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            <TouchableOpacity
-              ref={tourProfileRef as any}
-              style={[
-                styles.avatarBtn,
-                { borderColor: ctx.userPhotoUri ? 'transparent' : colors.border },
-              ]}
-              onPress={() => setProfileVisible(true)}
-              testID="profile-avatar"
-              activeOpacity={0.7}
-            >
-              {ctx.userPhotoUri ? (
-                <Image source={{ uri: ctx.userPhotoUri }} style={styles.avatarImage} />
-              ) : (
-                <PlatformIcon name="user" size={17} color={colors.textSecondary} />
-              )}
-            </TouchableOpacity>
-
-            {firstName ? (
-              <Text style={[styles.headerName, { color: colors.text }]}>{firstName}</Text>
-            ) : null}
-          </View>
-
-          <Text style={[styles.wordmark, { color: ZEAL_ORANGE }]}>zeal</Text>
-        </View>
+        <TabHeader
+          ref={tourProfileRef as any}
+          title={firstName || 'Home'}
+          onAvatarPress={() => setProfileVisible(true)}
+          avatarTestID="profile-avatar"
+        />
       </SafeAreaView>
 
       {/* Background plan generation progress */}
@@ -925,43 +904,6 @@ const styles = StyleSheet.create({
   genProgressFill: {
     height: '100%',
     borderRadius: 1.5,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 10,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  avatarBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-  },
-  headerName: {
-    fontSize: 22,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.5,
-  },
-  wordmark: {
-    fontSize: 17,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.8,
   },
   scrollContent: {
     paddingHorizontal: 16,

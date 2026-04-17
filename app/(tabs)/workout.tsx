@@ -12,7 +12,6 @@ import {
   Pressable,
   Alert,
   ActionSheetIOS,
-  Image,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -74,6 +73,7 @@ import WheelPicker from '@/components/WheelPicker';
 import WheelGuideModal from '@/components/WheelGuideModal';
 import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import TabHeader from '@/components/TabHeader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassCard from '@/components/GlassCard';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -806,7 +806,6 @@ function generateItemDetail(name: string, type: 'warmup' | 'cooldown' | 'recover
 
 export default function WorkoutScreen() {
   const { colors, accent, isZeal, isDark } = useZealTheme();
-  const ZEAL_ORANGE = '#f87116';
   const ctx = useAppContext();
   const currentWorkoutTitleRef = useRef(ctx.currentWorkoutTitle);
   currentWorkoutTitleRef.current = ctx.currentWorkoutTitle;
@@ -3547,56 +3546,46 @@ export default function WorkoutScreen() {
       {isZeal && <ZealBackground />}
 
       <SafeAreaView edges={['top']}>
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={[styles.avatarBtn, { borderColor: ctx.userPhotoUri ? 'transparent' : colors.border }]}
-            onPress={() => setProfileVisible(true)}
-            testID="workout-profile-avatar"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            {ctx.userPhotoUri ? (
-              <Image source={{ uri: ctx.userPhotoUri }} style={styles.avatarImage} />
-            ) : (
-              <PlatformIcon name="user" size={17} color={colors.textSecondary} strokeWidth={1.8} />
-            )}
-          </TouchableOpacity>
-          <View style={styles.wordmarkRow}>
-            <Text style={[styles.wordmark, { color: ZEAL_ORANGE }]}>zeal</Text>
-          </View>
-          {/* Centered elapsed timer + reset — absolutely positioned so it doesn't shift logo/date */}
-          {tracking.isWorkoutActive && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 }}
-              onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                if (!tracking.isPaused) {
-                  tracking.pauseWorkout();
-                }
-                Alert.alert(
-                  'Workout Paused',
-                  'Your workout timer is paused.',
-                  [
-                    {
-                      text: 'End',
-                      style: 'destructive',
-                      onPress: tracking.resetWorkout,
-                    },
-                    {
-                      text: 'Resume',
-                      onPress: tracking.pauseWorkout,
-                    },
-                  ]
-                );
-              }}
-            >
-              <TopBarElapsedTimer elapsed={workoutElapsed} isPaused={tracking.isPaused} />
-              <PlatformIcon name="rotate-ccw" size={16} color="rgba(255,255,255,0.55)" strokeWidth={2} />
-            </TouchableOpacity>
-          )}
-          <Text style={[styles.dateText, { color: colors.textSecondary }]}>{formatDate()}</Text>
-        </View>
+        <TabHeader
+          title="Workout"
+          onAvatarPress={() => setProfileVisible(true)}
+          avatarTestID="workout-profile-avatar"
+          rightSlot={
+            <Text style={[styles.dateText, { color: colors.textSecondary }]}>{formatDate()}</Text>
+          }
+          centerOverlay={
+            tracking.isWorkoutActive ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 }}
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  if (!tracking.isPaused) {
+                    tracking.pauseWorkout();
+                  }
+                  Alert.alert(
+                    'Workout Paused',
+                    'Your workout timer is paused.',
+                    [
+                      {
+                        text: 'End',
+                        style: 'destructive',
+                        onPress: tracking.resetWorkout,
+                      },
+                      {
+                        text: 'Resume',
+                        onPress: tracking.pauseWorkout,
+                      },
+                    ]
+                  );
+                }}
+              >
+                <TopBarElapsedTimer elapsed={workoutElapsed} isPaused={tracking.isPaused} />
+                <PlatformIcon name="rotate-ccw" size={16} color="rgba(255,255,255,0.55)" strokeWidth={2} />
+              </TouchableOpacity>
+            ) : null
+          }
+        />
         {tracking.isWorkoutActive && <WorkoutTimerCard accent={currentAccent} />}
       </SafeAreaView>
 
@@ -5435,19 +5424,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 10,
-    gap: 10,
-  },
-  wordmark: {
-    fontSize: 22,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -1.2,
-  },
   hamburgerLine: {
     width: 14,
     height: 1.5,
@@ -6459,23 +6435,6 @@ const styles = StyleSheet.create({
   },
   checklistRowDesc: {
     fontSize: 12,
-  },
-  avatarBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-  },
-  wordmarkRow: {
-    flex: 1,
   },
   dateText: {
     fontSize: 12,

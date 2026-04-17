@@ -20,6 +20,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import GlassCard from '@/components/GlassCard';
 import ZealBackground from '@/components/ZealBackground';
 import ComingSoon from '@/components/ComingSoon';
+import TabHeader from '@/components/TabHeader';
 import { Apple, Camera, Flame, Droplets } from 'lucide-react-native';
 
 // Nutrition components
@@ -202,16 +203,23 @@ function NutritionDailyView() {
       <ZealBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* ── Screen Header ── */}
-        <View style={styles.header}>
-          <Text style={[styles.screenTitle, { color: colors.text }]}>Nutrition</Text>
-          <TouchableOpacity
-            onPress={handleGearPress}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <PlatformIcon name="settings" size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+        <TabHeader
+          title="Nutrition"
+          // TODO(profile): once AthleteProfileDrawer is wired into Nutrition, swap to setProfileVisible(true)
+          onAvatarPress={handleGearPress}
+          avatarTestID="nutrition-profile-avatar"
+          rightSlot={
+            <TouchableOpacity
+              onPress={handleGearPress}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Nutrition settings"
+            >
+              <PlatformIcon name="settings" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          }
+        />
 
         <ScrollView
           style={styles.scroll}
@@ -320,19 +328,6 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  screenTitle: {
-    fontSize: 24,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.5,
   },
   scroll: {
     flex: 1,
