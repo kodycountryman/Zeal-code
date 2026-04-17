@@ -29,6 +29,7 @@ import {
 } from '@/services/runHRZones';
 import { computeAllRunBadges, type RunBadge, type RunBadgeCategory } from '@/services/runBadges';
 import AchievementModal, { getAchievementIcon, type Achievement } from '@/components/drawers/AchievementModal';
+import MileageTracker from '@/components/run/MileageTracker';
 
 interface Props {
   onOpenRun?: (runId: string) => void;
@@ -659,14 +660,21 @@ export default function RunInsights({ onOpenRun }: Props) {
         <AggregateStatsStrip history={history} units={units} />
       </GlassCard>
 
-      {/* ── Weekly mileage trend ──────────────────────────────────── */}
+      {/* ── Mileage tracker (goal + Last 8 weeks + month/year) ────────
+          Moved here from the pre-run idle screen; carries the goal-setting
+          UI + monthly/yearly totals in one place. Replaces the old 12-week
+          mileage-only chart since this view is a superset. */}
       <GlassCard style={styles.card}>
         <View style={styles.cardHeader}>
           <PlatformIcon name="bar-chart-3" size={14} color={accent} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Weekly mileage</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Mileage</Text>
         </View>
-        <Text style={[styles.cardSub, { color: colors.textMuted }]}>Last 12 weeks</Text>
-        <WeeklyMileageChart buckets={weeklyTrend} units={units} />
+        <MileageTracker
+          runHistory={history}
+          units={units}
+          weeklyGoalMeters={run.preferences.weeklyMileageGoalMeters}
+          onUpdateGoal={(meters) => run.updatePreferences({ weeklyMileageGoalMeters: meters })}
+        />
       </GlassCard>
 
       {/* ── Pace trend ────────────────────────────────────────────── */}

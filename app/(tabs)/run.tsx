@@ -33,7 +33,6 @@ import WorkoutPlanDrawer from '@/components/drawers/WorkoutPlanDrawer';
 import PlanTypeChooserSheet from '@/components/drawers/PlanTypeChooserSheet';
 import RunHistoryDrawer from '@/components/drawers/RunHistoryDrawer';
 import RunLogDrawer from '@/components/drawers/RunLogDrawer';
-import MileageTracker from '@/components/run/MileageTracker';
 import AchievementModal, { type Achievement } from '@/components/drawers/AchievementModal';
 import { type RunBadge } from '@/services/runBadges';
 import RunAudioSettingsDrawer from '@/components/drawers/RunAudioSettingsDrawer';
@@ -734,23 +733,9 @@ export default function RunScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Mileage tracker — only shows once user has at least 1 run */}
-          {run.runHistory.length > 0 && (
-            <GlassCard style={styles.sectionCard}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Mileage</Text>
-                <TouchableOpacity onPress={() => setHistoryDrawerVisible(true)} activeOpacity={0.7}>
-                  <Text style={[styles.viewAllLink, { color: accent }]}>View all runs</Text>
-                </TouchableOpacity>
-              </View>
-              <MileageTracker
-                runHistory={run.runHistory}
-                units={run.preferences.units}
-                weeklyGoalMeters={run.preferences.weeklyMileageGoalMeters}
-                onUpdateGoal={(meters) => run.updatePreferences({ weeklyMileageGoalMeters: meters })}
-              />
-            </GlassCard>
-          )}
+          {/* Mileage tracker has moved — it now lives in Insights ▸ Running so
+              the pre-run idle screen stays focused on "what am I doing right
+              now?" rather than doubling as an analytics dashboard. */}
 
           {/* Permission hint */}
           {permissionStatus === 'denied' && (
