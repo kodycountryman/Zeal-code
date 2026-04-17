@@ -2310,7 +2310,9 @@ export default function WorkoutScreen() {
                 : (isDistanceOnly || isWeightDistance) ? DISTANCE_VALUES_METERS
                 : REPS_VALUES;
               const setKey = `${ex.id}_${setIdx}`;
-              const chipBg = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
+              // Set-input chip surface — matches STYLE.md § 10 input convention
+              // so the set inputs share visual language with the rest of the app.
+              const chipBg = colors.cardSecondary;
               // First uncompleted set = active/"next up" row
               const firstUndoneIdx = setsData.findIndex(s => !s.done);
               const isNextUp = setIdx === firstUndoneIdx;
@@ -2389,7 +2391,7 @@ export default function WorkoutScreen() {
                               style={{
                                 borderRadius: 12,
                                 borderWidth: 1,
-                                borderColor: `${colors.textMuted}35`,
+                                borderColor: colors.border,
                                 backgroundColor: chipBg,
                                 alignItems: 'center' as const,
                                 justifyContent: 'center' as const,
@@ -2404,7 +2406,7 @@ export default function WorkoutScreen() {
                                 textColor={colors.text}
                                 visibleItems={1}
                               />
-                              {chipInteractive && <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
+                              {chipInteractive && <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
                             </View>
                           </TouchableOpacity>
                         )
@@ -2452,7 +2454,7 @@ export default function WorkoutScreen() {
                             style={{
                               borderRadius: 12,
                               borderWidth: 1,
-                              borderColor: `${colors.textMuted}35`,
+                              borderColor: colors.border,
                               backgroundColor: chipBg,
                               alignItems: 'center' as const,
                               justifyContent: 'center' as const,
@@ -2468,7 +2470,7 @@ export default function WorkoutScreen() {
                               visibleItems={1}
                               formatValue={isHoldForTime ? formatHoldTime : undefined}
                             />
-                            {chipInteractive && <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}80`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
+                            {chipInteractive && <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={{ position: 'absolute', right: 5, bottom: 3 }} />}
                           </View>
                         </TouchableOpacity>
                       )}
