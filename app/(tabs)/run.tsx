@@ -664,7 +664,10 @@ export default function RunScreen() {
               from RunSettingsDrawer (tap the ⚙ gear icon). Keeps the pre-run
               UI focused on per-session choices (run type, start button). */}
 
-          {/* Run type selector */}
+          {/* Run type selector + inline Start CTA. The inline button is the
+              primary start path — pick a type then tap Start in the same
+              card. The floating pill above the dock is the always-reachable
+              shortcut for when the user has scrolled past this card. */}
           <GlassCard style={styles.sectionCard}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Run Type</Text>
             <View style={styles.runTypeGrid}>
@@ -678,6 +681,22 @@ export default function RunScreen() {
                 />
               ))}
             </View>
+            <TouchableOpacity
+              style={[styles.inlineStartBtn, { backgroundColor: accent }]}
+              onPress={handleStart}
+              activeOpacity={0.85}
+              testID="run-inline-start-button"
+              accessibilityRole="button"
+              accessibilityLabel={`Start ${RUN_TYPE_OPTIONS.find(o => o.value === selectedRunType)?.label ?? 'run'}`}
+            >
+              <PlatformIcon name="play" size={16} color="#fff" />
+              <Text style={styles.inlineStartLabel}>
+                Start {RUN_TYPE_OPTIONS.find(o => o.value === selectedRunType)?.label ?? 'Run'}
+              </Text>
+              {!gpsAcquired && !run.isTreadmillMode && (
+                <Text style={styles.inlineStartHint}>· GPS…</Text>
+              )}
+            </TouchableOpacity>
           </GlassCard>
 
           {/* Last run summary — tappable to open log drawer */}
@@ -746,8 +765,11 @@ export default function RunScreen() {
           <View style={{ height: 240 }} />
         </ScrollView>
 
-        {/* Fixed bottom controls */}
-        <View style={[styles.controlsContainer, { backgroundColor: isDark ? 'rgba(20,20,20,0.92)' : 'rgba(255,255,255,0.92)', borderTopColor: colors.border }]}>
+        {/* Floating start pill — transparent container so the pill floats
+            above the dock without a heavy toolbar bar. The inline Start
+            button in the Run Type card is the primary CTA; this pill is
+            the always-reachable shortcut. */}
+        <View style={styles.idleControlsContainer} pointerEvents="box-none">
           <RunControls
             status={run.status}
             onStart={handleStart}
@@ -1164,6 +1186,38 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  // Idle-state version of the bottom controls area — no bar background, no
+  // border, no shadow. Just a transparent layer so the floating pill inside
+  // <RunControls /> drops cleanly onto whatever content is behind it.
+  idleControlsContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  // Inline Start CTA inside the Run Type card — primary pre-run action path.
+  inlineStartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 4,
+  },
+  inlineStartLabel: {
+    fontSize: 15,
+    fontFamily: 'Outfit_700Bold',
+    color: '#fff',
+    letterSpacing: 0.2,
+  },
+  inlineStartHint: {
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    color: 'rgba(255,255,255,0.8)',
+    marginLeft: 4,
   },
   // Post-run summary
   healthToast: {

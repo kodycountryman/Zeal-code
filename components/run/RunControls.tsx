@@ -35,15 +35,16 @@ export default function RunControls({
 }: Props) {
   const { accent, colors, isDark } = useZealTheme();
 
-  // Pulse animation for the start button
+  // Subtle pulse on the compact pill — smaller amplitude than the old 124px
+  // circle since the new form factor doesn't need to shout for attention.
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (status === 'idle') {
       const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulse, { toValue: 1.06, duration: 900, useNativeDriver: true }),
-          Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1.02, duration: 1100, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1, duration: 1100, useNativeDriver: true }),
         ]),
       );
       loop.start();
@@ -52,32 +53,36 @@ export default function RunControls({
     pulse.setValue(1);
   }, [status, pulse]);
 
-  // Pre-run idle state — show large START button
+  // Pre-run idle state — compact pill anchored above the dock. The primary
+  // "Start <type>" CTA now lives inline in the Run Type card on the pre-run
+  // screen; this pill is the always-reachable shortcut when the user has
+  // scrolled past the type selector.
   if (status === 'idle') {
     return (
       <View style={styles.idleContainer}>
-        <Animated.View style={[styles.startWrap, { transform: [{ scale: pulse }] }]}>
+        <Animated.View style={[styles.startPillWrap, { transform: [{ scale: pulse }] }]}>
           <TouchableOpacity
-            style={[styles.startButton, { backgroundColor: accent }]}
+            style={[styles.startPill, { backgroundColor: accent }]}
             onPress={() => {
               triggerHaptic('heavy');
               onStart();
             }}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             testID="run-start-button"
             accessibilityRole="button"
             accessibilityLabel="Start run"
             accessibilityHint="Begins GPS tracking for a new run"
           >
-            <PlatformIcon name="play" size={42} color="#fff" />
+            <PlatformIcon name="play" size={18} color="#fff" />
+            <Text style={styles.startPillLabel}>Start Run</Text>
+            {!gpsAcquired && (
+              <>
+                <View style={styles.startPillDivider} />
+                <Text style={styles.startPillHint}>GPS…</Text>
+              </>
+            )}
           </TouchableOpacity>
         </Animated.View>
-        <Text style={[styles.startLabel, { color: colors.text }]}>START RUN</Text>
-        {!gpsAcquired && (
-          <Text style={[styles.gpsHint, { color: colors.textMuted }]}>
-            Acquiring GPS signal...
-          </Text>
-        )}
       </View>
     );
   }
@@ -137,32 +142,43 @@ export default function RunControls({
 const styles = StyleSheet.create({
   idleContainer: {
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  startWrap: {
+  startPillWrap: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  startButton: {
-    width: 124,
-    height: 124,
-    borderRadius: 62,
+  startPill: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    borderRadius: 999,
+    minWidth: 200,
     justifyContent: 'center',
-    paddingLeft: 6, // optical centering of the play triangle
   },
-  startLabel: {
-    fontSize: 13,
+  startPillLabel: {
+    fontSize: 15,
     fontFamily: 'Outfit_700Bold',
-    letterSpacing: 1.5,
+    letterSpacing: 0.2,
+    color: '#fff',
   },
-  gpsHint: {
+  startPillDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    marginHorizontal: 2,
+  },
+  startPillHint: {
     fontSize: 12,
-    fontFamily: 'Outfit_400Regular',
+    fontFamily: 'Outfit_600SemiBold',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 0.3,
   },
   activeContainer: {
     flexDirection: 'row',
