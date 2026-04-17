@@ -155,6 +155,43 @@ export default function RunSettingsDrawer({ visible, onClose }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Where ────────────────────────────────────────────────────
+            Outdoor vs Treadmill is a persisted default — the pre-run UI
+            no longer carries a toggle. Read from run.preferences.sourceMode
+            when the Start button fires. */}
+        <View style={[styles.card, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+          <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Where</Text>
+          <View style={styles.segmentControl}>
+            {(['outdoor', 'treadmill'] as const).map((source) => {
+              const selected = prefs.sourceMode === source;
+              const label = source === 'outdoor' ? 'Outdoor' : 'Treadmill';
+              return (
+                <TouchableOpacity
+                  key={source}
+                  style={[
+                    styles.segmentButton,
+                    {
+                      backgroundColor: selected ? accent : 'transparent',
+                      borderColor: selected ? accent : colors.border,
+                    },
+                  ]}
+                  onPress={() => run.updatePreferences({ sourceMode: source })}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.segmentButtonText, { color: selected ? '#fff' : colors.text }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {prefs.sourceMode === 'treadmill' && (
+            <Text style={[styles.whereHint, { color: colors.textMuted }]}>
+              Indoor mode — no GPS. Adjust speed during your run.
+            </Text>
+          )}
+        </View>
+
         {/* ── Units ────────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
           <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Units</Text>
@@ -440,6 +477,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 0.2,
+  },
+  whereHint: {
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+    marginTop: 6,
+    textAlign: 'center',
   },
   tierRow: {
     flexDirection: 'row',

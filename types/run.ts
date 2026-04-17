@@ -154,6 +154,10 @@ export interface RunPR {
 
 export interface RunPreferences {
   units: RunUnits;
+  /** Default starting source — 'outdoor' uses GPS, 'treadmill' uses the indoor
+   * speed-driven simulator. Editable from RunSettingsDrawer; the pre-run UI
+   * reads this to decide how to launch. */
+  sourceMode: 'outdoor' | 'treadmill';
   autoPauseEnabled: boolean;
   autoPauseSpeedThresholdMps: number; // default 0.67 m/s (~1.5 mph)
   audioCuesEnabled: boolean;
@@ -179,6 +183,7 @@ export interface RunPreferences {
 
 export const DEFAULT_RUN_PREFERENCES: RunPreferences = {
   units: 'imperial',
+  sourceMode: 'outdoor',
   autoPauseEnabled: true,
   autoPauseSpeedThresholdMps: 0.67,
   audioCuesEnabled: true,

@@ -97,8 +97,6 @@ export default function RunScreen() {
   const { hasPro, openPaywall } = useSubscription();
 
   const [selectedRunType, setSelectedRunType] = useState<RunType>('free');
-  /** 'outdoor' uses GPS; 'treadmill' uses speed-driven distance simulator. */
-  const [selectedSourceMode, setSelectedSourceMode] = useState<'outdoor' | 'treadmill'>('outdoor');
   /** Treadmill starting speed in m/s — defaults to ~6 mph (jogging) */
   const TREADMILL_DEFAULT_SPEED_MPS = 2.7; // ~6.04 mph / 9.7 km/h
   const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
@@ -142,7 +140,9 @@ export default function RunScreen() {
   // ─── Handlers ───────────────────────────────────────────────────────────
 
   const handleStart = useCallback(async () => {
-    const isTreadmill = selectedSourceMode === 'treadmill';
+    // Source mode is now a persisted preference, edited from RunSettingsDrawer.
+    // Pre-run UI no longer carries a Where toggle — keeps the idle screen clean.
+    const isTreadmill = run.preferences.sourceMode === 'treadmill';
 
     // GPS-only: best-effort upgrade to "Always" location so tracking continues
     // if the runner backgrounds the app or locks their screen. Treadmill mode
@@ -211,7 +211,7 @@ export default function RunScreen() {
     } else if (!isTreadmill) {
       setPermissionStatus('granted');
     }
-  }, [run, selectedRunType, ctx, selectedSourceMode]);
+  }, [run, selectedRunType, ctx]);
 
   const handleStop = useCallback(async () => {
     Alert.alert(
@@ -678,35 +678,9 @@ export default function RunScreen() {
             </View>
           )}
 
-          {/* Outdoor / Treadmill mode toggle */}
-          <GlassCard style={styles.sectionCard}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Where</Text>
-            <View style={styles.modeToggleRow}>
-              <Chip
-                variant="selectable"
-                icon="compass"
-                label="Outdoor"
-                selected={selectedSourceMode === 'outdoor'}
-                onPress={() => setSelectedSourceMode('outdoor')}
-                style={{ flex: 1 }}
-                accessibilityLabel="Outdoor mode"
-              />
-              <Chip
-                variant="selectable"
-                icon="zap"
-                label="Treadmill"
-                selected={selectedSourceMode === 'treadmill'}
-                onPress={() => setSelectedSourceMode('treadmill')}
-                style={{ flex: 1 }}
-                accessibilityLabel="Treadmill mode"
-              />
-            </View>
-            {selectedSourceMode === 'treadmill' && (
-              <Text style={[styles.modeHint, { color: colors.textMuted }]}>
-                Indoor mode — no GPS. Adjust speed during your run.
-              </Text>
-            )}
-          </GlassCard>
+          {/* Outdoor / Treadmill mode is now a persisted preference, editable
+              from RunSettingsDrawer (tap the ⚙ gear icon). Keeps the pre-run
+              UI focused on per-session choices (run type, start button). */}
 
           {/* Run type selector */}
           <GlassCard style={styles.sectionCard}>
@@ -1037,16 +1011,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  modeToggleRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modeHint: {
-    fontSize: 11,
-    fontFamily: 'Outfit_400Regular',
-    marginTop: 8,
-    textAlign: 'center',
   },
   planCardHeader: {
     flexDirection: 'row',
