@@ -75,6 +75,7 @@ import StartAnotherWorkoutSheet from '@/components/StartAnotherWorkoutSheet';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import TabHeader from '@/components/TabHeader';
 import Chip from '@/components/Chip';
+import Button from '@/components/Button';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GlassCard from '@/components/GlassCard';
 import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
@@ -3837,26 +3838,28 @@ export default function WorkoutScreen() {
                   </Text>
                 </View>
                 <View style={styles.workoutInfoActions}>
-                  <TouchableOpacity
-                    style={[styles.workoutModifyBtn, { flex: 1, borderWidth: 1, borderColor: `${currentAccent}40` }]}
-                    onPress={() => setStartAnotherVisible(true)}
-                    activeOpacity={0.7}
-                  >
-                    <PlatformIcon name="sliders-horizontal" size={14} color={currentAccent} />
-                    <Text style={[styles.workoutModifyBtnText, { color: currentAccent }]}>Custom</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.workoutStartBtn, { flex: 2, backgroundColor: currentAccent, shadowColor: currentAccent }]}
-                    onPress={() => {
-                      const next = regenCounter + 1;
-                      setRegenCounter(next);
-                      doGenerate(ctx.workoutStyle, undefined, undefined, undefined, undefined, next);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <PlatformIcon name="zap" size={15} color="#fff" fill="#fff" />
-                    <Text style={styles.workoutStartBtnText}>Quick Workout</Text>
-                  </TouchableOpacity>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      variant="tertiary"
+                      icon="sliders-horizontal"
+                      label="Custom"
+                      fullWidth
+                      onPress={() => setStartAnotherVisible(true)}
+                    />
+                  </View>
+                  <View style={{ flex: 2 }}>
+                    <Button
+                      variant="primary"
+                      icon="zap"
+                      label="Quick Workout"
+                      fullWidth
+                      onPress={() => {
+                        const next = regenCounter + 1;
+                        setRegenCounter(next);
+                        doGenerate(ctx.workoutStyle, undefined, undefined, undefined, undefined, next);
+                      }}
+                    />
+                  </View>
                 </View>
               </GlassCard>
             ) : isPlanRestDay ? (
@@ -3881,26 +3884,28 @@ export default function WorkoutScreen() {
                   )}
                 </View>
                 <View style={styles.workoutInfoActions}>
-                  <TouchableOpacity
-                    style={[styles.workoutModifyBtn, { flex: 1, borderWidth: 1, borderColor: `${currentAccent}40` }]}
-                    onPress={() => setStartAnotherVisible(true)}
-                    activeOpacity={0.7}
-                  >
-                    <PlatformIcon name="sliders-horizontal" size={14} color={currentAccent} />
-                    <Text style={[styles.workoutModifyBtnText, { color: currentAccent }]}>Custom</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.workoutStartBtn, { flex: 2, backgroundColor: currentAccent, shadowColor: currentAccent }]}
-                    onPress={() => {
-                      const next = regenCounter + 1;
-                      setRegenCounter(next);
-                      doGenerate(ctx.workoutStyle, undefined, undefined, undefined, undefined, next);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <PlatformIcon name="zap" size={15} color="#fff" fill="#fff" />
-                    <Text style={styles.workoutStartBtnText}>Quick Workout</Text>
-                  </TouchableOpacity>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      variant="tertiary"
+                      icon="sliders-horizontal"
+                      label="Custom"
+                      fullWidth
+                      onPress={() => setStartAnotherVisible(true)}
+                    />
+                  </View>
+                  <View style={{ flex: 2 }}>
+                    <Button
+                      variant="primary"
+                      icon="zap"
+                      label="Quick Workout"
+                      fullWidth
+                      onPress={() => {
+                        const next = regenCounter + 1;
+                        setRegenCounter(next);
+                        doGenerate(ctx.workoutStyle, undefined, undefined, undefined, undefined, next);
+                      }}
+                    />
+                  </View>
                 </View>
               </GlassCard>
             ) : (
@@ -3918,16 +3923,16 @@ export default function WorkoutScreen() {
                       <Chip variant="neutral" label={currentStyle} />
                     </View>
                     <View style={{ flex: 1 }} />
-                    <TouchableOpacity
-                      ref={tourShuffleRef as any}
-                      style={[styles.shuffleBtn, { borderColor: currentAccent, backgroundColor: `${currentAccent}12` }]}
-                      onPress={handleRegenerate}
-                      activeOpacity={0.7}
-                      testID="shuffle-workout"
-                    >
-                      <PlatformIcon name="refresh" size={11} color={currentAccent} strokeWidth={2.5} />
-                      <Text style={[styles.shuffleBtnText, { color: currentAccent }]}>Shuffle</Text>
-                    </TouchableOpacity>
+                    <View ref={tourShuffleRef as any} collapsable={false}>
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        icon="refresh"
+                        label="Shuffle"
+                        testID="shuffle-workout"
+                        onPress={handleRegenerate}
+                      />
+                    </View>
                   </View>
 
                   {ctx.activePlan && todayPrescription && (
@@ -3955,8 +3960,12 @@ export default function WorkoutScreen() {
                 <View style={styles.workoutInfoActions}>
                   <View ref={modifyBtnRef} collapsable={false} style={{ flex: 1 }}>
                     {ctx.activePlan ? (
-                      <TouchableOpacity
-                        style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
+                      <Button
+                        variant="secondary"
+                        icon="sparkles"
+                        label="Plan"
+                        fullWidth
+                        testID="modify-workout-card"
                         onPress={() => {
                           if (Platform.OS === 'ios') {
                             ActionSheetIOS.showActionSheetWithOptions(
@@ -3977,39 +3986,34 @@ export default function WorkoutScreen() {
                             ]);
                           }
                         }}
-                        activeOpacity={0.7}
-                        testID="modify-workout-card"
-                      >
-                        <PlatformIcon name="sparkles" size={14} color={colors.textMuted} />
-                        <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Plan</Text>
-                      </TouchableOpacity>
+                      />
                     ) : (
-                      <TouchableOpacity
-                        ref={tourModifyRef as any}
-                        style={[styles.workoutModifyBtn, { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}
-                        onPress={() => setModifyVisible(true)}
-                        activeOpacity={0.7}
-                        testID="modify-workout-card"
-                      >
-                        <PlatformIcon name="sliders-horizontal" size={14} color={colors.textMuted} />
-                        <Text style={[styles.workoutModifyBtnText, { color: colors.textSecondary }]}>Modify</Text>
-                      </TouchableOpacity>
+                      <View ref={tourModifyRef as any} collapsable={false}>
+                        <Button
+                          variant="secondary"
+                          icon="sliders-horizontal"
+                          label="Modify"
+                          fullWidth
+                          testID="modify-workout-card"
+                          onPress={() => setModifyVisible(true)}
+                        />
+                      </View>
                     )}
                   </View>
 
                   <Animated.View style={[startWorkoutAnimStyle, { flex: 2 }]}>
-                    <TouchableOpacity
-                      ref={tourStartRef as any}
-                      style={[styles.workoutStartBtn, { backgroundColor: currentAccent, shadowColor: currentAccent }]}
-                      onPress={handleStartWorkout}
-                      onPressIn={() => { startWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
-                      onPressOut={() => { startWorkoutScale.value = withSpring(1, SPRING_BTN); }}
-                      activeOpacity={1}
-                      testID="start-workout-card"
-                    >
-                      <PlatformIcon name="play" size={15} color="#fff" fill="#fff" />
-                      <Text style={styles.workoutStartBtnText}>Start Workout</Text>
-                    </TouchableOpacity>
+                    <View ref={tourStartRef as any} collapsable={false}>
+                      <Button
+                        variant="primary"
+                        icon="play"
+                        label="Start Workout"
+                        fullWidth
+                        testID="start-workout-card"
+                        onPress={handleStartWorkout}
+                        onPressIn={() => { startWorkoutScale.value = withSpring(0.97, SPRING_BTN); }}
+                        onPressOut={() => { startWorkoutScale.value = withSpring(1, SPRING_BTN); }}
+                      />
+                    </View>
                   </Animated.View>
                 </View>
               </GlassCard>
@@ -4614,14 +4618,13 @@ export default function WorkoutScreen() {
               ) : (
                 <View style={styles.addBtnWrap}>
                   <View ref={addBtnRef} collapsable={false}>
-                    <TouchableOpacity
-                      style={[styles.addBtnFull, { borderColor: `${currentAccent}30`, backgroundColor: 'transparent' }]}
+                    <Button
+                      variant="tertiary"
+                      icon="plus"
+                      label="Add Exercise"
+                      fullWidth
                       onPress={() => setAddMenuVisible(!addMenuVisible)}
-                      activeOpacity={0.7}
-                    >
-                      <PlatformIcon name="plus" size={15} color={currentAccent} />
-                      <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
-                    </TouchableOpacity>
+                    />
                   </View>
                   {addMenuVisible && (
                     <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
@@ -4711,14 +4714,13 @@ export default function WorkoutScreen() {
               ) : (
                 <View style={styles.addBtnWrap}>
                   <View ref={addBtnRef} collapsable={false}>
-                    <TouchableOpacity
-                      style={[styles.addBtnFull, { borderColor: `${currentAccent}30`, backgroundColor: 'transparent' }]}
+                    <Button
+                      variant="tertiary"
+                      icon="plus"
+                      label="Add Exercise"
+                      fullWidth
                       onPress={() => setAddMenuVisible(!addMenuVisible)}
-                      activeOpacity={0.7}
-                    >
-                      <PlatformIcon name="plus" size={15} color={currentAccent} />
-                      <Text style={[styles.addBtnFullText, { color: currentAccent }]}>Add Exercise</Text>
-                    </TouchableOpacity>
+                    />
                   </View>
                   {addMenuVisible && (
                     <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
@@ -5636,38 +5638,6 @@ const styles = StyleSheet.create({
     width: 1,
     height: 28,
   },
-  workoutModifyBtn: {
-    alignSelf: 'stretch' as const,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 6,
-    borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-  },
-  workoutModifyBtnText: {
-    fontSize: 14,
-    fontFamily: 'Outfit_600SemiBold',
-  },
-  workoutStartBtn: {
-    alignSelf: 'stretch' as const,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 7,
-    borderRadius: 16,
-    paddingVertical: 13,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  workoutStartBtnText: {
-    fontSize: 14,
-    fontFamily: 'Outfit_700Bold',
-    color: '#fff',
-  },
   warmupSection: {
     borderRadius: 14,
     overflow: 'hidden',
@@ -6303,35 +6273,6 @@ const styles = StyleSheet.create({
   regenBtnText: {
     fontSize: 14,
     fontWeight: '500' as const,
-  },
-  shuffleBtn: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    backgroundColor: 'transparent',
-  },
-  shuffleBtnText: {
-    fontSize: 11,
-    fontFamily: 'Outfit_600SemiBold',
-    letterSpacing: 0.2,
-  },
-  addBtnFull: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 9,
-    width: '100%' as const,
-  },
-  addBtnFullText: {
-    fontSize: 13,
-    fontFamily: 'Outfit_500Medium',
   },
   checklistCard: {
     borderRadius: 26,

@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import GlassCard from '@/components/GlassCard';
+import Button from '@/components/Button';
 import { useZealTheme } from '@/context/AppContext';
 import RouteReview from '@/components/run/RouteReview';
 import ElevationChart from '@/components/run/ElevationChart';
@@ -299,75 +300,81 @@ export default function RunSummary({
 
       {/* ─── Share buttons (both modes) ──────────────────────────────── */}
       <View style={styles.shareRow}>
-        <TouchableOpacity
-          style={[styles.shareButton, { borderColor: colors.border }]}
-          onPress={() => handleShare('square')}
-          activeOpacity={0.75}
-          disabled={isSharing}
-        >
-          <PlatformIcon name="image" size={14} color={colors.textSecondary} />
-          <Text style={[styles.shareButtonText, { color: colors.textSecondary }]}>Share Post</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.shareButton, { borderColor: colors.border }]}
-          onPress={() => handleShare('story')}
-          activeOpacity={0.75}
-          disabled={isSharing}
-        >
-          <PlatformIcon name="image" size={14} color={colors.textSecondary} />
-          <Text style={[styles.shareButtonText, { color: colors.textSecondary }]}>Share Story</Text>
-        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Button
+            variant="secondary"
+            icon="image"
+            label="Share Post"
+            fullWidth
+            disabled={isSharing}
+            onPress={() => handleShare('square')}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button
+            variant="secondary"
+            icon="image"
+            label="Share Story"
+            fullWidth
+            disabled={isSharing}
+            onPress={() => handleShare('story')}
+          />
+        </View>
         {isSharing && <ActivityIndicator size="small" color={accent} style={{ marginLeft: 8 }} />}
       </View>
 
       {/* ─── Action buttons ──────────────────────────────────────────── */}
       {!hideActions && mode === 'post_run' && (
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionDiscard, { borderColor: colors.border }]}
-            onPress={onDiscard}
-            activeOpacity={0.7}
-            disabled={isSaving}
-          >
-            <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>Discard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionSave, { backgroundColor: accent }]}
-            onPress={onSave}
-            activeOpacity={0.85}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={[styles.actionButtonText, { color: '#fff' }]}>Save Run</Text>
-            )}
-          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Button
+              variant="secondary"
+              label="Discard"
+              fullWidth
+              disabled={isSaving}
+              onPress={() => onDiscard?.()}
+            />
+          </View>
+          <View style={{ flex: 2 }}>
+            <Button
+              variant="primary"
+              label="Save Run"
+              fullWidth
+              loading={isSaving}
+              onPress={() => onSave?.()}
+            />
+          </View>
         </View>
       )}
 
       {!hideActions && mode === 'log_view' && isEditing && (
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionDiscard, { borderColor: colors.border }]}
-            onPress={handleCancelEdit}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionSave, { backgroundColor: accent }]}
-            onPress={handleConfirmEdits}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.actionButtonText, { color: '#fff' }]}>Save Changes</Text>
-          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Button
+              variant="secondary"
+              label="Cancel"
+              fullWidth
+              onPress={handleCancelEdit}
+            />
+          </View>
+          <View style={{ flex: 2 }}>
+            <Button
+              variant="primary"
+              label="Save Changes"
+              fullWidth
+              onPress={handleConfirmEdits}
+            />
+          </View>
         </View>
       )}
 
       {!hideActions && mode === 'log_view' && !isEditing && onDelete && (
-        <TouchableOpacity
-          style={[styles.deleteButton, { borderColor: 'rgba(239,68,68,0.35)' }]}
+        <Button
+          variant="secondary"
+          icon="trash"
+          label="Delete Run"
+          fullWidth
+          destructive
           onPress={() => {
             Alert.alert(
               'Delete Run?',
@@ -378,11 +385,7 @@ export default function RunSummary({
               ],
             );
           }}
-          activeOpacity={0.75}
-        >
-          <PlatformIcon name="trash" size={14} color="#ef4444" />
-          <Text style={styles.deleteButtonText}>Delete Run</Text>
-        </TouchableOpacity>
+        />
       )}
 
       {/* ─── Off-screen share card render targets ────────────────────── */}
@@ -507,56 +510,10 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
-  shareButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  shareButtonText: {
-    fontSize: 13,
-    fontFamily: 'Outfit_600SemiBold',
-  },
   actionRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 4,
-  },
-  actionButton: {
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionDiscard: {
-    flex: 1,
-    borderWidth: 1,
-  },
-  actionSave: {
-    flex: 2,
-  },
-  actionButtonText: {
-    fontSize: 15,
-    fontFamily: 'Outfit_700Bold',
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginTop: 4,
-  },
-  deleteButtonText: {
-    fontSize: 13,
-    fontFamily: 'Outfit_600SemiBold',
-    color: '#ef4444',
   },
   offscreen: {
     position: 'absolute',
