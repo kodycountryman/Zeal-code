@@ -1277,6 +1277,20 @@ export default function WorkoutScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Re-hydrate local workout state when this screen remounts mid-session.
+      // WorkoutTrackingContext retains activeWorkout + isWorkoutActive across
+      // component unmounts (e.g. swiping between Train-tab modes), but this
+      // screen's local `workout` state is lost on unmount. Without this
+      // branch, remount shows the pre-workout start card instead of the
+      // in-progress session. Exercise logs themselves live in
+      // tracking.exerciseLogs (global) so set data isn't lost either.
+      // UI flags (expanded tracks, etc.) reset to empty on remount —
+      // acceptable since set data survives and the user can re-expand.
+      if (!workout && tracking.isWorkoutActive && tracking.activeWorkout) {
+        setWorkout(tracking.activeWorkout);
+        return;
+      }
+
       if (!workout && !tracking.isWorkoutActive) {
         if (tracking.currentGeneratedWorkout) {
           __DEV__ && console.log('[WorkoutScreen] Using pre-generated workout (from preview trigger)');
@@ -1313,7 +1327,7 @@ export default function WorkoutScreen() {
         }
         // On plan rest days or paused plans: skip generation entirely
       }
-    }, [workout, tracking.isWorkoutActive, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx, isPlanRestDay, isPlanPaused])
+    }, [workout, tracking.isWorkoutActive, tracking.activeWorkout, tracking.currentGeneratedWorkout, tracking.isGeneratingWorkout, doGenerate, ctx, isPlanRestDay, isPlanPaused])
   );
 
   // Sync local workout state when context workout changes (e.g. PlanDayPreviewDrawer
