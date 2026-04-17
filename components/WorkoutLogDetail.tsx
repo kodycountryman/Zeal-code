@@ -14,6 +14,8 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
+import { useRun } from '@/context/RunContext';
+import { METERS_PER_MILE, METERS_PER_KM } from '@/types/run';
 
 function StarDisplay({ count, size = 14 }: { count: number; size?: number }) {
   return (
@@ -38,6 +40,7 @@ const sdStyles = StyleSheet.create({
 export default function WorkoutLogDetail() {
   const { colors, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
+  const run = useRun();
   const log = tracking.selectedLog;
 
   if (!tracking.workoutLogDetailVisible || !log) return null;
@@ -176,6 +179,75 @@ export default function WorkoutLogDetail() {
                     Muscles: {log.muscleGroups.join(', ')}
                   </Text>
                 )}
+              </View>
+            )}
+
+            {/* Advanced fields backfilled via LogPreviousWorkoutDrawer's
+                Advanced mode (or populated by health imports). Each row
+                renders only when present so legacy logs stay compact. */}
+            {(() => {
+              const hasAdvanced =
+                log.calories != null ||
+                log.averageHeartRate != null ||
+                log.maxHeartRate != null ||
+                log.distanceMeters != null ||
+                log.startTime != null ||
+                log.endTime != null;
+              if (!hasAdvanced) return null;
+              const units = run.preferences.units;
+              const distLabel = log.distanceMeters != null
+                ? units === 'metric'
+                  ? `${(log.distanceMeters / METERS_PER_KM).toFixed(2)} km`
+                  : `${(log.distanceMeters / METERS_PER_MILE).toFixed(2)} mi`
+                : null;
+              const fmtTime = (iso: string) =>
+                new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+              return (
+                <View style={styles.advancedGrid}>
+                  {distLabel && (
+                    <View style={styles.advancedCell}>
+                      <Text style={[styles.advancedLabel, { color: colors.textMuted }]}>Distance</Text>
+                      <Text style={[styles.advancedValue, { color: colors.text }]}>{distLabel}</Text>
+                    </View>
+                  )}
+                  {log.calories != null && (
+                    <View style={styles.advancedCell}>
+                      <Text style={[styles.advancedLabel, { color: colors.textMuted }]}>Calories</Text>
+                      <Text style={[styles.advancedValue, { color: colors.text }]}>{log.calories} kcal</Text>
+                    </View>
+                  )}
+                  {log.averageHeartRate != null && (
+                    <View style={styles.advancedCell}>
+                      <Text style={[styles.advancedLabel, { color: colors.textMuted }]}>Avg HR</Text>
+                      <Text style={[styles.advancedValue, { color: colors.text }]}>{log.averageHeartRate} bpm</Text>
+                    </View>
+                  )}
+                  {log.maxHeartRate != null && (
+                    <View style={styles.advancedCell}>
+                      <Text style={[styles.advancedLabel, { color: colors.textMuted }]}>Max HR</Text>
+                      <Text style={[styles.advancedValue, { color: colors.text }]}>{log.maxHeartRate} bpm</Text>
+                    </View>
+                  )}
+                  {log.startTime && (
+                    <View style={styles.advancedCell}>
+                      <Text style={[styles.advancedLabel, { color: colors.textMuted }]}>Start</Text>
+                      <Text style={[styles.advancedValue, { color: colors.text }]}>{fmtTime(log.startTime)}</Text>
+                    </View>
+                  )}
+                  {log.endTime && (
+                    <View style={styles.advancedCell}>
+                      <Text style={[styles.advancedLabel, { color: colors.textMuted }]}>End</Text>
+                      <Text style={[styles.advancedValue, { color: colors.text }]}>{fmtTime(log.endTime)}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
+
+            {log.notes && log.notes.trim().length > 0 && (
+              <View style={styles.notesBlock}>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>NOTES</Text>
+                <Text style={[styles.notesBody, { color: colors.text }]}>{log.notes}</Text>
               </View>
             )}
 
@@ -392,6 +464,34 @@ const styles = StyleSheet.create({
   },
   manualMuscles: {
     fontSize: 12,
+  },
+  advancedGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    paddingVertical: 8,
+  },
+  advancedCell: {
+    minWidth: 84,
+    gap: 2,
+  },
+  advancedLabel: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  advancedValue: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  notesBlock: {
+    paddingTop: 12,
+    gap: 6,
+  },
+  notesBody: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   feedbackGrid: {
     flexDirection: 'row',
