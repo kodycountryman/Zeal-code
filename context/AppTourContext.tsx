@@ -115,7 +115,7 @@ export const TOUR_STEPS: TourStep[] = [
     tab: 'home',
     targetTestID: 'dock-plus',
     title: 'The Plus Menu',
-    body: 'Start a training plan, build custom workouts, or log previous sessions.',
+    body: 'Start a training plan or build a custom workout.',
     icon: 'plus',
     iconColor: '#f87116',
     arrowDirection: 'down',

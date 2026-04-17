@@ -72,10 +72,6 @@ const FAQ_DATA: FaqItem[] = [
     question: 'Can I swap exercises I don\'t like or don\'t have equipment for?',
     answer: 'Yes. Every exercise has a swap icon that lets you replace it with an alternative targeting the same muscle group. You can also dislike exercises in the Exercise Catalog to permanently exclude them from future workouts. The equipment filter automatically removes exercises requiring gear you don\'t have.',
   },
-  {
-    question: 'How do I track previous workouts?',
-    answer: 'Use "Log Previous Workout" from the + menu on the floating dock. Select a past date, choose the workout style, set the duration, and pick the muscle groups trained. This logs the session to your calendar and contributes to your training score and streak history.',
-  },
 ];
 
 const REVIEWS_DATA: ReviewItem[] = [

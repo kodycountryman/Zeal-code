@@ -31,7 +31,6 @@ import ColorThemeDrawer from '@/components/drawers/ColorThemeDrawer';
 import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
 import FullCalendarModal from '@/components/FullCalendarModal';
 import WorkoutLogDetail from '@/components/WorkoutLogDetail';
-import LogPreviousWorkout from '@/components/LogPreviousWorkout';
 import InsightsDrawer from '@/components/drawers/InsightsDrawer';
 import BuildWorkoutDrawer from '@/components/drawers/BuildWorkoutDrawer';
 import WorkoutPlanDrawer from '@/components/drawers/WorkoutPlanDrawer';
@@ -760,7 +759,6 @@ export default function HomeScreen() {
 
       <FullCalendarModal />
       <WorkoutLogDetail />
-      <LogPreviousWorkout />
 
       <InsightsDrawer
         visible={insightsVisible}

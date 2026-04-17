@@ -62,7 +62,6 @@ import AmbientGlow from '@/components/AmbientGlow';
 import ZealBackground from '@/components/ZealBackground';
 import WorkoutTimerCard from '@/components/WorkoutTimerCard';
 import PostWorkoutFlow from '@/components/PostWorkoutFlow';
-import LogPreviousWorkout from '@/components/LogPreviousWorkout';
 import HealthImportBanner from '@/components/HealthImportBanner';
 import HealthImportSheet from '@/components/HealthImportSheet';
 import WorkoutLogDetail from '@/components/WorkoutLogDetail';
@@ -4933,7 +4932,6 @@ export default function WorkoutScreen() {
       </Modal>
 
       <PostWorkoutFlow />
-      <LogPreviousWorkout />
       <WorkoutLogDetail />
       <FullCalendarModal />
       <HealthImportSheet />

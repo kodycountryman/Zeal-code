@@ -280,7 +280,6 @@ export default function FloatingDock() {
       },
       locked: !hasPro,
     },
-    { icon: <PlatformIcon name="clipboard-list" size={20} color={accent} />, label: 'Log Previous', onPress: () => { closeMenu(); setTimeout(() => tracking.setLogPreviousVisible(true), MENU_CLOSE_DELAY); }, locked: false },
   ];
 
   const dockBottom = insets.bottom > 0 ? insets.bottom : 16;

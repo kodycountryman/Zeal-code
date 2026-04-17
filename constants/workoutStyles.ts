@@ -2,7 +2,7 @@
  * Single source of truth for all workout styles.
  * Add or remove a style here and it propagates everywhere:
  * onboarding, ModifyWorkoutDrawer, SettingsDrawer, home tab, PlanWorkoutSheet,
- * LogPreviousWorkout, HealthImportSheet.
+ * HealthImportSheet.
  */
 export const WORKOUT_STYLE_LIST: { key: string; desc: string }[] = [
   { key: 'Strength',     desc: 'Heavy compound lifts, progressive overload' },
