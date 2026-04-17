@@ -144,7 +144,7 @@ function RunOverviewCard({ todayPrescription, variant = 'solid', onPress }: Prop
       onPress();
       return;
     }
-    router.push('/run');
+    router.push('/train?mode=run');
   };
 
   // ── Empty state — no history, no plan ─────────────────────────────────

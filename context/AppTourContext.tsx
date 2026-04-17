@@ -15,7 +15,10 @@ export interface HighlightRect {
 
 export interface TourStep {
   id: string;
-  tab: 'home' | 'workout';
+  // The 'workout' tab name is legacy — all tour steps targeting workout-
+  // related testIDs now live on the 'train' tab (which renders the Workout
+  // screen when in workout mode). Navigation handlers route to /train.
+  tab: 'home' | 'train';
   targetTestID: string | null;
   title: string;
   body: string;
@@ -31,7 +34,7 @@ export interface TourStep {
 export const TOUR_STEPS: TourStep[] = [
   {
     id: 'daily-workout',
-    tab: 'workout',
+    tab: 'train',
     targetTestID: 'workout-info-card',
     title: 'Your Daily Workout',
     body: 'Zeal generates a fresh workout based on your style, duration, and goals.',
@@ -42,7 +45,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'modify',
-    tab: 'workout',
+    tab: 'train',
     targetTestID: 'modify-workout-card',
     title: 'Modify Your Workout',
     body: 'Change your style, duration, split, or target muscles anytime.',
@@ -53,7 +56,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'start',
-    tab: 'workout',
+    tab: 'train',
     targetTestID: 'start-workout-card',
     title: 'Start Your Workout',
     body: 'When you\'re ready, tap Start to begin tracking sets, reps, and weight.',
@@ -64,7 +67,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'shuffle',
-    tab: 'workout',
+    tab: 'train',
     targetTestID: 'shuffle-workout',
     title: 'Shuffle Exercises',
     body: 'Not feeling an exercise? Shuffle for a new one, or add your own.',
@@ -75,7 +78,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'go-home',
-    tab: 'workout',
+    tab: 'train',
     targetTestID: 'dock-home',
     title: 'Check Your Dashboard',
     body: 'Tap the Home tab to see your training score, insights, and more.',

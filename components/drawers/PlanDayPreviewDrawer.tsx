@@ -202,7 +202,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
     tracking.setCurrentGeneratedWorkout(taggedWorkout);
     onClose();
     onClosePlan();
-    setTimeout(() => router.push('/(tabs)/workout' as any), 400);
+    setTimeout(() => router.push('/(tabs)/train?mode=workout' as any), 400);
   }, [day, workout, onClose, onClosePlan, router, tracking]);
 
   if (!day) return null;

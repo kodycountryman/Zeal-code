@@ -399,7 +399,7 @@ export default function HomeScreen() {
       tracking.setSelectedLogId(latestTodayLog.id);
       tracking.setWorkoutLogDetailVisible(true);
     }
-    router.push('/workout');
+    router.push('/train?mode=workout');
   }, [tracking, latestTodayLog, router]);
 
 
@@ -409,7 +409,7 @@ export default function HomeScreen() {
     ctx.setLoadedWorkout(workout);
     ctx.setCurrentWorkoutTitle(workout.name);
     ctx.saveState();
-    router.push('/workout');
+    router.push('/train?mode=workout');
   }, [ctx, router]);
 
 
@@ -576,7 +576,7 @@ export default function HomeScreen() {
                 return (
                   <GlassCard
                     style={[styles.day1Card, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
-                    onPress={() => router.push('/workout')}
+                    onPress={() => router.push('/train?mode=workout')}
                     activeOpacity={0.8}
                     variant={isDark ? 'glass' : 'solid'}
                   >
@@ -688,7 +688,7 @@ export default function HomeScreen() {
       <StartAnotherWorkoutSheet
         visible={anotherWorkoutVisible}
         onClose={() => setAnotherWorkoutVisible(false)}
-        onComplete={() => router.push('/workout')}
+        onComplete={() => router.push('/train?mode=workout')}
       />
 
       <StreakBottomSheet
@@ -731,7 +731,7 @@ export default function HomeScreen() {
           resetTour();
           // Wait for bottom sheets to fully dismiss, then navigate + start
           setTimeout(() => {
-            router.push('/workout');
+            router.push('/train?mode=workout');
             setTimeout(() => startTour(), 600);
           }, 500);
         }}
@@ -797,7 +797,7 @@ export default function HomeScreen() {
       <WorkoutPreviewModal
         visible={previewVisible}
         onClose={() => setPreviewVisible(false)}
-        onGoToWorkout={() => router.push('/workout')}
+        onGoToWorkout={() => router.push('/train?mode=workout')}
       />
 
       <PlanWorkoutSheet

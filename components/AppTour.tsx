@@ -166,8 +166,10 @@ export default function AppTour() {
       waitingForTabRef.current = true;
       if (step.targetTestID === 'dock-home') {
         router.push('/');
-      } else if (step.targetTestID === 'dock-workout') {
-        router.push('/workout');
+      } else if (step.targetTestID === 'dock-train' || step.targetTestID === 'dock-workout') {
+        // dock-workout is the legacy testID; dock-train is the Phase-1 rename.
+        // Both resolve to the same navigation target.
+        router.push('/train?mode=workout');
       }
     }
 
@@ -207,7 +209,7 @@ export default function AppTour() {
     const prevStep = TOUR_STEPS[currentStep - 1];
     const currStep = TOUR_STEPS[currentStep];
     if (prevStep.tab !== currStep.tab) {
-      if (prevStep.tab === 'workout') router.push('/workout');
+      if (prevStep.tab === 'train') router.push('/train?mode=workout');
       else router.push('/');
     }
 

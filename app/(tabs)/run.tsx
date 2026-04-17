@@ -603,7 +603,7 @@ export default function RunScreen() {
                 ) : isStrengthToday && todayPrescription ? (
                   <TouchableOpacity
                     style={[styles.todayRunRow, { backgroundColor: '#3b82f610', borderColor: '#3b82f625' }]}
-                    onPress={() => router.push('/workout')}
+                    onPress={() => router.push('/train?mode=workout')}
                     activeOpacity={0.8}
                   >
                     <PlatformIcon name="dumbbell" size={18} color="#3b82f6" />
