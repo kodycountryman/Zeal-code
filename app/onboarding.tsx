@@ -228,13 +228,25 @@ export default function OnboardingScreen() {
       }
     }
     slideDir.current = 1;
-    setStep(13);
-  }, [ctx]);
+    // Skip health step on iPad — HealthKit not available there
+    if ((Platform as any).isPad) {
+      handleWalkthroughDone();
+    } else {
+      setStep(13);
+    }
+  }, [ctx, handleWalkthroughDone]);
 
   const handleConnectHealth = useCallback(async () => {
     try {
       if (healthService.isAvailable()) {
-        const result = await healthService.requestPermissions();
+        // Wrap in a 10s timeout — if the native HealthKit callback never fires
+        // (e.g. unsupported device), we fall through gracefully instead of hanging.
+        const result = await Promise.race([
+          healthService.requestPermissions(),
+          new Promise<{ granted: false; error: string }>((resolve) =>
+            setTimeout(() => resolve({ granted: false, error: 'timeout' }), 10000)
+          ),
+        ]);
         __DEV__ && console.log('[Onboarding] Health permission:', result);
         if (result.granted) {
           ctx.setHealthSyncEnabled(true);
@@ -377,7 +389,15 @@ export default function OnboardingScreen() {
           {step === 12 && (
             <StepNotifications
               onAllow={handleRequestNotifications}
-              onSkip={() => { slideDir.current = 1; setStep(13); }}
+              onSkip={() => {
+                slideDir.current = 1;
+                // Skip health step entirely on iPad — HealthKit not available
+                if ((Platform as any).isPad) {
+                  handleWalkthroughDone();
+                } else {
+                  setStep(13);
+                }
+              }}
             />
           )}
           {step === 13 && (

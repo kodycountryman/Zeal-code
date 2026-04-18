@@ -3876,8 +3876,8 @@ export default function WorkoutScreen() {
                   </View>
                 </View>
               </GlassCard>
-            ) : isPlanRestDay ? (
-              /* ── Rest Day Card ── */
+            ) : isPlanRestDay && !workout ? (
+              /* ── Rest Day Card ── (hidden once an override workout is generated) */
               <GlassCard
                 style={[styles.workoutInfoCard, { borderWidth: 1 }]}
                 variant={isDark ? 'glass' : 'solid'}
@@ -4038,8 +4038,11 @@ export default function WorkoutScreen() {
 
         </View>
 
-        {/* Unified tab card — tab bar header + content */}
-        {(!hasCompletedToday || postWorkoutDismissed) && !isPlanRestDay && <View style={[styles.tabPanel, {
+        {/* Unified tab card — tab bar header + content.
+            On rest days the panel is hidden until the user generates an
+            override workout (Quick Workout / Custom). Once `workout` is set,
+            show the panel so the exercises actually render. */}
+        {(!hasCompletedToday || postWorkoutDismissed) && (!isPlanRestDay || !!workout) && <View style={[styles.tabPanel, {
           marginHorizontal: 16,
           marginTop: 14,
           backgroundColor: colors.card,
@@ -4182,7 +4185,7 @@ export default function WorkoutScreen() {
         </View>}
 
         {/* ── Warm-Up — standalone card below unified tab card ── */}
-        {activePanel === 0 && (!hasCompletedToday || postWorkoutDismissed) && !isPlanRestDay && ctx.warmUp && !warmupHidden && (workout?.warmup?.length ?? 0) > 0 && (
+        {activePanel === 0 && (!hasCompletedToday || postWorkoutDismissed) && (!isPlanRestDay || !!workout) && ctx.warmUp && !warmupHidden && (workout?.warmup?.length ?? 0) > 0 && (
           <View style={[styles.checklistCard, {
             marginHorizontal: 16,
             marginTop: 10,

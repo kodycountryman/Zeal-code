@@ -57,6 +57,8 @@ interface Props {
   isRestoring: boolean;
   purchaseError: string | null;
   restoreError: string | null;
+  /** Localized price string pulled from the App Store via RevenueCat, e.g. "$5.99". */
+  priceString: string | null;
 }
 
 export default function PaywallModal({
@@ -69,6 +71,7 @@ export default function PaywallModal({
   isRestoring,
   purchaseError,
   restoreError,
+  priceString,
 }: Props) {
   const scaleAnim = useRef(new Animated.Value(0.96)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -162,11 +165,13 @@ export default function PaywallModal({
             {/* ── Price ── */}
             <View style={styles.priceArea}>
               <View style={styles.priceRow}>
-                <Text style={styles.priceAmount}>$5.99</Text>
+                <Text style={styles.priceAmount}>{priceString ?? '—'}</Text>
                 <Text style={styles.priceMo}>/mo</Text>
               </View>
               <Text style={styles.priceSub}>
-                {isTrial ? 'Free for 7 days, then $5.99/mo' : 'Billed monthly · Cancel anytime'}
+                {isTrial
+                  ? `Free for 7 days, then ${priceString ?? ''}/month. Auto-renews monthly until canceled.`
+                  : `Billed ${priceString ?? ''} monthly. Auto-renews until canceled.`}
               </Text>
             </View>
 
@@ -184,10 +189,17 @@ export default function PaywallModal({
                 >
                   {isPurchasing
                     ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={styles.ctaBtnText}>{isTrial ? 'Start Free Trial' : 'Unlock Pro · $5.99/mo'}</Text>
+                    : <Text style={styles.ctaBtnText}>
+                        {isTrial ? 'Start Free Trial' : `Unlock Pro · ${priceString ?? ''}/mo`}
+                      </Text>
                   }
                 </TouchableOpacity>
               </Reanimated.View>
+
+              {/* ── Apple-required subscription disclosures ── */}
+              <Text style={styles.disclosureText}>
+                Payment is charged to your Apple ID at confirmation of purchase. Subscription automatically renews each month unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings › Apple ID › Subscriptions.
+              </Text>
 
               <View style={styles.footerLinks}>
                 <TouchableOpacity
@@ -230,7 +242,16 @@ export function ConnectedPaywallModal() {
     isRestoring,
     purchaseError,
     restoreError,
+    offerings,
   } = useSubscription();
+
+  // Pull the localized price string from RevenueCat offerings.
+  // Falls back to the first available package if `monthly` isn't populated.
+  const monthlyPackage =
+    offerings?.current?.monthly ??
+    offerings?.current?.availablePackages?.[0] ??
+    null;
+  const priceString: string | null = monthlyPackage?.product?.priceString ?? null;
 
   return (
     <PaywallModal
@@ -243,6 +264,7 @@ export function ConnectedPaywallModal() {
       isRestoring={isRestoring}
       purchaseError={purchaseError}
       restoreError={restoreError}
+      priceString={priceString}
     />
   );
 }
@@ -405,6 +427,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.2,
+  },
+  disclosureText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: 'Outfit_400Regular',
+    color: 'rgba(255,255,255,0.35)',
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   footerLinks: {
     flexDirection: 'row',

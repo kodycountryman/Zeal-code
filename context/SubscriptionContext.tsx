@@ -10,8 +10,9 @@ export type PaywallVersion = 'trial' | 'no_trial';
 
 const STORAGE_KEY = '@zeal_subscription_v2';
 
-// Set to false before any TestFlight / App Store submission.
-const DEV_FORCE_PRO: boolean | null = __DEV__ ? true : null;
+// MUST be null for TestFlight / App Store submission.
+// Set to true only for local development to bypass the paywall.
+const DEV_FORCE_PRO: boolean | null = null;
 
 interface PersistedState {
   hasEverStarted: boolean;

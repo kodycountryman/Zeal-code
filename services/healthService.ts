@@ -1,4 +1,11 @@
 import { Platform } from 'react-native';
+// HealthKit is iPhone-only — iPadOS reports Platform.OS === 'ios' but does not support HealthKit.
+// Detect iPad by checking for iPad-specific user agent or the isPad flag.
+const isIPad = (): boolean => {
+  if (Platform.OS !== 'ios') return false;
+  // React Native exposes Platform.isPad on iOS builds
+  return !!(Platform as any).isPad;
+};
 
 export interface HealthPermissionResult {
   granted: boolean;
@@ -93,6 +100,8 @@ class HealthService {
 
   isAvailable(): boolean {
     if (Platform.OS === 'web') return false;
+    // HealthKit is not available on iPad — guard before loading the module
+    if (Platform.OS === 'ios' && isIPad()) return false;
     this._ensureLoaded();
     if (Platform.OS === 'ios') return this._appleHealthKit !== null;
     if (Platform.OS === 'android') return this._healthConnect !== null;
