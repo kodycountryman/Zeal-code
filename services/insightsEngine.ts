@@ -7,6 +7,7 @@
 
 import type { WorkoutLog, PersonalRecord, ExerciseLog } from '@/context/WorkoutTrackingContext';
 import { est1RM, findStandard } from '@/constants/strengthStandards';
+import { normalizeMuscleGroup } from '@/utils/muscleGroups';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -454,21 +455,6 @@ const RECOMMENDED_WEEKLY_SETS: Record<string, [number, number]> = {
   Core: [6, 12],
   Calves: [6, 12],
 };
-
-function normalizeMuscleGroup(mg: string): string {
-  const lower = mg.toLowerCase();
-  if (lower.includes('chest') || lower.includes('pec')) return 'Chest';
-  if (lower.includes('lat') || lower.includes('upper_back') || lower.includes('rhomb') || lower.includes('trap')) return 'Back';
-  if (lower.includes('delt') || lower.includes('shoulder')) return 'Shoulders';
-  if (lower.includes('bicep')) return 'Biceps';
-  if (lower.includes('tricep')) return 'Triceps';
-  if (lower.includes('quad')) return 'Quads';
-  if (lower.includes('ham')) return 'Hamstrings';
-  if (lower.includes('glute')) return 'Glutes';
-  if (lower.includes('core') || lower.includes('oblique') || lower.includes('ab')) return 'Core';
-  if (lower.includes('calf') || lower.includes('calves')) return 'Calves';
-  return mg;
-}
 
 export function getStyleInsights(
   style: string,

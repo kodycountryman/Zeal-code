@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Platform, AppState, type AppStateStatus } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
+import { useAppContext } from '@/context/AppContext';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 import { healthService } from '@/services/healthService';
 import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
@@ -17,6 +17,12 @@ import {
 } from '@/services/notificationService';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 import { calcCurrentStreak } from '@/services/milestonesData';
+import {
+  recalculateReadinessFromHistory,
+  normalizeSetCounts,
+  broadMuscleNamesFromRawCounts,
+} from '@/utils/muscleReadiness';
+import { resolvePushPullLegs } from '@/utils/training';
 
 const HISTORY_KEY = '@zeal_workout_history_v1';
 const PR_KEY = '@zeal_pr_history_v1';
@@ -342,24 +348,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const pendingEnsureAfterHydrateRef = useRef(false);
   const ensureTodayWorkoutGeneratedRef = useRef<() => void>(() => {});
 
-  function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
-    const readinessMap: Record<string, number> = {};
-    for (const m of muscleReadiness) readinessMap[m.name] = m.value;
-
-    const avg = (muscles: string[]) => {
-      const vals = muscles.map(m => readinessMap[m] ?? 80);
-      return vals.reduce((a, b) => a + b, 0) / vals.length;
-    };
-
-    const pushScore = avg(['Chest', 'Shoulders', 'Triceps']);
-    const pullScore = avg(['Back', 'Biceps']);
-    const legsScore = avg(['Quads', 'Hamstrings', 'Glutes', 'Calves']);
-
-    if (pushScore >= pullScore && pushScore >= legsScore) return 'Push';
-    if (pullScore > pushScore && pullScore >= legsScore) return 'Pull';
-    return 'Legs';
-  }
-
   const ensureTodayWorkoutGenerated = useCallback(async () => {
     // Re-entrancy guard for quick tab presses.
     if (isGeneratingWorkout) return;
@@ -601,16 +589,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       if (historyRaw) {
         try { loadedHistory = JSON.parse(historyRaw); setWorkoutHistory(loadedHistory); } catch (e) { __DEV__ && console.log('[Tracking] history parse error', e); }
       }
-      // If no workout history, ensure muscle readiness is fully reset
-      if (loadedHistory.length === 0) {
-        const hasStaleReadiness = ctx.muscleReadiness.some(m => m.value < 100);
-        if (hasStaleReadiness) {
-          const fresh = ctx.muscleReadiness.map(m => ({ ...m, status: 'ready' as const, value: 100, lastWorked: 'Never' }));
-          ctx.setMuscleReadiness(fresh);
-          ctx.saveState();
-          __DEV__ && console.log('[Tracking] Reset stale muscle readiness — no workout history');
-        }
-      }
+      // Always recompute readiness from history on cold start. Empty history
+      // naturally produces a fully-rested baseline; non-empty history yields
+      // the time-recovered drop stack so chest doesn't stay at 100% forever.
+      const recomputed = recalculateReadinessFromHistory(loadedHistory, new Date());
+      ctx.setMuscleReadiness(recomputed);
+      ctx.saveState();
+      __DEV__ && console.log('[Tracking] Recomputed muscle readiness from history on init', { logs: loadedHistory.length });
       if (prRaw) {
         try { setPrHistory(JSON.parse(prRaw)); } catch (e) { __DEV__ && console.log('[Tracking] PR parse error', e); }
       }
@@ -1176,16 +1161,22 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       acc + log.sets.filter(s => s.done).reduce((sum, s) => sum + s.weight * s.reps, 0), 0
     );
 
-    // Build per-muscle completed set counts for science-based readiness drops
-    const muscleSetCounts: Record<string, number> = {};
+    // Build per-muscle completed set counts. We accumulate against the raw
+    // exercise-level keys (e.g. "chest", "front_delt") so we don't lose
+    // granularity, then normalize to broad readiness categories ("Chest",
+    // "Shoulders") before persisting — the downstream readiness recalc keys
+    // strictly on broad names.
+    const rawMuscleSetCounts: Record<string, number> = {};
     if (activeWorkout) {
       for (const ex of activeWorkout.workout) {
         const log = exerciseLogs[ex.id];
         const doneSets = log ? log.sets.filter(s => s.done).length : 0;
         const muscle = ex.muscleGroup;
-        muscleSetCounts[muscle] = (muscleSetCounts[muscle] ?? 0) + doneSets;
+        rawMuscleSetCounts[muscle] = (rawMuscleSetCounts[muscle] ?? 0) + doneSets;
       }
     }
+    const muscleSetCounts = normalizeSetCounts(rawMuscleSetCounts);
+    const muscleGroups = broadMuscleNamesFromRawCounts(rawMuscleSetCounts);
 
     const sessionId = generateId();
     const sessionStartISO = new Date(Date.now() - workoutElapsedRef.current * 1000).toISOString();
@@ -1206,6 +1197,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       starRating: selectedStarRating,
       rpe: selectedRpe,
       whatWentWell,
+      muscleGroups,
       muscleSetCounts,
       startTime: sessionStartISO,
     };
@@ -1267,27 +1259,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const hours = Math.round(newMinutes / 60 * 10) / 10;
     ctx.setHoursTrainedToday(hours >= 1 ? `${hours}h` : `${newMinutes}m`);
 
-    if (activeWorkout) {
-      // Difficulty multiplier — harder sessions cause deeper fatigue
-      const difficultyMultiplier: Record<string, number> = {
-        easy: 0.6, moderate: 0.85, hard: 1.0, brutal: 1.25,
-      };
-      const diffMul = difficultyMultiplier[selectedDifficulty] ?? 1.0;
-
-      const updatedReadiness = ctx.muscleReadiness.map(m => {
-        const sets = muscleSetCounts[m.name] ?? 0;
-        if (sets === 0) return m; // untouched muscle — no change
-
-        // Volume scaling: 1-2 sets = light, 3-5 = moderate, 6-8 = heavy, 9+ = max
-        // Base drop 15–50 scaled by sets, then multiplied by difficulty
-        const volumeFactor = Math.min(1.0, (sets / 8));          // 0..1 across 1–8 sets
-        const baseDrop = Math.round((15 + volumeFactor * 35) * diffMul); // 9–75, capped below
-        const drop = Math.min(65, Math.max(10, baseDrop));        // floor 10, ceiling 65
-
-        return { ...m, status: 'recovering' as const, value: Math.max(15, m.value - drop), lastWorked: 'Today' };
-      });
-      ctx.setMuscleReadiness(updatedReadiness);
-    }
+    // Muscle readiness is derived from workout history — a single recalc
+    // replaces the previous inline decrement (which silently no-op'd due to
+    // a key-naming mismatch between raw and broad muscle names).
+    ctx.setMuscleReadiness(recalculateReadinessFromHistory(newHistory, new Date()));
 
     const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
     ctx.setStreak(newStreak);
@@ -1600,56 +1575,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       __DEV__ && console.log('[Tracking] Removed', prHistory.length - newPRHistory.length, 'PRs for deleted session:', logId);
     }
 
-    // Recalculate muscle readiness from remaining history
-    const freshReadiness: MuscleReadinessItem[] = [
-      { name: 'Chest', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Back', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Shoulders', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Biceps', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Triceps', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Quads', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Hamstrings', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Glutes', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Core', status: 'ready', value: 100, lastWorked: 'Never' },
-      { name: 'Calves', status: 'ready', value: 100, lastWorked: 'Never' },
-    ];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    // Replay remaining logs to rebuild readiness (most recent first)
-    const sortedRemaining = [...newHistory].sort((a, b) => b.date.localeCompare(a.date));
-    const muscleMap = new Map(freshReadiness.map(m => [m.name, m]));
-    const difficultyMultiplier: Record<string, number> = {
-      easy: 0.6, moderate: 0.85, hard: 1.0, brutal: 1.25,
-    };
-    for (const log of sortedRemaining) {
-      const logDate = new Date(log.date + 'T00:00:00');
-      const daysAgo = Math.max(0, Math.floor((today.getTime() - logDate.getTime()) / 86_400_000));
-      if (daysAgo > 7) continue;
-      const diffMul = difficultyMultiplier[log.difficulty] ?? 1.0;
-      const muscles = log.muscleGroups ?? [];
-      for (const name of muscles) {
-        const m = muscleMap.get(name);
-        if (!m) continue;
-        if (m.lastWorked === 'Never' || m.lastWorked === '') {
-          const sets = log.muscleSetCounts?.[name] ?? 4; // fallback for old logs without set counts
-          const volumeFactor = Math.min(1.0, sets / 8);
-          const baseDrop = Math.round((15 + volumeFactor * 35) * diffMul);
-          const drop = Math.min(65, Math.max(10, baseDrop));
-          // Exponential-ish recovery: faster early, slows near end
-          // recoveryFraction goes 0→1 over ~4 days, with a gentle curve
-          const recoveryFraction = Math.min(1, daysAgo / 4);
-          const eased = 1 - Math.pow(1 - recoveryFraction, 1.8); // ease-out curve
-          const recovered = Math.round(drop * eased);
-          const newValue = Math.min(100, Math.max(15, 100 - drop + recovered));
-          const daysLabel = daysAgo === 0 ? 'Today' : `${daysAgo}d ago`;
-          m.value = newValue;
-          m.lastWorked = daysLabel;
-          m.status = newValue >= 80 ? 'ready' : newValue >= 50 ? 'building' : 'recovering';
-        }
-      }
-    }
-    const recalculated = Array.from(muscleMap.values());
-    ctx.setMuscleReadiness(recalculated);
+    // Rebuild muscle readiness from the remaining history.
+    ctx.setMuscleReadiness(recalculateReadinessFromHistory(newHistory, new Date()));
     ctx.saveState();
     __DEV__ && console.log('[Tracking] Recalculated muscle readiness after deletion');
   }, [workoutHistory, prHistory, ctx, weeklyHoursMin]);

@@ -29,7 +29,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect } from 'expo-router';
-import { useZealTheme, useAppContext, type MuscleReadinessItem } from '@/context/AppContext';
+import { useZealTheme, useAppContext } from '@/context/AppContext';
+import { resolvePushPullLegs } from '@/utils/training';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useWorkoutTracking, useWorkoutElapsed, type ExerciseLog } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS, getContrastTextColor } from '@/constants/colors';
@@ -126,23 +127,7 @@ function TabContentSpring({ children }: { children: React.ReactNode }) {
     </RNAnimated.View>
   );
 }
-function resolvePushPullLegs(muscleReadiness: MuscleReadinessItem[]): 'Push' | 'Pull' | 'Legs' {
-  const readinessMap: Record<string, number> = {};
-  for (const m of muscleReadiness) {
-    readinessMap[m.name] = m.value;
-  }
-  const avg = (muscles: string[]) => {
-    const vals = muscles.map(m => readinessMap[m] ?? 80);
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  };
-  const pushScore = avg(['Chest', 'Shoulders', 'Triceps']);
-  const pullScore = avg(['Back', 'Biceps']);
-  const legsScore = avg(['Quads', 'Hamstrings', 'Glutes', 'Calves']);
-  __DEV__ && console.log(`[WorkoutScreen] PPL resolve: Push=${pushScore.toFixed(1)} Pull=${pullScore.toFixed(1)} Legs=${legsScore.toFixed(1)}`);
-  if (pushScore >= pullScore && pushScore >= legsScore) return 'Push';
-  if (pullScore > pushScore && pullScore >= legsScore) return 'Pull';
-  return 'Legs';
-}
+// resolvePushPullLegs lives in utils/training.ts — imported below.
 
 function snapToPreset(d: number): number {
   return (PRESET_DURATIONS as readonly number[]).reduce((prev, curr) =>
