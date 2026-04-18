@@ -45,7 +45,7 @@ export type EquipmentId =
   | 'treadmill' | 'stationary_bike' | 'elliptical' | 'plyo_box'
   | 'medicine_ball' | 'slam_ball' | 'pilates_mat' | 'pilates_ring'
   | 'pilates_reformer' | 'bodyweight' | 'lateral_raise_machine'
-  | 'weight_plates' | 'trap_bar';
+  | 'weight_plates' | 'trap_bar' | 'belt_squat' | 'landmine';
 
 export type ContraindicationTag =
   | 'pregnancy_t1' | 'pregnancy_t2' | 'pregnancy_t3'

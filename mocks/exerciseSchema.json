@@ -1,7 +1,7 @@
 {
   "_schema_version": "1.5",
   "_description": "Zeal Exercise Database Schema & Sample Exercises. Every exercise in the app MUST follow this exact structure. No field is optional. The generation engine depends on every field \u2014 missing data causes rules to silently fail.",
-  "_last_updated": "2026-04",
+  "_last_updated": "2026-04-18",
   "_enum_definitions": {
     "movement_pattern": [
       "push",
@@ -96,53 +96,55 @@
       "ankle"
     ],
     "equipment_ids": [
+      "ab_wheel",
+      "adjustable_bench",
+      "assault_bike",
       "barbell",
+      "battle_ropes",
+      "belt_squat",
+      "bodyweight",
+      "bosu_ball",
+      "cable_machine",
+      "chest_press_machine",
+      "dip_station",
       "dumbbell",
-      "kettlebell",
+      "elliptical",
       "ez_curl_bar",
       "flat_bench",
-      "adjustable_bench",
-      "squat_rack",
-      "power_rack",
-      "smith_machine",
-      "cable_machine",
+      "foam_roller",
+      "hack_squat_machine",
+      "jump_rope",
+      "kettlebell",
+      "landmine",
       "lat_pulldown_machine",
-      "leg_press_machine",
+      "lateral_raise_machine",
       "leg_curl_machine",
       "leg_extension_machine",
-      "pec_deck_machine",
-      "chest_press_machine",
-      "shoulder_press_machine",
-      "seated_row_machine",
-      "hack_squat_machine",
-      "pull_up_bar",
-      "dip_station",
-      "roman_chair",
-      "resistance_bands",
-      "trx_suspension",
-      "bosu_ball",
-      "stability_ball",
-      "ab_wheel",
-      "foam_roller",
-      "jump_rope",
-      "battle_ropes",
-      "sled",
-      "rowing_machine",
-      "assault_bike",
-      "ski_erg",
-      "treadmill",
-      "stationary_bike",
-      "elliptical",
-      "plyo_box",
+      "leg_press_machine",
       "medicine_ball",
-      "slam_ball",
+      "pec_deck_machine",
       "pilates_mat",
-      "pilates_ring",
       "pilates_reformer",
-      "bodyweight",
-      "lateral_raise_machine",
-      "weight_plates",
-      "trap_bar"
+      "pilates_ring",
+      "plyo_box",
+      "power_rack",
+      "pull_up_bar",
+      "resistance_bands",
+      "roman_chair",
+      "rowing_machine",
+      "seated_row_machine",
+      "shoulder_press_machine",
+      "ski_erg",
+      "slam_ball",
+      "sled",
+      "smith_machine",
+      "squat_rack",
+      "stability_ball",
+      "stationary_bike",
+      "trap_bar",
+      "treadmill",
+      "trx_suspension",
+      "weight_plates"
     ],
     "contraindication_tags": [
       "pregnancy_t1",
@@ -24455,6 +24457,200 @@
       "default_rest_sec": 30,
       "standard_rx_weight": null,
       "media_url": ""
+    },
+    {
+      "id": "landmine_row",
+      "name": "Landmine Row",
+      "aliases": [
+        "one arm landmine row",
+        "corner row",
+        "meadows row"
+      ],
+      "movement_pattern": "pull",
+      "difficulty_tier": "intermediate",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "lats",
+        "upper_back"
+      ],
+      "secondary_muscles": [
+        "rhomboids",
+        "rear_delt",
+        "biceps",
+        "core"
+      ],
+      "joints_loaded": [
+        "shoulder",
+        "elbow",
+        "spine"
+      ],
+      "equipment_required": [
+        "barbell"
+      ],
+      "equipment_optional": [
+        "landmine"
+      ],
+      "is_unilateral": true,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 3,
+      "setup_time_seconds": 15,
+      "contraindication_tags": [
+        "lower_back_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "light",
+      "position": "standing",
+      "weight_increment": 5,
+      "rep_range_floor": 6,
+      "rep_range_ceiling": 15,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0.15,
+          "absolute_fallback_lbs": 25
+        },
+        "male_intermediate": {
+          "multiplier": 0.25,
+          "absolute_fallback_lbs": 45
+        },
+        "male_advanced": {
+          "multiplier": 0.4,
+          "absolute_fallback_lbs": 75
+        },
+        "female_beginner": {
+          "multiplier": 0.08,
+          "absolute_fallback_lbs": 15
+        },
+        "female_intermediate": {
+          "multiplier": 0.15,
+          "absolute_fallback_lbs": 25
+        },
+        "female_advanced": {
+          "multiplier": 0.25,
+          "absolute_fallback_lbs": 45
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "t_bar_row",
+        "dumbbell_row",
+        "barbell_bent_over_row"
+      ],
+      "variation_family": "row_family",
+      "style_popularity": {
+        "strength": 45,
+        "bodybuilding": 55,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "per_side",
+      "default_rest_sec": 75,
+      "standard_rx_weight": null,
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/landmine_row.gif"
+    },
+    {
+      "id": "belt_squat",
+      "name": "Belt Squat",
+      "aliases": [
+        "belt squat machine",
+        "hip belt squat"
+      ],
+      "movement_pattern": "squat",
+      "difficulty_tier": "intermediate",
+      "eligible_styles": [
+        "strength",
+        "bodybuilding",
+        "low_impact",
+        "hybrid"
+      ],
+      "primary_muscles": [
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "hamstrings"
+      ],
+      "joints_loaded": [
+        "hip",
+        "knee"
+      ],
+      "equipment_required": [
+        "belt_squat"
+      ],
+      "equipment_optional": [],
+      "is_unilateral": false,
+      "is_compound": true,
+      "default_tempo_seconds_per_rep": 3.5,
+      "setup_time_seconds": 20,
+      "contraindication_tags": [
+        "knee_injury",
+        "hip_injury"
+      ],
+      "rom_requirement": "full",
+      "spinal_load": "none",
+      "position": "standing",
+      "weight_increment": 10,
+      "rep_range_floor": 6,
+      "rep_range_ceiling": 12,
+      "default_load_table": {
+        "male_beginner": {
+          "multiplier": 0.5,
+          "absolute_fallback_lbs": 90
+        },
+        "male_intermediate": {
+          "multiplier": 0.8,
+          "absolute_fallback_lbs": 160
+        },
+        "male_advanced": {
+          "multiplier": 1.1,
+          "absolute_fallback_lbs": 230
+        },
+        "female_beginner": {
+          "multiplier": 0.3,
+          "absolute_fallback_lbs": 45
+        },
+        "female_intermediate": {
+          "multiplier": 0.5,
+          "absolute_fallback_lbs": 90
+        },
+        "female_advanced": {
+          "multiplier": 0.75,
+          "absolute_fallback_lbs": 140
+        }
+      },
+      "is_warmup_eligible": false,
+      "is_cooldown_eligible": false,
+      "warmup_for_muscles": [],
+      "cooldown_for_muscles": [],
+      "substitutes": [
+        "hack_squat",
+        "leg_press",
+        "barbell_back_squat"
+      ],
+      "variation_family": "squat_family",
+      "style_popularity": {
+        "strength": 50,
+        "bodybuilding": 70,
+        "low_impact": 75,
+        "hybrid": 40
+      },
+      "tracking_metric": {
+        "primary": "reps",
+        "alternates": []
+      },
+      "execution_logic": "bilateral",
+      "default_rest_sec": 120,
+      "standard_rx_weight": null,
+      "media_url": "https://vpkbabjvjkiyvowdboul.supabase.co/storage/v1/object/public/exercise-gifs/belt_squat.gif"
     }
   ]
 }
