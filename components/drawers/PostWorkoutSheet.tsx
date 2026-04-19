@@ -213,7 +213,7 @@ export default function PostWorkoutSheet() {
     </View>
   );
 
-  return (
+  return (<>
     <BaseDrawer visible={visible} onClose={handleClose} header={header} footer={footer}>
       <View style={styles.content}>
         {/* ── Hero card: style badge, name, 4-stat strip ── */}
@@ -396,15 +396,19 @@ export default function PostWorkoutSheet() {
 
         <View style={{ height: 16 }} />
       </View>
-
-      {/* Off-screen render target for the share card. Positioned outside the
-          visible viewport so it doesn't interfere with the sheet UI but is
-          mounted (collapsable={false}) so view-shot can capture it. */}
-      <View style={styles.shareCardHost} pointerEvents="none">
-        <PostWorkoutShareCard ref={shareCardRef} log={log} accent={accent} />
-      </View>
     </BaseDrawer>
-  );
+
+    {/* Off-screen render target for the share card. CRITICAL: this lives as
+        a SIBLING of BaseDrawer (in the regular React tree, not inside the
+        BottomSheetModal portal). view-shot cannot reliably capture refs
+        that live inside the bottom-sheet portal — that was the bug behind
+        "share didn't work like in run mode". The run flow does the same
+        thing in components/run/RunSummary.tsx (the offscreen ShareCard is
+        a sibling of the screen, not nested inside any modal). */}
+    <View pointerEvents="none" style={styles.shareCardHost} collapsable={false}>
+      <PostWorkoutShareCard ref={shareCardRef} log={log} accent={accent} />
+    </View>
+  </>);
 }
 
 const styles = StyleSheet.create({
@@ -555,13 +559,15 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  // Off-screen render container — far enough off the viewport that it never
-  // shows. Stays mounted only while the sheet is visible.
+  // Off-screen render container — mirrors components/run/RunSummary.tsx's
+  // `offscreen` style. Sits at -9999/-9999 with opacity 0 and pointerEvents
+  // none. Lives in the regular React tree (sibling of BaseDrawer), NOT
+  // inside the bottom-sheet portal — view-shot can't reliably capture refs
+  // that live in the portal.
   shareCardHost: {
     position: 'absolute',
-    top: -10000,
-    left: -10000,
-    width: 1080,
-    height: 1920,
+    left: -9999,
+    top: -9999,
+    opacity: 0,
   },
 });
