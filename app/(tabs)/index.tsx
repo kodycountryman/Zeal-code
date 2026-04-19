@@ -499,6 +499,9 @@ export default function HomeScreen() {
                 activePlan={ctx.activePlan}
                 variant={isDark ? 'glass' : 'solid'}
                 completedLog={hasTodayWorkout ? latestTodayLog : null}
+                adaptiveDeloadReason={
+                  hasTodayWorkout ? null : (tracking.adaptiveOverride.applied ? tracking.adaptiveOverride.reason : null)
+                }
               />
             </Animated.View>
           )}
@@ -636,6 +639,9 @@ export default function HomeScreen() {
                 activePlan={ctx.activePlan}
                 variant={isDark ? 'glass' : 'solid'}
                 completedLog={hasTodayWorkout ? latestTodayLog : null}
+                adaptiveDeloadReason={
+                  hasTodayWorkout ? null : (tracking.adaptiveOverride.applied ? tracking.adaptiveOverride.reason : null)
+                }
               />
             </Animated.View>
           )}

@@ -51,6 +51,9 @@ interface Props {
   activePlan?: WorkoutPlan | null;
   variant?: 'solid' | 'glass';
   completedLog?: WorkoutLog | null;
+  /** When generation honored an adaptive deload override, this carries the
+   *  human-readable reason so the card can show a small explainer badge. */
+  adaptiveDeloadReason?: string | null;
 }
 
 function WorkoutOverviewCard({
@@ -64,6 +67,7 @@ function WorkoutOverviewCard({
   activePlan,
   variant = 'solid',
   completedLog,
+  adaptiveDeloadReason,
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const styleAccent = workoutStyle ? (WORKOUT_STYLE_COLORS[workoutStyle] ?? accent) : accent;
@@ -202,6 +206,17 @@ function WorkoutOverviewCard({
         </View>
       )}
 
+      {/* Adaptive deload badge — explains to the user why today is lighter
+          than the scheduled phase. Shown only on plan workout days when
+          maybeAdaptiveDeload() fired. */}
+      {!isRestDay && adaptiveDeloadReason && (
+        <View style={[styles.adaptiveBadge, { backgroundColor: `${accent}12`, borderColor: `${accent}40` }]}>
+          <Text style={[styles.adaptiveBadgeText, { color: accent }]} numberOfLines={2}>
+            {adaptiveDeloadReason}
+          </Text>
+        </View>
+      )}
+
       {isRestDay && (
         <Text style={[styles.restSubline, { color: colors.textSecondary }]}>
           {duration !== 'Rest Day' ? duration : 'Recovery & regeneration'}
@@ -283,5 +298,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Outfit_300Light',
     marginTop: -2,
+  },
+  adaptiveBadge: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  adaptiveBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.1,
+    lineHeight: 16,
   },
 });

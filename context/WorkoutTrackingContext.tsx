@@ -9,6 +9,7 @@ import { healthService } from '@/services/healthService';
 import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
 import { generateWorkout, generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import { buildTrainingLog, buildFeedbackData } from '@/services/feedbackProjection';
+import { maybeAdaptiveDeload } from '@/services/adaptivePlanOverride';
 import { PRO_STYLES_SET } from '@/services/proGate';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
@@ -122,6 +123,12 @@ export interface WorkoutLog {
    *  undefined means "saved with defaults — show Add Feedback CTA in
    *  WorkoutLogDetail". True means the user touched at least one input. */
   feedbackComplete?: boolean;
+  /** Set when generation honored an adaptive-deload override (rolling RPE
+   *  elevated or muscle readiness depleted). Used by maybeAdaptiveDeload()
+   *  to enforce its cooldown — don't auto-deload two sessions in a row.
+   *  Optional human-readable reason for the UX badge. */
+  adaptiveDeloadApplied?: boolean;
+  adaptiveDeloadReason?: string;
 }
 
 export interface HealthImportItem {
@@ -357,6 +364,14 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const [currentGeneratedWorkout, setCurrentGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
   const [isGeneratingWorkout, setIsGeneratingWorkout] = useState(false);
   const generatedForDateRef = useRef<string | null>(null);
+  // Captures the most recent maybeAdaptiveDeload() result during generation
+  // so _persistInitialLog can stamp the marker + reason on the saved log
+  // for cooldown enforcement on subsequent days.
+  const lastAdaptiveOverrideRef = useRef<{ applied: boolean; reason: string | null }>({ applied: false, reason: null });
+  // Reactive mirror of the same data — exposed via context so UI surfaces
+  // (WorkoutOverviewCard, workout title bar) can show a badge explaining
+  // why today's workout is lighter than scheduled.
+  const [adaptiveOverride, setAdaptiveOverride] = useState<{ applied: boolean; reason: string | null }>({ applied: false, reason: null });
   const generationReqIdRef = useRef(0);
   const generationInFlightRef = useRef(false);
   const proWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -437,7 +452,21 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       effectiveStyle = 'Strength';
     }
 
-    const prescription = (!ov && hasPlan) ? todayPrescription : null;
+    // Adaptive plan deload override (Phase 3 closed-loop). Wrap the
+    // scheduled prescription through maybeAdaptiveDeload — when recent RPE
+    // is elevated (>=7.5 trailing 5) or any broad muscle is depleted
+    // (<50% readiness), volume + intensity modifiers get bumped down to
+    // deload tier. Cooldown enforced via the adaptiveDeloadApplied marker
+    // on previous logs. Original plan structure is unchanged — this is a
+    // today-only rewrite.
+    const baseRx = (!ov && hasPlan) ? todayPrescription : null;
+    const adaptive = maybeAdaptiveDeload(baseRx, workoutHistory, ctx.muscleReadiness);
+    const prescription = adaptive.prescription;
+    lastAdaptiveOverrideRef.current = { applied: adaptive.overridden, reason: adaptive.reason };
+    setAdaptiveOverride({ applied: adaptive.overridden, reason: adaptive.reason });
+    if (adaptive.overridden) {
+      __DEV__ && console.log('[Tracking] Adaptive deload override applied:', adaptive.reason);
+    }
 
     // Use plan's stored equipment for plan workouts; fall back to user's global settings
     const effectiveEquipment = (prescription && hasPlan)
@@ -1205,7 +1234,13 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       muscleSetCounts,
       startTime: sessionStartISO,
       feedbackComplete: false,
+      // Persist the adaptive-deload marker so future days' override
+      // cooldown check has a signal to read. Cleared after stamping.
+      adaptiveDeloadApplied: lastAdaptiveOverrideRef.current.applied || undefined,
+      adaptiveDeloadReason: lastAdaptiveOverrideRef.current.reason ?? undefined,
     };
+    lastAdaptiveOverrideRef.current = { applied: false, reason: null };
+    setAdaptiveOverride({ applied: false, reason: null });
 
     const newHistory = [logEntry, ...workoutHistory];
     setWorkoutHistory(newHistory);
@@ -1843,6 +1878,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     applyFeedbackPatch,
     openFeedbackForLog,
     lastSavedLogId,
+    adaptiveOverride,
     dismissPostWorkout,
     completeWorkout,
     logPreviousWorkout,
@@ -1876,7 +1912,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setRestPreset, cancelRestTimer, initExerciseLog, updateSetLog,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout,
-    applyFeedbackPatch, openFeedbackForLog, lastSavedLogId,
+    applyFeedbackPatch, openFeedbackForLog, lastSavedLogId, adaptiveOverride,
     dismissPostWorkout, completeWorkout,
     logPreviousWorkout, removeWorkoutLog, getLogForDate, getLogsForDate,
     getExerciseSuggestion, getLastSetsForExercise,
