@@ -40,6 +40,20 @@ export const SCORING_WEIGHTS = {
   pattern_diversity: 15,
   variation_family_penalty: -20,  // Increased from -8: prevents 6 bench press variants in one workout
   style_popularity_scale: 0.5, // Scales -100..100 → -50..+50 effective score range
+  // ── Muscle readiness hybrid gate (Phase 2 closed-loop) ──
+  // Stage 3 hard-blocks any exercise whose minimum primary-muscle readiness
+  // is below this. With a safety net: if the post-filter pool drops below
+  // readiness_pool_min_size, the filter is skipped (better to give a sore
+  // user a doable workout than no workout at all).
+  readiness_hard_block_threshold: 25,
+  readiness_pool_min_size: 4,
+  // Stage 4 applies a soft-bias score penalty for any exercise whose minimum
+  // primary-muscle readiness is below this threshold. The penalty is
+  // proportional: (threshold - minReadiness) * readiness_penalty_per_point.
+  // Tuned so a 35%-readiness muscle subtracts ~17.5 score (vs preference_liked
+  // at +100), enough to deprioritize without making the exercise impossible.
+  readiness_soft_bias_threshold: 70,
+  readiness_penalty_per_point: 0.5,
 };
 
 // Max exercises allowed from the same variation family (e.g., bench press variants).

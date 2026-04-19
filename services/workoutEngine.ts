@@ -130,6 +130,7 @@ import {
 } from '@/mocks/exerciseDatabase';
 
 import type { DayPrescription } from '@/services/planEngine';
+import { normalizeMuscleGroup } from '@/utils/muscleGroups';
 
 import {
   REST_TIERS,
@@ -586,6 +587,7 @@ function stage3PoolFiltering(
   availableEquipment: Record<string, number>,
   specialLifeCase: string,
   specialLifeCaseDetail: string,
+  muscleReadiness?: Record<string, number>,
 ): ZealExercise[] {
   __DEV__ && console.log('[EngineV2] Stage 3: Exercise Pool Filtering');
   let pool = [...getZealExerciseDatabase()];
@@ -700,6 +702,33 @@ function stage3PoolFiltering(
       __DEV__ && console.log('[EngineV2] Muscle filter returned 0 results, keeping full pool');
     }
     __DEV__ && console.log('[EngineV2] After muscle group gate:', pool.length);
+  }
+
+  // ── Muscle readiness hard-block (Phase 2 closed-loop) ──
+  // Drop exercises whose primary muscles are below the hard-block threshold
+  // (e.g. user flagged that muscle as sore in PostWorkoutSheet → readiness
+  // capped to 35% by utils/muscleReadiness.ts SORENESS_CAP_VALUE).
+  // Safety net: if the post-filter pool drops below MIN_POOL_SIZE, revert.
+  // Better to give a sore user a doable workout than no workout. Stage 4
+  // soft-bias still penalizes the borderline cases that survive.
+  if (muscleReadiness && Object.keys(muscleReadiness).length > 0) {
+    const beforeReadinessFilter = pool.length;
+    const readinessFiltered = pool.filter(ex => {
+      const minReadiness = ex.primary_muscles.reduce((min, raw) => {
+        const broad = normalizeMuscleGroup(raw);
+        const value = muscleReadiness[broad];
+        if (value === undefined) return min; // unmapped muscle → no opinion
+        return Math.min(min, value);
+      }, 100);
+      return minReadiness >= SCORING_WEIGHTS.readiness_hard_block_threshold;
+    });
+
+    if (readinessFiltered.length >= SCORING_WEIGHTS.readiness_pool_min_size) {
+      pool = readinessFiltered;
+      __DEV__ && console.log('[EngineV2] After readiness hard-block (<' + SCORING_WEIGHTS.readiness_hard_block_threshold + '):', pool.length, '/', beforeReadinessFilter);
+    } else {
+      __DEV__ && console.log('[EngineV2] Readiness filter would leave', readinessFiltered.length, '< MIN_POOL_SIZE, keeping unfiltered pool of', beforeReadinessFilter);
+    }
   }
 
   __DEV__ && console.log('[EngineV2] Pool filtering complete:', pool.length, 'exercises remain');
@@ -821,6 +850,7 @@ function stage4Scoring(
   exercisePreferences: Record<string, 'liked' | 'disliked' | 'neutral'>,
   trainingLog: TrainingLogEntry[],
   rng: () => number,
+  muscleReadiness?: Record<string, number>,
 ): ScoredExercise[] {
   __DEV__ && console.log('[EngineV2] Stage 4: Exercise Selection & Scoring (Style-Aware)');
 
@@ -868,6 +898,26 @@ function stage4Scoring(
       (fitnessLevel === 'intermediate' && ex.difficulty_tier === 'advanced')
     ) {
       score += SCORING_WEIGHTS.difficulty_match * 0.5;
+    }
+
+    // ── Muscle readiness soft-bias (Phase 2 closed-loop) ──
+    // Stage 3 already hard-blocks anything below the hard threshold (default
+    // 25%). This adds a proportional score penalty for borderline cases —
+    // exercises whose minimum primary-muscle readiness is below the soft
+    // threshold (default 70) get penalized linearly. Effect: the engine
+    // prefers fully-recovered muscle groups while still allowing partially-
+    // recovered ones when the pool is thin.
+    if (muscleReadiness && Object.keys(muscleReadiness).length > 0 && ex.primary_muscles.length > 0) {
+      const minReadiness = ex.primary_muscles.reduce((min, raw) => {
+        const broad = normalizeMuscleGroup(raw);
+        const value = muscleReadiness[broad];
+        if (value === undefined) return min;
+        return Math.min(min, value);
+      }, 100);
+      if (minReadiness < SCORING_WEIGHTS.readiness_soft_bias_threshold) {
+        const deficit = SCORING_WEIGHTS.readiness_soft_bias_threshold - minReadiness;
+        score -= deficit * SCORING_WEIGHTS.readiness_penalty_per_point;
+      }
     }
 
     if (usedFamilies.has(ex.variation_family) && ex.variation_family) {
@@ -2049,6 +2099,7 @@ export function runEngine(params: EngineParams): EngineResult {
     params.availableEquipment,
     params.specialLifeCase,
     params.specialLifeCaseDetail,
+    params.muscleReadiness,
   );
 
   const prefs = params.exercisePreferences ?? {};
@@ -2074,6 +2125,7 @@ export function runEngine(params: EngineParams): EngineResult {
     prefs,
     params.trainingLog ?? [],
     rng,
+    params.muscleReadiness,
   );
 
   const CORE_MUSCLES_SET = new Set(['core', 'obliques', 'transverse_abdominis']);
