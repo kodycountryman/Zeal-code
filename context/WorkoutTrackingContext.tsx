@@ -1428,19 +1428,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     applyFeedbackPatch({ starRating: starMap[difficulty], rpe, whatWentWell: wellChips });
   }, [applyFeedbackPatch]);
 
-  // ─── Deprecated shims ──────────────────────────────────────────────────
-  // Kept for the duration of Phase 2 so the old PostWorkoutFlow.tsx still
-  // compiles. Phase 3 deletes PostWorkoutFlow.tsx AND removes these shims.
-  // DO NOT add new callers — use applyFeedbackPatch / dismissPostWorkout.
-  const prepareSaveStep = useCallback((starRating: number, rpe: number, wellChips: string[]) => {
-    applyFeedbackPatch({ starRating, rpe, whatWentWell: wellChips });
-  }, [applyFeedbackPatch]);
-  const saveWorkout = useCallback(() => {
-    /* no-op — workout already auto-saved in beginPostWorkout */
-  }, []);
-  const discardWorkout = useCallback(() => {
-    /* no-op — Discard is no longer a post-workout action; workout is already saved */
-  }, []);
 
   /**
    * Persist a retroactive "Log Previous Workout" entry to workoutHistory.
@@ -1836,10 +1823,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     lastSavedLogId,
     dismissPostWorkout,
     completeWorkout,
-    // Deprecated shims (Phase 2 backward compat — removed in Phase 3)
-    prepareSaveStep,
-    saveWorkout,
-    discardWorkout,
     logPreviousWorkout,
     removeWorkoutLog,
     getLogForDate,
@@ -1873,7 +1856,6 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout,
     applyFeedbackPatch, openFeedbackForLog, lastSavedLogId,
     dismissPostWorkout, completeWorkout,
-    prepareSaveStep, saveWorkout, discardWorkout,
     logPreviousWorkout, removeWorkoutLog, getLogForDate, getLogsForDate,
     getExerciseSuggestion, getLastSetsForExercise,
     pendingHealthImports, duplicateCandidates, healthImportReviewVisible, setHealthImportReviewVisible,

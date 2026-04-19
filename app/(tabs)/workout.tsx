@@ -62,7 +62,7 @@ import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
 import AmbientGlow from '@/components/AmbientGlow';
 import ZealBackground from '@/components/ZealBackground';
 import WorkoutTimerCard from '@/components/WorkoutTimerCard';
-import PostWorkoutFlow from '@/components/PostWorkoutFlow';
+import PostWorkoutSheet from '@/components/drawers/PostWorkoutSheet';
 import HealthImportBanner from '@/components/HealthImportBanner';
 import HealthImportSheet from '@/components/HealthImportSheet';
 import WorkoutLogDetail from '@/components/WorkoutLogDetail';
@@ -5033,7 +5033,7 @@ const WorkoutScreen = forwardRef<WorkoutScreenHandle>(function WorkoutScreen(_pr
         </TouchableOpacity>
       </Modal>
 
-      <PostWorkoutFlow />
+      <PostWorkoutSheet />
       <WorkoutLogDetail />
       <FullCalendarModal />
       <HealthImportSheet />
