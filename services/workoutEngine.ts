@@ -1423,6 +1423,48 @@ function stage8FeedbackAdjustment(
   return { adjusted, applied: true };
 }
 
+/**
+ * Harmonize `sets` across every exercise sharing a groupId. Grouped
+ * movements (supersets / circuits / rounds / hybrid conditioning blocks)
+ * must execute the same number of rounds — otherwise the UI prescribes
+ * "3 rounds" for one member and "2 rounds" for its partner, which is
+ * impossible to actually perform.
+ *
+ * This is needed because stage 5 rolls `sets` independently per exercise
+ * and stage 6's time-budget trim also reduces sets on individual rows, so
+ * by the time grouping runs (stage 7) members of a group can diverge.
+ *
+ * Strategy: set every group member to `min(sets)` within the group — the
+ * floor choice keeps the workout inside the time budget that stage 6 just
+ * finished enforcing; raising everyone to max would blow it. Also recompute
+ * `exerciseTotalSeconds` so downstream time estimates stay accurate.
+ */
+function normalizeGroupSets(exercises: EngineWorkoutExercise[]): void {
+  const byGroup = new Map<string, EngineWorkoutExercise[]>();
+  for (const ex of exercises) {
+    if (!ex.groupId) continue;
+    const arr = byGroup.get(ex.groupId);
+    if (arr) arr.push(ex);
+    else byGroup.set(ex.groupId, [ex]);
+  }
+  for (const [gid, members] of byGroup) {
+    if (members.length < 2) continue;
+    const minSets = members.reduce((m, ex) => Math.min(m, ex.sets), Infinity);
+    for (const ex of members) {
+      if (ex.sets === minSets) continue;
+      const oldSets = ex.sets;
+      ex.sets = minSets;
+      ex.exerciseTotalSeconds = calculateExerciseTime(
+        ex.setDurationSeconds,
+        ex.restSeconds,
+        ex.sets,
+        ex.exerciseRef.setup_time_seconds,
+      );
+      __DEV__ && console.log('[EngineV2] Group-normalize', gid, ex.exerciseRef.name, ':', oldSets, '->', minSets, 'sets');
+    }
+  }
+}
+
 function applyStyleAwareSupersets(
   exercises: EngineWorkoutExercise[],
   style: string,
@@ -1841,11 +1883,13 @@ function applyStyleAwareGrouping(
     }
 
     applyCircuitGrouping(exercises);
+    normalizeGroupSets(exercises);
     return { format: selectedFormat, timeCap: null, rounds: null };
   }
 
   if (styleRules.superset_rules.enabled) {
     applyStyleAwareSupersets(exercises, style, config, rng);
+    normalizeGroupSets(exercises);
   }
 
   return { format: null, timeCap: null, rounds: null };
@@ -2142,6 +2186,8 @@ export function runEngine(params: EngineParams): EngineResult {
         ex.groupId = gid;
       }
       __DEV__ && console.log('[EngineV2] Hybrid: grouped', conditioningExercises.length, 'conditioning exercises as circuit');
+      // Match set counts across the circuit so rounds are consistent.
+      normalizeGroupSets(workoutExercises);
     }
   }
 
@@ -2459,7 +2505,14 @@ function convertEngineExerciseToLegacy(
     trackingMetric,
     executionLogic,
     mediaUrl: z.media_url || '',
-    exerciseRef: legacyEx ?? {
+    exerciseRef: (legacyEx ? {
+      ...legacyEx,
+      // Overlay loadability signals so the tracker can infer weight inputs for
+      // exercises that are bodyweight-required but load-optional (glute bridge,
+      // calf raise, lunges, etc.). See getExerciseTrackingType in workout.tsx.
+      equipment_optional: z.equipment_optional,
+      weight_increment: z.weight_increment,
+    } : {
       id: z.id,
       name: z.name,
       movementType,
@@ -2477,6 +2530,8 @@ function convertEngineExerciseToLegacy(
       primaryMuscles: z.primary_muscles.map(m => MUSCLE_DISPLAY_MAP[m] ?? m).filter((v, i, a) => a.indexOf(v) === i),
       secondaryMuscles: z.secondary_muscles.map(m => MUSCLE_DISPLAY_MAP[m] ?? m).filter((v, i, a) => a.indexOf(v) === i),
       equipment_required: z.equipment_required,
+      equipment_optional: z.equipment_optional,
+      weight_increment: z.weight_increment,
       equipment: z.equipment_required.filter(e => e !== 'bodyweight'),
       position: z.position,
       is_unilateral: z.is_unilateral,
@@ -2485,7 +2540,7 @@ function convertEngineExerciseToLegacy(
       steps: [],
       styles: z.eligible_styles.map(s => mapEngineStyleToDisplay(s)),
       contraindications: z.contraindication_tags,
-    },
+    }) as any,
   };
 }
 
@@ -2947,8 +3002,11 @@ export function generateCoreFinisherFromEngine(params: {
   const sets = params.fitnessLevel === 'beginner' ? 2 : 3;
 
   return selected.map((ex, i) => {
-    // Hold-style exercises (plank, side plank, hollow body hold) have rep_range_ceiling <= 3
-    const isTimeBased = ex.movement_pattern === 'isolation' && ex.rep_range_ceiling <= 3;
+    // Prefer the authoritative tracking_metric; fall back to the old heuristic
+    // (isolation + rep_range_ceiling<=3) only when metadata is missing.
+    const tm = (ex as any).tracking_metric?.primary as string | undefined;
+    const isTimeBased = tm === 'time_seconds'
+      || (!tm && ex.movement_pattern === 'isolation' && ex.rep_range_ceiling <= 3);
     const reps = isTimeBased
       ? (isAdvanced ? '60s' : isIntermediate ? '45s' : '30s')
       : String(
@@ -2978,10 +3036,13 @@ export function generateCoreFinisherFromEngine(params: {
       suggestedWeight: externalGear.length > 0 ? '' : 'BW',
       lastSessionWeight: '',
       lastSessionReps: '',
+      trackingMetric: tm,
       exerciseRef: {
         movement_pattern: ex.movement_pattern as string,
         equipment_required: ex.equipment_required as string[],
-      },
+        equipment_optional: (ex as any).equipment_optional as string[] | undefined,
+        weight_increment: (ex as any).weight_increment as number | undefined,
+      } as any,
     };
   });
 }

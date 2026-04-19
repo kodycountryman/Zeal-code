@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withRepeat, withSequence, cancelAnimation, runOnJS } from 'react-native-reanimated';
 import ExpandingPanel from '@/components/ExpandingPanel';
 import * as Haptics from 'expo-haptics';
@@ -29,7 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect } from 'expo-router';
-import { useZealTheme, useAppContext } from '@/context/AppContext';
+import { useZealTheme, useAppContext, type ExercisePreference } from '@/context/AppContext';
 import { resolvePushPullLegs } from '@/utils/training';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useWorkoutTracking, useWorkoutElapsed, type ExerciseLog } from '@/context/WorkoutTrackingContext';
@@ -90,7 +90,7 @@ const CHIP_H = 44;
 const PICKER_H = 132;
 const CHIP_SPRING = { damping: 22, stiffness: 280, mass: 0.8 } as const;
 
-import { PRO_STYLES_SET } from '@/services/proGate';
+import { PRO_STYLES_SET, showProGate } from '@/services/proGate';
 import { PHASE_COLORS, PHASE_DISPLAY_NAMES } from '@/services/planConstants';
 import type { PlanPhase } from '@/services/planConstants';
 
@@ -176,6 +176,8 @@ const WEIGHTED_EQUIPMENT_IDS = new Set([
   'leg_extension_machine', 'pec_deck_machine', 'chest_press_machine',
   'hack_squat_machine', 'lateral_raise_machine', 'seated_row_machine',
   'shoulder_press_machine',
+  // Loadable stations (hold plate/DB or built-in loading)
+  'roman_chair', 'belt_squat',
 ]);
 
 function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
@@ -277,8 +279,17 @@ function getExerciseTrackingType(ex: WorkoutExercise): ExerciseTrackingType {
     return { isRepsOnly: false, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: true, isWeightDistance: false };
   }
 
+  // Loadable-by-default signals: explicit weight_increment, or a weighted
+  // equipment_optional (e.g. glute bridge with optional DB, standing calf
+  // raise with weight_increment=5). Without this check these exercises get
+  // locked to reps-only even though users commonly load them.
+  const opt = ((ref as any)?.equipment_optional ?? []).map((r: string) => r.toLowerCase());
+  const hasWeightedOptional = opt.some((r: string) => WEIGHTED_EQUIPMENT_IDS.has(r));
+  const hasWeightIncrement = ((ref as any)?.weight_increment ?? 0) > 0;
+  const isLoadable = hasWeightedOptional || hasWeightIncrement;
+
   // --- Bodyweight / plyometric: reps only ---
-  const isBodyweight = (isBodyweightEquipment || isPlyoPattern) && !hasExternalLoad && !isWeightedVariant;
+  const isBodyweight = (isBodyweightEquipment || isPlyoPattern) && !hasExternalLoad && !isWeightedVariant && !isLoadable;
   if (isBodyweight) {
     return { isRepsOnly: true, isHoldForTime: false, isCaloriesMovement: false, isDistanceOnly: false, isWeightDistance: false };
   }
@@ -791,7 +802,17 @@ function generateItemDetail(name: string, type: 'warmup' | 'cooldown' | 'recover
   };
 }
 
-export default function WorkoutScreen() {
+/**
+ * Imperative API exposed via ref when WorkoutScreen is embedded inside
+ * TrainScreen. TrainScreen renders a static overlay header whose avatar
+ * press needs to trigger the profile drawer living inside WorkoutScreen,
+ * without lifting its local drawer state up. Kept deliberately minimal.
+ */
+export interface WorkoutScreenHandle {
+  openProfileDrawer: () => void;
+}
+
+const WorkoutScreen = forwardRef<WorkoutScreenHandle>(function WorkoutScreen(_props, ref) {
   const { colors, accent, isZeal, isDark } = useZealTheme();
   const ctx = useAppContext();
   const currentWorkoutTitleRef = useRef(ctx.currentWorkoutTitle);
@@ -823,6 +844,11 @@ export default function WorkoutScreen() {
   const [activeEditCell, setActiveEditCell] = useState<{ exId: string; setIdx: number; field: 'weight' | 'reps' } | null>(null);
   const [completedSets, setCompletedSets] = useState<Record<string, Set<number>>>({});
   const [profileVisible, setProfileVisible] = useState(false);
+  // Expose an imperative handle so TrainScreen's static header can open the
+  // profile drawer without duplicating state. See WorkoutScreenHandle.
+  useImperativeHandle(ref, () => ({
+    openProfileDrawer: () => setProfileVisible(true),
+  }), []);
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
   const [insightsVisible, setInsightsVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -1838,6 +1864,62 @@ export default function WorkoutScreen() {
     setTimeout(() => setAddSheetVisible(true), 100);
   }, []);
 
+  // Overflow ("…") menu on each log panel. Exposes Delete / Swap / Recommend
+  // more / Recommend less. The "recommend" options write to the existing
+  // `exercisePreferences` map in AppContext (same system ExerciseDetailDrawer
+  // uses) — the engine reads those at generation time via
+  // workoutEngine.ts scoring stage, so selections persist and bias future
+  // generations. We key on the stable engine ID (exerciseRef.id) because the
+  // engine scoring looks up by ZealExercise.id, not the per-session
+  // WorkoutExercise id.
+  const handleExerciseMenu = useCallback((ex: WorkoutExercise) => {
+    const stableId = (ex.exerciseRef as any)?.id ?? ex.id;
+    const currentPref: ExercisePreference = (ctx.exercisePreferences[stableId] ?? 'neutral') as ExercisePreference;
+    const isLiked = currentPref === 'liked';
+    const isDisliked = currentPref === 'disliked';
+
+    const applyPref = (next: 'liked' | 'disliked') => {
+      // Pro gate — matches the ExerciseDetailDrawer behavior.
+      if (!hasPro) {
+        showProGate('exercisePrefs', openPaywall);
+        return;
+      }
+      const final: ExercisePreference = currentPref === next ? 'neutral' : next;
+      ctx.saveExercisePreferences({ ...ctx.exercisePreferences, [stableId]: final });
+      if (Platform.OS !== 'web') {
+        Haptics.selectionAsync().catch(() => {});
+      }
+    };
+
+    const moreLabel = isLiked ? 'Recommend more often ✓' : 'Recommend more often';
+    const lessLabel = isDisliked ? 'Recommend less often ✓' : 'Recommend less often';
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: ex.name,
+          options: ['Cancel', 'Swap', 'Delete', moreLabel, lessLabel],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 2,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) handleSwapExercise(ex);
+          else if (buttonIndex === 2) handleDeleteExercise(ex.id);
+          else if (buttonIndex === 3) applyPref('liked');
+          else if (buttonIndex === 4) applyPref('disliked');
+        },
+      );
+    } else {
+      Alert.alert(ex.name, undefined, [
+        { text: 'Swap', onPress: () => handleSwapExercise(ex) },
+        { text: 'Delete', style: 'destructive', onPress: () => handleDeleteExercise(ex.id) },
+        { text: moreLabel, onPress: () => applyPref('liked') },
+        { text: lessLabel, onPress: () => applyPref('disliked') },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }, [ctx, hasPro, openPaywall, handleSwapExercise, handleDeleteExercise]);
+
   const handleDropToIndex = useCallback((movingIds: string[], insertIdx: number) => {
     const w = workoutRef.current;
     if (!w) return;
@@ -2264,6 +2346,20 @@ export default function WorkoutScreen() {
                 {setsData.length > 0 && (
                   <SetProgressDots setsData={setsData} accent={currentAccent} borderColor={colors.border} />
                 )}
+                {/* Overflow menu — swap / delete / recommend more / less. Writes
+                    to AppContext.exercisePreferences (same system used by the
+                    ExerciseDetailDrawer + engine scoring), so selections bias
+                    future generations of this style/split. */}
+                <TouchableOpacity
+                  onPress={() => handleExerciseMenu(ex)}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{ marginLeft: 8, padding: 2 }}
+                  accessibilityLabel="Exercise options"
+                  accessibilityRole="button"
+                >
+                  <PlatformIcon name="more-horizontal" size={18} color={colors.textMuted} strokeWidth={2} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -2745,15 +2841,23 @@ export default function WorkoutScreen() {
         label = 'Rounds';
       }
       return (
-        <View style={[styles.groupHeader, { backgroundColor: colors.card }]}>
+        // Whole header is tappable so users discover the explainer without
+        // having to hit the tiny label text. A help-circle icon sits next to
+        // the label as the visual affordance.
+        <TouchableOpacity
+          onPress={() => setInfoLabel(label)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} — tap for explanation`}
+          style={[styles.groupHeader, { backgroundColor: colors.card }]}
+        >
           {renderGroupGripDots(ex)}
           {icon}
-          <TouchableOpacity onPress={() => setInfoLabel(label)} activeOpacity={0.7}>
-            <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>{label}</Text>
-          </TouchableOpacity>
+          <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>{label}</Text>
+          <PlatformIcon name="help-circle" size={12} color={`${colors.textMuted}B3`} style={{ marginLeft: 4 }} />
           <View style={{ flex: 1 }} />
           <Text style={[styles.groupRest, { color: colors.textSecondary }]}>{ex.rest}</Text>
-        </View>
+        </TouchableOpacity>
       );
     }
 
@@ -2935,9 +3039,12 @@ export default function WorkoutScreen() {
               style={styles.cfSectionHeader}
               onPress={() => setInfoLabel('STRENGTH')}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Strength block — tap for explanation"
             >
               <PlatformIcon name="dumbbell" size={15} color={colors.textSecondary} />
               <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>Strength</Text>
+              <PlatformIcon name="help-circle" size={12} color={`${colors.textMuted}B3`} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
             {cfData.strength.map((ex, exIdx) => {
               const isCFExpanded = expandedTrack === ex.id;
@@ -2990,6 +3097,7 @@ export default function WorkoutScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <PlatformIcon name="zap" size={15} color={colors.textSecondary} />
                 <Text style={[styles.cfSectionLabel, { color: colors.textSecondary }]}>WOD</Text>
+                <PlatformIcon name="help-circle" size={12} color={`${colors.textMuted}B3`} />
               </View>
               {(() => {
                 const fmt = workout.metconFormat ?? 'AMRAP';
@@ -3171,11 +3279,14 @@ export default function WorkoutScreen() {
           style={styles.hiitCircuitHeader}
           onPress={() => setInfoLabel(`CIRCUIT — ${hiitRounds} ROUNDS`)}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Circuit — tap for explanation"
         >
           <PlatformIcon name="rotate-ccw" size={15} color={colors.textSecondary} />
           <Text style={[styles.hiitCircuitLabel, { color: colors.textSecondary }]}>
             CIRCUIT — {hiitRounds} ROUNDS
           </Text>
+          <PlatformIcon name="help-circle" size={12} color={`${colors.textMuted}B3`} style={{ marginLeft: 4 }} />
           <View style={{ flex: 1 }} />
           <Text style={[styles.hiitTimeEst, { color: colors.textSecondary }]}>
             ~{hiitTotalTime} min
@@ -3221,8 +3332,11 @@ export default function WorkoutScreen() {
               style={styles.cardioBlockHeader}
               onPress={() => setInfoLabel('MAIN BLOCK')}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Main block — tap for explanation"
             >
               <Text style={[styles.cardioBlockLabel, { color: colors.textSecondary }]}>MAIN BLOCK</Text>
+              <PlatformIcon name="help-circle" size={12} color={`${colors.textMuted}B3`} style={{ marginLeft: 4 }} />
               {cardio.length > 0 && (
                 <Text style={[styles.cardioFormatBadge, { color: colors.textSecondary }]}>
                   {cardio[0]?.format}
@@ -3550,7 +3664,7 @@ export default function WorkoutScreen() {
 
       <SafeAreaView edges={['top']}>
         <TabHeader
-          title="Train"
+          title="Workout"
           onAvatarPress={() => setProfileVisible(true)}
           avatarTestID="workout-profile-avatar"
           rightSlot={<ModeToggleIcons />}
@@ -5354,7 +5468,9 @@ export default function WorkoutScreen() {
       )}
     </View>
   );
-}
+});
+
+export default WorkoutScreen;
 
 const generatingStyles = StyleSheet.create({
   overlay: {

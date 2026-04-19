@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react';
 import {
   View,
   Text,
@@ -91,7 +91,16 @@ function relativeDate(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function RunScreen() {
+/**
+ * Imperative API exposed via ref when RunScreen is embedded inside
+ * TrainScreen. TrainScreen's static overlay header opens the run settings
+ * drawer via this handle without lifting the drawer's visibility state up.
+ */
+export interface RunScreenHandle {
+  openSettingsDrawer: () => void;
+}
+
+const RunScreen = forwardRef<RunScreenHandle>(function RunScreen(_props, ref) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const run = useRun();
@@ -117,6 +126,11 @@ export default function RunScreen() {
   const [badgeQueue, setBadgeQueue] = useState<RunBadge[]>([]);
   const [audioSettingsVisible, setAudioSettingsVisible] = useState(false);
   const [runSettingsVisible, setRunSettingsVisible] = useState(false);
+  // Imperative handle — see RunScreenHandle. TrainScreen's overlay header
+  // opens this drawer via the exposed method instead of duplicating state.
+  useImperativeHandle(ref, () => ({
+    openSettingsDrawer: () => setRunSettingsVisible(true),
+  }), []);
   const router = useRouter();
 
   // Check permission status on mount
@@ -475,59 +489,30 @@ export default function RunScreen() {
       <ZealBackground />
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <TabHeader
-          title="Train"
+          title="Run"
           // TODO(profile): once AthleteProfileDrawer is wired into Run, swap this to setProfileVisible(true)
           onAvatarPress={() => setRunSettingsVisible(true)}
           avatarTestID="run-profile-avatar"
-          rightSlot={<ModeToggleIcons />}
-        />
-
-        {/* Run-specific controls — mi/km toggle + settings cog. Live below the
-            header now that the rightSlot carries the mode toggle icons.
-            Compact strip, right-aligned, disappears during active runs to
-            give the metrics display full breathing room. */}
-        {!isActive && (
-          <View style={styles.runControlsStrip}>
-            <View style={styles.unitsToggle}>
+          rightSlot={
+            // Header-right cluster: mode toggle + settings gear. Keeping the
+            // gear in the header reclaims vertical space for the stats cards
+            // below. The mi/km toggle moved into RunSettingsDrawer —
+            // most users pick a unit once and never flip it.
+            <View style={styles.headerRightCluster}>
+              <ModeToggleIcons />
               <TouchableOpacity
-                onPress={() => run.updatePreferences({ units: 'imperial' })}
-                style={[
-                  styles.unitsPill,
-                  run.preferences.units === 'imperial' && { backgroundColor: `${accent}20` },
-                ]}
+                onPress={() => setRunSettingsVisible(true)}
                 activeOpacity={0.7}
+                style={[styles.headerGearBtn, { borderColor: colors.border }]}
+                testID="run-settings-button"
                 accessibilityRole="button"
-                accessibilityLabel="Miles"
-                accessibilityState={{ selected: run.preferences.units === 'imperial' }}
+                accessibilityLabel="Run settings"
               >
-                <Text style={[styles.unitsPillText, { color: run.preferences.units === 'imperial' ? accent : colors.textMuted }]}>mi</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => run.updatePreferences({ units: 'metric' })}
-                style={[
-                  styles.unitsPill,
-                  run.preferences.units === 'metric' && { backgroundColor: `${accent}20` },
-                ]}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Kilometers"
-                accessibilityState={{ selected: run.preferences.units === 'metric' }}
-              >
-                <Text style={[styles.unitsPillText, { color: run.preferences.units === 'metric' ? accent : colors.textMuted }]}>km</Text>
+                <PlatformIcon name="settings" size={15} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={[styles.audioBtn, { borderColor: colors.border }]}
-              onPress={() => setRunSettingsVisible(true)}
-              activeOpacity={0.7}
-              testID="run-settings-button"
-              accessibilityRole="button"
-              accessibilityLabel="Run settings"
-            >
-              <PlatformIcon name="settings" size={15} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
+          }
+        />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Recovery hint if there's an orphaned run */}
@@ -867,7 +852,9 @@ export default function RunScreen() {
       />
     </View>
   );
-}
+});
+
+export default RunScreen;
 
 /** Convert a RunBadge to the Achievement shape expected by AchievementModal. */
 function runBadgeToAchievement(b: RunBadge): Achievement {
@@ -912,32 +899,21 @@ const styles = StyleSheet.create({
   },
   // Run-specific controls strip that lives below the Train TabHeader.
   // Hidden during active runs so metrics get full breathing room.
-  runControlsStrip: {
+  // Header-right cluster wrapping the mode toggle pill + settings gear so
+  // both sit inline in the TabHeader's rightSlot. Replaces the old separate
+  // runControlsStrip row below the header.
+  headerRightCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
     gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 6,
   },
-  unitsToggle: {
-    flexDirection: 'row',
-    gap: 4,
-    padding: 3,
-    borderRadius: 18,
-    backgroundColor: 'rgba(128,128,128,0.1)',
-  },
-  // Compact micro-pill used inside the TabHeader's right slot. Smaller than
-  // the standard Chip selectable variant so it fits the 32px header height.
-  unitsPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  unitsPillText: {
-    fontSize: 12,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: 0.5,
+  headerGearBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   activeTopBarLeft: {
     flexDirection: 'row',

@@ -57,11 +57,28 @@ function zealExToWorkoutExercise(
     ? (ex.equipment_required[0]).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : 'Bodyweight';
 
+  // Override the style-default reps when the exercise is time/cal/distance
+  // tracked — otherwise the prescription ("3×10–12") disagrees with the
+  // tracker's input (seconds/cals/meters). Matches the format the engine
+  // produces in services/workoutEngine.ts#toWorkoutExercise.
+  const tm = (ex as any).tracking_metric?.primary as string | undefined;
+  let repsOverride: string | null = null;
+  if (tm === 'time_seconds') {
+    const secs = (ex as any).default_tempo_seconds_per_rep ?? 30;
+    repsOverride = secs >= 60
+      ? (secs % 60 === 0 ? `${Math.floor(secs / 60)} min` : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`)
+      : `${secs}s`;
+  } else if (tm === 'calories') {
+    repsOverride = '10 cal';
+  } else if (tm === 'distance_meters') {
+    repsOverride = '200m';
+  }
+
   return {
     id: generateId(),
     name: ex.name,
     sets: defaults.sets,
-    reps: defaults.reps,
+    reps: repsOverride ?? defaults.reps,
     rest: defaults.rest,
     muscleGroup: muscleLabel,
     equipment: equipLabel,
@@ -73,6 +90,7 @@ function zealExToWorkoutExercise(
     suggestedWeight: '',
     lastSessionWeight: '',
     lastSessionReps: '',
+    trackingMetric: tm,
     exerciseRef: ex,
   };
 }

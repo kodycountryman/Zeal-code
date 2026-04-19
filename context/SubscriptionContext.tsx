@@ -120,6 +120,20 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     };
   }, []);
 
+  // Auto-close the paywall if Pro status flips true while it's open — covers
+  // the window between a successful purchase and the RC customerInfo refetch
+  // landing, so the user isn't left staring at a paywall after paying.
+  useEffect(() => {
+    if (hasPro && paywallOpen) {
+      __DEV__ && console.log('[subscription] hasPro flipped true — auto-closing paywall');
+      setPaywallOpen(false);
+      if (paywallTimerRef.current) {
+        clearTimeout(paywallTimerRef.current);
+        paywallTimerRef.current = null;
+      }
+    }
+  }, [hasPro, paywallOpen]);
+
   useEffect(() => {
     if (customerInfoQuery.isSuccess && hasPro && persistedLoaded) {
       const p = persistedRef.current;
@@ -172,13 +186,29 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     if (shouldShow) {
       await savePersisted({ ...next, lastPaywallShownAtOpenCount: newCount });
       if (paywallTimerRef.current) clearTimeout(paywallTimerRef.current);
-      paywallTimerRef.current = setTimeout(() => setPaywallOpen(true), 7000);
+      paywallTimerRef.current = setTimeout(() => {
+        // Re-check Pro status at fire time — RevenueCat may have confirmed Pro
+        // (or the user may have purchased from another entry point) during
+        // the 7s delay, in which case we must not show the paywall.
+        if (hasPro_ref.current) {
+          __DEV__ && console.log('[subscription] Paywall timer fired but user is now Pro — suppressed');
+          return;
+        }
+        setPaywallOpen(true);
+      }, 7000);
     } else {
       await savePersisted(next);
     }
   }, [persistedLoaded, savePersisted]);
 
   const openPaywall = useCallback(() => {
+    // Guard against call sites that invoke openPaywall on Pro users (e.g. a
+    // locked style chip tapped before hasPro_ref refreshed). Pro users never
+    // see the paywall regardless of entry point.
+    if (hasPro_ref.current) {
+      __DEV__ && console.log('[subscription] openPaywall() suppressed — user is Pro');
+      return;
+    }
     __DEV__ && console.log('[subscription] Manual paywall open');
     setPaywallOpen(true);
   }, []);
@@ -257,5 +287,9 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     restoreError: restoreMutation.error ? String(restoreMutation.error) : null,
     loaded: persistedLoaded,
     offerings: offeringsQuery.data ?? null,
+    // Exposed so other subsystems (ZealTipBanner, future onboarding nudges)
+    // can gate behavior on the user's lifetime app-open count without
+    // maintaining their own persisted counter.
+    appOpenCount: persisted.appOpenCount,
   };
 });

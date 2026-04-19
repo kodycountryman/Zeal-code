@@ -16,6 +16,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { useAppContext, useZealTheme } from '@/context/AppContext';
 import { ZEAL_TIPS } from '@/constants/zealTips';
 import { useAppTour } from '@/context/AppTourContext';
+import { useSubscription } from '@/context/SubscriptionContext';
 
 const ACCENT = '#f87116';
 const BANNER_DELAY_MS = 5500;
@@ -26,6 +27,12 @@ export default function ZealTipBanner() {
   const { notifPrefs, saveNotifPrefs } = useAppContext();
   const { colors, isDark } = useZealTheme();
   const { tourActive } = useAppTour();
+  // Defer tips until the user's 2nd app open — first-time users are already
+  // absorbing the tour + onboarding flow, so an unprompted tip on top of that
+  // feels noisy. appOpenCount is bumped inside triggerAppOpen before the
+  // banner's 5.5s timer fires, so by the time the effect runs on open #2 the
+  // count is already 2.
+  const { appOpenCount, loaded: subLoaded } = useSubscription();
 
   const [visible, setVisible] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,6 +59,12 @@ export default function ZealTipBanner() {
     if (!notifPrefs.zealTipsEnabled) return;
     if (hasShownThisSession.current) return;
     if (tourActive) return;
+    // Wait for persisted open-count to hydrate before deciding — otherwise on
+    // cold launch we'd briefly see appOpenCount=0 and skip forever.
+    if (!subLoaded) return;
+    // Skip on the user's very first open (count is 1 after triggerAppOpen
+    // runs). Tips start appearing from open #2 onward.
+    if (appOpenCount < 2) return;
 
     autoTimerRef.current = setTimeout(() => {
       const randomTip = ZEAL_TIPS[Math.floor(Math.random() * ZEAL_TIPS.length)];
@@ -85,7 +98,7 @@ export default function ZealTipBanner() {
       if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     };
-  }, [tourActive]); // eslint-disable-line react-hooks/exhaustive-deps — re-check when tour ends
+  }, [tourActive, subLoaded, appOpenCount]); // eslint-disable-line react-hooks/exhaustive-deps — re-check when tour ends / subscription hydrates
 
   const handleTap = () => {
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);

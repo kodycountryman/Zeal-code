@@ -1,5 +1,5 @@
-import React, { memo, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import React, { memo, useEffect, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Platform, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,9 +16,11 @@ import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { useRun } from '@/context/RunContext';
 
 /**
- * The Train tab's mode-switcher. Two icons (dumbbell | figure-run) side-by-side.
- * Tapping an icon calls `trainContext.setMode(mode)`. Each icon carries a
- * small status dot indicating the off-screen mode's state:
+ * The Train tab's mode-switcher. One pill containing two icons
+ * (dumbbell | figure-run), with a sliding circular indicator that springs to
+ * whichever mode is active — a mini echo of the FloatingDock's active bubble.
+ *
+ * Each icon carries a small status dot indicating the off-screen mode's state:
  *   - Orange pulse → that mode has an active session right now
  *   - Green dot    → that mode has been completed today
  *   - No dot       → that mode is idle (nothing started/completed today)
@@ -26,12 +28,22 @@ import { useRun } from '@/context/RunContext';
  * The currently-active icon never gets a status dot — you're already looking
  * at it, so the status is implied by the visible screen.
  *
- * This component is rendered in the Train tab's TabHeader rightSlot. It's
- * suppressed on hybrid days (TrainContext.isHybridToday) because the layout
+ * Suppressed on hybrid days (TrainContext.isHybridToday) because the layout
  * switches to a stacked-cards view with no toggle needed.
  */
+
+// Timing curve tuned to match the TrainScreen content slide exactly so the
+// bubble, content, and header elements all land on the same frame. Using
+// `withTiming` (not `withSpring`) because the spring's overshoot made the
+// bubble briefly pass its target and recoil — read as a "bounce back to the
+// other slot" glitch by the user.
+const BUBBLE_DURATION_MS = 300;
+const BUBBLE_EASING = Easing.out(Easing.cubic);
+
+const MODES: TrainMode[] = ['workout', 'run'];
+
 function ModeToggleIcons() {
-  const { colors, accent } = useZealTheme();
+  const { colors, accent, isDark } = useZealTheme();
   const { mode, setMode, isHybridToday } = useTrain();
   const tracking = useWorkoutTracking();
   const run = useRun();
@@ -39,11 +51,7 @@ function ModeToggleIcons() {
   const workoutActive = tracking.isWorkoutActive;
   const runActive = run.status === 'running' || run.status === 'paused';
 
-  // A workout is "done today" if the latest log's date is today. The
-  // tracking context exposes todayLogs via the completion flag pattern.
   const workoutDoneToday = !workoutActive && tracking.todayLogs.length > 0;
-
-  // A run is "done today" if any run in history has today's date.
   const runDoneToday =
     !runActive &&
     run.runHistory.some((r) => {
@@ -60,18 +68,65 @@ function ModeToggleIcons() {
     setMode(next);
   };
 
-  // Hidden on hybrid days — HybridLayout shows both modalities stacked so
-  // a toggle would be redundant.
+  // ── Sliding bubble measurement ──────────────────────────────────────────
+  // We capture each slot's x offset on first layout, then animate a shared
+  // value between [0, 1] where the two endpoints index into the measured
+  // offsets. Same measurement pattern as FloatingDock.
+  const [slotXOffsets, setSlotXOffsets] = useState<number[]>([0, 0]);
+  const [slotWidth, setSlotWidth] = useState(0);
+
+  const handleSlotLayout = (index: number) => (e: LayoutChangeEvent) => {
+    const { x, width } = e.nativeEvent.layout;
+    setSlotXOffsets((prev) => {
+      if (prev[index] === x) return prev;
+      const next = [...prev];
+      next[index] = x;
+      return next;
+    });
+    if (width > 0) setSlotWidth(width);
+  };
+
+  const bubbleX = useSharedValue(0);
+  useEffect(() => {
+    const targetIdx = MODES.indexOf(mode);
+    const targetX = slotXOffsets[targetIdx] ?? 0;
+    bubbleX.value = withTiming(targetX, { duration: BUBBLE_DURATION_MS, easing: BUBBLE_EASING });
+  }, [mode, slotXOffsets, bubbleX]);
+
+  const bubbleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: bubbleX.value }],
+  }));
+
   if (isHybridToday) return null;
 
+  // Pill background tints — match the floating-dock palette so the header
+  // toggle reads as a miniature of the dock.
+  const pillBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+  const bubbleBg = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.9)';
+
   return (
-    <View style={styles.row}>
-      <ModeIcon
+    <View style={[styles.pill, { backgroundColor: pillBg }]}>
+      {/* Sliding indicator — pointer-events off so taps pass through to the
+          underlying slot buttons. Only renders once we've measured the
+          slots to avoid flashing a bubble at x=0 on first paint. */}
+      {slotWidth > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.bubble,
+            { width: slotWidth, backgroundColor: bubbleBg },
+            bubbleStyle,
+          ]}
+        />
+      )}
+
+      <ModeSlot
         iconName="dumbbell"
         selected={mode === 'workout'}
-        onPress={() => handleTap('workout')}
         accentColor={accent}
         mutedColor={colors.textMuted}
+        onPress={() => handleTap('workout')}
+        onLayout={handleSlotLayout(0)}
         statusDot={
           mode === 'workout'
             ? 'none'
@@ -84,12 +139,13 @@ function ModeToggleIcons() {
         testID="train-toggle-workout"
         accessibilityLabel={`Workout mode${mode === 'workout' ? ', selected' : ''}`}
       />
-      <ModeIcon
+      <ModeSlot
         iconName="figure-run"
         selected={mode === 'run'}
-        onPress={() => handleTap('run')}
         accentColor={accent}
         mutedColor={colors.textMuted}
+        onPress={() => handleTap('run')}
+        onLayout={handleSlotLayout(1)}
         statusDot={
           mode === 'run'
             ? 'none'
@@ -108,35 +164,34 @@ function ModeToggleIcons() {
 
 export default memo(ModeToggleIcons);
 
-// ─── ModeIcon (single icon with optional status dot + pulse) ──────────────
+// ─── ModeSlot (single icon inside the pill with optional status dot + pulse)
 
-interface ModeIconProps {
+interface ModeSlotProps {
   iconName: 'dumbbell' | 'figure-run';
   selected: boolean;
-  onPress: () => void;
   accentColor: string;
   mutedColor: string;
+  onPress: () => void;
+  onLayout: (e: LayoutChangeEvent) => void;
   statusDot: 'none' | 'active' | 'done';
   testID?: string;
   accessibilityLabel?: string;
 }
 
-function ModeIcon({
+function ModeSlot({
   iconName,
   selected,
-  onPress,
   accentColor,
   mutedColor,
+  onPress,
+  onLayout,
   statusDot,
   testID,
   accessibilityLabel,
-}: ModeIconProps) {
-  // Pulse animation for the "active session" dot. Re-use the same timing as
-  // the pulseDot in WorkoutOverviewCard / RunOverviewCard so the motion
-  // language is consistent across the app.
+}: ModeSlotProps) {
+  // Status-dot pulse (unchanged from prior implementation).
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(1);
-
   useEffect(() => {
     if (statusDot !== 'active') return;
     pulseScale.value = withRepeat(
@@ -156,7 +211,6 @@ function ModeIcon({
       false,
     );
   }, [statusDot, pulseScale, pulseOpacity]);
-
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
     opacity: pulseOpacity.value,
@@ -167,15 +221,16 @@ function ModeIcon({
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLayout={onLayout}
       activeOpacity={0.7}
-      style={styles.iconBtn}
-      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+      style={styles.slot}
+      hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected }}
     >
-      <PlatformIcon name={iconName} size={22} color={iconColor} strokeWidth={selected ? 2.5 : 2} />
+      <PlatformIcon name={iconName} size={18} color={iconColor} strokeWidth={selected ? 2.25 : 2} />
       {statusDot === 'active' && (
         <Animated.View style={[styles.dot, { backgroundColor: accentColor }, pulseStyle]} />
       )}
@@ -185,22 +240,36 @@ function ModeIcon({
 }
 
 const styles = StyleSheet.create({
-  row: {
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    padding: 3,
+    borderRadius: 18,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  iconBtn: {
-    width: 34,
-    height: 34,
+  // Sliding circle indicator. Height matches the slot so the pill-minus-padding
+  // gives a perfect circle when slotWidth ≈ (pill height - 2*padding).
+  bubble: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 0,
+    borderRadius: 999,
+  },
+  slot: {
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    // Explicit z-index above bubble so icon + status dot render on top.
+    zIndex: 1,
   },
   dot: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 2,
+    right: 2,
     width: 6,
     height: 6,
     borderRadius: 3,

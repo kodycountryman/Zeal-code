@@ -5,7 +5,7 @@ import FloatingDock from '@/components/FloatingDock';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { ConnectedPaywallModal } from '@/components/PaywallModal';
 import ZealTipBanner from '@/components/ZealTipBanner';
-import { AppTourProvider, useAppTour } from '@/context/AppTourContext';
+import { AppTourProvider } from '@/context/AppTourContext';
 import AppTour from '@/components/AppTour';
 
 // WheelPicker uses FlatList inside the workout tab's ScrollView — known RN limitation, works correctly
@@ -13,9 +13,7 @@ LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 
 function TabsWithPaywall() {
   const { loaded, triggerAppOpen } = useSubscription();
-  const { tourCompleted, loaded: tourLoaded, startTour } = useAppTour();
   const triggered = useRef(false);
-  const tourTriggered = useRef(false);
 
   useEffect(() => {
     if (loaded && !triggered.current) {
@@ -25,14 +23,9 @@ function TabsWithPaywall() {
     }
   }, [loaded]);
 
-  // Auto-start tour for new users who haven't completed it
-  useEffect(() => {
-    if (tourLoaded && !tourCompleted && !tourTriggered.current) {
-      tourTriggered.current = true;
-      __DEV__ && console.log('[tabs] Auto-starting app tour for new user');
-      setTimeout(() => startTour(), 1200);
-    }
-  }, [tourLoaded, tourCompleted]);
+  // Tour auto-start was moved to the Train tab (see app/(tabs)/train.tsx) so
+  // new users see the Home tab first and only encounter the tour when they
+  // actually land on the workout screen.
 
   return (
     <>

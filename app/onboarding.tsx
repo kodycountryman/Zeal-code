@@ -197,19 +197,33 @@ export default function OnboardingScreen() {
         coreFinisher: coreFinisherEnabled,
       });
 
-      await new Promise((r) => setTimeout(r, 1800));
-
+      // Finalize onboarding + unmount the "Building your first workout…"
+      // screen before navigating, so the loading UI has a frame to disappear
+      // and we never leave the user staring at a frozen screen.
       ctx.completeOnboarding();
-      router.replace('/(tabs)');
+      setGenerating(false);
+
+      // Safety net: if something stalls RN's navigation stack, force a
+      // replace after 4s so the user always lands on the Home tab.
+      const safetyTimer = setTimeout(() => {
+        __DEV__ && console.warn('[Onboarding] Safety timeout fired — forcing router.replace');
+        router.replace('/(tabs)');
+      }, 4000);
+
+      // Defer the navigation one frame so the loading overlay actually
+      // unmounts before the new tab layout mounts on top of it.
+      requestAnimationFrame(() => {
+        clearTimeout(safetyTimer);
+        router.replace('/(tabs)');
+      });
     } catch (e) {
       console.error('[Onboarding] Failed to save profile:', e);
+      setGenerating(false);
       Alert.alert(
         'Something went wrong',
         'We couldn\'t save your profile. Please try again.',
         [{ text: 'OK' }]
       );
-    } finally {
-      setGenerating(false);
     }
   }, [name, birthDay, birthMonth, birthYear, heightFt, heightIn, weightLbs, weightUnit, sex, fitnessLevel, goal, workoutStyle, equipPreset, localHomeEquip, warmUpEnabled, coolDownEnabled, recoveryEnabled, addCardioEnabled, coreFinisherEnabled, ctx]);
 

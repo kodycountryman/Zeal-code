@@ -247,11 +247,16 @@ export function ConnectedPaywallModal() {
 
   // Pull the localized price string from RevenueCat offerings.
   // Falls back to the first available package if `monthly` isn't populated.
+  // If RC offerings haven't loaded (dev builds without RC keys, cold launch
+  // before the fetch resolves, etc.) fall back to the known App Store price
+  // so the paywall never renders a naked dash. RC's localized string wins
+  // as soon as it arrives.
+  const FALLBACK_MONTHLY_PRICE = '$5.99';
   const monthlyPackage =
     offerings?.current?.monthly ??
     offerings?.current?.availablePackages?.[0] ??
     null;
-  const priceString: string | null = monthlyPackage?.product?.priceString ?? null;
+  const priceString: string = monthlyPackage?.product?.priceString ?? FALLBACK_MONTHLY_PRICE;
 
   return (
     <PaywallModal
@@ -376,14 +381,15 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 4,
+    gap: 8,
   },
   priceAmount: {
     fontSize: 48,
     fontFamily: 'Outfit_800ExtraBold',
     color: WHITE,
-    letterSpacing: -2,
+    letterSpacing: -1,
     lineHeight: 52,
+    paddingRight: 2,
   },
   priceMo: {
     fontSize: 16,
@@ -396,6 +402,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     color: 'rgba(255,255,255,0.35)',
     marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 28,
   },
 
   // ── Footer / CTA ──────────────────────────────────

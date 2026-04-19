@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Circle, ClipboardList,
   Clock, Compass, Copy, Crown, Download, Dumbbell, FileText, Flag, Flame, Footprints,
   GripVertical, Hammer, Heart, HeartPulse, HelpCircle, Home, Info, Layers,
-  Leaf, Lightbulb, Link2, ListChecks, Lock, LogOut, Medal, MessageCircle, Minus,
+  Leaf, Lightbulb, Link2, ListChecks, Lock, LogOut, Medal, MessageCircle, Minus, MoreHorizontal,
   Moon, Mountain, MousePointerClick, Move, Palette, Pause, Pencil, PersonStanding,
   PartyPopper, Play, PlayCircle, Plus, RefreshCw, Repeat2, RotateCcw, Save, Scale, Search,
   Settings, Settings2, Shield, Shuffle, Skull, SlidersHorizontal, Snowflake, Sparkles,
@@ -26,7 +26,7 @@ export type AppIconName =
   | 'clock' | 'compass' | 'copy' | 'crown' | 'download' | 'dumbbell' | 'file-text' | 'flag' | 'flame'
   | 'figure-run' | 'footprints' | 'grip-vertical' | 'hammer' | 'heart' | 'heart-pulse' | 'help-circle'
   | 'home' | 'info' | 'layers' | 'leaf' | 'lightbulb' | 'link' | 'list-checks' | 'lock'
-  | 'log-out' | 'medal' | 'message-circle' | 'minus' | 'moon' | 'mountain' | 'mouse-pointer-click'
+  | 'log-out' | 'medal' | 'message-circle' | 'minus' | 'more-horizontal' | 'moon' | 'mountain' | 'mouse-pointer-click'
   | 'move' | 'palette' | 'pause' | 'pencil' | 'person-standing' | 'play' | 'play-circle'
   | 'plus' | 'refresh' | 'repeat' | 'rotate-ccw' | 'save' | 'scale' | 'search' | 'settings'
   | 'settings-2' | 'shield' | 'skull' | 'sliders-horizontal' | 'snowflake' | 'sparkles'
@@ -103,6 +103,7 @@ export const SF_SYMBOL_MAP: Record<AppIconName, string> = {
   'medal':                  'medal',
   'message-circle':         'message.circle',
   'minus':                  'minus',
+  'more-horizontal':        'ellipsis',
   'moon':                   'moon',
   'mouse-pointer-click':    'hand.tap',
   'move':                   'arrow.up.down.left.right',
@@ -214,6 +215,7 @@ export const LUCIDE_MAP: Record<AppIconName, LucideIcon> = {
   'medal':              Medal,
   'message-circle':     MessageCircle,
   'minus':              Minus,
+  'more-horizontal':    MoreHorizontal,
   'moon':               Moon,
   'mouse-pointer-click': MousePointerClick,
   'move':               Move,

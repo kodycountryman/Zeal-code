@@ -53,7 +53,12 @@
       "Read(//opt/homebrew/bin/**)",
       "Bash(/usr/local/bin/node -e \":*)",
       "Bash(curl -s \"https://us.openfoodfacts.org/cgi/search.pl?search_terms=Peanut+Butter&json=1&page_size=3&fields=code,product_name,brands,nutriments&tagtype_0=countries&tag_contains_0=contains&tag_0=united-states\")",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(grep -r \"\\\\$5.99\\\\|5\\\\.99\\\\|price\\\\|Price\" components/ --include=\"*.tsx\" -n)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(grep -v \"^$\")",
+      "Bash(awk 'NR>=805 && /^}$/ {print NR; exit}' app/\\\\\\(tabs\\\\\\)/workout.tsx)"
     ]
   },
   "hooks": {

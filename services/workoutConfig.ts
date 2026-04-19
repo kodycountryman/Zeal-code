@@ -117,6 +117,11 @@ export function getDurationSteps(style: string): number[] {
       return [15, 20, 30, 45];
     case 'Pilates':
       return [20, 30, 45, 60];
+    case 'Low-Impact':
+      // Match the [30, 75] range defined for Low-Impact in WORKOUT_SESSION_CONFIG.
+      // Falling through to the default ([..., 90]) left a "90m" tick past the
+      // slider's max, making the slider look broken compared to other styles.
+      return [30, 45, 60, 75];
     default:
       return [30, 45, 60, 75, 90];
   }
