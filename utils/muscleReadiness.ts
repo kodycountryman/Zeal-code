@@ -22,6 +22,12 @@
  *   • Multi-session stacking uses the minimum per-session sessionValue
  *     within the 7-day window, so a fresh hard session always dominates
  *     a partially-recovered older one.
+ *
+ * User-flagged soreness (PostWorkoutSheet):
+ *   When a log carries `soreMuscles` (post-workout reflection), each named
+ *   muscle is capped to a "honestly sore" ceiling — the user's signal
+ *   overrides the algorithmic guess for SORENESS_CAP_VALUE. Recovery still
+ *   applies, so a 4-day-old soreness flag has eased back up.
  */
 
 import type { MuscleReadinessItem, MuscleStatus } from '@/context/AppContext';
@@ -37,6 +43,14 @@ const DIFFICULTY_MULTIPLIER: Record<string, number> = {
 
 /** Number of days to look back when computing readiness. */
 const LOOKBACK_DAYS = 7;
+
+/**
+ * Ceiling readiness value for a muscle the user manually flagged as sore in
+ * the PostWorkoutSheet. We don't slam it to 0 because (a) some athletes
+ * check "sore" pretty liberally and (b) recovery still applies as days pass.
+ * 35% lands the muscle in 'recovering' status (statusFor < 50).
+ */
+const SORENESS_CAP_VALUE = 35;
 
 /** Build a fresh, fully-rested readiness array (baseline shape). */
 function freshReadiness(): MuscleReadinessItem[] {
@@ -151,6 +165,31 @@ export function recalculateReadinessFromHistory(
       // Multi-session stacking: the most-fatigued recent session wins.
       if (sessionValue < m.value) {
         m.value = sessionValue;
+      }
+    }
+
+    // ── User-flagged soreness pass ──
+    // PostWorkoutSheet writes the user's honest "feels sore" answer to
+    // log.soreMuscles. We map each via normalizeMuscleGroup so MUSCLE_GROUPS
+    // chip names like 'Lats'/'Rear Delts' collapse onto the broad readiness
+    // categories. Cap at SORENESS_CAP_VALUE, with the same recovery-over-time
+    // ease so a soreness flag from 4 days ago doesn't permanently pin the
+    // muscle low.
+    if (log.soreMuscles && log.soreMuscles.length > 0) {
+      const recoveryFraction = Math.min(1, daysAgo / 4);
+      const eased = 1 - Math.pow(1 - recoveryFraction, 1.8);
+      const cap = Math.min(100, Math.max(15, Math.round(SORENESS_CAP_VALUE + (100 - SORENESS_CAP_VALUE) * eased)));
+
+      for (const raw of log.soreMuscles) {
+        const broad = normalizeMuscleGroup(raw);
+        const m = muscleMap.get(broad);
+        if (!m) continue; // unmapped (e.g. Forearms isn't a readiness category)
+        if (m.lastWorked === 'Never') {
+          m.lastWorked = label;
+        }
+        if (cap < m.value) {
+          m.value = cap;
+        }
       }
     }
   }

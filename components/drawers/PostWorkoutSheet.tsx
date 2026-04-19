@@ -17,6 +17,10 @@ import { useZealTheme } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { MUSCLE_GROUPS } from '@/constants/workoutStyles';
+import { getWorkoutComparison } from '@/services/workoutComparison';
+import { captureAndShareWorkout } from '@/services/workoutShareService';
+import PostWorkoutShareCard from '@/components/PostWorkoutShareCard';
+import type { View as RNView } from 'react-native';
 
 type Mood = 'rough' | 'low' | 'neutral' | 'good' | 'great';
 
@@ -82,6 +86,13 @@ export default function PostWorkoutSheet() {
   const log = useMemo(
     () => tracking.workoutHistory.find(l => l.id === tracking.lastSavedLogId) ?? null,
     [tracking.workoutHistory, tracking.lastSavedLogId],
+  );
+
+  // One-line context: how today stacks up vs the last comparable session.
+  // Null when no comparable history exists yet (first-of-its-kind workout).
+  const comparison = useMemo(
+    () => log ? getWorkoutComparison(log, tracking.workoutHistory) : null,
+    [log, tracking.workoutHistory],
   );
 
   // Local form state — seeded from the log on open.
@@ -165,10 +176,21 @@ export default function PostWorkoutSheet() {
     tracking.dismissPostWorkout();
   }, [touched, stars, rpe, chips, mood, sore, tracking]);
 
-  const handleShareTap = useCallback(() => {
+  const shareCardRef = useRef<RNView | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const handleShareTap = useCallback(async () => {
+    if (!log || isSharing) return;
     triggerHaptic('medium');
-    // TODO Phase 4: mount PostWorkoutShareCard, capture, and open share sheet.
-  }, []);
+    setIsSharing(true);
+    try {
+      // Card is mounted in the off-screen overlay below. Give layout one
+      // frame to settle before capture, especially on first share.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await captureAndShareWorkout({ viewRef: shareCardRef });
+    } finally {
+      setIsSharing(false);
+    }
+  }, [log, isSharing]);
 
   if (!visible || !log) return null;
 
@@ -224,7 +246,14 @@ export default function PostWorkoutSheet() {
             </View>
           </View>
 
-          {/* TODO Phase 4: comparison line goes here. */}
+          {comparison && (
+            <View style={styles.comparisonRow}>
+              <PlatformIcon name="trending-up" size={13} color={accent} />
+              <Text style={[styles.comparisonText, { color: colors.textSecondary }]}>
+                {comparison}
+              </Text>
+            </View>
+          )}
         </GlassCard>
 
         {/* ── PR celebration (only when fresh PRs from this session) ── */}
@@ -367,6 +396,13 @@ export default function PostWorkoutSheet() {
 
         <View style={{ height: 16 }} />
       </View>
+
+      {/* Off-screen render target for the share card. Positioned outside the
+          visible viewport so it doesn't interfere with the sheet UI but is
+          mounted (collapsable={false}) so view-shot can capture it. */}
+      <View style={styles.shareCardHost} pointerEvents="none">
+        <PostWorkoutShareCard ref={shareCardRef} log={log} accent={accent} />
+      </View>
     </BaseDrawer>
   );
 }
@@ -417,6 +453,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Outfit_500Medium',
     letterSpacing: 0.2,
+  },
+  comparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  comparisonText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
   },
   prCard: {
     padding: 16,
@@ -507,5 +554,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  // Off-screen render container — far enough off the viewport that it never
+  // shows. Stays mounted only while the sheet is visible.
+  shareCardHost: {
+    position: 'absolute',
+    top: -10000,
+    left: -10000,
+    width: 1080,
+    height: 1920,
   },
 });

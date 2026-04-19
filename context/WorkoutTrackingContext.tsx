@@ -1391,6 +1391,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
 
+    // Recompute readiness so user-flagged soreness (and any difficulty change
+    // from the new star rating) takes effect immediately on the home dashboard.
+    ctx.setMuscleReadiness(recalculateReadinessFromHistory(newHistory, new Date()));
+
     __DEV__ && console.log('[Tracking] Feedback patched. id:', lastSavedLogId, 'stars:', newStars, 'newScore:', newScore);
   }, [lastSavedLogId, workoutHistory, confirmedPRs, calculateScore, ctx]);
 
