@@ -38,7 +38,7 @@ const sdStyles = StyleSheet.create({
 });
 
 export default function WorkoutLogDetail() {
-  const { colors, isDark } = useZealTheme();
+  const { colors, isDark, accent } = useZealTheme();
   const tracking = useWorkoutTracking();
   const run = useRun();
   const log = tracking.selectedLog;
@@ -104,6 +104,28 @@ export default function WorkoutLogDetail() {
             <Text style={[styles.dateText, { color: colors.textSecondary }]}>
               {new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </Text>
+
+            {/* Add feedback CTA — visible only when the user skipped post-workout
+                reflection on a live-tracked session. Manual logs (isManualLog)
+                are inherently complete (the LogPreviousWorkoutDrawer collected
+                everything at entry time) so we don't double-prompt. */}
+            {!log.feedbackComplete && !log.isManualLog && (
+              <TouchableOpacity
+                style={[styles.addFeedbackCta, { backgroundColor: `${accent}15`, borderColor: `${accent}40` }]}
+                onPress={() => {
+                  tracking.openFeedbackForLog(log.id);
+                  animClose();
+                }}
+                activeOpacity={0.85}
+                testID="add-feedback-cta"
+                accessibilityRole="button"
+                accessibilityLabel="Add feedback to this workout"
+              >
+                <PlatformIcon name="pencil" size={14} color={accent} />
+                <Text style={[styles.addFeedbackLabel, { color: accent }]}>Add feedback</Text>
+                <PlatformIcon name="chevron-right" size={14} color={accent} />
+              </TouchableOpacity>
+            )}
 
             <View style={styles.statsRow}>
               <View style={[styles.statPill, { backgroundColor: isDark ? '#1e1e1e' : '#f0f0f0' }]}>
@@ -464,6 +486,23 @@ const styles = StyleSheet.create({
   },
   manualMuscles: {
     fontSize: 12,
+  },
+  addFeedbackCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  addFeedbackLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.2,
   },
   advancedGrid: {
     flexDirection: 'row',
