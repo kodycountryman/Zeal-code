@@ -1,4 +1,4 @@
-import React, { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withRepeat, withSequence, cancelAnimation, runOnJS } from 'react-native-reanimated';
 import ExpandingPanel from '@/components/ExpandingPanel';
 import * as Haptics from 'expo-haptics';
@@ -803,16 +803,24 @@ function generateItemDetail(name: string, type: 'warmup' | 'cooldown' | 'recover
 }
 
 /**
- * Imperative API exposed via ref when WorkoutScreen is embedded inside
- * TrainScreen. TrainScreen renders a static overlay header whose avatar
- * press needs to trigger the profile drawer living inside WorkoutScreen,
- * without lifting its local drawer state up. Kept deliberately minimal.
+ * Module-scoped handler registry for TrainScreen's static overlay header.
+ *
+ * The overlay's avatar press needs to open the profile drawer living inside
+ * WorkoutScreen without lifting the drawer state up. We register the
+ * handler on mount and expose a named helper so TrainScreen can fire it.
+ *
+ * Why not `forwardRef` on the default export? expo-router registers this
+ * file as a Tabs.Screen route — its static analysis of route components
+ * doesn't play well with forwardRef's `$$typeof` marker, which triggered
+ * React's "Expected static flag was missing" internal assertion when
+ * HomeScreen rendered. A plain function default export sidesteps this.
  */
-export interface WorkoutScreenHandle {
-  openProfileDrawer: () => void;
+let _openWorkoutProfileDrawer: (() => void) | null = null;
+export function openWorkoutProfileDrawer() {
+  _openWorkoutProfileDrawer?.();
 }
 
-const WorkoutScreen = forwardRef<WorkoutScreenHandle>(function WorkoutScreen(_props, ref) {
+export default function WorkoutScreen() {
   const { colors, accent, isZeal, isDark } = useZealTheme();
   const ctx = useAppContext();
   const currentWorkoutTitleRef = useRef(ctx.currentWorkoutTitle);
@@ -844,11 +852,15 @@ const WorkoutScreen = forwardRef<WorkoutScreenHandle>(function WorkoutScreen(_pr
   const [activeEditCell, setActiveEditCell] = useState<{ exId: string; setIdx: number; field: 'weight' | 'reps' } | null>(null);
   const [completedSets, setCompletedSets] = useState<Record<string, Set<number>>>({});
   const [profileVisible, setProfileVisible] = useState(false);
-  // Expose an imperative handle so TrainScreen's static header can open the
-  // profile drawer without duplicating state. See WorkoutScreenHandle.
-  useImperativeHandle(ref, () => ({
-    openProfileDrawer: () => setProfileVisible(true),
-  }), []);
+  // Register the drawer opener with the module-scoped registry so
+  // TrainScreen's overlay header can trigger it. See openWorkoutProfileDrawer.
+  useEffect(() => {
+    const handler = () => setProfileVisible(true);
+    _openWorkoutProfileDrawer = handler;
+    return () => {
+      if (_openWorkoutProfileDrawer === handler) _openWorkoutProfileDrawer = null;
+    };
+  }, []);
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
   const [insightsVisible, setInsightsVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -5468,9 +5480,7 @@ const WorkoutScreen = forwardRef<WorkoutScreenHandle>(function WorkoutScreen(_pr
       )}
     </View>
   );
-});
-
-export default WorkoutScreen;
+}
 
 const generatingStyles = StyleSheet.create({
   overlay: {

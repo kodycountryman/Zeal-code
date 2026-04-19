@@ -1,4 +1,4 @@
-import React, { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -92,15 +92,18 @@ function relativeDate(iso: string): string {
 }
 
 /**
- * Imperative API exposed via ref when RunScreen is embedded inside
- * TrainScreen. TrainScreen's static overlay header opens the run settings
- * drawer via this handle without lifting the drawer's visibility state up.
+ * Module-scoped handler registry so TrainScreen's static overlay header
+ * can open the run-settings drawer without forwarding refs through the
+ * default export. See the matching pattern in workout.tsx for why we
+ * avoid `forwardRef` on route-level default exports (expo-router + React
+ * static-flag assertion compatibility).
  */
-export interface RunScreenHandle {
-  openSettingsDrawer: () => void;
+let _openRunSettingsDrawer: (() => void) | null = null;
+export function openRunSettingsDrawer() {
+  _openRunSettingsDrawer?.();
 }
 
-const RunScreen = forwardRef<RunScreenHandle>(function RunScreen(_props, ref) {
+export default function RunScreen() {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const run = useRun();
@@ -126,11 +129,15 @@ const RunScreen = forwardRef<RunScreenHandle>(function RunScreen(_props, ref) {
   const [badgeQueue, setBadgeQueue] = useState<RunBadge[]>([]);
   const [audioSettingsVisible, setAudioSettingsVisible] = useState(false);
   const [runSettingsVisible, setRunSettingsVisible] = useState(false);
-  // Imperative handle — see RunScreenHandle. TrainScreen's overlay header
-  // opens this drawer via the exposed method instead of duplicating state.
-  useImperativeHandle(ref, () => ({
-    openSettingsDrawer: () => setRunSettingsVisible(true),
-  }), []);
+  // Register the drawer opener with the module-scoped registry so
+  // TrainScreen's overlay header can trigger it. See openRunSettingsDrawer.
+  useEffect(() => {
+    const handler = () => setRunSettingsVisible(true);
+    _openRunSettingsDrawer = handler;
+    return () => {
+      if (_openRunSettingsDrawer === handler) _openRunSettingsDrawer = null;
+    };
+  }, []);
   const router = useRouter();
 
   // Check permission status on mount
@@ -852,9 +859,7 @@ const RunScreen = forwardRef<RunScreenHandle>(function RunScreen(_props, ref) {
       />
     </View>
   );
-});
-
-export default RunScreen;
+}
 
 /** Convert a RunBadge to the Achievement shape expected by AchievementModal. */
 function runBadgeToAchievement(b: RunBadge): Achievement {

@@ -35,11 +35,11 @@ function TabsWithPaywall() {
       >
         <Tabs.Screen name="index" />
         <Tabs.Screen name="train" />
-        {/* Legacy routes — still mounted so router.push('/workout') etc. from */}
-        {/* pre-Train-tab call sites continue to work. They redirect to /train. */}
-        {/* Scheduled for deletion in Phase 6 of the Train unification. */}
-        <Tabs.Screen name="workout" />
-        <Tabs.Screen name="run" />
+        {/* Legacy /workout and /run Tabs.Screen entries were removed —
+            no remaining router.push('/workout' | '/run') call sites in the
+            codebase, and keeping them registered surfaced a React
+            static-flag assertion when TrainScreen also composed the same
+            route components. /train is the sole entry point now. */}
         {/* Hidden for v1 App Store submission — uncomment for v2 */}
         {/* <Tabs.Screen name="nutrition" /> */}
         {/* <Tabs.Screen name="coach" /> */}

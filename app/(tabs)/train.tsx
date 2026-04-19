@@ -43,8 +43,8 @@ import { useAppContext, useZealTheme } from '@/context/AppContext';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import ModeToggleIcons from '@/components/train/ModeToggleIcons';
 import MiniSessionBar from '@/components/train/MiniSessionBar';
-import WorkoutScreen, { type WorkoutScreenHandle } from './workout';
-import RunScreen, { type RunScreenHandle } from './run';
+import WorkoutScreen, { openWorkoutProfileDrawer } from './workout';
+import RunScreen, { openRunSettingsDrawer } from './run';
 
 // Shared timing for the content slide, gear entrance, and title crossfade.
 // `withTiming` (not `withSpring`) because a spring's tail-end overshoot was
@@ -64,10 +64,10 @@ export default function TrainScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const tourAutoTriggered = useRef(false);
 
-  // Imperative refs into the embedded screens so the overlay's avatar/gear
-  // presses can open each screen's local drawer.
-  const workoutRef = useRef<WorkoutScreenHandle | null>(null);
-  const runRef = useRef<RunScreenHandle | null>(null);
+  // Drawers inside each embedded screen are opened via exported helpers
+  // from those route files (see openWorkoutProfileDrawer /
+  // openRunSettingsDrawer) — avoids forwardRef on the default route
+  // exports, which broke expo-router's static analysis.
 
   useEffect(() => {
     syncFromQueryParam(params.mode);
@@ -130,17 +130,17 @@ export default function TrainScreen() {
 
   const handleAvatarPress = useCallback(() => {
     if (mode === 'workout') {
-      workoutRef.current?.openProfileDrawer();
+      openWorkoutProfileDrawer();
     } else {
       // TODO(profile): route to a shared profile drawer once AthleteProfileDrawer
       // is wired into the run flow. For now, tapping the avatar in run mode
       // opens the run settings drawer (matches existing behavior).
-      runRef.current?.openSettingsDrawer();
+      openRunSettingsDrawer();
     }
   }, [mode]);
 
   const handleGearPress = useCallback(() => {
-    runRef.current?.openSettingsDrawer();
+    openRunSettingsDrawer();
   }, []);
 
   if (!loaded) return null;
@@ -157,10 +157,10 @@ export default function TrainScreen() {
         ]}
       >
         <View style={{ width: screenWidth }}>
-          <WorkoutScreen ref={workoutRef} />
+          <WorkoutScreen />
         </View>
         <View style={{ width: screenWidth }}>
-          <RunScreen ref={runRef} />
+          <RunScreen />
         </View>
       </Animated.View>
 
