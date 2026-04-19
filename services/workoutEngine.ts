@@ -95,6 +95,20 @@ export interface GenerateWorkoutParams {
   volumeModifier?: number;
   bodyweightLbs?: number;
   cacheVariantKey?: string;
+  // ── Closed-loop feedback signals (forwarded into EngineParams) ──
+  /** Per-exercise like/dislike. Stage 4 scoring uses this to bias selection. */
+  exercisePreferences?: Record<string, 'liked' | 'disliked' | 'neutral'>;
+  /** Per-exercise last-completed-set summary. Stage 4 (recency penalty) and
+   *  Stage 5 (progressive overload) read this. Built from workoutHistory by
+   *  services/feedbackProjection.ts buildTrainingLog(). */
+  trainingLog?: TrainingLogEntry[];
+  /** Trailing RPE window. Stage 8 averages and adjusts volume/intensity
+   *  ±5–10% when avg drifts outside [4, 8]. Built by buildFeedbackData(). */
+  feedbackData?: FeedbackData;
+  /** Map of broad muscle name → readiness 0–100. Engine applies hybrid gate:
+   *  hard-blocks exercises whose primary muscles are <25% ready (Stage 3),
+   *  soft-biases scoring for muscles <70% (Stage 4). */
+  muscleReadiness?: Record<string, number>;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -240,6 +254,11 @@ export interface EngineParams {
   trainingLog?: TrainingLogEntry[];
   feedbackData?: FeedbackData;
   planPrescription?: PlanPrescription | null;
+  /** Map of broad muscle name (e.g. "Chest") to readiness 0–100. The engine
+   *  applies the hybrid gate: hard-blocks exercises whose primary muscles
+   *  are <25% ready (Stage 3); soft-biases scoring for muscles <70%
+   *  (Stage 4). Caller projects from AppContext.muscleReadiness. */
+  muscleReadiness?: Record<string, number>;
 }
 
 export interface EngineWarmupItem {
@@ -2810,6 +2829,15 @@ export function generateWorkout(params: GenerateWorkoutParams, prescription?: Da
     specificMuscles: params.specificMuscles,
     seedOffset: params.seedOffset,
     planPrescription: planPrescriptionForEngine,
+    // ── Closed-loop feedback signals ──
+    // Engine actively consumes these in Stages 3, 4, 5, and 8. Forwarding
+    // them here is what turns the post-workout reflection into actual
+    // generation behavior. See services/feedbackProjection.ts for how the
+    // calling context builds trainingLog + feedbackData from history.
+    exercisePreferences: params.exercisePreferences,
+    trainingLog: params.trainingLog,
+    feedbackData: params.feedbackData,
+    muscleReadiness: params.muscleReadiness,
   };
 
   const result = runEngine(engineParams);

@@ -8,6 +8,7 @@ import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine
 import { healthService } from '@/services/healthService';
 import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
 import { generateWorkout, generateCoreFinisherFromEngine } from '@/services/workoutEngine';
+import { buildTrainingLog, buildFeedbackData } from '@/services/feedbackProjection';
 import { PRO_STYLES_SET } from '@/services/proGate';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
@@ -462,7 +463,24 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       // Pass plan phase context so generation matches current training phase
       planPhase: prescription?.phase,
       volumeModifier: prescription?.volume_modifier,
+      // ── Closed-loop feedback signals ──
+      // exercisePreferences was already in this object before the loop wiring
+      // landed but the public params type didn't declare it (silently dropped
+      // in the engine boundary). Now declared + actively consumed in Stage 4.
       exercisePreferences: ctx.exercisePreferences,
+      // trainingLog drives Stage 4 recency penalty + Stage 5 progressive
+      // overload (+5/+10 lb when reps beat target by 2). See feedbackProjection.
+      trainingLog: buildTrainingLog(workoutHistory),
+      // feedbackData feeds Stage 8 — last 5 sessions' RPE drift adjusts
+      // volume / intensity ±5–10% via FEEDBACK_ADJUSTMENT thresholds.
+      feedbackData: buildFeedbackData(workoutHistory),
+      // muscleReadiness drives Stage 3 hard-block (<25%) and Stage 4 soft-bias
+      // (<70%). Project the ctx array → Record<name, value>. soreMuscles
+      // captured in PostWorkoutSheet flows into this via the readiness
+      // recalculation in utils/muscleReadiness.ts.
+      muscleReadiness: Object.fromEntries(
+        ctx.muscleReadiness.map(m => [m.name, m.value]),
+      ),
     };
 
     // If we have a pre-generated plan day workout in cache, use it directly — skip AI call
