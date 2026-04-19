@@ -110,6 +110,17 @@ export interface WorkoutLog {
   distanceMeters?: number | null;
   /** Free-text reflection — Advanced mode only. */
   notes?: string;
+  // ── Post-workout overhaul fields (populated by PostWorkoutSheet) ──
+  /** 1-tap subjective state captured post-workout. Display-only — does not
+   *  affect training score. */
+  mood?: 'rough' | 'low' | 'neutral' | 'good' | 'great';
+  /** Muscles the user flagged as currently sore. Lowercase canonical ids
+   *  matching MUSCLE_GROUPS. Feeds Muscle Readiness on save. */
+  soreMuscles?: string[];
+  /** Whether the user actually engaged with the post-workout sheet. False/
+   *  undefined means "saved with defaults — show Add Feedback CTA in
+   *  WorkoutLogDetail". True means the user touched at least one input. */
+  feedbackComplete?: boolean;
 }
 
 export interface HealthImportItem {
@@ -331,6 +342,11 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const [sessionScoreBreakdown, setSessionScoreBreakdown] = useState<TrainingScoreBreakdown | null>(null);
   const [sessionPRs, setSessionPRs] = useState<PersonalRecord[]>([]);
   const [confirmedPRs, setConfirmedPRs] = useState<PersonalRecord[]>([]);
+  // Id of the WorkoutLog that the post-workout sheet is currently bound to.
+  // Set by beginPostWorkout (live finish) and openFeedbackForLog (retroactive
+  // entry from WorkoutLogDetail). applyFeedbackPatch reads this to know which
+  // log to mutate.
+  const [lastSavedLogId, setLastSavedLogId] = useState<string | null>(null);
 
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutLog[]>([]);
   const [prHistory, setPrHistory] = useState<PersonalRecord[]>([]);
@@ -1105,67 +1121,27 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     return calculateScore(starMap[difficulty], sessionPRs);
   }, [calculateScore, sessionPRs]);
 
-  const beginPostWorkout = useCallback(() => {
-    __DEV__ && console.log('[Tracking] Beginning post-workout flow');
-
-    const realPRs = sessionPRs.filter(pr => {
-      const existing = prHistory.find(p => p.exerciseName === pr.exerciseName && p.type === pr.type);
-      return existing && pr.value > existing.value;
-    });
-    setConfirmedPRs(realPRs);
-    __DEV__ && console.log('[Tracking] Confirmed PRs (beaten records):', realPRs.length, 'of', sessionPRs.length, 'total');
-
-    setIsWorkoutActive(false);
-    setShowRestTimer(false);
-    setIsRestActive(false);
-    restRemainingRef.current = 0;
-
-    if (realPRs.length > 0) {
-      setPostWorkoutStep('prs');
-    } else {
-      setPostWorkoutStep('feedback');
-    }
-  }, [sessionPRs, prHistory]);
-
-  const prepareSaveStep = useCallback((starRating: number, rpe: number, wellChips: string[]) => {
-    setSelectedStarRating(starRating);
-    setSelectedRpe(rpe);
-    setWhatWentWell(wellChips);
-
-    const score = calculateScore(starRating, confirmedPRs);
-    setSessionScoreBreakdown(score);
-
-    const starToDifficulty: Record<number, DifficultyLevel> = { 1: 'easy', 2: 'easy', 3: 'moderate', 4: 'hard', 5: 'brutal' };
-    setSelectedDifficulty(starToDifficulty[starRating] ?? 'moderate');
-
-    setPostWorkoutStep('save');
-
-    // Auto-save the workout log immediately — no manual "Save" tap required.
-    // saveWorkout reads from state that was just set above; React batches these
-    // so we defer one frame to let the state commit.
-    requestAnimationFrame(() => {
-      saveWorkoutRef.current?.();
-    });
-  }, [calculateScore, confirmedPRs]);
-
-  const saveWorkout = useCallback(() => {
-    __DEV__ && console.log('[Tracking] Saving workout');
-    const score = sessionScoreBreakdown;
-    if (!score) {
-      __DEV__ && console.log('[Tracking] No score breakdown, cannot save');
-      return;
-    }
-
+  /**
+   * Internal helper — builds and persists a new WorkoutLog with default
+   * feedback (3 stars, RPE 6, no chips, mood/sore undefined). Returns the
+   * new log id so the caller can bind the post-workout sheet to it.
+   *
+   * Pure with respect to React state via params: callers pass the realPRs
+   * array they just computed so we don't race with state commit.
+   *
+   * Replaces the old saveWorkout — same side effects (AsyncStorage, PR
+   * history, weekly hours, training score, muscle readiness, streak, plan
+   * day completion, Health sync) but uses default values instead of reading
+   * from feedback state. Feedback values get patched in later via
+   * applyFeedbackPatch() if the user touches the post-workout sheet.
+   */
+  const _persistInitialLog = useCallback((realPRs: PersonalRecord[]): string => {
     const totalSets = Object.values(exerciseLogs).reduce((acc, log) => acc + log.sets.filter(s => s.done).length, 0);
     const totalVolume = Object.values(exerciseLogs).reduce((acc, log) =>
       acc + log.sets.filter(s => s.done).reduce((sum, s) => sum + s.weight * s.reps, 0), 0
     );
 
-    // Build per-muscle completed set counts. We accumulate against the raw
-    // exercise-level keys (e.g. "chest", "front_delt") so we don't lose
-    // granularity, then normalize to broad readiness categories ("Chest",
-    // "Shoulders") before persisting — the downstream readiness recalc keys
-    // strictly on broad names.
+    // Build per-muscle completed set counts (same logic as the prior saveWorkout).
     const rawMuscleSetCounts: Record<string, number> = {};
     if (activeWorkout) {
       for (const ex of activeWorkout.workout) {
@@ -1177,6 +1153,16 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     }
     const muscleSetCounts = normalizeSetCounts(rawMuscleSetCounts);
     const muscleGroups = broadMuscleNamesFromRawCounts(rawMuscleSetCounts);
+
+    // Default star=3 → 1.0× multiplier so first-save score reflects only what
+    // happened during the workout. If the user later rates the workout, the
+    // score is recomputed and ctx.trainingScore is patched by the delta.
+    const score = calculateScore(3, realPRs);
+    setSessionScoreBreakdown(score);
+    setSelectedStarRating(3);
+    setSelectedRpe(6);
+    setWhatWentWell([]);
+    setSelectedDifficulty('moderate');
 
     const sessionId = generateId();
     const sessionStartISO = new Date(Date.now() - workoutElapsedRef.current * 1000).toISOString();
@@ -1191,15 +1177,16 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       exercises: Object.values(exerciseLogs),
       totalSets,
       totalVolume,
-      prsHit: confirmedPRs.length,
+      prsHit: realPRs.length,
       trainingScore: score.finalScore,
-      difficulty: selectedDifficulty,
-      starRating: selectedStarRating,
-      rpe: selectedRpe,
-      whatWentWell,
+      difficulty: 'moderate',
+      starRating: 3,
+      rpe: 6,
+      whatWentWell: [],
       muscleGroups,
       muscleSetCounts,
       startTime: sessionStartISO,
+      feedbackComplete: false,
     };
 
     const newHistory = [logEntry, ...workoutHistory];
@@ -1294,14 +1281,135 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       });
     }
 
-    __DEV__ && console.log('[Tracking] Workout auto-saved. Score:', score?.finalScore ?? 0, 'PRs:', confirmedPRs.length);
-  }, [sessionScoreBreakdown, exerciseLogs, confirmedPRs, sessionPRs, activeWorkout, workoutHistory, prHistory, weeklyHoursMin, ctx, selectedDifficulty, selectedStarRating, selectedRpe, whatWentWell]);
+    __DEV__ && console.log('[Tracking] Workout auto-saved with defaults. id:', sessionId, 'Score:', score.finalScore, 'PRs:', realPRs.length);
+    return sessionId;
+  }, [exerciseLogs, sessionPRs, activeWorkout, workoutHistory, prHistory, weeklyHoursMin, ctx, calculateScore]);
 
-  // Stable ref so prepareSaveStep can call saveWorkout after state commits
-  const saveWorkoutRef = useRef<() => void>();
-  saveWorkoutRef.current = saveWorkout;
+  /**
+   * Triggered when the user taps "Finish Workout".
+   *
+   * NEW lifecycle (post-workout overhaul):
+   *   1. Compute confirmed PRs (records that beat existing prHistory).
+   *   2. Persist the WorkoutLog IMMEDIATELY with default feedback so closing
+   *      the post-workout sheet is never destructive — every Finish = a saved
+   *      workout. Streak ticks. Score added. Health synced.
+   *   3. Stash the new log id in lastSavedLogId so the post-workout sheet
+   *      knows which log to patch when the user adds feedback.
+   *   4. Set step to 'feedback' (single screen now — PRs render inline at the
+   *      top of the new PostWorkoutSheet).
+   */
+  const beginPostWorkout = useCallback(() => {
+    __DEV__ && console.log('[Tracking] Beginning post-workout flow');
 
-  // Dismiss the post-workout modal and clean up state
+    const realPRs = sessionPRs.filter(pr => {
+      const existing = prHistory.find(p => p.exerciseName === pr.exerciseName && p.type === pr.type);
+      return existing && pr.value > existing.value;
+    });
+    setConfirmedPRs(realPRs);
+    __DEV__ && console.log('[Tracking] Confirmed PRs (beaten records):', realPRs.length, 'of', sessionPRs.length, 'total');
+
+    setIsWorkoutActive(false);
+    setShowRestTimer(false);
+    setIsRestActive(false);
+    restRemainingRef.current = 0;
+
+    // Persist immediately with defaults — workout cannot be lost from here on.
+    const savedId = _persistInitialLog(realPRs);
+    setLastSavedLogId(savedId);
+
+    setPostWorkoutStep('feedback');
+  }, [sessionPRs, prHistory, _persistInitialLog]);
+
+  /**
+   * Patch the saved WorkoutLog with the user's feedback. Called by
+   * PostWorkoutSheet when the user taps "Save Feedback" with at least one
+   * field touched.
+   *
+   * If starRating changes, recompute the training score and adjust
+   * ctx.trainingScore by the delta so the home dashboard stays in sync with
+   * the saved log.
+   *
+   * Marks `feedbackComplete = true` so the WorkoutLogDetail "Add feedback"
+   * CTA disappears for this log on subsequent views.
+   */
+  const applyFeedbackPatch = useCallback((patch: {
+    starRating?: number;
+    rpe?: number;
+    whatWentWell?: string[];
+    mood?: 'rough' | 'low' | 'neutral' | 'good' | 'great';
+    soreMuscles?: string[];
+  }) => {
+    if (!lastSavedLogId) {
+      __DEV__ && console.log('[Tracking] applyFeedbackPatch with no lastSavedLogId — no-op');
+      return;
+    }
+
+    const idx = workoutHistory.findIndex(l => l.id === lastSavedLogId);
+    if (idx === -1) {
+      __DEV__ && console.log('[Tracking] applyFeedbackPatch — log not found:', lastSavedLogId);
+      return;
+    }
+
+    const old = workoutHistory[idx];
+    const newStars = patch.starRating ?? old.starRating;
+    const starToDifficulty: Record<number, DifficultyLevel> = { 1: 'easy', 2: 'easy', 3: 'moderate', 4: 'hard', 5: 'brutal' };
+
+    // Recompute score only when star rating actually changed. Use confirmedPRs
+    // for the bonus (they're still in state from beginPostWorkout). Patch the
+    // home dashboard's training score by the delta.
+    let newScore = old.trainingScore;
+    if (patch.starRating !== undefined && patch.starRating !== old.starRating) {
+      const breakdown = calculateScore(newStars, confirmedPRs);
+      newScore = breakdown.finalScore;
+      const delta = newScore - old.trainingScore;
+      ctx.setTrainingScore(ctx.trainingScore + delta);
+      ctx.setTargetDone(ctx.targetDone + delta);
+      setSessionScoreBreakdown(breakdown);
+    }
+
+    const updated: WorkoutLog = {
+      ...old,
+      starRating: newStars,
+      rpe: patch.rpe ?? old.rpe,
+      whatWentWell: patch.whatWentWell ?? old.whatWentWell,
+      mood: patch.mood ?? old.mood,
+      soreMuscles: patch.soreMuscles ?? old.soreMuscles,
+      difficulty: starToDifficulty[newStars] ?? 'moderate',
+      trainingScore: newScore,
+      feedbackComplete: true,
+    };
+
+    // Mirror local feedback state so legacy consumers (e.g. WorkoutOverviewCard
+    // reading selectedStarRating) see the latest values until the next workout.
+    setSelectedStarRating(newStars);
+    setSelectedRpe(updated.rpe);
+    setWhatWentWell(updated.whatWentWell);
+    setSelectedDifficulty(updated.difficulty);
+
+    const newHistory = [...workoutHistory];
+    newHistory[idx] = updated;
+    setWorkoutHistory(newHistory);
+    AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
+
+    __DEV__ && console.log('[Tracking] Feedback patched. id:', lastSavedLogId, 'stars:', newStars, 'newScore:', newScore);
+  }, [lastSavedLogId, workoutHistory, confirmedPRs, calculateScore, ctx]);
+
+  /**
+   * Bind the post-workout sheet to an existing log for retroactive feedback
+   * entry. Called from WorkoutLogDetail's "Add feedback" CTA.
+   */
+  const openFeedbackForLog = useCallback((logId: string) => {
+    __DEV__ && console.log('[Tracking] Opening feedback for existing log:', logId);
+    setLastSavedLogId(logId);
+    setPostWorkoutStep('feedback');
+  }, []);
+
+  // Dismiss the post-workout modal and clean up session-scoped state.
+  // Intentionally does NOT clear activeWorkout / exerciseLogs — those stay
+  // around so the workout screen still shows what was just done. They get
+  // cleared when the user starts the next workout (startWorkout / resetWorkout).
+  // This also keeps the retroactive-entry path safe: opening the sheet from
+  // WorkoutLogDetail and dismissing won't interfere with any unrelated state.
   const dismissPostWorkout = useCallback(() => {
     __DEV__ && console.log('[Tracking] Dismissing post-workout flow');
     setPostWorkoutStep(null);
@@ -1311,22 +1419,28 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setIsTimerMinimized(false);
   }, []);
 
-  const discardWorkout = useCallback(() => {
-    __DEV__ && console.log('[Tracking] Discarding workout');
-    setPostWorkoutStep(null);
-    setSessionScoreBreakdown(null);
-    setSessionPRs([]);
-    setConfirmedPRs([]);
-    setIsTimerMinimized(false);
-    setExerciseLogs({});
-    setExpandedExercise(null);
-    setActiveWorkout(null);
-  }, []);
-
+  // completeWorkout is the legacy programmatic-complete API. Maps difficulty
+  // to a star rating and applies it via applyFeedbackPatch. Keeps backward
+  // compatibility for any code path that wants to programmatically finish a
+  // workout with explicit feedback in one call.
   const completeWorkout = useCallback((difficulty: DifficultyLevel, rpe: number, wellChips: string[]) => {
     const starMap: Record<DifficultyLevel, number> = { easy: 1, moderate: 3, hard: 4, brutal: 5 };
-    prepareSaveStep(starMap[difficulty], rpe, wellChips);
-  }, [prepareSaveStep]);
+    applyFeedbackPatch({ starRating: starMap[difficulty], rpe, whatWentWell: wellChips });
+  }, [applyFeedbackPatch]);
+
+  // ─── Deprecated shims ──────────────────────────────────────────────────
+  // Kept for the duration of Phase 2 so the old PostWorkoutFlow.tsx still
+  // compiles. Phase 3 deletes PostWorkoutFlow.tsx AND removes these shims.
+  // DO NOT add new callers — use applyFeedbackPatch / dismissPostWorkout.
+  const prepareSaveStep = useCallback((starRating: number, rpe: number, wellChips: string[]) => {
+    applyFeedbackPatch({ starRating, rpe, whatWentWell: wellChips });
+  }, [applyFeedbackPatch]);
+  const saveWorkout = useCallback(() => {
+    /* no-op — workout already auto-saved in beginPostWorkout */
+  }, []);
+  const discardWorkout = useCallback(() => {
+    /* no-op — Discard is no longer a post-workout action; workout is already saved */
+  }, []);
 
   /**
    * Persist a retroactive "Log Previous Workout" entry to workoutHistory.
@@ -1385,6 +1499,9 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       maxHeartRate: input.maxHeartRate ?? null,
       distanceMeters: input.distanceMeters ?? null,
       notes: input.notes,
+      // Manual logs are inherently "complete feedback" — the user picked
+      // every value when filling the form. No Add Feedback CTA for these.
+      feedbackComplete: true,
     };
 
     const newHistory = [logEntry, ...workoutHistory];
@@ -1714,11 +1831,15 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     calculateTrainingScore,
     calculateScore,
     beginPostWorkout,
+    applyFeedbackPatch,
+    openFeedbackForLog,
+    lastSavedLogId,
+    dismissPostWorkout,
+    completeWorkout,
+    // Deprecated shims (Phase 2 backward compat — removed in Phase 3)
     prepareSaveStep,
     saveWorkout,
-    dismissPostWorkout,
     discardWorkout,
-    completeWorkout,
     logPreviousWorkout,
     removeWorkoutLog,
     getLogForDate,
@@ -1749,8 +1870,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     startWorkout, pauseWorkout, resetWorkout, startRestTimer, adjustRestTimer,
     setRestPreset, cancelRestTimer, initExerciseLog, updateSetLog,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
-    updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout, prepareSaveStep,
-    saveWorkout, dismissPostWorkout, discardWorkout, completeWorkout,
+    updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout,
+    applyFeedbackPatch, openFeedbackForLog, lastSavedLogId,
+    dismissPostWorkout, completeWorkout,
+    prepareSaveStep, saveWorkout, discardWorkout,
     logPreviousWorkout, removeWorkoutLog, getLogForDate, getLogsForDate,
     getExerciseSuggestion, getLastSetsForExercise,
     pendingHealthImports, duplicateCandidates, healthImportReviewVisible, setHealthImportReviewVisible,
