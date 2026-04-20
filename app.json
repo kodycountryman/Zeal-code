@@ -2,7 +2,7 @@
   "expo": {
     "name": "zeal+",
     "slug": "7s0at91o0glp1nhgft32r",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "zeal-plus",
@@ -21,6 +21,8 @@
         "NSHealthUpdateUsageDescription": "Zeal writes your completed workouts to Apple Health to keep your health records in sync.",
         "NSLocationWhenInUseUsageDescription": "Zeal uses your location to map your runs, measure distance, and compute pace.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Zeal continues tracking your run in the background so your route and distance keep updating when the screen is locked or you switch apps.",
+        "NSPhotoLibraryUsageDescription": "Zeal lets you pick photos from your library to set your profile picture, log proof-of-workout shots for the 75 Hard challenge, and analyze meal photos for nutrition tracking — for example, selecting a photo of your plate so Zeal can estimate calories and macros.",
+        "NSCameraUsageDescription": "Zeal uses the camera to capture proof-of-workout shots for the 75 Hard challenge and meal photos for nutrition tracking — for example, snapping a photo of your dinner so Zeal can estimate calories and macros.",
         "UIBackgroundModes": ["location", "fetch"],
         "ITSAppUsesNonExemptEncryption": false
       }
