@@ -44,11 +44,10 @@ type TabDef = {
   testID: string;
 };
 
-// Hidden nutrition + coach for v1 App Store submission — restore for v2
 const TABS: TabDef[] = [
   { key: 'home', label: 'Home', route: '/', iconName: 'home', testID: 'dock-home' },
   { key: 'train', label: 'Train', route: '/train', iconName: 'dumbbell', testID: 'dock-train' },
-  // { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
+  { key: 'nutrition', label: 'Nutrition', route: '/nutrition', iconName: 'apple', testID: 'dock-nutrition' },
   // { key: 'coach', label: 'Coach', route: '/coach', iconName: 'brain', testID: 'dock-coach' },
 ];
 
