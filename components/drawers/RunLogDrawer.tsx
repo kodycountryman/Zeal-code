@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, Text } from 'react-native';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme } from '@/context/AppContext';
@@ -65,13 +65,22 @@ export default function RunLogDrawer({ visible, onClose, runId }: Props) {
         showsVerticalScrollIndicator={false}
       >
         {log ? (
-          <RunSummary
-            log={log}
-            mode="log_view"
-            editable
-            onSaveEdits={handleSaveEdits}
-            onDelete={handleDelete}
-          />
+          <>
+            {log.isTentative && (
+              <View style={{ backgroundColor: '#f59e0b20', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#f59e0b40', marginBottom: 12 }}>
+                <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 12, color: '#f59e0b' }}>
+                  Unsaved draft — this run was auto-saved. Tap ··· to complete or delete it.
+                </Text>
+              </View>
+            )}
+            <RunSummary
+              log={log}
+              mode="log_view"
+              editable
+              onSaveEdits={handleSaveEdits}
+              onDelete={handleDelete}
+            />
+          </>
         ) : (
           <View style={{ padding: 20 }} />
         )}

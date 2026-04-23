@@ -45,6 +45,8 @@ import WorkoutPreviewModal from '@/components/WorkoutPreviewModal';
 import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
 import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
 import RunLogDrawer from '@/components/drawers/RunLogDrawer';
+import DayLogsSheet, { type DayEvent } from '@/components/DayLogsSheet';
+import { METERS_PER_MILE, METERS_PER_KM } from '@/types/run';
 import type { DayPrescription } from '@/services/planEngine';
 import * as Haptics from 'expo-haptics';
 import { mockBibleVerse } from '@/mocks/homeData';
@@ -255,6 +257,9 @@ export default function HomeScreen() {
   const [planDayPreviewDay, setPlanDayPreviewDay] = useState<DayPrescription | null>(null);
   const [runLogVisible, setRunLogVisible] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [dayLogsVisible, setDayLogsVisible] = useState(false);
+  const [dayLogsDate, setDayLogsDate] = useState<string | null>(null);
+  const [dayLogsEvents, setDayLogsEvents] = useState<DayEvent[]>([]);
   const [profileVisible, setProfileVisible] = useState(false);
   const [aboutMeVisible, setAboutMeVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -367,23 +372,71 @@ export default function HomeScreen() {
     return merged;
   }, [ctx.plannedWorkouts, ctx.planSchedule, ctx.activePlan]);
 
+  const handleSelectDayEvent = useCallback((event: DayEvent) => {
+    setDayLogsVisible(false);
+    if (event.type === 'workout') {
+      tracking.setSelectedLogId(event.id);
+      tracking.setWorkoutLogDetailVisible(true);
+    } else {
+      setSelectedRunId(event.id);
+      setRunLogVisible(true);
+    }
+  }, [tracking]);
+
   const handleDayPress = useCallback((dateStr: string, dayOffset: number) => {
-    // Check for completed workout logs first
-    const logs = tracking.getLogsForDate(dateStr);
-    if (logs.length > 0) {
-      tracking.setSelectedLogId(logs[0].id);
+    // Collect all completed events for this date
+    const workoutLogs = tracking.getLogsForDate(dateStr);
+    const runsOnDay = run.runHistory.filter(r => r.date === dateStr);
+    const totalEvents = workoutLogs.length + runsOnDay.length;
+
+    if (totalEvents > 1) {
+      // Build DayEvent list: workouts first, then runs
+      const userPrefsUnits = run.preferences?.units ?? 'imperial';
+      const events: DayEvent[] = [
+        ...workoutLogs.map((log): DayEvent => {
+          const durationMin = log.duration
+            ? `${Math.round(log.duration)} min`
+            : `${log.exercises?.length ?? 0} exercises`;
+          return {
+            type: 'workout',
+            id: log.id,
+            name: log.workoutName || 'Workout',
+            subtitle: durationMin,
+          };
+        }),
+        ...runsOnDay.map((log): DayEvent => {
+          const metersPerUnit = userPrefsUnits === 'metric' ? METERS_PER_KM : METERS_PER_MILE;
+          const unitLabel = userPrefsUnits === 'metric' ? 'km' : 'mi';
+          const dist = (log.distanceMeters / metersPerUnit).toFixed(2);
+          return {
+            type: 'run',
+            id: log.id,
+            name: log.runType
+              ? log.runType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + ' Run'
+              : 'Run',
+            subtitle: `${dist} ${unitLabel}`,
+          };
+        }),
+      ];
+      setDayLogsDate(dateStr);
+      setDayLogsEvents(events);
+      setDayLogsVisible(true);
+      return;
+    }
+
+    // Single event: open directly
+    if (workoutLogs.length > 0) {
+      tracking.setSelectedLogId(workoutLogs[0].id);
       tracking.setWorkoutLogDetailVisible(true);
       return;
     }
-    // No workout — check for completed runs on this date. Most-recent first
-    // since runHistory is stored in reverse-chronological order.
-    const runOnDay = run.runHistory.find(r => r.date === dateStr);
-    if (runOnDay) {
-      setSelectedRunId(runOnDay.id);
+    if (runsOnDay.length > 0) {
+      setSelectedRunId(runsOnDay[0].id);
       setRunLogVisible(true);
       return;
     }
-    // If active plan, find the prescription for this date and show preview
+
+    // No completed events — check for plan prescription or future-day sheet
     if (ctx.activePlan && ctx.planSchedule) {
       for (const week of (ctx.planSchedule as any).weeks ?? []) {
         for (const day of week.days ?? []) {
@@ -401,7 +454,7 @@ export default function HomeScreen() {
       setPlanSheetVisible(true);
       return;
     }
-  }, [tracking, ctx.activePlan, ctx.planSchedule, run.runHistory]);
+  }, [tracking, ctx.activePlan, ctx.planSchedule, run.runHistory, run.preferences]);
 
   const handleViewTodayLog = useCallback(() => {
     if (latestTodayLog) {
@@ -865,6 +918,14 @@ export default function HomeScreen() {
           setPlanDayPreviewDay(null);
         }}
         day={planDayPreviewDay}
+      />
+
+      <DayLogsSheet
+        visible={dayLogsVisible}
+        onClose={() => setDayLogsVisible(false)}
+        dateStr={dayLogsDate ?? ''}
+        events={dayLogsEvents}
+        onSelectEvent={handleSelectDayEvent}
       />
 
       <RunLogDrawer

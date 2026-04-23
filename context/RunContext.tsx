@@ -699,6 +699,36 @@ export const [RunProvider, useRun] = createContextHook(() => {
     return { newPRs, newBadges };
   }, [runHistory, runPRs]);
 
+  /** Immediately persists the run to history with isTentative=true. Call when RunSummary mounts. */
+  const saveRunTentative = useCallback(async (run: RunLog): Promise<void> => {
+    const tentative: RunLog = { ...run, isTentative: true };
+    setRunHistory(prev => {
+      // Don't duplicate if already saved
+      if (prev.some(l => l.id === run.id)) return prev;
+      const updated = [tentative, ...prev];
+      persistRunHistory(updated).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  /** Removes isTentative flag from a previously tentative-saved run. */
+  const completeTentativeSave = useCallback(async (runId: string, updates: Partial<RunLog>): Promise<void> => {
+    setRunHistory(prev => {
+      const updated = prev.map(l => l.id === runId ? { ...l, ...updates, isTentative: undefined } : l);
+      persistRunHistory(updated).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  /** Deletes a run from history (used when user explicitly discards from summary). */
+  const deleteTentativeRun = useCallback(async (runId: string): Promise<void> => {
+    setRunHistory(prev => {
+      const updated = prev.filter(l => l.id !== runId);
+      persistRunHistory(updated).catch(() => {});
+      return updated;
+    });
+  }, []);
+
   /**
    * Discard a run without persisting. Resets tracking state.
    */
@@ -997,6 +1027,11 @@ export const [RunProvider, useRun] = createContextHook(() => {
     deleteRun,
     updateRun,
 
+    // Actions — tentative save (crash protection)
+    saveRunTentative,
+    completeTentativeSave,
+    deleteTentativeRun,
+
     // Actions — notifications
     scheduleRunReminderForDay,
     clearRunReminder,
@@ -1010,6 +1045,7 @@ export const [RunProvider, useRun] = createContextHook(() => {
     setTreadmillSpeed, setTreadmillIncline,
     startRun, pauseRun, resumeRun, stopRun, saveRun, discardRun, discardPendingRun, recoverPendingRun,
     updatePreferences, deleteRun, updateRun,
+    saveRunTentative, completeTentativeSave, deleteTentativeRun,
     scheduleRunReminderForDay, clearRunReminder,
   ]);
 });

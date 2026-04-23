@@ -12,6 +12,8 @@ interface Props {
   format: ShareCardFormat;
   /** Accent color driving the gradient + route line. */
   accent?: string;
+  /** Whether to render the SVG route path. Defaults to true. */
+  showRoute?: boolean;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -77,7 +79,7 @@ function buildNormalizedRoutePath(log: RunLog, targetW: number, targetH: number)
  * Shareable run summary card. The ref is used by react-native-view-shot to
  * capture the rendered JSX as a PNG for the native share sheet.
  */
-const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116' }, ref) => {
+const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116', showRoute = true }, ref) => {
   const baseWidth = format === 'story' ? 360 : 360;
   const baseHeight = format === 'story' ? 640 : 360;
 
@@ -147,7 +149,7 @@ const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116' }, 
         </View>
 
         {/* Route */}
-        {routePath && (
+        {showRoute && routePath && (
           <View style={[styles.routeWrap, { width: routeAreaW, height: routeAreaH }]}>
             <RoutePathRenderer path={routePath} width={routeAreaW} height={routeAreaH} color={accent} />
           </View>

@@ -106,6 +106,8 @@ export interface RunLog {
   // Future
   weather?: { tempF: number; condition: string };
   isManualLog?: boolean;
+  steps?: number;
+  isTentative?: boolean;
 }
 
 // ─── Active Run State ──────────────────────────────────────────────────────

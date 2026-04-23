@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Switch,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
@@ -14,6 +15,8 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import GlassCard from '@/components/GlassCard';
 import Button from '@/components/Button';
 import { useZealTheme } from '@/context/AppContext';
+import { useRun } from '@/context/RunContext';
+import { computeHRZones, formatZoneDuration } from '@/utils/hrZones';
 import RouteReview from '@/components/run/RouteReview';
 import ElevationChart from '@/components/run/ElevationChart';
 import SplitTable from '@/components/run/SplitTable';
@@ -86,6 +89,15 @@ export default function RunSummary({
   onSaveEdits,
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
+  const run = useRun();
+
+  // ─── Tentative save on mount (post_run only) — crash protection ──────
+  useEffect(() => {
+    if (mode === 'post_run') {
+      run?.saveRunTentative(log);
+    }
+  }, []); // once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // ─── Edit-mode state (log_view only) ─────────────────────────────────
   const [isEditing, setIsEditing] = useState(false);
@@ -96,6 +108,7 @@ export default function RunSummary({
   const squareCardRef = useRef<View>(null);
   const storyCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [shareShowMap, setShareShowMap] = useState(true);
 
   const handleShare = async (format: ShareCardFormat = 'square') => {
     if (isSharing) return;
@@ -205,23 +218,54 @@ export default function RunSummary({
         </GlassCard>
       )}
 
+      {/* ─── HR Zones ─────────────────────────────────────────────────── */}
+      {(() => {
+        const zones = computeHRZones(log.splits);
+        if (zones.length === 0) return null;
+        return (
+          <GlassCard style={styles.sectionCard}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>HEART RATE ZONES</Text>
+            <View style={{ gap: 6 }}>
+              {zones.map(zone => (
+                <View key={zone.label} style={{ gap: 3 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 12, color: zone.color }}>{zone.label}</Text>
+                    <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 11, color: colors.textMuted }}>
+                      {formatZoneDuration(zone.durationSeconds)} · {Math.round(zone.percentage * 100)}%
+                    </Text>
+                  </View>
+                  <View style={{ height: 6, borderRadius: 3, backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.round(zone.percentage * 100)}%`, height: 6, borderRadius: 3, backgroundColor: zone.color }} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
+        );
+      })()}
+
       {/* ─── Stats grid ──────────────────────────────────────────────── */}
       <GlassCard style={styles.statsCard}>
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>TIME</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>{timeDisplay}</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statBox}>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>AVG PACE</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>{paceDisplay}</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statBox}>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>CAL</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>{log.calories ?? '—'}</Text>
-          </View>
+        <View style={styles.statsGrid}>
+          {[
+            { label: 'TIME', value: timeDisplay },
+            { label: 'AVG PACE', value: paceDisplay },
+            { label: 'CALORIES', value: log.calories != null ? String(log.calories) : '—' },
+            ...(log.averageHeartRate ? [{ label: 'AVG HR', value: `${log.averageHeartRate} bpm` }] : []),
+            ...(log.maxHeartRate ? [{ label: 'MAX HR', value: `${log.maxHeartRate} bpm` }] : []),
+            ...(log.steps ? [
+              { label: 'STEPS', value: log.steps.toLocaleString() },
+              { label: 'CADENCE', value: `${Math.round(log.steps / (log.durationSeconds / 60) / 2)} spm` },
+            ] : []),
+          ].map((stat, i, arr) => (
+            <React.Fragment key={stat.label}>
+              <View style={styles.statBox}>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>{stat.label}</Text>
+                <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
+              </View>
+              {i < arr.length - 1 && <View style={[styles.statDivider, { backgroundColor: colors.border }]} />}
+            </React.Fragment>
+          ))}
         </View>
       </GlassCard>
 
@@ -299,6 +343,17 @@ export default function RunSummary({
       </GlassCard>
 
       {/* ─── Share buttons (both modes) ──────────────────────────────── */}
+      {log.route.length >= 2 && (
+        <View style={[styles.shareMapRow, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+          <Text style={[styles.shareMapLabel, { color: colors.textSecondary }]}>Include map on share card</Text>
+          <Switch
+            value={shareShowMap}
+            onValueChange={setShareShowMap}
+            trackColor={{ false: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)', true: accent }}
+            thumbColor="#fff"
+          />
+        </View>
+      )}
       <View style={styles.shareRow}>
         <View style={{ flex: 1 }}>
           <Button
@@ -325,25 +380,38 @@ export default function RunSummary({
 
       {/* ─── Action buttons ──────────────────────────────────────────── */}
       {!hideActions && mode === 'post_run' && (
-        <View style={styles.actionRow}>
-          <View style={{ flex: 1 }}>
-            <Button
-              variant="secondary"
-              label="Discard"
-              fullWidth
-              disabled={isSaving}
-              onPress={() => onDiscard?.()}
-            />
-          </View>
-          <View style={{ flex: 2 }}>
-            <Button
-              variant="primary"
-              label="Save Run"
-              fullWidth
-              loading={isSaving}
-              onPress={() => onSave?.()}
-            />
-          </View>
+        <View style={{ gap: 8 }}>
+          <Button
+            variant="primary"
+            label="Save Run"
+            fullWidth
+            loading={isSaving}
+            onPress={() => onSave?.()}
+          />
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                'Discard run?',
+                'This run will not be saved.',
+                [
+                  { text: 'Keep run', style: 'cancel' },
+                  {
+                    text: 'Discard',
+                    style: 'destructive',
+                    onPress: () => {
+                      run?.deleteTentativeRun(log.id);
+                      onDiscard?.();
+                    },
+                  },
+                ],
+              );
+            }}
+            disabled={isSaving}
+            style={{ alignItems: 'center', paddingVertical: 8 }}
+            activeOpacity={0.6}
+          >
+            <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 13, color: colors.textMuted }}>Discard run</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -391,10 +459,10 @@ export default function RunSummary({
       {/* ─── Off-screen share card render targets ────────────────────── */}
       {/* Rendered at left:-9999 so they snapshot correctly but are invisible */}
       <View pointerEvents="none" style={styles.offscreen} collapsable={false}>
-        <ShareCard ref={squareCardRef} log={log} format="square" accent={accent} />
+        <ShareCard ref={squareCardRef} log={log} format="square" accent={accent} showRoute={shareShowMap} />
       </View>
       <View pointerEvents="none" style={styles.offscreen} collapsable={false}>
-        <ShareCard ref={storyCardRef} log={log} format="story" accent={accent} />
+        <ShareCard ref={storyCardRef} log={log} format="story" accent={accent} showRoute={shareShowMap} />
       </View>
     </View>
   );
@@ -441,6 +509,11 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'stretch',
   },
   statBox: {
@@ -504,6 +577,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     lineHeight: 20,
     paddingVertical: 6,
+  },
+  shareMapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  shareMapLabel: {
+    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
   },
   shareRow: {
     flexDirection: 'row',
