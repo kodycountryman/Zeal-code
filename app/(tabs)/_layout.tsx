@@ -40,7 +40,7 @@ function TabsWithPaywall() {
             codebase, and keeping them registered surfaced a React
             static-flag assertion when TrainScreen also composed the same
             route components. /train is the sole entry point now. */}
-        <Tabs.Screen name="nutrition" />
+        {/* <Tabs.Screen name="nutrition" /> */}
         {/* <Tabs.Screen name="coach" /> */}
       </Tabs>
       <ConnectedPaywallModal />
