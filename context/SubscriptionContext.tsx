@@ -12,7 +12,7 @@ const STORAGE_KEY = '@zeal_subscription_v2';
 
 // MUST be null for TestFlight / App Store submission.
 // Set to true only for local development to bypass the paywall.
-const DEV_FORCE_PRO: boolean | null = null;
+const DEV_FORCE_PRO: boolean | null = true;
 
 interface PersistedState {
   hasEverStarted: boolean;
