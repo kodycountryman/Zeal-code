@@ -23,7 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { GlassView } from '@/modules/zeal-glass-view/src';
 import { useRouter, usePathname } from 'expo-router';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { AppIconName } from '@/constants/iconMap';
@@ -310,7 +310,7 @@ export default function FloatingDock() {
           {/* ───── Left: Glass pill with 4 tabs + draggable bubble ───── */}
           <View style={styles.pillContainer}>
             <GestureDetector gesture={panGesture}>
-              <BlurView
+              <GlassView
                 intensity={isDark ? 70 : 55}
                 tint={dockBlurTint}
                 style={[styles.pill, { borderColor: dockBorderColor }]}
@@ -358,7 +358,7 @@ export default function FloatingDock() {
                     />
                   );
                 })}
-              </BlurView>
+              </GlassView>
             </GestureDetector>
           </View>
 
@@ -370,7 +370,7 @@ export default function FloatingDock() {
             activeOpacity={0.85}
             style={styles.plusTouchable}
           >
-            <BlurView
+            <GlassView
               intensity={isDark ? 70 : 55}
               tint={dockBlurTint}
               style={[
@@ -383,7 +383,7 @@ export default function FloatingDock() {
               ) : (
                 <PlatformIcon name="plus" size={26} color={accent} strokeWidth={2.8} />
               )}
-            </BlurView>
+            </GlassView>
           </TouchableOpacity>
         </View>
       </View>
@@ -515,7 +515,7 @@ const DockTab = React.forwardRef<any, DockTabProps>(function DockTab(
       <View style={[styles.tabContent, contentShiftX ? { transform: [{ translateX: contentShiftX }] } : undefined]}>
         <Animated.View style={[styles.iconStack, iconContainerStyle]}>
           <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, inactiveIconStyle]}>
-            <PlatformIcon name={tab.iconName} size={22} color={inactiveIconColor} strokeWidth={1.8} />
+            <PlatformIcon name={tab.iconName} size={22} color={inactiveIconColor} strokeWidth={1.8} fill={inactiveIconColor} />
           </Animated.View>
           <Animated.View style={[StyleSheet.absoluteFillObject as any, styles.iconCenter, activeIconStyle]}>
             <PlatformIcon name={tab.iconName} size={22} color={accent} strokeWidth={2} fill={accent} />
