@@ -1,11 +1,15 @@
 import React from 'react';
-import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { requireOptionalNativeComponent } from 'expo-modules-core';
 
 // ─────────────────────────────────────────────────────────────────
-// TEMPORARILY STUBBED — always uses BlurView fallback.
-// Native UIGlassEffect path disabled while bisecting launch crash.
+// <GlassView> — real UIGlassEffect on iOS 26+, BlurView elsewhere.
 // ─────────────────────────────────────────────────────────────────
+
+const NativeGlassView = Platform.OS === 'ios'
+  ? requireOptionalNativeComponent<{ style?: StyleProp<ViewStyle> }>('ZealGlassView')
+  : null;
 
 interface GlassViewProps {
   children?: React.ReactNode;
@@ -20,6 +24,14 @@ export function GlassView({
   intensity = 70,
   tint = 'dark',
 }: GlassViewProps) {
+  if (NativeGlassView) {
+    return (
+      <NativeGlassView style={[styles.base, style]}>
+        {children}
+      </NativeGlassView>
+    );
+  }
+
   return (
     <BlurView intensity={intensity} tint={tint} style={[styles.base, style]}>
       {children}
