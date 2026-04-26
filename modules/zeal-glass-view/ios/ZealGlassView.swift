@@ -3,32 +3,33 @@ import UIKit
 
 // ─────────────────────────────────────────────────────────────────
 // ZealGlassView — wraps UIGlassEffect (iOS 26+) as an Expo native view.
-// On iOS <26 this class is never instantiated — the TS layer falls
-// back to BlurView instead, so no availability guard is needed at
-// the call site.
+// Falls back to UIBlurEffect on iOS 16.2–25.x so the view is never
+// transparent.
 // ─────────────────────────────────────────────────────────────────
 
-@available(iOS 26, *)
 final class ZealGlassView: ExpoView {
 
     private var effectView: UIVisualEffectView?
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
-        setupGlass()
+        setupEffect()
     }
 
-    private func setupGlass() {
-        let glass = UIGlassEffect()
-        let ev = UIVisualEffectView(effect: glass)
+    private func setupEffect() {
+        let effect: UIVisualEffect
+        if #available(iOS 26, *) {
+            effect = UIGlassEffect()
+        } else {
+            effect = UIBlurEffect(style: .systemMaterial)
+        }
+        let ev = UIVisualEffectView(effect: effect)
         ev.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         ev.frame = bounds
-        // Insert below React subviews so children render on top of glass
         insertSubview(ev, at: 0)
         effectView = ev
     }
 
-    // Ensure the effect view always fills the native frame
     override func layoutSubviews() {
         super.layoutSubviews()
         effectView?.frame = bounds
