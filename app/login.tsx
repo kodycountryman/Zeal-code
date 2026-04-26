@@ -18,6 +18,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { AppIconName } from '@/constants/iconMap';
 import { useAppContext } from '@/context/AppContext';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as WebBrowser from 'expo-web-browser';
+import { supabase, getOrCreateProfile } from '@/services/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#f87116';
@@ -39,66 +44,90 @@ export default function LoginScreen() {
   const btnScale = useRef(new Animated.Value(1)).current;
   const returnBtnScale = useRef(new Animated.Value(1)).current;
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleAuth, setGoogleAuth] = useState<{
-    request: unknown;
-    promptAsync: () => Promise<unknown>;
-  } | null>(null);
-  const [googleResponse, setGoogleResponse] = useState<unknown>(null);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   const hasExistingAccount = onboardingComplete;
   const displayName = userName && userName.trim().length > 0 ? userName.trim() : null;
 
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      __DEV__ && console.log('[Login] Google auth not supported on web preview');
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const WebBrowser = await import('expo-web-browser');
-        WebBrowser.maybeCompleteAuthSession();
-        __DEV__ && console.log('[Login] Google auth modules loaded');
-      } catch (err) {
-        __DEV__ && console.log('[Login] Google auth module not available:', err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // ── Apple Sign In ────────────────────────────────────────────────
+  const handleAppleSignIn = async () => {
+    if (Platform.OS !== 'ios') return;
+    setAppleLoading(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
 
-  useEffect(() => {
-    const resp = googleResponse as { type?: string; authentication?: { accessToken?: string }; params?: Record<string, string> } | null;
-    if (resp?.type === 'success') {
-      const accessToken = resp.authentication?.accessToken ?? resp.params?.access_token;
-      if (!accessToken) {
-        __DEV__ && console.log('[Login] Google success but no access token');
-        setGoogleLoading(false);
-        return;
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken!,
+      });
+
+      if (error) throw error;
+
+      const profile = await getOrCreateProfile(data.user!.id);
+      const name = credential.fullName?.givenName
+        ? `${credential.fullName.givenName} ${credential.fullName.familyName ?? ''}`.trim()
+        : profile?.name ?? '';
+
+      if (name) setGooglePrefill({ name, photoUri: null });
+
+      if (profile?.onboarding_complete) {
+        login();
+      } else {
+        router.push('/onboarding');
       }
-      __DEV__ && console.log('[Login] Google auth success, fetching user info...');
-      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-        .then(res => res.json())
-        .then((userInfo: { name?: string; given_name?: string; picture?: string }) => {
-          const name = userInfo.name ?? userInfo.given_name ?? '';
-          const photoUri = userInfo.picture ?? null;
-          __DEV__ && console.log('[Login] Google user:', name, photoUri ? 'has photo' : 'no photo');
-          setGooglePrefill({ name, photoUri });
-          setGoogleLoading(false);
-          router.push('/onboarding');
-        })
-        .catch(err => {
-          __DEV__ && console.log('[Login] Failed to fetch Google user info:', err);
-          setGoogleLoading(false);
-        });
-    } else if (resp?.type === 'error' || resp?.type === 'dismiss' || resp?.type === 'cancel') {
+    } catch (err: any) {
+      if (err?.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Sign In Failed', 'Could not sign in with Apple. Please try again.');
+        __DEV__ && console.error('[Login] Apple sign in error:', err);
+      }
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
+  // ── Google Sign In ───────────────────────────────────────────────
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'zeal-plus://auth/callback',
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error('No OAuth URL returned');
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, 'zeal-plus://');
+
+      if (result.type === 'success') {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) {
+          const profile = await getOrCreateProfile(sessionData.session.user.id);
+          const name = sessionData.session.user.user_metadata?.full_name ?? profile?.name ?? '';
+          const photoUri = sessionData.session.user.user_metadata?.avatar_url ?? null;
+          if (name) setGooglePrefill({ name, photoUri });
+
+          if (profile?.onboarding_complete) {
+            login();
+          } else {
+            router.push('/onboarding');
+          }
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Sign In Failed', 'Could not sign in with Google. Please try again.');
+      __DEV__ && console.error('[Login] Google sign in error:', err);
+    } finally {
       setGoogleLoading(false);
     }
-  }, [googleResponse]);
-
-  const handleGoogleSignIn = () => {
-    Alert.alert('Not Configured', 'Google Sign In credentials are not set up yet. Use "Get Started" to create your profile.');
   };
 
   useEffect(() => {
@@ -222,17 +251,35 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </Animated.View>
 
-            {/* OR divider + Google Sign-In — disabled for now, keep code for future use
             <View style={styles.orRow}>
               <View style={styles.orLine} />
               <Text style={styles.orText}>OR</Text>
               <View style={styles.orLine} />
             </View>
-            */}
 
-            {/* Google Sign-In — disabled for now, keep code for future use
+            {/* Apple Sign In — iOS only */}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={[styles.socialBtn, appleLoading && styles.socialBtnDisabled]}
+                onPress={handleAppleSignIn}
+                activeOpacity={0.8}
+                disabled={appleLoading}
+                testID="apple-signin-btn"
+              >
+                {appleLoading ? (
+                  <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" />
+                ) : (
+                  <>
+                    <PlatformIcon name="apple" size={18} color="#ffffff" />
+                    <Text style={styles.socialBtnText}>Continue with Apple</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Google Sign In */}
             <TouchableOpacity
-              style={[styles.googleBtn, googleLoading && styles.googleBtnDisabled]}
+              style={[styles.socialBtn, googleLoading && styles.socialBtnDisabled]}
               onPress={handleGoogleSignIn}
               activeOpacity={0.8}
               disabled={googleLoading}
@@ -245,11 +292,10 @@ export default function LoginScreen() {
                   <View style={styles.googleIconWrap}>
                     <Text style={[styles.googleIconText, { fontSize: 18 }]}>G</Text>
                   </View>
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                  <Text style={styles.socialBtnText}>Continue with Google</Text>
                 </>
               )}
             </TouchableOpacity>
-            */}
 
             {hasExistingAccount && (
               <Animated.View style={{ transform: [{ scale: returnBtnScale }] }}>
@@ -418,7 +464,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.3)',
     letterSpacing: 1,
   },
-  googleBtn: {
+  socialBtn: {
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
@@ -429,7 +475,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  googleBtnDisabled: {
+  socialBtnDisabled: {
     opacity: 0.6,
   },
   googleIconWrap: {
@@ -442,7 +488,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     lineHeight: 22,
   },
-  googleBtnText: {
+  socialBtnText: {
     fontSize: 15,
     fontFamily: 'Outfit_600SemiBold',
     color: 'rgba(255,255,255,0.85)',

@@ -17,6 +17,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.kodycountryman.zealplus",
       "deploymentTarget": "16.2",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSHealthShareUsageDescription": "Zeal reads your steps, active calories, and heart rate from Apple Health to calculate your daily training readiness score and display fitness insights on your dashboard.",
         "NSHealthUpdateUsageDescription": "Zeal saves your completed workouts and runs to Apple Health so your exercise history stays in sync across your health apps.",
