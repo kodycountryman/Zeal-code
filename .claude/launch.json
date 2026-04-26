@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Expo (Tunnel)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--tunnel", "--port", "8082"],
+      "port": 8082
+    },
+    {
+      "name": "Expo (Dev Client)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--dev-client"],
+      "autoPort": true
+    },
+    {
+      "name": "Expo (Web)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web"],
+      "autoPort": true
+    }
+  ]
+}

@@ -2,6 +2,25 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
+import { startActivity, updateActivity, endActivity } from '@/modules/zeal-live-activity/src';
+
+// Format distance for Live Activity label
+function fmtDistance(meters: number, units: string): string {
+  if (units === 'metric') {
+    return `${(meters / 1000).toFixed(2)} km`;
+  }
+  return `${(meters / 1609.344).toFixed(2)} mi`;
+}
+
+// Format pace (sec/meter) for Live Activity label
+function fmtPace(secPerMeter: number, units: string): string {
+  if (!secPerMeter || !isFinite(secPerMeter)) return '--:--';
+  const secPerUnit = units === 'metric' ? secPerMeter * 1000 : secPerMeter * 1609.344;
+  const mins = Math.floor(secPerUnit / 60);
+  const secs = Math.round(secPerUnit % 60);
+  const suffix = units === 'metric' ? '/km' : '/mi';
+  return `${mins}:${String(secs).padStart(2, '0')}${suffix}`;
+}
 import {
   RunLog,
   RunPR,
@@ -326,6 +345,12 @@ export const [RunProvider, useRun] = createContextHook(() => {
         const paceSecPerUnit = newest.paceSecondsPerMeter * unitMultiplier;
         void runAudioService.speakSplit(newest.index, paceSecPerUnit, preferences.units);
         lastSpokenSplitRef.current = newSplitCount;
+
+        // Update Live Activity on every split with fresh distance + pace
+        void updateActivity('run', {
+          subtitle: fmtDistance(snap.totalDistanceMeters, preferences.units),
+          detail: fmtPace(newest.paceSecondsPerMeter, preferences.units),
+        });
       }
 
       // Halfway cue — fires once when distance crosses 50% of target
@@ -370,6 +395,20 @@ export const [RunProvider, useRun] = createContextHook(() => {
     }, 1000);
     return () => clearInterval(interval);
   }, [status, snapshot?.totalDistanceMeters]);
+
+  // ─── Live Activity periodic update every 30s ──────────────────────────
+  // Keeps distance + pace fresh between mile splits on the Dynamic Island.
+  useEffect(() => {
+    if (status !== 'running') return;
+    const interval = setInterval(() => {
+      const snap = runTrackingService.getSnapshot();
+      void updateActivity('run', {
+        subtitle: fmtDistance(snap.totalDistanceMeters, preferences.units),
+        detail: fmtPace(snap.currentPaceSecondsPerMeter ?? 0, preferences.units),
+      });
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [status, preferences.units]);
 
   // ─── AppState: drain background buffer on foreground ──────────────────
   useEffect(() => {
@@ -519,6 +558,14 @@ export const [RunProvider, useRun] = createContextHook(() => {
 
     void runAudioService.speakRunStart();
 
+    // Start Live Activity on Dynamic Island / Lock Screen
+    void startActivity({
+      type: 'run',
+      title: 'Active Run',
+      subtitle: '0.0 mi',
+      detail: '--:-- / mi',
+    });
+
     return true;
   }, [status, preferences.units]);
 
@@ -601,6 +648,9 @@ export const [RunProvider, useRun] = createContextHook(() => {
     };
 
     setStatus('completed');
+
+    // Dismiss Live Activity
+    void endActivity('run');
 
     // Final cue + clear targets so leftover speech doesn't fire
     void runAudioService.speakRunComplete(log.distanceMeters, preferences.units, log.durationSeconds);

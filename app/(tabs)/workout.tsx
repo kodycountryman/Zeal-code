@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withRepeat, withSequence, cancelAnimation, runOnJS } from 'react-native-reanimated';
 import ExpandingPanel from '@/components/ExpandingPanel';
 import * as Haptics from 'expo-haptics';
+import { startActivity, updateActivity, startRestTimer, endActivity } from '@/modules/zeal-live-activity/src';
 
 import {
   View,
@@ -1659,6 +1660,27 @@ export default function WorkoutScreen() {
       }
       requestAnimationFrame(() => {
         tracking.markSetDone(exId, setIdx, effectiveRestSec);
+
+        // Update Live Activity with current exercise + set progress
+        if (isMarkingDone && exercise) {
+          const sets = tracking.exerciseLogs[exId]?.sets ?? [];
+          const doneSets = sets.filter(s => s.done).length + 1;
+          const totalSetsForEx = sets.length;
+          const loggedSet = tracking.exerciseLogs[exId]?.sets[setIdx];
+          const weight = loggedSet?.weight;
+          const reps = loggedSet?.reps;
+          const detail = weight && reps ? `${weight} lbs × ${reps}` : reps ? `${reps} reps` : 'Done';
+          void updateActivity('workout', {
+            title: exercise.name,
+            subtitle: `Set ${doneSets} of ${totalSetsForEx}`,
+            detail,
+          });
+          // Fire rest timer on Dynamic Island if rest is needed
+          if (effectiveRestSec > 0) {
+            void startRestTimer('workout', effectiveRestSec);
+          }
+        }
+
         // Auto-complete: if this was the last undone set, collapse the card
         // Guard updatedSets.length > 0 to avoid vacuous allDone=true on uninitialized logs
         const updatedSets = tracking.exerciseLogs[exId]?.sets ?? [];
@@ -2050,10 +2072,19 @@ export default function WorkoutScreen() {
   const handleStartWorkout = useCallback(() => {
     if (!workout) return;
     tracking.startWorkout(workout);
+    // Start Live Activity showing first exercise
+    const firstEx = workout.workout[0];
+    void startActivity({
+      type: 'workout',
+      title: firstEx?.name ?? 'Workout',
+      subtitle: 'Set 1',
+      detail: 'In progress',
+    });
   }, [workout, tracking]);
 
   const handleCompleteWorkout = useCallback(() => {
     tracking.beginPostWorkout();
+    void endActivity('workout');
   }, [tracking]);
 
   const trackedCount = trackedExercises.size;
