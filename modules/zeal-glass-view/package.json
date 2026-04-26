@@ -1,0 +1,12 @@
+{
+  "name": "zeal-glass-view",
+  "version": "1.0.0",
+  "description": "Native UIGlassEffect view for Zeal+ (iOS 26+), BlurView fallback elsewhere",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "peerDependencies": {
+    "expo": "*",
+    "expo-modules-core": "*",
+    "expo-blur": "*"
+  }
+}

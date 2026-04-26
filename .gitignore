@@ -9,9 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
-ios/
-android/
+# Native (only ignore the prebuilt root folders, NOT module subfolders)
+/ios/
+/android/
 *.orig.*
 *.jks
 *.p8
