@@ -7,9 +7,8 @@ import { requireOptionalNativeComponent } from 'expo-modules-core';
 // <GlassView> — real UIGlassEffect on iOS 26+, BlurView elsewhere.
 // ─────────────────────────────────────────────────────────────────
 
-const NativeGlassView = Platform.OS === 'ios'
-  ? requireOptionalNativeComponent<{ style?: StyleProp<ViewStyle> }>('ZealGlassView')
-  : null;
+// Bisect: JS side stubbed — native module still compiled but not used from JS
+const NativeGlassView = null;
 
 interface GlassViewProps {
   children?: React.ReactNode;

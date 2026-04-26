@@ -24,6 +24,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassView } from '@/modules/zeal-glass-view/src';
+import { BlurView } from 'expo-blur';
 import { useRouter, usePathname } from 'expo-router';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { AppIconName } from '@/constants/iconMap';
