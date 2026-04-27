@@ -176,19 +176,27 @@ export default function RunScreen() {
       }
     }
 
-    // If there's an active run (or hybrid) plan with a run prescribed today,
-    // link this run to the plan day so completion is tracked automatically.
-    const hasLinkablePlan = ctx.activePlan?.mode === 'run' || ctx.activePlan?.mode === 'hybrid';
-    const todayPrescription = hasLinkablePlan ? ctx.getTodayPrescription() : null;
+    // Phase 5b: link to whichever plan owns today's run.
+    // Priority: dedicated run plan > hybrid workout plan that prescribes a run today.
+    const runPlan = ctx.activeRunPlan;
+    const hybridWorkoutPlan = ctx.activePlan?.mode === 'hybrid' ? ctx.activePlan : null;
+    const runPrescription = runPlan ? ctx.getTodayRunPrescription() : null;
+    const hybridPrescription = hybridWorkoutPlan ? ctx.getTodayPrescription() : null;
+    const todayPrescription = (runPrescription && !runPrescription.is_rest)
+      ? runPrescription
+      : hybridPrescription;
+    const linkedPlan = (runPrescription && !runPrescription.is_rest)
+      ? runPlan
+      : hybridWorkoutPlan;
     const isTodayRunDay = !!(todayPrescription && !todayPrescription.is_rest && todayPrescription.activity_type === 'run');
     const planLinkedRunType = (isTodayRunDay && todayPrescription!.run_type)
       ? (todayPrescription!.run_type as RunType)
       : selectedRunType;
-    const planDayId = isTodayRunDay
-      ? `${ctx.activePlan!.id}_${todayPrescription!.date}`
+    const planDayId = (isTodayRunDay && linkedPlan)
+      ? `${linkedPlan.id}_${todayPrescription!.date}`
       : undefined;
-    const planId = isTodayRunDay
-      ? ctx.activePlan!.id
+    const planId = (isTodayRunDay && linkedPlan)
+      ? linkedPlan.id
       : undefined;
 
     // Pull target distance + pace from the prescription so audio cues
@@ -265,8 +273,11 @@ export default function RunScreen() {
       const healthConnected = healthService.isConnected();
       const result = await run.saveRun(finalLog);
 
-      // If this run was linked to an active run plan, mark today's plan day complete.
-      if (finalLog.planId && ctx.activePlan?.id === finalLog.planId) {
+      // Phase 5b: mark the day complete on whichever plan this run was linked to
+      // (run plan or hybrid workout plan). markDayCompleted updates the workout
+      // plan's completedDays — for the run-plan slot, the run-plan equivalent
+      // (Phase 6) will land later; for now we still flag the workout-plan match.
+      if (finalLog.planId && (ctx.activeRunPlan?.id === finalLog.planId || ctx.activePlan?.id === finalLog.planId)) {
         ctx.markDayCompleted(finalLog.date);
       }
 
@@ -554,27 +565,27 @@ export default function RunScreen() {
             </View>
           </GlassCard>
 
-          {/* Active run or hybrid plan */}
-          {ctx.activePlan && (ctx.activePlan.mode === 'run' || ctx.activePlan.mode === 'hybrid') ? (() => {
-            const isHybrid = ctx.activePlan.mode === 'hybrid';
-            const todayPrescription = ctx.getTodayPrescription();
+          {/* Active run or hybrid plan — Phase 5b: read from activeRunPlan
+              (the dedicated run-plan slot) rather than the workout-plan slot.
+              Hybrid plans live under activePlan (workout slot) since they're
+              fundamentally workout schedules with run segments mixed in. */}
+          {ctx.activeRunPlan ? (() => {
+            const runPlan = ctx.activeRunPlan;
+            const todayPrescription = ctx.getTodayRunPrescription();
             const isRunToday = todayPrescription && !todayPrescription.is_rest && todayPrescription.activity_type === 'run';
-            const isStrengthToday = todayPrescription && !todayPrescription.is_rest && todayPrescription.activity_type === 'strength';
-            const planLabel = isHybrid ? 'Active Hybrid Plan' : 'Active Run Plan';
+            const isStrengthToday = false;
+            const isHybrid = false;
+            const planLabel = 'Active Run Plan';
             return (
               <GlassCard style={styles.sectionCard}>
                 <View style={styles.planCardHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.sectionLabel, { color: accent }]}>{planLabel}</Text>
-                    <Text style={[styles.planCardTitle, { color: colors.text }]}>{ctx.activePlan.name}</Text>
+                    <Text style={[styles.planCardTitle, { color: colors.text }]}>{runPlan.name}</Text>
                   </View>
                   <View style={[styles.planBadge, { backgroundColor: `${accent}15`, borderColor: `${accent}30` }]}>
                     <Text style={[styles.planBadgeText, { color: accent }]}>
-                      {ctx.activePlan.planLength}wk · {
-                        isHybrid
-                          ? `${ctx.activePlan.strengthDays ?? 0}L+${ctx.activePlan.runDays ?? 0}R`
-                          : `${ctx.activePlan.daysPerWeek}/wk`
-                      }
+                      {runPlan.planLength}wk · {runPlan.daysPerWeek}/wk
                     </Text>
                   </View>
                 </View>

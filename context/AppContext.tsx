@@ -132,6 +132,11 @@ const SAVED_WORKOUTS_KEY = '@zeal_saved_workouts_v1';
 const EXERCISE_PREFS_KEY = '@zeal_exercise_prefs_v3';
 const WORKOUT_PLAN_KEY = '@zeal_workout_plan_v2';
 const PLAN_SCHEDULE_KEY = '@zeal_plan_schedule_v1';
+// Phase 5b: dedicated slots for the running plan so it can coexist with a workout plan.
+const RUN_PLAN_KEY = '@zeal_run_plan_v1';
+const RUN_PLAN_SCHEDULE_KEY = '@zeal_run_plan_schedule_v1';
+/** One-shot migration flag: split a single legacy activePlan into workout/run slots. */
+const PLAN_SPLIT_MIGRATION_KEY = '@zeal_plan_split_migration_v1';
 const ONBOARDING_KEY = '@zeal_onboarding_v1';
 const NOTIF_PREFS_KEY = '@zeal_notif_prefs_v1';
 const LAST_MODIFY_KEY = '@zeal_last_modify_v1';
@@ -288,6 +293,11 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const [exercisePreferences, setExercisePreferences] = useState<Record<string, ExercisePreference>>({});
   const [activePlan, setActivePlan] = useState<WorkoutPlan | null>(null);
   const [planSchedule, setPlanSchedule] = useState<GeneratedPlanSchedule | null>(null);
+  // Phase 5b: parallel slots for the running plan. A user can have one of each
+  // simultaneously. `activePlan` retains its semantic meaning of 'workout plan'
+  // for backward compatibility with the ~70 existing call sites.
+  const [activeRunPlan, setActiveRunPlan] = useState<WorkoutPlan | null>(null);
+  const [runPlanSchedule, setRunPlanSchedule] = useState<GeneratedPlanSchedule | null>(null);
   const [loadedWorkout, setLoadedWorkout] = useState<SavedWorkout | null>(null);
   const [plannedWorkouts, setPlannedWorkouts] = useState<PlannedWorkout[]>([]);
 
@@ -323,6 +333,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       AsyncStorage.getItem(EXERCISE_PREFS_KEY),
       AsyncStorage.getItem(WORKOUT_PLAN_KEY),
       AsyncStorage.getItem(PLAN_SCHEDULE_KEY),
+      AsyncStorage.getItem(RUN_PLAN_KEY),
+      AsyncStorage.getItem(RUN_PLAN_SCHEDULE_KEY),
+      AsyncStorage.getItem(PLAN_SPLIT_MIGRATION_KEY),
       AsyncStorage.getItem(ONBOARDING_KEY),
       AsyncStorage.getItem(NOTIF_PREFS_KEY),
       AsyncStorage.getItem(LAST_MODIFY_KEY),
@@ -330,7 +343,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       AsyncStorage.getItem(IS_LOGGED_IN_KEY),
       AsyncStorage.getItem(DAILY_GENERATED_SNAPSHOT_KEY),
     ])
-      .then(([raw, overrideRaw, savedWRaw, prefRaw, planRaw, scheduleRaw, onboardingRaw, notifPrefsRaw, lastModifyRaw, plannedWorkoutsRaw, isLoggedInRaw, dailySnapshotRaw]) => {
+      .then(([raw, overrideRaw, savedWRaw, prefRaw, planRaw, scheduleRaw, runPlanRaw, runScheduleRaw, planSplitMigrationRaw, onboardingRaw, notifPrefsRaw, lastModifyRaw, plannedWorkoutsRaw, isLoggedInRaw, dailySnapshotRaw]) => {
         if (onboardingRaw === 'true') setOnboardingCompleteState(true);
         if (isLoggedInRaw === 'true') {
           __DEV__ && console.log('[AppContext] Restored logged in session');
@@ -449,18 +462,71 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
           AsyncStorage.setItem(EXERCISE_PREFS_KEY, JSON.stringify(defaults)).catch((e) => __DEV__ && console.warn('[AppContext] Failed to save default exercise prefs:', e));
           __DEV__ && console.log('[AppContext] Applied smart default exercise preferences');
         }
+        // ── Phase 5b: parse plan + schedule from storage ──────────────────
+        // Strategy: parse both legacy `activePlan` and new `activeRunPlan`
+        // slots. If the migration hasn't run yet AND the legacy plan is a
+        // run-mode plan AND no run-plan slot exists, move it to the new
+        // slot. After migration, both slots can hold independent plans.
+        let parsedLegacyPlan: WorkoutPlan | null = null;
+        let parsedLegacySchedule: GeneratedPlanSchedule | null = null;
+        let parsedRunPlan: WorkoutPlan | null = null;
+        let parsedRunSchedule: GeneratedPlanSchedule | null = null;
+
         if (planRaw) {
           try {
             const plan = JSON.parse(planRaw) as WorkoutPlan;
-            if (plan.active) setActivePlan(plan);
+            if (plan.active) parsedLegacyPlan = plan;
           } catch (e) { __DEV__ && console.log('[AppContext] plan parse error:', e); }
         }
         if (scheduleRaw) {
+          try { parsedLegacySchedule = JSON.parse(scheduleRaw) as GeneratedPlanSchedule; }
+          catch (e) { __DEV__ && console.log('[AppContext] schedule parse error:', e); }
+        }
+        if (runPlanRaw) {
           try {
-            const sched = JSON.parse(scheduleRaw) as GeneratedPlanSchedule;
-            setPlanSchedule(sched);
-            __DEV__ && console.log('[AppContext] Restored plan schedule:', sched.weeks.length, 'weeks');
-          } catch (e) { __DEV__ && console.log('[AppContext] schedule parse error:', e); }
+            const plan = JSON.parse(runPlanRaw) as WorkoutPlan;
+            if (plan.active) parsedRunPlan = plan;
+          } catch (e) { __DEV__ && console.log('[AppContext] run plan parse error:', e); }
+        }
+        if (runScheduleRaw) {
+          try { parsedRunSchedule = JSON.parse(runScheduleRaw) as GeneratedPlanSchedule; }
+          catch (e) { __DEV__ && console.log('[AppContext] run schedule parse error:', e); }
+        }
+
+        // One-shot migration: if no migration flag yet AND legacy plan is a
+        // run-mode plan AND no run-plan slot exists, route it.
+        const migrationDone = planSplitMigrationRaw === 'done';
+        if (!migrationDone) {
+          if (parsedLegacyPlan?.mode === 'run' && !parsedRunPlan) {
+            __DEV__ && console.log('[AppContext] Migrating legacy run plan to dedicated run-plan slot');
+            parsedRunPlan = parsedLegacyPlan;
+            parsedRunSchedule = parsedLegacySchedule;
+            parsedLegacyPlan = null;
+            parsedLegacySchedule = null;
+            // Persist the migrated state and clear the legacy keys
+            AsyncStorage.multiSet([
+              [RUN_PLAN_KEY, JSON.stringify(parsedRunPlan)],
+              ...(parsedRunSchedule ? [[RUN_PLAN_SCHEDULE_KEY, JSON.stringify(parsedRunSchedule)] as [string, string]] : []),
+            ]).catch(() => {});
+            AsyncStorage.multiRemove([WORKOUT_PLAN_KEY, PLAN_SCHEDULE_KEY]).catch(() => {});
+          }
+          AsyncStorage.setItem(PLAN_SPLIT_MIGRATION_KEY, 'done').catch(() => {});
+        }
+
+        if (parsedLegacyPlan) {
+          setActivePlan(parsedLegacyPlan);
+        }
+        if (parsedLegacySchedule) {
+          setPlanSchedule(parsedLegacySchedule);
+          __DEV__ && console.log('[AppContext] Restored workout plan schedule:', parsedLegacySchedule.weeks.length, 'weeks');
+        }
+        if (parsedRunPlan) {
+          setActiveRunPlan(parsedRunPlan);
+          __DEV__ && console.log('[AppContext] Restored active run plan:', parsedRunPlan.name);
+        }
+        if (parsedRunSchedule) {
+          setRunPlanSchedule(parsedRunSchedule);
+          __DEV__ && console.log('[AppContext] Restored run plan schedule:', parsedRunSchedule.weeks.length, 'weeks');
         }
         if (notifPrefsRaw) {
           try {
@@ -604,7 +670,39 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     );
   }, []);
 
+  // Phase 5b: dedicated saver for the running plan. Used internally by
+  // saveActivePlan when plan.mode === 'run' so existing call sites
+  // (RunPlanBuilderDrawer.saveActivePlan(plan, schedule)) Just Work.
+  const saveActiveRunPlan = useCallback((plan: WorkoutPlan | null, schedule?: GeneratedPlanSchedule | null) => {
+    setActiveRunPlan(plan);
+    if (plan) {
+      AsyncStorage.setItem(RUN_PLAN_KEY, JSON.stringify(plan)).catch((e) =>
+        __DEV__ && console.log('[AppContext] run plan save error:', e)
+      );
+    } else {
+      AsyncStorage.removeItem(RUN_PLAN_KEY).catch(() => {});
+    }
+    if (schedule !== undefined) {
+      setRunPlanSchedule(schedule ?? null);
+      if (schedule) {
+        AsyncStorage.setItem(RUN_PLAN_SCHEDULE_KEY, JSON.stringify(schedule)).catch((e) =>
+          __DEV__ && console.log('[AppContext] run schedule save error:', e)
+        );
+      } else {
+        AsyncStorage.removeItem(RUN_PLAN_SCHEDULE_KEY).catch(() => {});
+      }
+    }
+  }, []);
+
   const saveActivePlan = useCallback((plan: WorkoutPlan | null, schedule?: GeneratedPlanSchedule | null) => {
+    // Phase 5b: route run-mode plans to their own slot so they can coexist
+    // with a workout plan. Workout/strength/hybrid plans continue to occupy
+    // the original `activePlan` slot.
+    if (plan && plan.mode === 'run') {
+      saveActiveRunPlan(plan, schedule);
+      return;
+    }
+
     setActivePlan(plan);
     if (plan) {
       AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(plan)).catch((e) =>
@@ -638,7 +736,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
         AsyncStorage.removeItem(PLAN_SCHEDULE_KEY).catch(() => {});
       }
     }
-  }, []);
+  }, [saveActiveRunPlan]);
 
   // ── Background plan generation ─────────────────────────────────────────────
   const planGenCounterRef = useRef(0);
@@ -1070,6 +1168,20 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     return null;
   }, [planSchedule]);
 
+  // Phase 5b: today's prescription from the dedicated run plan, if any.
+  // Returned alongside (not instead of) getTodayPrescription, so a user with
+  // both an active workout plan and an active run plan sees both cards.
+  const getTodayRunPrescription = useCallback((): DayPrescription | null => {
+    if (!runPlanSchedule) return null;
+    const today = getTodayDateStr();
+    for (const week of runPlanSchedule.weeks) {
+      for (const day of week.days) {
+        if (day.date === today) return day;
+      }
+    }
+    return null;
+  }, [runPlanSchedule]);
+
   const saveState = useCallback(() => {
     const data = {
       userName,
@@ -1265,6 +1377,11 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       activePlan,
       planSchedule,
       saveActivePlan,
+      // Phase 5b: parallel run-plan slots
+      activeRunPlan,
+      runPlanSchedule,
+      saveActiveRunPlan,
+      getTodayRunPrescription,
       onboardingComplete,
       completeOnboarding,
       isLoggedIn,
@@ -1316,7 +1433,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       exercisePreferences, saveExercisePreferences,
       onboardingComplete, completeOnboarding,
       isLoggedIn, login, logout,
-      activePlan, planSchedule, saveActivePlan, markDayMissed, markDayCompleted, getTodayPrescription,
+      activePlan, planSchedule, saveActivePlan,
+      activeRunPlan, runPlanSchedule, saveActiveRunPlan, getTodayRunPrescription,
+      markDayMissed, markDayCompleted, getTodayPrescription,
       healthSyncEnabled, setHealthSyncEnabled, healthConnected, setHealthConnected,
       notifPrefs, saveNotifPrefs,
       loadedWorkout, setLoadedWorkout,
