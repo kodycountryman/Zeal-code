@@ -141,6 +141,7 @@ export default function HomeScreen() {
   }, [ctx]);
   const cardAnims = useMemo(() => ({
     d90:  FadeInUp.delay(90).springify().damping(18).stiffness(160),
+    d120: FadeInUp.delay(120).springify().damping(18).stiffness(160),
     d150: FadeInUp.delay(150).springify().damping(18).stiffness(160),
     d210: FadeInUp.delay(210).springify().damping(18).stiffness(160),
     d240: FadeInUp.delay(240).springify().damping(18).stiffness(160),
@@ -629,6 +630,59 @@ export default function HomeScreen() {
             />
           </Animated.View>
 
+          {/* ─── Phase 7: 'Start a Plan' hero CTA — only when no plans active ── */}
+          {!ctx.activePlan && !ctx.activeRunPlan && (
+            <Animated.View entering={cardAnims.d120}>
+              <TouchableOpacity
+                onPress={() => tracking.setPlanChooserVisible(true)}
+                activeOpacity={0.85}
+                style={[styles.startPlanCard, {
+                  borderColor: `${accent}40`,
+                  backgroundColor: isDark ? `${accent}10` : `${accent}08`,
+                }]}
+                testID="home-start-plan-cta"
+              >
+                <View style={[styles.startPlanIconWrap, { backgroundColor: `${accent}25` }]}>
+                  <PlatformIcon name="calendar" size={26} color={accent} strokeWidth={1.8} />
+                </View>
+                <View style={styles.startPlanCopy}>
+                  <Text style={[styles.startPlanTitle, { color: colors.text }]}>Start a Plan</Text>
+                  <Text style={[styles.startPlanSub, { color: colors.textSecondary }]}>
+                    Pick a workout or running program built around your goals.
+                  </Text>
+                </View>
+                <PlatformIcon name="chevron-right" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
+          {/* ─── Phase 7: secondary 'add a second plan' tile ─────────────────── */}
+          {((ctx.activePlan && !ctx.activeRunPlan) || (!ctx.activePlan && ctx.activeRunPlan)) && (
+            <Animated.View entering={cardAnims.d120}>
+              <TouchableOpacity
+                onPress={() => tracking.setPlanChooserVisible(true)}
+                activeOpacity={0.85}
+                style={[styles.addPlanTile, {
+                  borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                }]}
+                testID="home-add-second-plan-cta"
+              >
+                <View style={[styles.addPlanIconWrap, { backgroundColor: `${accent}18` }]}>
+                  <PlatformIcon
+                    name={ctx.activePlan ? 'figure-run' : 'dumbbell'}
+                    size={18}
+                    color={accent}
+                  />
+                </View>
+                <Text style={[styles.addPlanText, { color: colors.text }]}>
+                  {ctx.activePlan ? 'Add a Running Plan' : 'Add a Workout Plan'}
+                </Text>
+                <PlatformIcon name="plus" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
           {tracking.workoutHistory.length === 0 && (
             <Animated.View entering={cardAnims.d150}>
               {(() => {
@@ -1024,6 +1078,59 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 16,
     overflow: 'hidden',
+  },
+  // Phase 7
+  startPlanCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 24,
+    borderWidth: 1.5,
+  },
+  startPlanIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startPlanCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  startPlanTitle: {
+    fontSize: 17,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.2,
+  },
+  startPlanSub: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    lineHeight: 18,
+  },
+  addPlanTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  addPlanIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPlanText: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: -0.1,
   },
   day1Top: {
     flexDirection: 'row',
