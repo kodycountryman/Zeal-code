@@ -65,11 +65,21 @@ export default function PaceChart({ route, units, averagePaceSecondsPerMeter, he
     }
     if (validPaces.length < 3) return null;
 
-    // Clamp outliers — anything slower than 2x median gets pulled in
+    // Phase 8: Tighter scaling for dramatic visualization. Previous min/max
+    // used median ±50% which compressed real variation into a flat-looking
+    // line. Now: 10th-90th percentile of pace samples becomes the visible
+    // range, so normal pace shifts produce visible peaks/valleys. Outliers
+    // (GPS spikes during tunnels, brief stops) still get clamped to keep
+    // the chart from being dominated by noise.
     const sorted = [...validPaces].sort((a, b) => a - b);
     const median = sorted[Math.floor(sorted.length / 2)];
-    const max = Math.min(median * 2, sorted[sorted.length - 1]);
-    const min = Math.max(median * 0.5, sorted[0]);
+    const p10 = sorted[Math.floor(sorted.length * 0.1)] ?? sorted[0];
+    const p90 = sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1];
+    // Add a small headroom (5% of range) so the line doesn't kiss the chart edges
+    const rangeRaw = p90 - p10;
+    const headroom = Math.max(rangeRaw * 0.05, 1);
+    const min = Math.max(median * 0.4, p10 - headroom);
+    const max = Math.min(median * 2.2, p90 + headroom);
 
     return { smoothed, validIndices, validPaces, min, max, median };
   }, [route]);

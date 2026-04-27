@@ -674,7 +674,26 @@ export const [RunProvider, useRun] = createContextHook(() => {
       const ratio = ((thinnedRoute.length / run.route.length) * 100).toFixed(0);
       console.log(`[RunContext] Thinned route from ${run.route.length} → ${thinnedRoute.length} points (${ratio}%)`);
     }
-    const thinned: RunLog = thinnedRoute === run.route ? run : { ...run, route: thinnedRoute };
+
+    // Phase 8: populate steps for the run. Prefers iOS Pedometer (CMPedometer
+    // via expo-sensors) for accuracy; falls back to a 170-spm cadence estimate
+    // when the native module isn't available (Expo Go, missing permission, etc).
+    let stepsForLog = run.steps;
+    if (stepsForLog === undefined || stepsForLog === null) {
+      try {
+        const { estimateRunSteps } = await import('@/services/runStepCounter');
+        const startMs = new Date(run.startTime).getTime();
+        const endMs = new Date(run.endTime).getTime();
+        stepsForLog = await estimateRunSteps(startMs, endMs, run.durationSeconds);
+        __DEV__ && console.log('[RunContext] Resolved step count:', stepsForLog);
+      } catch (e) {
+        __DEV__ && console.log('[RunContext] Step counter import failed:', e);
+      }
+    }
+
+    const thinned: RunLog = (thinnedRoute === run.route && stepsForLog === run.steps)
+      ? run
+      : { ...run, route: thinnedRoute, steps: stepsForLog };
 
     // Detect new PRs (uses original full-resolution route for accurate fastest-segment detection)
     const newPRs = detectNewPRs(run, runPRs);
