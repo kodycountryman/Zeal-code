@@ -18,7 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { AppIconName } from '@/constants/iconMap';
 import { useAppContext } from '@/context/AppContext';
-import * as AppleAuthentication from 'expo-apple-authentication';
+// expo-apple-authentication is a native module — dynamic-imported inside
+// handleAppleSignIn so the app still loads in Expo Go (which doesn't ship
+// the native binary). expo-web-browser is fine to import statically.
 import * as WebBrowser from 'expo-web-browser';
 import { supabase, getOrCreateProfile } from '@/services/supabase';
 
@@ -54,6 +56,10 @@ export default function LoginScreen() {
     if (Platform.OS !== 'ios') return;
     setAppleLoading(true);
     try {
+      // Dynamic import — expo-apple-authentication is a native module that
+      // isn't bundled with Expo Go. Importing at module top would crash the
+      // app on load in Expo Go even though no one tapped the button.
+      const AppleAuthentication = await import('expo-apple-authentication');
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,

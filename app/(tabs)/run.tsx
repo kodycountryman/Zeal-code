@@ -28,7 +28,6 @@ import RunMap from '@/components/run/RunMap';
 import TreadmillPanel from '@/components/run/TreadmillPanel';
 import RunSummary from '@/components/run/RunSummary';
 import RunPlanBuilderDrawer from '@/components/drawers/RunPlanBuilderDrawer';
-import HybridPlanBuilderDrawer from '@/components/drawers/HybridPlanBuilderDrawer';
 import WorkoutPlanDrawer from '@/components/drawers/WorkoutPlanDrawer';
 import PlanTypeChooserSheet from '@/components/drawers/PlanTypeChooserSheet';
 import RunHistoryDrawer from '@/components/drawers/RunHistoryDrawer';
@@ -118,7 +117,6 @@ export default function RunScreen() {
   const [postRunNotes, setPostRunNotes] = useState('');
   const [prModalVisible, setPRModalVisible] = useState(false);
   const [planBuilderVisible, setPlanBuilderVisible] = useState(false);
-  const [hybridBuilderVisible, setHybridBuilderVisible] = useState(false);
   const [workoutPlanVisible, setWorkoutPlanVisible] = useState(false);
   const [planChooserVisible, setPlanChooserVisible] = useState(false);
   const [isSavingRun, setIsSavingRun] = useState(false);
@@ -764,7 +762,7 @@ export default function RunScreen() {
       <PlanTypeChooserSheet
         visible={planChooserVisible}
         onClose={() => setPlanChooserVisible(false)}
-        onSelectStrength={() => {
+        onSelectWorkout={() => {
           setPlanChooserVisible(false);
           setTimeout(() => setWorkoutPlanVisible(true), 250);
         }}
@@ -772,13 +770,9 @@ export default function RunScreen() {
           setPlanChooserVisible(false);
           setTimeout(() => setPlanBuilderVisible(true), 250);
         }}
-        onSelectHybrid={() => {
-          setPlanChooserVisible(false);
-          setTimeout(() => setHybridBuilderVisible(true), 250);
-        }}
       />
 
-      {/* Strength plan builder (previously only on Home) */}
+      {/* Workout plan builder (covers all workout styles incl. Hybrid) */}
       <WorkoutPlanDrawer
         visible={workoutPlanVisible}
         onClose={() => setWorkoutPlanVisible(false)}
@@ -788,12 +782,6 @@ export default function RunScreen() {
       <RunPlanBuilderDrawer
         visible={planBuilderVisible}
         onClose={() => setPlanBuilderVisible(false)}
-      />
-
-      {/* Hybrid plan builder */}
-      <HybridPlanBuilderDrawer
-        visible={hybridBuilderVisible}
-        onClose={() => setHybridBuilderVisible(false)}
       />
 
       {/* Run settings — units, auto-pause, audio (nested), HR, mileage goal */}

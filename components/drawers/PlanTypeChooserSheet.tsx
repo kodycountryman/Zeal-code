@@ -4,45 +4,51 @@ import BaseDrawer from '@/components/drawers/BaseDrawer';
 import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
-import { useSubscription } from '@/context/SubscriptionContext';
-import { showProGate, PRO_GOLD } from '@/services/proGate';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onSelectStrength: () => void;
+  onSelectWorkout: () => void;
   onSelectRun: () => void;
-  onSelectHybrid: () => void;
+  /** @deprecated Hybrid is now a workout style inside the Workout Plan flow.
+   *  Kept as an optional prop so existing callers continue to compile while
+   *  they're migrated. New callers should not pass it.
+   */
+  onSelectHybrid?: () => void;
+  /** @deprecated Renamed to onSelectWorkout. Old name kept for transitional callers. */
+  onSelectStrength?: () => void;
 }
 
 /**
- * Unified "Start a Plan" chooser. Replaces the separate entry points that
- * previously existed on Home (strength only) and Run (run + hybrid). Offers
- * all three plan types side-by-side so users don't have to guess which tab
- * owns which kind of plan.
+ * "Start a Plan" chooser — Phase 5a.
  *
- * Pattern: stateless sheet. The parent owns each builder drawer's visibility
- * and fires the respective onSelect* callback; the sheet just routes the tap.
- * Callers typically dismiss the sheet first, then open the matching builder
- * drawer after a short delay to avoid stacked-sheet animation jank.
+ * Two top-level options: Workout Plan (covers every style — Strength,
+ * Bodybuilding, CrossFit, Hyrox, HIIT, Pilates, Mobility, Low-Impact,
+ * Hybrid) and Running Plan. Hybrid is no longer a separate top-level
+ * choice; it's a workout style picked inside the Workout Plan flow,
+ * because a hybrid plan is fundamentally a workout schedule that mixes
+ * in run segments.
+ *
+ * The user can have one active Workout Plan AND one active Running Plan
+ * simultaneously (Phase 5b). Picking a plan type that's already active
+ * replaces it.
+ *
+ * Pattern: stateless sheet. The parent owns each builder drawer's
+ * visibility and fires the respective callback. Callers typically dismiss
+ * this sheet first, then open the matching builder drawer after a short
+ * delay to avoid stacked-sheet animation jank.
  */
 function PlanTypeChooserSheet({
   visible,
   onClose,
-  onSelectStrength,
+  onSelectWorkout,
   onSelectRun,
-  onSelectHybrid,
+  onSelectStrength,
 }: Props) {
-  const { colors, accent, isDark } = useZealTheme();
-  const { hasPro, openPaywall } = useSubscription();
+  const { colors, accent } = useZealTheme();
 
-  const handleHybridTap = () => {
-    if (!hasPro) {
-      showProGate('runPlans', openPaywall);
-      return;
-    }
-    onSelectHybrid();
-  };
+  // Bridge old prop name to new behavior
+  const handleWorkoutTap = onSelectWorkout ?? onSelectStrength ?? (() => {});
 
   const header = <DrawerHeader title="Start a Plan" onClose={onClose} />;
 
@@ -53,73 +59,48 @@ function PlanTypeChooserSheet({
     <BaseDrawer visible={visible} onClose={onClose} header={header}>
       <View style={styles.content}>
         <Text style={[styles.intro, { color: colors.textSecondary }]}>
-          Pick the kind of plan that matches your goal. You can switch plans
-          anytime.
+          Pick the kind of plan that matches your goal. You can run a
+          workout plan and a running plan at the same time.
         </Text>
 
-        {/* Strength */}
+        {/* Workout Plan */}
         <TouchableOpacity
           style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}
-          onPress={onSelectStrength}
+          onPress={handleWorkoutTap}
           activeOpacity={0.8}
-          testID="plan-chooser-strength"
+          testID="plan-chooser-workout"
           accessibilityRole="button"
-          accessibilityLabel="Start a Strength Plan"
+          accessibilityLabel="Start a Workout Plan"
         >
           <View style={[styles.iconWrap, { backgroundColor: `${accent}20` }]}>
             <PlatformIcon name="dumbbell" size={20} color={accent} />
           </View>
           <View style={styles.cardBody}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Strength Plan</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Workout Plan</Text>
             <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
-              Periodized lifting programs — bodybuilding, powerlifting, general
-              strength, and more.
+              Strength, Bodybuilding, CrossFit, HIIT, Pilates, Mobility,
+              Hybrid — pick your style next.
             </Text>
           </View>
           <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 
-        {/* Run */}
+        {/* Run Plan */}
         <TouchableOpacity
           style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}
           onPress={onSelectRun}
           activeOpacity={0.8}
           testID="plan-chooser-run"
           accessibilityRole="button"
-          accessibilityLabel="Start a Run Plan"
+          accessibilityLabel="Start a Running Plan"
         >
           <View style={[styles.iconWrap, { backgroundColor: `${accent}20` }]}>
             <PlatformIcon name="figure-run" size={20} color={accent} />
           </View>
           <View style={styles.cardBody}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Run Plan</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Running Plan</Text>
             <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
               5K, 10K, Half Marathon, Marathon, or general run training.
-            </Text>
-          </View>
-          <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        {/* Hybrid */}
-        <TouchableOpacity
-          style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}
-          onPress={handleHybridTap}
-          activeOpacity={0.8}
-          testID="plan-chooser-hybrid"
-          accessibilityRole="button"
-          accessibilityLabel="Start a Hybrid Plan"
-        >
-          <View style={[styles.iconWrap, { backgroundColor: '#3b82f620' }]}>
-            <PlatformIcon name="dumbbell" size={20} color="#3b82f6" />
-          </View>
-          <View style={styles.cardBody}>
-            <View style={styles.titleRow}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Hybrid Plan</Text>
-              {!hasPro && <PlatformIcon name="crown" size={12} color={PRO_GOLD} />}
-            </View>
-            <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
-              Combine strength training with run programming in one weekly
-              schedule.
             </Text>
           </View>
           <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
@@ -162,11 +143,6 @@ const styles = StyleSheet.create({
   cardBody: {
     flex: 1,
     gap: 3,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
   cardTitle: {
     fontSize: 16,
