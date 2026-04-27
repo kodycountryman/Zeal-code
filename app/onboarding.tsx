@@ -36,7 +36,7 @@ const CARD = '#1c1c1c';
 const BORDER = '#2a2a2a';
 const TEXT = '#ffffff';
 const TEXT2 = 'rgba(255,255,255,0.55)';
-const TOTAL_STEPS = 13;
+const TOTAL_STEPS = 12;
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -125,23 +125,22 @@ export default function OnboardingScreen() {
       case 5: return true;
       case 6: return fitnessLevel !== null;
       case 7: return goal !== null;
-      case 8: return workoutStyle !== null;
-      case 9: return equipPreset !== null;
+      case 8: return equipPreset !== null;
+      case 9: return true;
       case 10: return true;
       case 11: return true;
-      case 12: return true;
       default: return false;
     }
-  }, [step, name, sex, fitnessLevel, goal, workoutStyle, equipPreset]);
+  }, [step, name, sex, fitnessLevel, goal, equipPreset]);
 
   const goNext = useCallback(() => {
-    if (step === 12) {
+    if (step === 11) {
       handleWalkthroughDone();
       return;
     }
-    if (step === 9 && equipPreset !== 'home') {
+    if (step === 8 && equipPreset !== 'home') {
       slideDir.current = 1;
-      setStep(11);
+      setStep(10);
       return;
     }
     slideDir.current = 1;
@@ -151,8 +150,8 @@ export default function OnboardingScreen() {
   const goBack = useCallback(() => {
     if (step <= 1) return;
     slideDir.current = -1;
-    if (step === 11 && equipPreset !== 'home') {
-      setStep(9);
+    if (step === 10 && equipPreset !== 'home') {
+      setStep(8);
       return;
     }
     setStep((s) => s - 1);
@@ -246,7 +245,7 @@ export default function OnboardingScreen() {
     if ((Platform as any).isPad) {
       handleWalkthroughDone();
     } else {
-      setStep(13);
+      setStep(12);
     }
   }, [ctx, handleWalkthroughDone]);
 
@@ -373,20 +372,19 @@ export default function OnboardingScreen() {
           )}
           {step === 6 && <StepFitnessLevel value={fitnessLevel} onChange={setFitnessLevel} />}
           {step === 7 && <StepGoal value={goal} onChange={setGoal} />}
-          {step === 8 && <StepWorkoutStyle value={workoutStyle} onChange={setWorkoutStyle} />}
-          {step === 9 && (
+          {step === 8 && (
             <StepGymType
               value={equipPreset}
               onChange={setEquipPreset}
             />
           )}
-          {step === 10 && (
+          {step === 9 && (
             <StepHomeEquipment
               value={localHomeEquip}
               onChange={setLocalHomeEquip}
             />
           )}
-          {step === 11 && (
+          {step === 10 && (
             <StepWorkoutComponents
               warmUp={warmUpEnabled}
               coolDown={coolDownEnabled}
@@ -400,7 +398,7 @@ export default function OnboardingScreen() {
               onToggleCoreFinisher={() => setCoreFinisherEnabled(v => !v)}
             />
           )}
-          {step === 12 && (
+          {step === 11 && (
             <StepNotifications
               onAllow={handleRequestNotifications}
               onSkip={() => {
@@ -409,25 +407,25 @@ export default function OnboardingScreen() {
                 if ((Platform as any).isPad) {
                   handleWalkthroughDone();
                 } else {
-                  setStep(13);
+                  setStep(12);
                 }
               }}
             />
           )}
-          {step === 13 && (
+          {step === 12 && (
             <StepHealthData
               onConnect={handleConnectHealth}
             />
           )}
         </Animated.View>
 
-        {step !== 12 && step !== 13 && (
+        {step !== 11 && step !== 12 && (
           <View style={styles.bottomBar}>
-            {step === 10 ? (
+            {step === 9 ? (
               <View style={styles.homeEquipFooter}>
                 <TouchableOpacity
                   style={styles.skipEquipBtn}
-                  onPress={() => { setLocalHomeEquip({}); slideDir.current = 1; setStep(11); }}
+                  onPress={() => { setLocalHomeEquip({}); slideDir.current = 1; setStep(10); }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.skipLink}>Skip</Text>
