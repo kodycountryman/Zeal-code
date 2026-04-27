@@ -39,6 +39,14 @@ export async function captureAndShareRun({
     return false;
   }
 
+  // Phase 9: brief settle delay so MapView tiles in the share card have a
+  // chance to finish painting before view-shot snapshots them. The card is
+  // mounted off-screen as soon as RunSummary opens, so by the time the user
+  // taps Share the tiles are usually already cached — but on the FIRST share
+  // immediately after a run, this 600ms window prevents grey tiles in the
+  // captured image.
+  await new Promise(r => setTimeout(r, 600));
+
   try {
     const uri = await captureRef(viewRef, {
       format: 'png',

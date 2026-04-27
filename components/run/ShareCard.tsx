@@ -1,9 +1,31 @@
 import React, { forwardRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import { RunLog, METERS_PER_MILE, METERS_PER_KM } from '@/types/run';
+import { RunLog, METERS_PER_MILE, METERS_PER_KM, RoutePoint } from '@/types/run';
 import { formatPace, paceToSecondsPerMile, paceToSecondsPerKm } from '@/services/runTrackingService';
+
+// Phase 9: real-map background. Lazy-load react-native-maps so the bundle
+// still loads in Expo Go (where we fall back to the SVG-only renderer).
+function loadMaps(): any {
+  try { return require('react-native-maps'); }
+  catch { return null; }
+}
+
+// Dark map style matching the share-card aesthetic. Used for Google Maps
+// (Android). Apple Maps on iOS will follow the system dark mode.
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#0f0f0f' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f0f0f' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9aa0a6' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a2a2a' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0f0f0f' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a3a3a' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1a2a' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#445566' }] },
+];
 
 export type ShareCardFormat = 'square' | 'story';
 
@@ -148,10 +170,14 @@ const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116', sh
           <Text style={styles.heroUnit}>{distanceUnit}</Text>
         </View>
 
-        {/* Route */}
-        {showRoute && routePath && (
+        {/* Route — Phase 9: real map tiles when available, SVG fallback otherwise */}
+        {showRoute && log.route.length >= 2 && (
           <View style={[styles.routeWrap, { width: routeAreaW, height: routeAreaH }]}>
-            <RoutePathRenderer path={routePath} width={routeAreaW} height={routeAreaH} color={accent} />
+            <RouteMapBackground route={log.route} width={routeAreaW} height={routeAreaH} accent={accent} />
+            {/* SVG fallback only used when MapView isn't available */}
+            {!hasMapsModule() && routePath && (
+              <RoutePathRenderer path={routePath} width={routeAreaW} height={routeAreaH} color={accent} />
+            )}
           </View>
         )}
 
@@ -191,14 +217,16 @@ ShareCard.displayName = 'ShareCard';
 
 export default ShareCard;
 
-// ─── Inline SVG route renderer ──────────────────────────────────────────
-// Kept in the same file to ensure view-shot captures it as part of the card.
+// ─── Route renderers ────────────────────────────────────────────────────
+// SVG fallback (Expo Go / no native maps): just the polyline on the gradient.
+// MapView (dev build): real map tiles with the route overlaid as a Polyline.
+// Both kept in the same file so view-shot captures them as part of the card.
 
 import Svg, { Path } from 'react-native-svg';
 
 function RoutePathRenderer({ path, width, height, color }: { path: string; width: number; height: number; color: string }) {
   return (
-    <Svg width={width} height={height}>
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
       <Path
         d={path}
         stroke={color}
@@ -208,6 +236,100 @@ function RoutePathRenderer({ path, width, height, color }: { path: string; width
         fill="none"
       />
     </Svg>
+  );
+}
+
+// Module-level cached load — avoids re-requiring on every render.
+let _cachedMaps: any = undefined;
+function getMapsModule(): any {
+  if (_cachedMaps === undefined) _cachedMaps = loadMaps();
+  return _cachedMaps;
+}
+function hasMapsModule(): boolean {
+  return getMapsModule() !== null;
+}
+
+/**
+ * Real-map background for the share card. Renders a MapView framed to the
+ * route's bounding box with the route as a Polyline overlay. The map is
+ * mounted alongside the rest of the card so view-shot captures it; the
+ * off-screen ShareCard render in RunSummary keeps the map mounted from the
+ * moment the summary opens, giving tiles plenty of time to load before
+ * the user taps Share.
+ */
+function RouteMapBackground({
+  route,
+  width,
+  height,
+  accent,
+}: {
+  route: RoutePoint[];
+  width: number;
+  height: number;
+  accent: string;
+}) {
+  const Maps = getMapsModule();
+  if (!Maps || route.length < 2) return null;
+  const { default: MapView, Polyline, PROVIDER_GOOGLE } = Maps;
+
+  // Region computed to fit the entire route with a little padding
+  let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+  for (const p of route) {
+    if (p.latitude < minLat) minLat = p.latitude;
+    if (p.latitude > maxLat) maxLat = p.latitude;
+    if (p.longitude < minLon) minLon = p.longitude;
+    if (p.longitude > maxLon) maxLon = p.longitude;
+  }
+  const latDelta = Math.max((maxLat - minLat) * 1.4, 0.002);
+  const lonDelta = Math.max((maxLon - minLon) * 1.4, 0.002);
+  const region = {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLon + maxLon) / 2,
+    latitudeDelta: latDelta,
+    longitudeDelta: lonDelta,
+  };
+
+  const polylineCoords = route.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { width, height, overflow: 'hidden', borderRadius: 12 }]}>
+      <MapView
+        style={StyleSheet.absoluteFill}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        initialRegion={region}
+        // Snapshot-friendly: disable any UI chrome
+        scrollEnabled={false}
+        zoomEnabled={false}
+        pitchEnabled={false}
+        rotateEnabled={false}
+        showsCompass={false}
+        showsScale={false}
+        showsMyLocationButton={false}
+        showsUserLocation={false}
+        showsTraffic={false}
+        showsBuildings
+        toolbarEnabled={false}
+        loadingEnabled
+        loadingBackgroundColor="#0f0f0f"
+        customMapStyle={Platform.OS === 'android' ? DARK_MAP_STYLE : undefined}
+        userInterfaceStyle="dark"
+      >
+        <Polyline
+          coordinates={polylineCoords}
+          strokeColor={accent}
+          strokeWidth={4}
+          lineCap="round"
+          lineJoin="round"
+        />
+      </MapView>
+      {/* Subtle overlay tint so the stats overlay stays legible */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: 'rgba(15,15,15,0.10)' },
+        ]}
+      />
+    </View>
   );
 }
 
