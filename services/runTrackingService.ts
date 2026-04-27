@@ -335,6 +335,17 @@ class RunTrackingService {
       return false;
     }
 
+    // Critical for lock-screen runs: request "Always" background permission so
+    // the background task can actually run when the screen locks. Without this,
+    // _startBackgroundTask() silently bails and the user gets a straight-line
+    // interpolation through any time the phone was locked. Non-fatal if the
+    // user denies — the run still works foreground-only.
+    const hasBg = await this.hasBackgroundPermission();
+    if (!hasBg) {
+      const grantedBg = await this.requestBackgroundPermission();
+      __DEV__ && console.log('[RunTracking] Background permission requested:', grantedBg ? 'granted' : 'denied');
+    }
+
     // Preserve existing listeners across resets so an external subscriber doesn't
     // need to re-register between runs.
     const preservedListeners = this.state.listeners;
@@ -560,9 +571,79 @@ class RunTrackingService {
     // Sort defensively by timestamp — the task may have batched points out
     // of order on some devices.
     points.sort((a, b) => a.timestamp - b.timestamp);
-    for (const p of points) {
-      // Synthesize a LocationObject for _onLocation so all existing filtering,
-      // split detection, and elevation math applies identically to foreground points.
+
+    // Determine if any buffered points predate the most recent foreground
+    // point. If so, the foreground watcher already wrote a "post-unlock"
+    // point to the route while we were suspended, and naively replaying the
+    // older buffered points through _onLocation would compute distances
+    // against the wrong reference (the post-unlock point), corrupting totals.
+    //
+    // Strategy: walk the buffered points and either insert each one in the
+    // correct chronological position (rebuilding distance/elevation totals
+    // around it) or, if it's strictly newer than every existing point, push
+    // it through the normal _onLocation pipeline.
+    const lastRouteTs = this.state.route.length > 0
+      ? this.state.route[this.state.route.length - 1].timestamp
+      : 0;
+
+    let merged = 0;
+    const newest = points.filter((p) => p.timestamp > lastRouteTs);
+    const older = points.filter((p) => p.timestamp <= lastRouteTs);
+
+    if (older.length > 0) {
+      // Rebuild from scratch: combine existing route + older buffered points,
+      // sort by timestamp, recompute totals. This is more expensive but
+      // guarantees correctness when the foreground watcher beat the drain.
+      const combined: RoutePoint[] = [
+        ...this.state.route,
+        ...older.map((p) => ({
+          latitude: p.latitude,
+          longitude: p.longitude,
+          altitude: p.altitude,
+          timestamp: p.timestamp,
+          accuracy: p.accuracy,
+          speed: p.speed,
+          pace: null,
+        })),
+      ];
+      combined.sort((a, b) => a.timestamp - b.timestamp);
+
+      // Filter low-accuracy points to match the live filter
+      const accepted = combined.filter(
+        (p) => (p.accuracy ?? Infinity) <= GPS_ACCURACY_THRESHOLD_METERS,
+      );
+
+      // Reset accumulators and rebuild
+      this.state.route = [];
+      this.state.totalDistanceMeters = 0;
+      this.state.totalElevationGainMeters = 0;
+      this.state.totalElevationLossMeters = 0;
+      this.state.distanceSinceLastSplit = 0;
+      this.state.durationSinceLastSplit = 0;
+      this.state.elevationSinceLastSplit = 0;
+      this.state.splits = [];
+      this.state.lastAcceptedPoint = null;
+
+      for (const p of accepted) {
+        this._onLocation({
+          coords: {
+            latitude: p.latitude,
+            longitude: p.longitude,
+            altitude: p.altitude,
+            accuracy: p.accuracy,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: p.speed,
+          },
+          timestamp: p.timestamp,
+        } as Location.LocationObject);
+      }
+      merged += older.length;
+    }
+
+    // Newest buffered points (those after the last route point) can flow
+    // through _onLocation normally — their reference is correct.
+    for (const p of newest) {
       this._onLocation({
         coords: {
           latitude: p.latitude,
@@ -575,9 +656,11 @@ class RunTrackingService {
         },
         timestamp: p.timestamp,
       } as Location.LocationObject);
+      merged++;
     }
-    __DEV__ && console.log(`[RunTracking] Drained ${points.length} background point(s)`);
-    return points.length;
+
+    __DEV__ && console.log(`[RunTracking] Drained ${points.length} background point(s) (${older.length} merged in-order, ${newest.length} appended)`);
+    return merged;
   }
 
   /**
