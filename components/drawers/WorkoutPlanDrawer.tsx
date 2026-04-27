@@ -19,7 +19,7 @@ import { useSeventyFiveHard } from '@/context/SeventyFiveHardContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { PRO_STYLES_SET, showProGate } from '@/services/proGate';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
-import { generatePlanSchedule, generate75HardSchedule, type PlanGenerationInput, type DayPrescription } from '@/services/planEngine';
+import { generatePlanSchedule, generateHybridPlanSchedule, generate75HardSchedule, type PlanGenerationInput, type GenerateHybridPlanInput, type DayPrescription } from '@/services/planEngine';
 import { COMMERCIAL_EQUIPMENT_PRESET, HOME_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
 import type { GenerateWorkoutParams } from '@/services/workoutEngine';
 import {
@@ -52,6 +52,7 @@ const GOAL_COLORS: Record<string, string> = {
   lose_fat:          WORKOUT_STYLE_COLORS.HIIT         ?? '#ef4444',
   improve_endurance: WORKOUT_STYLE_COLORS.Cardio       ?? '#22c55e',
   general_fitness:   WORKOUT_STYLE_COLORS.CrossFit     ?? '#f87116',
+  hybrid_lift_run:   WORKOUT_STYLE_COLORS.Hybrid       ?? '#3b82f6',
   event_preparation: WORKOUT_STYLE_COLORS.Hyrox        ?? '#06b6d4',
   improve_mobility:  WORKOUT_STYLE_COLORS.Mobility     ?? '#86efac',
 };
@@ -63,6 +64,7 @@ function getStyleForGoal(goal: string): string {
     case 'lose_fat':          return 'HIIT';
     case 'improve_endurance': return 'HIIT';
     case 'general_fitness':   return 'CrossFit';
+    case 'hybrid_lift_run':   return 'Hybrid';
     case 'event_preparation': return 'Hyrox';
     case 'improve_mobility':  return 'Mobility';
     default:                  return 'Strength';
@@ -489,7 +491,25 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
       trainingSplit: selectedSplit,
     };
 
-    const schedule = generatePlanSchedule(genInput);
+    // Phase 6a: Hybrid plans split daysPerWeek into strength + run with sensible
+    // defaults. Roughly half the days for strength, the other half for runs.
+    // Combined-day hybrid (one session = strength block + run block) lands in 6b.
+    let schedule;
+    if (goal === 'hybrid_lift_run') {
+      const hybridStrengthDays = Math.max(2, Math.floor(daysPerWeek / 2));
+      const hybridRunDays = Math.max(1, daysPerWeek - hybridStrengthDays);
+      const hybridInput: GenerateHybridPlanInput = {
+        ...genInput,
+        runGoal: 'run_general',
+        strengthStyle: 'Strength',
+        strengthSplit: selectedSplit || 'Upper / Lower',
+        strengthDays: hybridStrengthDays,
+        runDays: hybridRunDays,
+      };
+      schedule = generateHybridPlanSchedule(hybridInput);
+    } else {
+      schedule = generatePlanSchedule(genInput);
+    }
 
     // Ensure the plan doesn't open on a rest day.
     // Find how many days into week 1 the first training day falls, then
@@ -518,6 +538,9 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
       goal: goalLabel,
       goalId: goal as PlanGoal,
       style: autoStyle,
+      // Phase 6a: hybrid plans get mode='hybrid' so run.tsx can recognize them
+      // and surface today's run prescription. Non-hybrid stays default ('workout').
+      mode: goal === 'hybrid_lift_run' ? 'hybrid' : undefined,
       event: isEventGoal && event ? [event] : [],
       daysPerWeek,
       sessionDuration,

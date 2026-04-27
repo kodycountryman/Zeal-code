@@ -54,6 +54,7 @@ export const PLAN_GOALS: PlanGoalOption[] = [
   { id: 'lose_fat', label: 'Lose Fat', description: 'Body recomposition & fat loss', icon: 'scale' },
   { id: 'improve_endurance', label: 'Improve Endurance', description: 'Cardiovascular capacity', icon: 'heart' },
   { id: 'general_fitness', label: 'General Fitness', description: 'Well-rounded conditioning', icon: 'activity' },
+  { id: 'hybrid_lift_run', label: 'Hybrid Training', description: 'Strength + running combined across the week', icon: 'shuffle' },
   { id: 'event_preparation', label: 'Event Preparation', description: 'Peak for a specific competition', icon: 'trophy' },
   { id: 'improve_mobility', label: 'Improve Mobility', description: 'Flexibility & joint health', icon: 'wind' },
 ];
