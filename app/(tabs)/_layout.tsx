@@ -6,7 +6,6 @@ import { useSubscription } from '@/context/SubscriptionContext';
 import { ConnectedPaywallModal } from '@/components/PaywallModal';
 import ZealTipBanner from '@/components/ZealTipBanner';
 import { AppTourProvider } from '@/context/AppTourContext';
-import AppTour from '@/components/AppTour';
 
 // WheelPicker uses FlatList inside the workout tab's ScrollView — known RN limitation, works correctly
 LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
@@ -45,7 +44,6 @@ function TabsWithPaywall() {
       </Tabs>
       <ConnectedPaywallModal />
       <ZealTipBanner />
-      <AppTour />
     </>
   );
 }

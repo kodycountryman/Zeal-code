@@ -796,12 +796,10 @@ export default function HomeScreen() {
           setColorThemeVisible(false);
           setEquipmentVisible(false);
           setHelpFaqVisible(false);
-          resetTour();
-          // Wait for bottom sheets to fully dismiss, then navigate + start
+          // Phase 4: navigate to the new full-page walkthrough route
           setTimeout(() => {
-            router.push('/train?mode=workout');
-            setTimeout(() => startTour(), 600);
-          }, 500);
+            router.push('/walkthrough');
+          }, 350);
         }}
       />
 

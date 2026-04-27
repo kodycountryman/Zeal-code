@@ -57,12 +57,10 @@ const SLIDE_EASING = Easing.out(Easing.cubic);
 
 export default function TrainScreen() {
   const { mode, loaded, syncFromQueryParam } = useTrain();
-  const { tourCompleted, loaded: tourLoaded, startTour } = useAppTour();
   const { colors } = useZealTheme();
   const { userPhotoUri } = useAppContext();
   const params = useLocalSearchParams<{ mode?: string }>();
   const { width: screenWidth } = useWindowDimensions();
-  const tourAutoTriggered = useRef(false);
 
   // Drawers inside each embedded screen are opened via exported helpers
   // from those route files (see openWorkoutProfileDrawer /
@@ -73,19 +71,8 @@ export default function TrainScreen() {
     syncFromQueryParam(params.mode);
   }, [params.mode, syncFromQueryParam]);
 
-  // Tour — first-focus on workout mode starts the walkthrough once per install.
-  useFocusEffect(
-    useCallback(() => {
-      if (!tourLoaded) return;
-      if (tourCompleted) return;
-      if (tourAutoTriggered.current) return;
-      if (mode !== 'workout') return;
-      tourAutoTriggered.current = true;
-      __DEV__ && console.log('[train] Auto-starting app tour on workout focus');
-      const t = setTimeout(() => startTour(), 1200);
-      return () => clearTimeout(t);
-    }, [tourLoaded, tourCompleted, mode, startTour]),
-  );
+  // Phase 4: Old in-app tour auto-trigger removed. Walkthrough now lives at
+  // /walkthrough and is offered via WalkthroughPromptHandler in app/_layout.tsx.
 
   // ── Content slide ───────────────────────────────────────────────────────
   // translateX: 0 when workout visible, -screenWidth when run visible.

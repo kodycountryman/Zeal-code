@@ -617,10 +617,10 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
             },
             {
               iconComponent: <PlatformIcon name="compass" size={18} color={colors.textSecondary} />,
-              label: 'App Tour',
-              sub: 'Replay the guided walkthrough',
+              label: 'Walkthrough',
+              sub: 'Take the quick tour again',
               onPress: () => onReplayTour?.(),
-              testID: 'settings-app-tour',
+              testID: 'settings-walkthrough',
             },
           ].map((item, i, arr) => (
             <TouchableOpacity

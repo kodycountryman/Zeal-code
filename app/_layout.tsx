@@ -120,9 +120,76 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" options={{ animation: "none" }} />
       <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
+      <Stack.Screen
+        name="walkthrough"
+        options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
+      />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
     </Stack>
   );
+}
+
+/**
+ * After the user lands inside the app (post-login, post-onboarding), check
+ * if the walkthrough prompt should fire. Shows a 3-option alert:
+ *   - Take the tour    → opens /walkthrough, marks 'completed' on finish
+ *   - Skip for now     → leaves state as 'pending', will re-prompt next login
+ *   - Don't show again → marks 'never', won't auto-prompt again
+ *
+ * Manual replay from Settings always works regardless of state.
+ */
+function WalkthroughPromptHandler() {
+  const { loaded, isLoggedIn, onboardingComplete } = useAppContext();
+  const router = useRouter();
+  const segments = useSegments();
+  const promptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!loaded || !isLoggedIn || !onboardingComplete) return;
+    if (promptedRef.current) return;
+    // Only prompt when we're actually inside the tabs (not still in auth/onboarding flow)
+    const inAuthGroup = segments[0] === 'login' || segments[0] === 'onboarding';
+    if (inAuthGroup) return;
+
+    promptedRef.current = true;
+
+    // Defer slightly so we don't fight the route transition animation
+    const timer = setTimeout(async () => {
+      const { shouldPromptWalkthrough, setWalkthroughPromptState } = await import(
+        '@/services/walkthroughPrompt'
+      );
+      const should = await shouldPromptWalkthrough();
+      if (!should) return;
+
+      const { Alert } = await import('react-native');
+      Alert.alert(
+        'Want a quick tour?',
+        'Take a 60-second walkthrough so you know exactly what Zeal+ can do.',
+        [
+          {
+            text: 'Don\'t show again',
+            style: 'destructive',
+            onPress: () => { void setWalkthroughPromptState('never'); },
+          },
+          {
+            text: 'Skip for now',
+            style: 'cancel',
+            // Leaves state as 'pending' — re-prompts on next login
+          },
+          {
+            text: 'Take the tour',
+            style: 'default',
+            onPress: () => router.push('/walkthrough'),
+          },
+        ],
+        { cancelable: false },
+      );
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [loaded, isLoggedIn, onboardingComplete, segments, router]);
+
+  return null;
 }
 
 function AutoGenerateTodayWorkout() {
@@ -183,6 +250,7 @@ export default function RootLayout() {
                         <BottomSheetModalProvider>
                           <NotificationHandler />
                           <AutoGenerateTodayWorkout />
+                          <WalkthroughPromptHandler />
                           <RootLayoutNav />
                         </BottomSheetModalProvider>
                       </TrainProvider>

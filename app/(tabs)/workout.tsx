@@ -29,7 +29,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { useZealTheme, useAppContext, type ExercisePreference } from '@/context/AppContext';
 import { resolvePushPullLegs } from '@/utils/training';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -4972,8 +4972,10 @@ export default function WorkoutScreen() {
           setColorThemeVisible(false);
           setEquipmentVisible(false);
           setHelpFaqVisible(false);
-          resetTour();
-          setTimeout(() => startTour(), 800);
+          // Phase 4: navigate to the new full-page walkthrough route
+          setTimeout(() => {
+            router.push('/walkthrough');
+          }, 350);
         }}
       />
 
