@@ -41,7 +41,8 @@ import TabHeader from '@/components/TabHeader';
 import Chip from '@/components/Chip';
 import ModeToggleIcons from '@/components/train/ModeToggleIcons';
 import IntervalRunner from '@/components/run/IntervalRunner';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSeventyFiveHard } from '@/context/SeventyFiveHardContext';
 import { healthService } from '@/services/healthService';
 import { RunLog, RunType, METERS_PER_MILE, METERS_PER_KM } from '@/types/run';
 import { formatPace, paceToSecondsPerMile, paceToSecondsPerKm } from '@/services/runTrackingService';
@@ -108,6 +109,19 @@ export default function RunScreen() {
   const ctx = useAppContext();
   const run = useRun();
   const { hasPro, openPaywall } = useSubscription();
+  const seventyFiveHard = useSeventyFiveHard();
+
+  // Phase 11: when arrived from OutdoorWorkoutCard's "Track with GPS" button,
+  // read the activity from the query string and set a flag so completion of
+  // this run auto-marks today's 75 Hard outdoor workout complete.
+  const params = useLocalSearchParams<{ '75hardOutdoor'?: string }>();
+  const [pending75HardActivity, setPending75HardActivity] = useState<string | null>(null);
+  useEffect(() => {
+    const activity = params['75hardOutdoor'];
+    if (typeof activity === 'string' && activity.length > 0) {
+      setPending75HardActivity(activity);
+    }
+  }, [params]);
 
   const [selectedRunType, setSelectedRunType] = useState<RunType>('free');
   /** Treadmill starting speed in m/s — defaults to ~6 mph (jogging) */
@@ -284,6 +298,13 @@ export default function RunScreen() {
         ctx.markDayCompleted(finalLog.date);
       }
 
+      // Phase 11: if this run was started from the 75 Hard outdoor card,
+      // auto-mark today's outdoor workout complete.
+      if (pending75HardActivity) {
+        seventyFiveHard.markOutdoorComplete();
+        setPending75HardActivity(null);
+      }
+
       setPendingRunLog(null);
       setPostRunRating(null);
       setPostRunNotes('');
@@ -437,6 +458,21 @@ export default function RunScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* Phase 11: 75 Hard outdoor linkage banner */}
+            {pending75HardActivity && (
+              <GlassCard style={[styles.sectionCard, { borderColor: `${accent}30`, borderWidth: 1 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <PlatformIcon name="sun" size={18} color={accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionLabel, { color: accent }]}>75 HARD · OUTDOOR WORKOUT</Text>
+                    <Text style={{ color: colors.text, fontSize: 13, fontFamily: 'Outfit_500Medium' }}>
+                      {pending75HardActivity} · auto-marks complete when you finish
+                    </Text>
+                  </View>
+                </View>
+              </GlassCard>
+            )}
+
             {/* Interval workout runner (only renders when prescription has intervals) */}
             <IntervalRunner />
 

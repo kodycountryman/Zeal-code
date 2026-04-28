@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import GlassCard from '@/components/GlassCard';
 import { useZealTheme } from '@/context/AppContext';
@@ -10,6 +11,9 @@ import {
   OUTDOOR_DURATION_OPTIONS,
   type OutdoorActivity,
 } from '@/services/seventyFiveHardTypes';
+
+// Phase 11: activities that benefit from GPS tracking go through the Run engine.
+const GPS_ACTIVITIES = new Set<OutdoorActivity>(['Walk', 'Run', 'Hike', 'Bike']);
 
 interface Props {
   variant: 'glass' | 'solid';
@@ -230,26 +234,48 @@ export default function OutdoorWorkoutCard({ variant }: Props) {
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
       )}
 
-      {/* Choice buttons — Start Timer or Already Done */}
+      {/* Choice buttons — Track with GPS (when applicable) / Start Timer / Already Done */}
       {mode === 'choice' && (
-        <View style={styles.choiceRow}>
-          <TouchableOpacity
-            style={[styles.choiceBtn, { borderColor: LIGHT, backgroundColor: `${LIGHT}15` }]}
-            onPress={handleStartTimer}
-            activeOpacity={0.8}
-          >
-            <PlatformIcon name="timer" size={15} color={LIGHT} />
-            <Text style={[styles.choiceBtnText, { color: LIGHT }]}>Start Timer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.choiceBtn, { borderColor: colors.border }]}
-            onPress={handleAlreadyDone}
-            activeOpacity={0.8}
-          >
-            <PlatformIcon name="check-circle" size={15} color={colors.textSecondary} />
-            <Text style={[styles.choiceBtnText, { color: colors.text }]}>Already Done</Text>
-          </TouchableOpacity>
-        </View>
+        <>
+          {/* Phase 11: For Walk/Run/Hike/Bike, surface a GPS-tracked option that
+              hands off to the Run engine — same map, route, pace, share card. */}
+          {selectedActivity && GPS_ACTIVITIES.has(selectedActivity) && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: GOLD }]}
+              onPress={() => {
+                if (!selectedActivity) return;
+                setOutdoorConfig(selectedActivity, selectedDuration);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                // Hand off to the Run tab, tagged so the run completion auto-marks
+                // today's 75 Hard outdoor workout complete (handled in run.tsx).
+                router.push(`/train?mode=run&75hardOutdoor=${encodeURIComponent(selectedActivity)}`);
+              }}
+              activeOpacity={0.85}
+              testID="outdoor-track-gps"
+            >
+              <PlatformIcon name="figure-run" size={14} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.actionBtnText}>Track with GPS</Text>
+            </TouchableOpacity>
+          )}
+          <View style={styles.choiceRow}>
+            <TouchableOpacity
+              style={[styles.choiceBtn, { borderColor: LIGHT, backgroundColor: `${LIGHT}15` }]}
+              onPress={handleStartTimer}
+              activeOpacity={0.8}
+            >
+              <PlatformIcon name="timer" size={15} color={LIGHT} />
+              <Text style={[styles.choiceBtnText, { color: LIGHT }]}>Start Timer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.choiceBtn, { borderColor: colors.border }]}
+              onPress={handleAlreadyDone}
+              activeOpacity={0.8}
+            >
+              <PlatformIcon name="check-circle" size={15} color={colors.textSecondary} />
+              <Text style={[styles.choiceBtnText, { color: colors.text }]}>Already Done</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
 
       {/* Timer running */}
