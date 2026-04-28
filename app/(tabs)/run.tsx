@@ -23,6 +23,7 @@ import { useSubscription } from '@/context/SubscriptionContext';
 import { showProGate } from '@/services/proGate';
 import RunMetrics from '@/components/run/RunMetrics';
 import RunControls from '@/components/run/RunControls';
+import SleepScreenOverlay from '@/components/run/SleepScreenOverlay';
 import SplitTable from '@/components/run/SplitTable';
 import RunMap from '@/components/run/RunMap';
 import TreadmillPanel from '@/components/run/TreadmillPanel';
@@ -121,6 +122,8 @@ export default function RunScreen() {
   const [planChooserVisible, setPlanChooserVisible] = useState(false);
   const [isSavingRun, setIsSavingRun] = useState(false);
   const [healthSavedToastVisible, setHealthSavedToastVisible] = useState(false);
+  // Phase 10: sleep-screen overlay during active runs
+  const [sleepActive, setSleepActive] = useState(false);
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
   const [lastRunLogVisible, setLastRunLogVisible] = useState(false);
   /** FIFO queue of newly-earned badges; one is shown in the modal at a time. */
@@ -483,6 +486,22 @@ export default function RunScreen() {
 
           {/* Fixed bottom controls */}
           <View style={[styles.controlsContainer, { backgroundColor: isDark ? 'rgba(20,20,20,0.92)' : 'rgba(255,255,255,0.92)', borderTopColor: colors.border }]}>
+            {/* Phase 10: small sleep-screen toggle, only when actively running */}
+            {run.status === 'running' && (
+              <TouchableOpacity
+                onPress={() => setSleepActive(true)}
+                style={[styles.sleepBtn, {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+                }]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                testID="run-sleep-screen-btn"
+                accessibilityLabel="Sleep screen — large stats, taps blocked"
+              >
+                <PlatformIcon name="moon" size={16} color={accent} />
+                <Text style={[styles.sleepBtnText, { color: colors.textSecondary }]}>Sleep screen</Text>
+              </TouchableOpacity>
+            )}
             <RunControls
               status={run.status}
               onStart={handleStart}
@@ -492,6 +511,26 @@ export default function RunScreen() {
               gpsAcquired={gpsAcquired}
             />
           </View>
+
+          {/* Phase 10: full-screen sleep overlay */}
+          <SleepScreenOverlay
+            visible={sleepActive && (run.status === 'running' || run.status === 'paused')}
+            onDismiss={() => setSleepActive(false)}
+            paceText={run.liveMetrics.currentPaceSecondsPerMeter
+              ? formatPaceForUnit(run.liveMetrics.currentPaceSecondsPerMeter, run.preferences.units) +
+                (run.preferences.units === 'metric' ? '/km' : '/mi')
+              : null}
+            distanceText={`${formatDistance(run.liveMetrics.distanceMeters, run.preferences.units)} ${run.preferences.units === 'metric' ? 'km' : 'mi'}`}
+            elapsedText={(() => {
+              const s = Math.max(0, Math.floor(run.liveMetrics.elapsedSeconds));
+              const h = Math.floor(s / 3600);
+              const m = Math.floor((s % 3600) / 60);
+              const sec = s % 60;
+              return h > 0
+                ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+                : `${m}:${String(sec).padStart(2, '0')}`;
+            })()}
+          />
         </SafeAreaView>
       </View>
     );
@@ -1151,6 +1190,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  // Phase 10: small 'Sleep screen' toggle above the run controls
+  sleepBtn: {
+    position: 'absolute',
+    top: -42,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  sleepBtnText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.2,
   },
   // Idle-state version of the bottom controls area — no bar background, no
   // border, no shadow. Just a transparent layer so the floating pill inside
