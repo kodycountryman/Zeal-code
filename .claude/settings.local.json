@@ -58,7 +58,13 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(grep -v \"^$\")",
-      "Bash(awk 'NR>=805 && /^}$/ {print NR; exit}' app/\\\\\\(tabs\\\\\\)/workout.tsx)"
+      "Bash(awk 'NR>=805 && /^}$/ {print NR; exit}' app/\\\\\\(tabs\\\\\\)/workout.tsx)",
+      "Bash(pod --version)",
+      "Bash(/opt/homebrew/Cellar/cocoapods/1.16.2_2/libexec/bin/gem list *)",
+      "Bash(gem list *)",
+      "Bash(pod install *)",
+      "Bash(npm info *)",
+      "Bash(eas build *)"
     ]
   },
   "hooks": {
