@@ -646,8 +646,8 @@ export default function HomeScreen() {
                   <PlatformIcon name="calendar" size={26} color={accent} strokeWidth={1.8} />
                 </View>
                 <View style={styles.startPlanCopy}>
-                  <Text style={[styles.startPlanTitle, { color: colors.text }]}>Start a Plan</Text>
-                  <Text style={[styles.startPlanSub, { color: colors.textSecondary }]}>
+                  <Text style={[styles.startPlanTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Start a Plan</Text>
+                  <Text style={[styles.startPlanSub, { color: colors.textSecondary }]} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.85}>
                     Pick a workout or running program built around your goals.
                   </Text>
                 </View>
@@ -699,9 +699,9 @@ export default function HomeScreen() {
                   >
                     <View style={styles.day1Top}>
                       <View>
-                        <Text style={[styles.day1Heading, { color: accent }]}>Day 1.</Text>
-                        <Text style={[styles.day1Sub, { color: colors.textSecondary }]}>
-                          {firstName ? `${firstName}, your` : 'Your'} {effectiveWorkout.style} workout is ready. Let's go.
+                        <Text style={[styles.day1Heading, { color: accent }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Day 1.</Text>
+                        <Text style={[styles.day1Sub, { color: colors.textSecondary }]} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.85}>
+                          {firstName ? `${firstName}, your` : 'Your'} {effectiveWorkout.style} workout is ready. Let&apos;s go.
                         </Text>
                       </View>
                       <PlatformIcon name="flame" size={22} color={accent} strokeWidth={1.8} />

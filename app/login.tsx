@@ -215,7 +215,12 @@ export default function LoginScreen() {
               />
             </Animated.View>
 
-            <Text style={styles.headline}>
+            <Text
+              style={styles.headline}
+              numberOfLines={3}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
               What if every workout pushed you closer to your goal?
             </Text>
           </View>
@@ -226,7 +231,7 @@ export default function LoginScreen() {
                 <View style={styles.bulletIconWrap}>
                   <PlatformIcon name={icon} size={16} color={ACCENT} strokeWidth={2.5} />
                 </View>
-                <Text style={styles.bulletText}>{text}</Text>
+                <Text style={styles.bulletText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{text}</Text>
               </View>
             ))}
           </View>

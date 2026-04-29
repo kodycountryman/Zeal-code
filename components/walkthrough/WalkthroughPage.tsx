@@ -34,8 +34,8 @@ export default function WalkthroughPage({ icon, iconAccent, title, body }: Props
       </View>
 
       <View style={styles.copyBlock}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.body}>{body}</Text>
+        <Text style={styles.title} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>{title}</Text>
+        <Text style={styles.body} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.85}>{body}</Text>
       </View>
     </View>
   );

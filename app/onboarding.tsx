@@ -481,7 +481,7 @@ function StepName({ name, onChange, onSubmit }: { name: string; onChange: (v: st
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What should we call you?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>What should we call you?</Text>
         <Text style={styles.stepSubtext}>We&apos;ll use this to personalize your experience.</Text>
       </View>
       <TextInput
@@ -515,7 +515,7 @@ function StepBirthday({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>When&apos;s your birthday?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>When&apos;s your birthday?</Text>
         <Text style={styles.stepSubtext}>Used to calculate age-appropriate programming.</Text>
       </View>
       <View style={styles.birthdayPickerArea}>
@@ -583,7 +583,7 @@ function StepSex({ value, onChange }: { value: Sex | null; onChange: (v: Sex) =>
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>Biological sex</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>Biological sex</Text>
         <Text style={styles.stepSubtext}>Used for accurate fitness calculations.</Text>
       </View>
       <View style={styles.cardList}>
@@ -616,7 +616,7 @@ function StepHeight({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>How tall are you?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>How tall are you?</Text>
       </View>
       <View style={styles.dualPickerRow}>
         <View style={styles.pickerCol}>
@@ -665,7 +665,7 @@ function StepWeight({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What&apos;s your current weight?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>What&apos;s your current weight?</Text>
       </View>
       <View style={styles.pickerCenteredWrap}>
         <View style={styles.pickerContainer}>
@@ -710,7 +710,7 @@ function StepFitnessLevel({ value, onChange }: { value: FitnessLevel | null; onC
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What&apos;s your fitness level?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>What&apos;s your fitness level?</Text>
       </View>
       <View style={styles.cardList}>
         {OPTIONS.map((o) => {
@@ -743,7 +743,7 @@ function StepGoal({ value, onChange }: { value: Goal | null; onChange: (v: Goal)
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What&apos;s your main goal?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>What&apos;s your main goal?</Text>
       </View>
       <View style={styles.goalGrid}>
         {GOALS.map((g) => {
@@ -771,7 +771,7 @@ function StepWorkoutStyle({ value, onChange }: { value: string | null; onChange:
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>How do you like to train?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>How do you like to train?</Text>
       </View>
       <ScrollView
         style={styles.styleScrollView}
@@ -819,7 +819,7 @@ function StepGymType({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>Where do you train?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>Where do you train?</Text>
         <Text style={styles.stepSubtext}>We&apos;ll tailor workouts to what you actually have.</Text>
       </View>
       <View style={styles.cardList}>
@@ -872,7 +872,7 @@ function StepHomeEquipment({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>What equipment do you have?</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>What equipment do you have?</Text>
         <Text style={styles.stepSubtext}>Tap to add items — or skip if you&apos;re not sure yet.</Text>
       </View>
       <Text style={[styles.stepSubtext, { color: ACCENT, marginBottom: 10 }]}>
@@ -1010,7 +1010,7 @@ function StepWorkoutComponents({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>Build your workout.</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>Build your workout.</Text>
         <Text style={styles.stepSubtext}>
           Choose the components you want added to each session.
         </Text>
@@ -1080,7 +1080,7 @@ function StepNotifications({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>Never miss a workout.</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>Never miss a workout.</Text>
         <Text style={styles.stepSubtext}>
           Get reminders, streak alerts, and rest timer notifications. You control what you receive in Settings.
         </Text>
@@ -1123,7 +1123,7 @@ function StepHealthData({
   return (
     <View style={styles.stepInner}>
       <View style={styles.headingBlock}>
-        <Text style={styles.stepHeadline}>Connect your health data.</Text>
+        <Text style={styles.stepHeadline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>Connect your health data.</Text>
         <Text style={styles.stepSubtext}>
           Zeal reads your activity data to calculate your readiness score and improve your workouts. Your completed workouts can be written back to keep your health records in sync.
         </Text>
