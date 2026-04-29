@@ -162,17 +162,29 @@ export default function PaywallModal({
               <View style={styles.featureDivider} />
             </View>
 
-            {/* ── Price ── */}
+            {/* ── Price ── (Phase 12B: trial transparency for App Store) */}
             <View style={styles.priceArea}>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceAmount}>{priceString ?? '—'}</Text>
-                <Text style={styles.priceMo}>/mo</Text>
-              </View>
-              <Text style={styles.priceSub}>
-                {isTrial
-                  ? `Free for 7 days, then ${priceString ?? ''}/month. Auto-renews monthly until canceled.`
-                  : `Billed ${priceString ?? ''} monthly. Auto-renews until canceled.`}
-              </Text>
+              {isTrial ? (
+                <>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceAmount}>7 days</Text>
+                    <Text style={styles.priceMo}>free</Text>
+                  </View>
+                  <Text style={styles.priceSubProminent}>
+                    Then {priceString ?? ''}/month, auto-renews monthly until canceled.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceAmount}>{priceString ?? '—'}</Text>
+                    <Text style={styles.priceMo}>/mo</Text>
+                  </View>
+                  <Text style={styles.priceSub}>
+                    Billed {priceString ?? ''} monthly. Auto-renews until canceled.
+                  </Text>
+                </>
+              )}
             </View>
 
             {/* ── Footer / CTA ── */}
@@ -189,9 +201,20 @@ export default function PaywallModal({
                 >
                   {isPurchasing
                     ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={styles.ctaBtnText}>
-                        {isTrial ? 'Start Free Trial' : `Unlock Pro · ${priceString ?? ''}/mo`}
-                      </Text>
+                    : (
+                      <View style={{ alignItems: 'center', gap: 2 }}>
+                        <Text style={styles.ctaBtnText}>
+                          {isTrial
+                            ? 'Start 7-Day Free Trial'
+                            : `Unlock Pro · ${priceString ?? ''}/mo`}
+                        </Text>
+                        {isTrial && (
+                          <Text style={styles.ctaBtnSubText}>
+                            Then {priceString ?? ''}/mo · Cancel anytime
+                          </Text>
+                        )}
+                      </View>
+                    )
                   }
                 </TouchableOpacity>
               </Reanimated.View>
@@ -397,6 +420,15 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginBottom: 8,
   },
+  // Phase 12B: prominent variant for trial post-trial billing line
+  priceSubProminent: {
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    color: 'rgba(255,255,255,0.78)',
+    marginTop: 6,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+  },
   priceSub: {
     fontSize: 13,
     fontFamily: 'Outfit_400Regular',
@@ -435,6 +467,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.2,
+  },
+  // Phase 12B: post-trial price line directly inside the CTA button so the
+  // billing terms are visible at the moment of decision (App Store guideline 3.1.2c).
+  ctaBtnSubText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.2,
   },
   disclosureText: {
     fontSize: 10,
