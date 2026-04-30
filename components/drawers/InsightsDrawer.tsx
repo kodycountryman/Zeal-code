@@ -23,6 +23,7 @@ import RunInsights from '@/components/run/RunInsights';
 import RunLogDrawer from '@/components/drawers/RunLogDrawer';
 import { healthService } from '@/services/healthService';
 import { useWorkoutTracking, type WorkoutLog, type PersonalRecord } from '@/context/WorkoutTrackingContext';
+import { useRun } from '@/context/RunContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import {
   getRadarPercentiles,
@@ -138,7 +139,7 @@ function getUniquePRs(prHistory: PersonalRecord[]): { exerciseName: string; weig
 const RADAR_SIZE = 280;
 const RADAR_CENTER = RADAR_SIZE / 2;
 const RADAR_RADIUS = 105;
-const RADAR_AXES: RadarCategory[] = ['upper_push', 'upper_pull', 'lower_push', 'lower_pull', 'core', 'conditioning'];
+const RADAR_AXES: RadarCategory[] = ['upper_push', 'upper_pull', 'lower_body', 'core', 'conditioning', 'cardio'];
 
 function polarToCartesian(angleDeg: number, radius: number): { x: number; y: number } {
   const angleRad = ((angleDeg - 90) * Math.PI) / 180;
@@ -196,6 +197,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
+  const run = useRun();
   const { hasPro, openPaywall } = useSubscription();
 
   const [tipAxis, setTipAxis] = useState<RadarCategory | null>(null);
@@ -294,8 +296,8 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   // S1: Radar percentiles
   const radarData = useMemo(() => {
     const sex = ctx.sex === 'female' ? 'female' : 'male';
-    return getRadarPercentiles(sex, ctx.weight || 160, tracking.prHistory, tracking.workoutHistory);
-  }, [ctx.sex, ctx.weight, tracking.prHistory, tracking.workoutHistory]);
+    return getRadarPercentiles(sex, ctx.weight || 160, tracking.prHistory, tracking.workoutHistory, run.runHistory);
+  }, [ctx.sex, ctx.weight, tracking.prHistory, tracking.workoutHistory, run.runHistory]);
 
   // S2: AI Coach
   const coachTips = useMemo(() => {
@@ -415,7 +417,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
   // ─── Info toast helpers ─────────────────────────────────
   const CARD_INFO: Record<string, string> = {
-    'STRENGTH PROFILE': 'Your estimated strength percentile across 6 movement categories vs. others of the same sex & bodyweight. Tap a spoke for details on that category.',
+    'FITNESS PROFILE': 'Your estimated fitness percentile across 6 categories — strength, conditioning, and cardio — vs. others of the same sex & bodyweight. Tap a spoke for details.',
     'MUSCLE READINESS': 'How recovered each muscle group is based on recent training volume and difficulty. Green = ready, yellow = building, red = recovering.',
     'THIS WEEK': 'A snapshot of your training this 7-day window — workouts, total time, streak, and new PRs.',
     'TRAINING LOAD': 'Your weekly training volume trend. Rising bars = increasing load. Spikes may mean overreaching; flat lines may signal time for a deload.',
@@ -562,7 +564,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
         {/* ═══ S1: Strength Percentile Radar ═══ */}
         <GlassCard>
           <View style={styles.sectionInner}>
-            <InfoHeader title="STRENGTH PROFILE" desc={CARD_INFO['STRENGTH PROFILE'] ?? ''} />
+            <InfoHeader title="FITNESS PROFILE" desc={CARD_INFO['FITNESS PROFILE'] ?? ''} />
 
             <View style={styles.radarWrapper}>
               <View style={[styles.radarContainer, !hasPro && { opacity: PRO_LOCKED_OPACITY }]}>
@@ -615,6 +617,17 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               const next = axisData.drivingExercise
                 ? getNextTierTarget(ctx.sex === 'female' ? 'female' : 'male', axisData.drivingExercise, ctx.weight || 160, axisData.percentile ?? 0)
                 : null;
+
+              // Per-axis no-data messages (each axis has its own prompt)
+              const noDataMessage: Partial<Record<typeof tipAxis, string>> = {
+                cardio: 'Log runs to see your cardio ranking here.',
+                conditioning: 'Do HIIT, CrossFit, or Hyrox sessions to build your conditioning score.',
+                core: 'Log core exercises (planks, crunches, leg raises) to build your core score.',
+                upper_push: 'Bench press or overhead press gives the most accurate ranking — accessory volume still counts.',
+                upper_pull: 'Rows or pull-ups give the most accurate ranking — all back/bicep work still counts.',
+                lower_body: 'Log squats or deadlifts for a precise ranking — all leg work already contributes.',
+              };
+
               return (
                 <Animated.View style={[styles.tipCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', opacity: tipAnim }]}>
                   <Text style={[styles.tipTitle, { color: accent }]}>{RADAR_CATEGORY_LABELS[tipAxis]}</Text>
@@ -628,10 +641,29 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                       Hit {next.target1RM} lb to reach {next.tier}
                     </Text>
                   )}
-                  {!axisData.drivingExercise && axisData.category !== 'conditioning' && (
+                  {axisData.percentile === null && tipAxis && noDataMessage[tipAxis] && (
                     <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                      Log compound lifts to see your ranking here
+                      {noDataMessage[tipAxis]}
                     </Text>
+                  )}
+                  {axisData.percentile !== null && !axisData.drivingExercise && (
+                    tipAxis === 'cardio' ? (
+                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                        Score from recent runs — volume, frequency, and pace combined.
+                      </Text>
+                    ) : tipAxis === 'conditioning' ? (
+                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                        Score from conditioning-style sessions and metcon exercises.
+                      </Text>
+                    ) : tipAxis === 'core' ? (
+                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                        Score from core exercise volume over the last 4 weeks.
+                      </Text>
+                    ) : (
+                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                        Volume-based estimate — log compound lifts for a more precise ranking.
+                      </Text>
+                    )
                   )}
                 </Animated.View>
               );

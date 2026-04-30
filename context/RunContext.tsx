@@ -54,6 +54,8 @@ import {
   cancelRunStreakReminder,
 } from '@/services/notificationService';
 import { prTypeLabel } from '@/services/runPRService';
+import { computeRunTrainingScore } from '@/services/runScoreService';
+import { useAppContext } from '@/context/AppContext';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -218,6 +220,8 @@ class AutoPauseDetector {
 // ─── Context ───────────────────────────────────────────────────────────────
 
 export const [RunProvider, useRun] = createContextHook(() => {
+  const appCtx = useAppContext();
+
   // ─── Loaded state ──────────────────────────────────────────────────────
   const [loaded, setLoaded] = useState(false);
 
@@ -710,6 +714,11 @@ export const [RunProvider, useRun] = createContextHook(() => {
     setLastSavedRun(thinned);
     setLastNewPRs(newPRs);
     setLastNewBadges(newBadges);
+
+    // Phase 13: credit run toward training score (same scale as gym workouts)
+    const runScore = computeRunTrainingScore(thinned);
+    appCtx.setTrainingScore(appCtx.trainingScore + runScore);
+    __DEV__ && console.log('[RunContext] Run score credited:', runScore);
 
     await Promise.all([
       persistRunHistory(updatedHistory),

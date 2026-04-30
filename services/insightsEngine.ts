@@ -648,7 +648,7 @@ export function getGroupedPRs(prHistory: PersonalRecord[], workoutHistory: Worko
     if (std) {
       if (std.radarCategory === 'upper_push') return 'Upper Push';
       if (std.radarCategory === 'upper_pull') return 'Upper Pull';
-      if (std.radarCategory === 'lower_push' || std.radarCategory === 'lower_pull') return 'Lower';
+      if (std.radarCategory === 'lower_body') return 'Lower';
       if (std.radarCategory === 'core') return 'Core';
     }
     const mg = exerciseMuscle.get(exerciseName.toLowerCase()) || '';
