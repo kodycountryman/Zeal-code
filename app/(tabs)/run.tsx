@@ -290,6 +290,11 @@ export default function RunScreen() {
       const healthConnected = healthService.isConnected();
       const result = await run.saveRun(finalLog);
 
+      // Phase 13: credit run training score toward home-screen total
+      if (result.trainingScore > 0) {
+        ctx.setTrainingScore(ctx.trainingScore + result.trainingScore);
+      }
+
       // Phase 5b: mark the day complete on whichever plan this run was linked to
       // (run plan or hybrid workout plan). markDayCompleted updates the workout
       // plan's completedDays — for the run-plan slot, the run-plan equivalent

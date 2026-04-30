@@ -55,7 +55,6 @@ import {
 } from '@/services/notificationService';
 import { prTypeLabel } from '@/services/runPRService';
 import { computeRunTrainingScore } from '@/services/runScoreService';
-import { useAppContext } from '@/context/AppContext';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -220,8 +219,6 @@ class AutoPauseDetector {
 // ─── Context ───────────────────────────────────────────────────────────────
 
 export const [RunProvider, useRun] = createContextHook(() => {
-  const appCtx = useAppContext();
-
   // ─── Loaded state ──────────────────────────────────────────────────────
   const [loaded, setLoaded] = useState(false);
 
@@ -668,7 +665,7 @@ export const [RunProvider, useRun] = createContextHook(() => {
   /**
    * Persist a finalized run, run PR detection, and optionally sync to Health.
    */
-  const saveRun = useCallback(async (run: RunLog): Promise<{ newPRs: RunPR[]; newBadges: RunBadge[] }> => {
+  const saveRun = useCallback(async (run: RunLog): Promise<{ newPRs: RunPR[]; newBadges: RunBadge[]; trainingScore: number }> => {
     // Thin the GPS route before persisting. A typical 1-hour run captures
     // ~720 points at our 5s tracking interval; Douglas-Peucker with a 5m
     // tolerance reduces that to ~150-300 while preserving the visible shape,
@@ -715,10 +712,10 @@ export const [RunProvider, useRun] = createContextHook(() => {
     setLastNewPRs(newPRs);
     setLastNewBadges(newBadges);
 
-    // Phase 13: credit run toward training score (same scale as gym workouts)
-    const runScore = computeRunTrainingScore(thinned);
-    appCtx.setTrainingScore(appCtx.trainingScore + runScore);
-    __DEV__ && console.log('[RunContext] Run score credited:', runScore);
+    // Phase 13: compute run training score — returned to caller so it can
+    // update ctx.trainingScore without RunContext needing to import AppContext.
+    const runTrainingScore = computeRunTrainingScore(thinned);
+    __DEV__ && console.log('[RunContext] Run training score:', runTrainingScore);
 
     await Promise.all([
       persistRunHistory(updatedHistory),
@@ -774,7 +771,7 @@ export const [RunProvider, useRun] = createContextHook(() => {
       );
     }
 
-    return { newPRs, newBadges };
+    return { newPRs, newBadges, trainingScore: runTrainingScore };
   }, [runHistory, runPRs]);
 
   /** Immediately persists the run to history with isTentative=true. Call when RunSummary mounts. */
