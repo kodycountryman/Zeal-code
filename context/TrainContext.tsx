@@ -35,22 +35,13 @@ interface TrainContextValue {
  * Resolve the initial mode when the Train tab first mounts.
  *
  * Priority order:
- *   1. Today's plan prescription (run day → run, strength day → workout)
- *   2. Last-used mode from AsyncStorage
- *   3. Fallback: 'workout' (the primary modality)
- *
- * Hybrid days return the prescribed activity type for today — the
- * hybrid-layout decision is made separately via `isHybridToday`.
+ *   1. Last-used mode from AsyncStorage
+ *   2. Fallback: 'workout' (the primary modality, always default to workout on startup)
  */
 function resolveDefaultMode(
-  prescription: { activity_type?: string; is_rest?: boolean } | null | undefined,
+  _prescription: { activity_type?: string; is_rest?: boolean } | null | undefined,
   lastUsed: TrainMode | null,
 ): TrainMode {
-  if (prescription && !prescription.is_rest) {
-    if (prescription.activity_type === 'run') return 'run';
-    if (prescription.activity_type === 'strength') return 'workout';
-    // activity_type === 'cross_train' or undefined → fall through to last-used
-  }
   return lastUsed ?? 'workout';
 }
 

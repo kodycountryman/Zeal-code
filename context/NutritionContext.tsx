@@ -15,16 +15,15 @@ import type {
   NutritionGoals,
   CustomFood,
   FoodItem,
-  NutrientProfile,
 } from '@/types/nutrition';
-import { createEmptyDailyLog, DEFAULT_GOALS, EMPTY_NUTRIENTS } from '@/types/nutrition';
+import { createEmptyDailyLog, DEFAULT_GOALS } from '@/types/nutrition';
 import {
   recomputeDailyTotals,
-  sumNutrients,
   getTodayStr,
   generateId,
   computeNutrients,
 } from '@/services/nutritionUtils';
+import { useAppContext } from '@/context/AppContext';
 
 // ─── AsyncStorage Keys ──────────────────────────────────
 
@@ -39,6 +38,8 @@ const MAX_DAYS_STORED = 90;
 // ─── Context ────────────────────────────────────────────
 
 const [NutritionProvider, useNutrition] = createContextHook(() => {
+  const app = useAppContext();
+
   // ── Persisted state ──
   const [dailyLogs, setDailyLogs] = useState<Record<string, DailyLog>>({});
   const [goals, setGoals] = useState<NutritionGoals>(DEFAULT_GOALS);
@@ -64,6 +65,36 @@ const [NutritionProvider, useNutrition] = createContextHook(() => {
     onScanBarcode?: () => void;
     onVoiceFood?: () => void;
   }>({});
+  const prevResetTokenRef = useRef<number>(app.newUserResetToken);
+
+  const resetNutritionData = useCallback(() => {
+    setDailyLogs({});
+    setGoals(DEFAULT_GOALS);
+    setCustomFoods([]);
+    setRecentFoods([]);
+    setSelectedDate(getTodayStr());
+    setFoodSearchVisible(false);
+    setManualFoodEntryVisible(false);
+    setAddFoodSheetVisible(false);
+    setAiFoodResultVisible(false);
+    setGoalSetupVisible(false);
+    setSelectedMealType(null);
+    setSelectedMealEntry(null);
+    actionCallbacksRef.current = {};
+    void AsyncStorage.multiRemove([
+      DAILY_LOGS_KEY,
+      GOALS_KEY,
+      CUSTOM_FOODS_KEY,
+      RECENT_FOODS_KEY,
+    ]).catch((e) => __DEV__ && console.warn('[NutritionContext] Reset error:', e));
+  }, []);
+
+  useEffect(() => {
+    if (app.newUserResetToken !== 0 && app.newUserResetToken !== prevResetTokenRef.current) {
+      prevResetTokenRef.current = app.newUserResetToken;
+      resetNutritionData();
+    }
+  }, [app.newUserResetToken, resetNutritionData]);
 
   // ── Hydration from AsyncStorage ──
   useEffect(() => {

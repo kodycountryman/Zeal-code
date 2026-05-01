@@ -715,30 +715,7 @@ export default function RunScreen() {
                 ) : null}
               </GlassCard>
             );
-          })() : (
-            /* Single "Start a Plan" card — opens PlanTypeChooserSheet which
-               routes to the Strength / Run / Hybrid builder drawer based on
-               user selection. Pro gate on Hybrid lives inside the chooser. */
-            <TouchableOpacity
-              style={[styles.newPlanCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}
-              onPress={() => setPlanChooserVisible(true)}
-              activeOpacity={0.8}
-              testID="run-start-plan-card"
-              accessibilityRole="button"
-              accessibilityLabel="Start a Plan"
-            >
-              <View style={[styles.newPlanIconWrap, { backgroundColor: `${accent}20` }]}>
-                <PlatformIcon name="sparkles" size={18} color={accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.newPlanTitle, { color: colors.text }]}>Start a Plan</Text>
-                <Text style={[styles.newPlanSub, { color: colors.textSecondary }]}>
-                  Strength, Run, or Hybrid — pick a goal and we'll build your schedule.
-                </Text>
-              </View>
-              <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
+          })() : null}
 
           {/* Outdoor / Treadmill mode is now a persisted preference, editable
               from RunSettingsDrawer (tap the ⚙ gear icon). Keeps the pre-run

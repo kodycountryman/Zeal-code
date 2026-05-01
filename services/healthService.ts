@@ -181,8 +181,10 @@ class HealthService {
         { accessType: 'read', recordType: 'Steps' },
         { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
         { accessType: 'read', recordType: 'RestingHeartRate' },
+        { accessType: 'read', recordType: 'ExerciseSession' },
         { accessType: 'write', recordType: 'ExerciseSession' },
         { accessType: 'write', recordType: 'ActiveCaloriesBurned' },
+        { accessType: 'write', recordType: 'Distance' },
       ]);
       const allGranted = Array.isArray(results) && results.every((r: any) => r.granted);
       __DEV__ && console.log('[HealthService] Health Connect permissions:', results);

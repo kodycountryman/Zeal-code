@@ -4,6 +4,8 @@ import BaseDrawer from '@/components/drawers/BaseDrawer';
 import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 
 interface Props {
   visible: boolean;
@@ -46,9 +48,18 @@ function PlanTypeChooserSheet({
   onSelectStrength,
 }: Props) {
   const { colors, accent } = useZealTheme();
+  const { hasPro, openPaywall } = useSubscription();
 
   // Bridge old prop name to new behavior
   const handleWorkoutTap = onSelectWorkout ?? onSelectStrength ?? (() => {});
+
+  const handleRunTap = () => {
+    if (!hasPro) {
+      showProGate('run_plan', openPaywall);
+      return;
+    }
+    onSelectRun();
+  };
 
   const header = <DrawerHeader title="Start a Plan" onClose={onClose} />;
 
@@ -85,25 +96,35 @@ function PlanTypeChooserSheet({
           <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 
-        {/* Run Plan */}
+        {/* Run Plan — Pro only */}
         <TouchableOpacity
-          style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}
-          onPress={onSelectRun}
+          style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, opacity: hasPro ? 1 : PRO_LOCKED_OPACITY }]}
+          onPress={handleRunTap}
           activeOpacity={0.8}
           testID="plan-chooser-run"
           accessibilityRole="button"
           accessibilityLabel="Start a Running Plan"
         >
-          <View style={[styles.iconWrap, { backgroundColor: `${accent}20` }]}>
-            <PlatformIcon name="figure-run" size={20} color={accent} />
+          <View style={[styles.iconWrap, { backgroundColor: hasPro ? `${accent}20` : `${PRO_GOLD}18` }]}>
+            <PlatformIcon name="figure-run" size={20} color={hasPro ? accent : PRO_GOLD} />
           </View>
           <View style={styles.cardBody}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Running Plan</Text>
+            <View style={styles.cardTitleRow}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Running Plan</Text>
+              {!hasPro && (
+                <View style={[styles.proBadge, { backgroundColor: `${PRO_GOLD}20`, borderColor: `${PRO_GOLD}40` }]}>
+                  <Text style={[styles.proBadgeText, { color: PRO_GOLD }]}>PRO</Text>
+                </View>
+              )}
+            </View>
             <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
               5K, 10K, Half Marathon, Marathon, or general run training.
             </Text>
           </View>
-          <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
+          {hasPro
+            ? <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
+            : <PlatformIcon name="lock" size={16} color={PRO_GOLD} />
+          }
         </TouchableOpacity>
       </View>
     </BaseDrawer>
@@ -144,10 +165,26 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardTitle: {
     fontSize: 16,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.2,
+  },
+  proBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  proBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.5,
   },
   cardSub: {
     fontSize: 12,

@@ -207,7 +207,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   const [trackerVisible, setTrackerVisible] = useState(false);
   const [readinessDrawerVisible, setReadinessDrawerVisible] = useState(false);
   const [infoToast, setInfoToast] = useState<{ title: string; body: string } | null>(null);
-  const infoToastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const infoToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showInfo = useCallback((title: string, body: string) => {
     if (infoToastTimer.current) clearTimeout(infoToastTimer.current);
     setInfoToast({ title, body });
@@ -378,7 +378,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
   const todDistribution = useMemo(() => {
     const withTime = tracking.workoutHistory.filter(l => l.startTime);
-    if (withTime.length === 0) return { buckets: [] as { label: string; emoji: string; count: number }[], total: 0 };
+    if (withTime.length === 0) return { buckets: [] as { label: string; icon: string; count: number }[], total: 0 };
     let morning = 0, afternoon = 0, evening = 0, night = 0;
     for (const log of withTime) {
       const h = new Date(log.startTime!).getHours();
@@ -390,10 +390,10 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
     return {
       total: withTime.length,
       buckets: [
-        { label: 'Morning', emoji: '🌅', count: morning },
-        { label: 'Afternoon', emoji: '☀️', count: afternoon },
-        { label: 'Evening', emoji: '🌆', count: evening },
-        { label: 'Night', emoji: '🌙', count: night },
+        { label: 'Morning', icon: 'sunrise', count: morning },
+        { label: 'Afternoon', icon: 'sun', count: afternoon },
+        { label: 'Evening', icon: 'sunset', count: evening },
+        { label: 'Night', icon: 'moon', count: night },
       ],
     };
   }, [tracking.workoutHistory]);
@@ -541,7 +541,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
   );
 
   return (<>
-    <BaseDrawer visible={visible} onClose={onClose} header={headerContent}>
+    <BaseDrawer visible={visible} onClose={onClose} header={headerContent} snapPoints={['88%']}>
       <View style={styles.scrollContent}>
         {/* ═══════════════════════════════════════════════ */}
         {/* ═══ TAB: INSIGHTS ═══                        */}
@@ -1640,7 +1640,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               <View style={styles.todHistogram}>
                 {(() => {
                   const maxCount = Math.max(...todDistribution.buckets.map(b => b.count), 1);
-                  return todDistribution.buckets.map(({ label, emoji, count }) => {
+                  return todDistribution.buckets.map(({ label, icon, count }) => {
                     const barH = Math.max(4, Math.round((count / maxCount) * 56));
                     return (
                       <View key={label} style={styles.todColumn}>
@@ -1648,7 +1648,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                         <View style={styles.todBarWrap}>
                           <View style={[styles.todBar, { height: barH, backgroundColor: count > 0 ? accent : colors.border }]} />
                         </View>
-                        <Text style={styles.todEmoji}>{emoji}</Text>
+                        <PlatformIcon name={icon as any} size={14} color={count > 0 ? colors.textSecondary : colors.textMuted} strokeWidth={1.8} />
                         <Text style={[styles.todLabel, { color: colors.textMuted }]}>{label}</Text>
                       </View>
                     );
@@ -1754,19 +1754,6 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
             </View>
           </GlassCard>
         )}
-
-        {/* ═══ 7: Style Deep Dive ═══ */}
-        <TouchableOpacity
-          style={[styles.trackerBtn, { borderColor: `${WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent}40` }]}
-          onPress={() => setTrackerVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.trackerBtnDot, { backgroundColor: WORKOUT_STYLE_COLORS[ctx.workoutStyle] ?? accent }]} />
-          <Text style={[styles.trackerBtnText, { color: colors.text }]}>
-            {ctx.workoutStyle} Deep Dive
-          </Text>
-          <Text style={[styles.trackerBtnArrow, { color: colors.textMuted }]}>→</Text>
-        </TouchableOpacity>
 
         {/* ═══ Rest / Misc ═══ */}
         {restDays.avgRestDays > 0 && (

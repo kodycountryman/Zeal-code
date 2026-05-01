@@ -61,7 +61,7 @@ export async function stopRecording(): Promise<string | null> {
 
 export async function analyzeVoiceFood(audioUri: string): Promise<AIFoodResult> {
   const base64 = await FileSystem.readAsStringAsync(audioUri, {
-    encoding: FileSystem.EncodingType.Base64,
+    encoding: 'base64',
   });
 
   // Determine mime type from file extension
@@ -86,7 +86,7 @@ export async function analyzeVoiceFood(audioUri: string): Promise<AIFoodResult> 
             {
               type: 'file',
               data: base64,
-              mimeType,
+              mediaType: mimeType,
             },
             {
               type: 'text',

@@ -127,7 +127,7 @@ const CARDIO_SWAP_POOL = [
 ];
 
 function getRecommendations(source: WorkoutExercise): ZealExercise[] {
-  const sourceRef: ZealExercise | null = source.exerciseRef ?? null;
+  const sourceRef = source.exerciseRef as ZealExercise | null;
   const db = getZealExerciseDatabase();
 
   // Cardio-specific swap: find cardio exercises by movement pattern + hardcoded pool
@@ -686,6 +686,11 @@ const styles = StyleSheet.create({
   },
   recGroup: {
     gap: 6,
+  },
+  recCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   recHeader: {
     flexDirection: 'row',

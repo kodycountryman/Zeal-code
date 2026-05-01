@@ -11,6 +11,7 @@ import { generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import type { PlanGoal, PlanLength, ExperienceLevel as PlanExperienceLevel } from '@/services/planConstants';
 import { ALL_EQUIPMENT_IDS, CROSSFIT_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
 import { type FitnessLevel } from '@/constants/fitnessLevel';
+import { supabase, updateProfile } from '@/services/supabase';
 
 export type AppTheme = 'system' | 'dark' | 'light' | 'zeal' | 'neon';
 export type Sex = 'male' | 'female' | 'prefer_not';
@@ -217,6 +218,17 @@ function buildDefaultExercisePreferences(): Record<string, 'liked' | 'disliked' 
 function getTodayDateStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getAgeFromDateOfBirth(dateOfBirth: string): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDelta = today.getMonth() - dob.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age >= 0 ? age : null;
 }
 
 const DEFAULT_MUSCLE_READINESS: MuscleReadinessItem[] = [
@@ -923,14 +935,28 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const logout = useCallback(() => {
     __DEV__ && console.log('[AppContext] Logging out — clearing isLoggedIn');
     setIsLoggedIn(false);
+    void supabase.auth.signOut().catch((e) =>
+      __DEV__ && console.log('[AppContext] Supabase signOut error:', e)
+    );
     AsyncStorage.removeItem(IS_LOGGED_IN_KEY).catch((e) =>
       __DEV__ && console.log('[AppContext] isLoggedIn remove error:', e)
     );
   }, []);
 
-  const performFullReset = useCallback(async () => {
+  const performFullReset = useCallback(async (options?: { preserveAuthSession?: boolean }) => {
+    const sessionToRestore = options?.preserveAuthSession
+      ? (await supabase.auth.getSession()).data.session
+      : null;
+
     try {
       await AsyncStorage.clear();
+      if (sessionToRestore?.access_token && sessionToRestore.refresh_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: sessionToRestore.access_token,
+          refresh_token: sessionToRestore.refresh_token,
+        });
+        if (error) throw error;
+      }
       __DEV__ && console.log('[AppContext] AsyncStorage fully cleared');
     } catch (e) {
       console.error('[AppContext] Error clearing AsyncStorage:', e);
@@ -997,12 +1023,15 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
 
   const deleteAccount = useCallback(async () => {
     __DEV__ && console.log('[AppContext] Deleting account — clearing all storage and resetting state');
+    await supabase.auth.signOut().catch((e) =>
+      __DEV__ && console.log('[AppContext] Supabase signOut error during delete:', e)
+    );
     await performFullReset();
   }, [performFullReset]);
 
   const resetForNewUser = useCallback(async () => {
     __DEV__ && console.log('[AppContext] Resetting for new user — clearing all storage and state');
-    await performFullReset();
+    await performFullReset({ preserveAuthSession: true });
   }, [performFullReset]);
 
   const saveOnboardingProfile = useCallback((profile: {
@@ -1023,6 +1052,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     recovery: boolean;
     addCardio: boolean;
     coreFinisher: boolean;
+    healthSyncEnabled?: boolean;
+    healthConnected?: boolean;
   }) => {
     setUserName(profile.userName);
     setUserPhotoUri(profile.userPhotoUri);
@@ -1040,6 +1071,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setRecovery(profile.recovery);
     setAddCardio(profile.addCardio);
     setCoreFinisher(profile.coreFinisher);
+    setHealthSyncEnabled(profile.healthSyncEnabled ?? false);
+    setHealthConnected(profile.healthConnected ?? false);
     const savedGymsForStorage: SavedGym[] = profile.gymType === 'home'
       ? [
           { id: 'default_home', name: 'Home Gym', equipment: { ...profile.selectedEquipment } },
@@ -1080,11 +1113,25 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       hoursTrainedToday: '0h',
       targetDone: 0,
       currentWorkoutTitle: '',
-      healthSyncEnabled: false,
-      healthConnected: false,
+      healthSyncEnabled: profile.healthSyncEnabled ?? false,
+      healthConnected: profile.healthConnected ?? false,
     };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(e =>
       __DEV__ && console.log('[AppContext] saveOnboardingProfile error:', e)
+    );
+    void supabase.auth.getUser().then(({ data: authData, error }) => {
+      if (error || !authData.user) return;
+      return updateProfile(authData.user.id, {
+        name: profile.userName,
+        photo_uri: profile.userPhotoUri,
+        training_style: profile.workoutStyle,
+        fitness_level: profile.fitnessLevel,
+        age: getAgeFromDateOfBirth(profile.dateOfBirth),
+        goals: profile.trainingGoals,
+        onboarding_complete: true,
+      });
+    }).catch(e =>
+      __DEV__ && console.log('[AppContext] remote profile save error:', e)
     );
     __DEV__ && console.log('[AppContext] Saved onboarding profile for', profile.userName);
   }, []);
@@ -1093,6 +1140,12 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     __DEV__ && console.log('[AppContext] Marking onboarding complete');
     setOnboardingCompleteState(true);
     setIsLoggedIn(true);
+    void supabase.auth.getUser().then(({ data: authData, error }) => {
+      if (error || !authData.user) return;
+      return updateProfile(authData.user.id, { onboarding_complete: true });
+    }).catch(e =>
+      __DEV__ && console.log('[AppContext] remote onboarding save error:', e)
+    );
     AsyncStorage.setItem(ONBOARDING_KEY, 'true').catch((e) =>
       __DEV__ && console.log('[AppContext] onboarding save error:', e)
     );

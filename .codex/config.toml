@@ -1,0 +1,5 @@
+[mcp_servers.gemini]
+command = "/Users/kodycountryman/.nvm/versions/node/v24.14.1/bin/gemini-mcp"
+
+[mcp_servers.gemini.env]
+GEMINI_API_KEY = "AIzaSyAENeiVj_cIbgonMx3aOgFfrXMulBguYhY"

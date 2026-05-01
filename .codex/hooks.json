@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.prompt // \"\"' | grep -qi \"checkpoint\" && ( cd \"/Users/kodycountryman/Desktop/zeal+ Code\" && git add -A && git commit -m \"Checkpoint: $(git diff --cached --name-only | awk -F'/' '{print $NF}' | sort -u | head -5 | paste -sd ', ')\" && git push origin main ) || true",
+            "timeout": 30,
+            "statusMessage": "Pushing checkpoint..."
+          }
+        ]
+      }
+    ]
+  }
+}

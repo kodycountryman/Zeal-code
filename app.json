@@ -16,15 +16,20 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kodycountryman.zealplus",
-      "deploymentTarget": "16.2",
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      },
       "infoPlist": {
         "NSHealthShareUsageDescription": "Zeal reads your steps, active calories, and heart rate from Apple Health to calculate your daily training readiness score and display fitness insights on your dashboard.",
         "NSHealthUpdateUsageDescription": "Zeal saves your completed workouts and runs to Apple Health so your exercise history stays in sync across your health apps.",
         "NSLocationWhenInUseUsageDescription": "Zeal uses your GPS location while you run to draw your route on a map, measure your distance in real time, and calculate your pace per mile or kilometer.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Zeal tracks your GPS location in the background during an active run so your route, distance, and pace continue updating accurately when you lock your screen or switch to another app mid-run.",
+        "NSLocationAlwaysUsageDescription": "Zeal tracks your GPS location in the background during an active run so your route, distance, and pace continue updating accurately when you lock your screen or switch apps mid-run.",
         "NSPhotoLibraryUsageDescription": "Zeal accesses your photo library for three specific purposes: (1) to let you choose a profile picture from your camera roll, (2) to attach a workout photo as proof-of-completion for the 75 Hard challenge, and (3) to analyze a meal photo — for example, you select a photo of your lunch and Zeal estimates the calories and macros.",
         "NSCameraUsageDescription": "Zeal uses your camera for two purposes: (1) to photograph your workout as proof-of-completion for the 75 Hard challenge, and (2) to capture a meal photo for nutrition tracking — for example, you snap a photo of your dinner plate and Zeal estimates the calories and macros.",
+        "NSMicrophoneUsageDescription": "Zeal uses your microphone only when you choose voice food logging, so it can transcribe and analyze a meal description.",
+        "NSMotionUsageDescription": "Zeal uses motion data to support activity tracking and training insights when you grant permission.",
         "UIBackgroundModes": ["location", "fetch"],
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -39,7 +44,10 @@
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
         "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_EXERCISE",
         "android.permission.health.WRITE_EXERCISE",
+        "android.permission.health.WRITE_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.WRITE_DISTANCE",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION",

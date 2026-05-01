@@ -104,7 +104,7 @@ function RootLayoutNav() {
     if (!loaded) return;
 
     // Check if we are currently in the auth/onboarding screens
-    const inAuthGroup = segments[0] === "login" || segments[0] === "onboarding";
+    const inAuthGroup = segments[0] === "login" || segments[0] === "onboarding" || segments[0] === "auth";
 
     if (!isLoggedIn && !inAuthGroup) {
       // Redirect to login if NOT logged in and NOT already in auth
@@ -113,12 +113,13 @@ function RootLayoutNav() {
       // Redirect to home if logged in and trying to go to auth
       router.replace("/(tabs)");
     }
-  }, [loaded, isLoggedIn, segments]);
+  }, [loaded, isLoggedIn, segments, router]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" options={{ animation: "none" }} />
+      <Stack.Screen name="auth/callback" options={{ animation: "none" }} />
       <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
       <Stack.Screen
         name="walkthrough"

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
@@ -12,6 +13,53 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: false,
   },
 });
+
+function parseOAuthParams(url: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const [, queryAndHash = ''] = url.split('?');
+  const [query = '', hash = ''] = queryAndHash.split('#');
+  const hashOnly = url.includes('#') ? url.split('#')[1] ?? '' : hash;
+
+  for (const chunk of [hashOnly, query]) {
+    if (!chunk) continue;
+    const searchParams = new URLSearchParams(chunk);
+    searchParams.forEach((value, key) => {
+      params[key] = value;
+    });
+  }
+
+  return params;
+}
+
+export async function completeOAuthSignIn(callbackUrl: string): Promise<Session> {
+  const params = parseOAuthParams(callbackUrl);
+
+  if (params.error || params.error_description) {
+    throw new Error(params.error_description || params.error || 'OAuth sign in failed');
+  }
+
+  if (params.code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+    if (error) throw error;
+    if (!data.session) throw new Error('No session returned from OAuth code exchange');
+    return data.session;
+  }
+
+  if (params.access_token && params.refresh_token) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: params.access_token,
+      refresh_token: params.refresh_token,
+    });
+    if (error) throw error;
+    if (!data.session) throw new Error('No session returned from OAuth token callback');
+    return data.session;
+  }
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (!data.session) throw new Error('OAuth callback did not include a usable session');
+  return data.session;
+}
 
 // ── Types ──────────────────────────────────────────────────────────
 export interface ZealProfile {

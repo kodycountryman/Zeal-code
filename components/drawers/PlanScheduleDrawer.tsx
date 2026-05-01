@@ -94,7 +94,7 @@ export default function PlanScheduleDrawer({ visible, onClose, onClosePlan }: Pr
     return getEventMilestones(plan.event ?? [], plan.planLength, plan.startDate);
   }, [plan, schedule]);
 
-  const currentWeekMilestone = milestones.find(m => m.weekIdx === selectedWeekIdx);
+  const currentWeekMilestone = milestones.find(m => m.week === selectedWeekIdx + 1);
 
   if (!plan || !schedule) return null;
 

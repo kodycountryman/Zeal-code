@@ -5,10 +5,11 @@ import DrawerHeader from '@/components/drawers/DrawerHeader';
 import { useZealTheme } from '@/context/AppContext';
 import { useNutrition } from '@/context/NutritionContext';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import type { AppIconName } from '@/constants/iconMap';
 import { MEAL_LABELS } from '@/types/nutrition';
 
 interface ActionRowProps {
-  icon: string;
+  icon: AppIconName;
   iconColor: string;
   label: string;
   subtitle: string;

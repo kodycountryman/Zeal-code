@@ -17,7 +17,6 @@ import {
   drainBackgroundPoints,
   setBackgroundActive,
   clearBackgroundBuffer,
-  BufferedPoint,
 } from '@/services/runBackgroundBuffer';
 
 // ─── Math Helpers ──────────────────────────────────────────────────────────
@@ -210,6 +209,11 @@ export interface TrackingSnapshot {
 
 export type TrackingListener = (snapshot: TrackingSnapshot) => void;
 
+interface StartTrackingOptions {
+  preserveState?: boolean;
+  preserveBackgroundBuffer?: boolean;
+}
+
 class RunTrackingService {
   private state: TrackingState = this._freshState('imperial');
   /** Run start timestamp (ms). Used to calculate average pace. */
@@ -323,7 +327,10 @@ class RunTrackingService {
    *
    * Resets all route/split/counter state on each call.
    */
-  async startTracking(splitUnit: RunUnits = 'imperial'): Promise<boolean> {
+  async startTracking(
+    splitUnit: RunUnits = 'imperial',
+    options: StartTrackingOptions = {},
+  ): Promise<boolean> {
     if (this.state.isWatching) {
       __DEV__ && console.log('[RunTracking] startTracking called while already watching — ignoring');
       return true;
@@ -346,16 +353,25 @@ class RunTrackingService {
       __DEV__ && console.log('[RunTracking] Background permission requested:', grantedBg ? 'granted' : 'denied');
     }
 
-    // Preserve existing listeners across resets so an external subscriber doesn't
-    // need to re-register between runs.
-    const preservedListeners = this.state.listeners;
-    this.state = this._freshState(splitUnit);
-    this.state.listeners = preservedListeners;
-    this.runStartMs = Date.now();
-    this.accumulatedPausedMs = 0;
-    this.pauseStartedMs = 0;
-    // Fresh buffer for this run — abandon any orphaned points from prior sessions
-    await clearBackgroundBuffer();
+    if (options.preserveState) {
+      this.state.splitUnit = splitUnit;
+      this.state.watcher = null;
+      this.state.isWatching = false;
+    } else {
+      // Preserve existing listeners across resets so an external subscriber doesn't
+      // need to re-register between runs.
+      const preservedListeners = this.state.listeners;
+      this.state = this._freshState(splitUnit);
+      this.state.listeners = preservedListeners;
+      this.runStartMs = Date.now();
+      this.accumulatedPausedMs = 0;
+      this.pauseStartedMs = 0;
+    }
+    // Fresh runs abandon orphaned points. Recovery keeps the buffer so it can
+    // merge samples captured while the app was suspended or relaunched.
+    if (!options.preserveBackgroundBuffer) {
+      await clearBackgroundBuffer();
+    }
     await setBackgroundActive(true);
 
     try {

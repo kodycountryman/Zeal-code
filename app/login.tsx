@@ -22,13 +22,14 @@ import { useAppContext } from '@/context/AppContext';
 // handleAppleSignIn so the app still loads in Expo Go (which doesn't ship
 // the native binary). expo-web-browser is fine to import statically.
 import * as WebBrowser from 'expo-web-browser';
-import { supabase, getOrCreateProfile } from '@/services/supabase';
+import { supabase, getOrCreateProfile, completeOAuthSignIn } from '@/services/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const { width } = Dimensions.get('window');
 const ACCENT = '#f87116';
 const BG = '#0e0e0e';
+const OAUTH_REDIRECT_TO = 'zeal-plus://auth/callback';
 
 const BULLETS: { icon: AppIconName; text: string }[] = [
   { icon: 'zap', text: 'Sessions built from elite coaching science' },
@@ -67,9 +68,13 @@ export default function LoginScreen() {
         ],
       });
 
+      if (!credential.identityToken) {
+        throw new Error('Apple did not return an identity token');
+      }
+
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
-        token: credential.identityToken!,
+        token: credential.identityToken,
       });
 
       if (error) throw error;
@@ -103,7 +108,7 @@ export default function LoginScreen() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'zeal-plus://auth/callback',
+          redirectTo: OAUTH_REDIRECT_TO,
           queryParams: { access_type: 'offline', prompt: 'consent' },
         },
       });
@@ -111,22 +116,22 @@ export default function LoginScreen() {
       if (error) throw error;
       if (!data?.url) throw new Error('No OAuth URL returned');
 
-      const result = await WebBrowser.openAuthSessionAsync(data.url, 'zeal-plus://');
+      const result = await WebBrowser.openAuthSessionAsync(data.url, OAUTH_REDIRECT_TO);
 
       if (result.type === 'success') {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) {
-          const profile = await getOrCreateProfile(sessionData.session.user.id);
-          const name = sessionData.session.user.user_metadata?.full_name ?? profile?.name ?? '';
-          const photoUri = sessionData.session.user.user_metadata?.avatar_url ?? null;
-          if (name) setGooglePrefill({ name, photoUri });
+        const session = await completeOAuthSignIn(result.url);
+        const profile = await getOrCreateProfile(session.user.id);
+        const name = session.user.user_metadata?.full_name ?? profile?.name ?? '';
+        const photoUri = session.user.user_metadata?.avatar_url ?? profile?.photo_uri ?? null;
+        if (name) setGooglePrefill({ name, photoUri });
 
-          if (profile?.onboarding_complete) {
-            login();
-          } else {
-            router.push('/onboarding');
-          }
+        if (profile?.onboarding_complete) {
+          login();
+        } else {
+          router.push('/onboarding');
         }
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        return;
       }
     } catch (err: any) {
       Alert.alert('Sign In Failed', 'Could not sign in with Google. Please try again.');

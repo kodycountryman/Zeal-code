@@ -1629,7 +1629,7 @@ export default function WorkoutScreen() {
     });
   }, [chipExpandHeight]);
 
-
+  const handleMarkExerciseDoneRef = useRef<(exId: string, exercise?: WorkoutExercise) => void>(() => {});
 
   const handleToggleSet = useCallback((exId: string, setIdx: number, exercise?: WorkoutExercise) => {
     closeChip();
@@ -1686,7 +1686,7 @@ export default function WorkoutScreen() {
         const updatedSets = tracking.exerciseLogs[exId]?.sets ?? [];
         const allDone = updatedSets.length > 0 && updatedSets.every((s, i) => i === setIdx ? true : s.done);
         if (allDone) {
-          setTimeout(() => handleMarkExerciseDone(exId, exercise), 400);
+          setTimeout(() => handleMarkExerciseDoneRef.current(exId, exercise), 400);
         }
         // Un-complete: if a set was unchecked on a completed exercise, revert completion
         if (!isMarkingDone && tracking.exerciseLogs[exId]?.completed) {
@@ -1738,7 +1738,7 @@ export default function WorkoutScreen() {
         }
       });
     }
-  }, [tracking, ctx.restBetweenSets, workout, closeChip, handleMarkExerciseDone, advanceToExercise]);
+  }, [tracking, ctx.restBetweenSets, workout, closeChip, advanceToExercise]);
 
   const handleMarkExerciseDone = useCallback((exId: string, exercise?: WorkoutExercise) => {
     if (!tracking.isWorkoutActive && workout) {
@@ -1791,6 +1791,10 @@ export default function WorkoutScreen() {
       }
     }, 1000);
   }, [tracking, ctx.restBetweenSets, workout, trackedExercises, scrollToExercise]);
+
+  useEffect(() => {
+    handleMarkExerciseDoneRef.current = handleMarkExerciseDone;
+  }, [handleMarkExerciseDone]);
 
   const handleToggleMobilityDone = useCallback((exId: string) => {
     setDoneExercises((prev) => {
@@ -4538,7 +4542,6 @@ export default function WorkoutScreen() {
                     <Pressable
                       style={[styles.exerciseRow, isLast && !isExpanded && { borderBottomColor: 'transparent' }]}
                       onPress={() => handleToggleTrackPanel(cardioEx.id, cardioEx)}
-                      activeOpacity={1}
                     >
                       <View style={styles.exerciseInfo}>
                         <TouchableOpacity activeOpacity={0.7} onPress={() => handleExerciseTap(cardioEx)} hitSlop={{ top: 4, bottom: 4, left: 0, right: 16 }} style={{ alignSelf: 'flex-start' }}>
@@ -4777,13 +4780,25 @@ export default function WorkoutScreen() {
               ) : (
                 <View style={styles.addBtnWrap}>
                   <View ref={addBtnRef} collapsable={false}>
-                    <Button
-                      variant="tertiary"
-                      icon="plus"
-                      label="Add Exercise"
-                      fullWidth
+                    <TouchableOpacity
                       onPress={() => setAddMenuVisible(!addMenuVisible)}
-                    />
+                      activeOpacity={0.7}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        paddingVertical: 14,
+                        paddingHorizontal: 18,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                      }}
+                    >
+                      <PlatformIcon name="plus" size={16} color={colors.textSecondary} strokeWidth={2} />
+                      <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: colors.textSecondary }}>Add Exercise</Text>
+                    </TouchableOpacity>
                   </View>
                   {addMenuVisible && (
                     <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
@@ -4873,13 +4888,25 @@ export default function WorkoutScreen() {
               ) : (
                 <View style={styles.addBtnWrap}>
                   <View ref={addBtnRef} collapsable={false}>
-                    <Button
-                      variant="tertiary"
-                      icon="plus"
-                      label="Add Exercise"
-                      fullWidth
+                    <TouchableOpacity
                       onPress={() => setAddMenuVisible(!addMenuVisible)}
-                    />
+                      activeOpacity={0.7}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        paddingVertical: 14,
+                        paddingHorizontal: 18,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                      }}
+                    >
+                      <PlatformIcon name="plus" size={16} color={colors.textSecondary} strokeWidth={2} />
+                      <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: colors.textSecondary }}>Add Exercise</Text>
+                    </TouchableOpacity>
                   </View>
                   {addMenuVisible && (
                     <View style={[styles.addMenuUp, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]}>
@@ -4947,19 +4974,16 @@ export default function WorkoutScreen() {
       <AboutMeDrawer
         visible={aboutMeVisible}
         onClose={() => setAboutMeVisible(false)}
-        onBack={() => setAboutMeVisible(false)}
       />
 
       <InsightsDrawer
         visible={insightsVisible}
         onClose={() => setInsightsVisible(false)}
-        onBack={() => setInsightsVisible(false)}
       />
 
       <SettingsDrawer
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
-        onBack={() => setSettingsVisible(false)}
         onOpenColorTheme={() => setColorThemeVisible(true)}
         onOpenEquipment={() => setEquipmentVisible(true)}
         onOpenExerciseCatalog={() => tracking.setExerciseCatalogVisible(true)}
@@ -4992,13 +5016,11 @@ export default function WorkoutScreen() {
       <ColorThemeDrawer
         visible={colorThemeVisible}
         onClose={() => setColorThemeVisible(false)}
-        onBack={() => setColorThemeVisible(false)}
       />
 
       <EquipmentDrawer
         visible={equipmentVisible}
         onClose={() => setEquipmentVisible(false)}
-        onBack={() => setEquipmentVisible(false)}
       />
 
       <StartAnotherWorkoutSheet

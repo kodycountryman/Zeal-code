@@ -64,7 +64,9 @@
       "Bash(gem list *)",
       "Bash(pod install *)",
       "Bash(npm info *)",
-      "Bash(eas build *)"
+      "Bash(eas build *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   },
   "hooks": {

@@ -186,7 +186,7 @@ function PostWorkoutFlow() {
   }, [tracking]);
 
   const handleFeedbackNext = useCallback(() => {
-    tracking.prepareSaveStep(starRating, rpe, chips);
+    tracking.completeWorkout('moderate', rpe, chips);
   }, [tracking, starRating, rpe, chips]);
 
   const ctx = useAppContext();
@@ -219,7 +219,7 @@ function PostWorkoutFlow() {
   }, [tracking, ctx]);
 
   const handleDiscard = useCallback(() => {
-    tracking.discardWorkout();
+    tracking.dismissPostWorkout();
   }, [tracking]);
 
   if (!step) return null;

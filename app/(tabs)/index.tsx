@@ -630,58 +630,6 @@ export default function HomeScreen() {
             />
           </Animated.View>
 
-          {/* ─── Phase 7: 'Start a Plan' hero CTA — only when no plans active ── */}
-          {!ctx.activePlan && !ctx.activeRunPlan && (
-            <Animated.View entering={cardAnims.d120}>
-              <TouchableOpacity
-                onPress={() => tracking.setPlanChooserVisible(true)}
-                activeOpacity={0.85}
-                style={[styles.startPlanCard, {
-                  borderColor: `${accent}40`,
-                  backgroundColor: isDark ? `${accent}10` : `${accent}08`,
-                }]}
-                testID="home-start-plan-cta"
-              >
-                <View style={[styles.startPlanIconWrap, { backgroundColor: `${accent}25` }]}>
-                  <PlatformIcon name="calendar" size={26} color={accent} strokeWidth={1.8} />
-                </View>
-                <View style={styles.startPlanCopy}>
-                  <Text style={[styles.startPlanTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Start a Plan</Text>
-                  <Text style={[styles.startPlanSub, { color: colors.textSecondary }]} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.85}>
-                    Pick a workout or running program built around your goals.
-                  </Text>
-                </View>
-                <PlatformIcon name="chevron-right" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-
-          {/* ─── Phase 7: secondary 'add a second plan' tile ─────────────────── */}
-          {((ctx.activePlan && !ctx.activeRunPlan) || (!ctx.activePlan && ctx.activeRunPlan)) && (
-            <Animated.View entering={cardAnims.d120}>
-              <TouchableOpacity
-                onPress={() => tracking.setPlanChooserVisible(true)}
-                activeOpacity={0.85}
-                style={[styles.addPlanTile, {
-                  borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                }]}
-                testID="home-add-second-plan-cta"
-              >
-                <View style={[styles.addPlanIconWrap, { backgroundColor: `${accent}18` }]}>
-                  <PlatformIcon
-                    name={ctx.activePlan ? 'figure-run' : 'dumbbell'}
-                    size={18}
-                    color={accent}
-                  />
-                </View>
-                <Text style={[styles.addPlanText, { color: colors.text }]}>
-                  {ctx.activePlan ? 'Add a Running Plan' : 'Add a Workout Plan'}
-                </Text>
-                <PlatformIcon name="plus" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Animated.View>
-          )}
 
           {tracking.workoutHistory.length === 0 && (
             <Animated.View entering={cardAnims.d150}>
@@ -751,12 +699,14 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
-          <Animated.View entering={cardAnims.d240}>
-            <RunOverviewCard
-              todayPrescription={todayPrescription}
-              variant={isDark ? 'glass' : 'solid'}
-            />
-          </Animated.View>
+          {(run.runHistory.length > 0 || (todayPrescription?.activity_type === 'run' && !todayPrescription?.is_rest)) && (
+            <Animated.View entering={cardAnims.d240}>
+              <RunOverviewCard
+                todayPrescription={todayPrescription}
+                variant={isDark ? 'glass' : 'solid'}
+              />
+            </Animated.View>
+          )}
 
           <Animated.View entering={cardAnims.d270}>
             <View ref={tourScoreRef} collapsable={false}>
@@ -791,6 +741,46 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
+
+          {/* ─── Start / Add a Plan CTA — below TrainingScoreCard ── */}
+          {!(ctx.activePlan && ctx.activeRunPlan) && (() => {
+            const hasWorkout = !!ctx.activePlan;
+            const hasRun = !!ctx.activeRunPlan;
+            const title = !hasWorkout && !hasRun
+              ? 'Start a Plan'
+              : hasWorkout
+              ? 'Start a Running Plan'
+              : 'Start a Workout Plan';
+            const sub = !hasWorkout && !hasRun
+              ? 'Strength, Run, or Hybrid — pick a goal and we\'ll build your schedule.'
+              : hasWorkout
+              ? 'Add a running plan to complement your strength training.'
+              : 'Add a workout plan to complement your running.';
+            return (
+              <Animated.View entering={cardAnims.d300}>
+                <TouchableOpacity
+                  onPress={() => tracking.setPlanChooserVisible(true)}
+                  activeOpacity={0.8}
+                  style={[styles.startPlanCard, {
+                    borderColor: colors.border,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                  }]}
+                  testID="home-start-plan-cta"
+                >
+                  <View style={[styles.startPlanIconWrap, {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+                  }]}>
+                    <PlatformIcon name="calendar" size={24} color={colors.textSecondary} strokeWidth={1.8} />
+                  </View>
+                  <View style={styles.startPlanCopy}>
+                    <Text style={[styles.startPlanTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{title}</Text>
+                    <Text style={[styles.startPlanSub, { color: colors.textSecondary }]} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.85}>{sub}</Text>
+                  </View>
+                  <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })()}
 
           <View style={styles.bibleContainer} testID="bible-verse">
             <Text style={[styles.bibleText, { color: colors.textSecondary }]}>
@@ -828,13 +818,11 @@ export default function HomeScreen() {
       <AboutMeDrawer
         visible={aboutMeVisible}
         onClose={() => setAboutMeVisible(false)}
-        onBack={() => setAboutMeVisible(false)}
       />
 
       <SettingsDrawer
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
-        onBack={() => setSettingsVisible(false)}
         onOpenColorTheme={() => setColorThemeVisible(true)}
         onOpenEquipment={() => setEquipmentVisible(true)}
         onOpenExerciseCatalog={() => tracking.setExerciseCatalogVisible(true)}
@@ -858,13 +846,11 @@ export default function HomeScreen() {
       <ColorThemeDrawer
         visible={colorThemeVisible}
         onClose={() => setColorThemeVisible(false)}
-        onBack={() => setColorThemeVisible(false)}
       />
 
       <EquipmentDrawer
         visible={equipmentVisible}
         onClose={() => setEquipmentVisible(false)}
-        onBack={() => setEquipmentVisible(false)}
       />
 
       <FullCalendarModal />
@@ -877,7 +863,6 @@ export default function HomeScreen() {
       <InsightsDrawer
         visible={insightsVisible}
         onClose={() => setInsightsVisible(false)}
-        onBack={() => setInsightsVisible(false)}
       />
 
       <BuildWorkoutDrawer

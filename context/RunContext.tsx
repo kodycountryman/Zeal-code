@@ -3,6 +3,40 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { startActivity, updateActivity, endActivity } from '@/modules/zeal-live-activity/src';
+import {
+  RunLog,
+  RunPR,
+  RunPreferences,
+  RunStatus,
+  RunType,
+  ActiveRunState,
+  RUN_HISTORY_KEY,
+  RUN_PR_HISTORY_KEY,
+  RUN_PREFERENCES_KEY,
+  ACTIVE_RUN_KEY,
+  DEFAULT_RUN_PREFERENCES,
+} from '@/types/run';
+import { runTrackingService, TrackingSnapshot, simplifyRoute } from '@/services/runTrackingService';
+import { healthService } from '@/services/healthService';
+import { detectNewPRs, mergePRs, prTypeLabel } from '@/services/runPRService';
+import { detectNewlyEarnedRunBadges, type RunBadge } from '@/services/runBadges';
+import { runAudioService } from '@/services/runAudioService';
+import { intervalEngine, type IntervalSnapshot, type IntervalSegment } from '@/services/intervalEngine';
+import * as Haptics from 'expo-haptics';
+import type { DayPrescription } from '@/services/planEngine';
+import { useAppContext } from '@/context/AppContext';
+import { clearBackgroundBuffer, setBackgroundActive } from '@/services/runBackgroundBuffer';
+import {
+  presentRunMilestoneNotification,
+  scheduleRunReminder,
+  scheduleRunPreReminder,
+  cancelRunReminders,
+  scheduleRunStreakReminder,
+  cancelRunStreakReminder,
+} from '@/services/notificationService';
+import { computeRunTrainingScore } from '@/services/runScoreService';
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 // Format distance for Live Activity label
 function fmtDistance(meters: number, units: string): string {
@@ -21,42 +55,6 @@ function fmtPace(secPerMeter: number, units: string): string {
   const suffix = units === 'metric' ? '/km' : '/mi';
   return `${mins}:${String(secs).padStart(2, '0')}${suffix}`;
 }
-import {
-  RunLog,
-  RunPR,
-  RunPreferences,
-  RunStatus,
-  RunType,
-  ActiveRunState,
-  RoutePoint,
-  Split,
-  RunUnits,
-  RUN_HISTORY_KEY,
-  RUN_PR_HISTORY_KEY,
-  RUN_PREFERENCES_KEY,
-  ACTIVE_RUN_KEY,
-  DEFAULT_RUN_PREFERENCES,
-} from '@/types/run';
-import { runTrackingService, TrackingSnapshot, simplifyRoute } from '@/services/runTrackingService';
-import { healthService } from '@/services/healthService';
-import { detectNewPRs, mergePRs } from '@/services/runPRService';
-import { detectNewlyEarnedRunBadges, type RunBadge } from '@/services/runBadges';
-import { runAudioService } from '@/services/runAudioService';
-import { intervalEngine, type IntervalSnapshot, type IntervalSegment } from '@/services/intervalEngine';
-import * as Haptics from 'expo-haptics';
-import type { DayPrescription } from '@/services/planEngine';
-import {
-  presentRunMilestoneNotification,
-  scheduleRunReminder,
-  scheduleRunPreReminder,
-  cancelRunReminders,
-  scheduleRunStreakReminder,
-  cancelRunStreakReminder,
-} from '@/services/notificationService';
-import { prTypeLabel } from '@/services/runPRService';
-import { computeRunTrainingScore } from '@/services/runScoreService';
-
-// ─── Helpers ───────────────────────────────────────────────────────────────
 
 function getTodayStr(): string {
   const d = new Date();
@@ -219,6 +217,8 @@ class AutoPauseDetector {
 // ─── Context ───────────────────────────────────────────────────────────────
 
 export const [RunProvider, useRun] = createContextHook(() => {
+  const app = useAppContext();
+
   // ─── Loaded state ──────────────────────────────────────────────────────
   const [loaded, setLoaded] = useState(false);
 
@@ -259,6 +259,64 @@ export const [RunProvider, useRun] = createContextHook(() => {
   const targetDistanceMetersRef = useRef<number | null>(null);
   /** Target pace in seconds-per-meter (drives pace alerts). */
   const targetPaceSecPerMeterRef = useRef<number | null>(null);
+  const prevResetTokenRef = useRef<number>(app.newUserResetToken);
+
+  const resetRunData = useCallback(() => {
+    if (persistTimerRef.current) {
+      clearInterval(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    if (tickTimerRef.current) {
+      clearInterval(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
+
+    void runTrackingService.stopTracking();
+    runTrackingService.reset();
+    intervalEngine.reset();
+    void runAudioService.stopAll();
+    void endActivity('run');
+    void clearBackgroundBuffer();
+    void setBackgroundActive(false);
+    void cancelRunReminders();
+    void cancelRunStreakReminder();
+    void AsyncStorage.multiRemove([
+      RUN_HISTORY_KEY,
+      RUN_PR_HISTORY_KEY,
+      RUN_PREFERENCES_KEY,
+      ACTIVE_RUN_KEY,
+    ]).catch((e) => __DEV__ && console.warn('[RunContext] Reset error:', e));
+
+    setRunHistory([]);
+    setRunPRs([]);
+    setPreferences(DEFAULT_RUN_PREFERENCES);
+    setStatus('idle');
+    setActiveRunId(null);
+    setActiveRunStartTime(null);
+    setActiveRunType('free');
+    setActivePlanDayId(undefined);
+    setActivePlanId(undefined);
+    setSnapshot(null);
+    setTick((t) => t + 1);
+    setLastSavedRun(null);
+    setLastNewPRs([]);
+    setLastNewBadges([]);
+    setIntervalSnapshot(null);
+    autoPauseTriggeredRef.current = false;
+    autoPauseDetectorRef.current.setThreshold(DEFAULT_RUN_PREFERENCES.autoPauseSpeedThresholdMps);
+    autoPauseDetectorRef.current.reset();
+    lastSpokenSplitRef.current = 0;
+    halfwayAnnouncedRef.current = false;
+    targetDistanceMetersRef.current = null;
+    targetPaceSecPerMeterRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (app.newUserResetToken !== 0 && app.newUserResetToken !== prevResetTokenRef.current) {
+      prevResetTokenRef.current = app.newUserResetToken;
+      resetRunData();
+    }
+  }, [app.newUserResetToken, resetRunData]);
 
   // ─── Initial load ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -856,7 +914,10 @@ export const [RunProvider, useRun] = createContextHook(() => {
 
       // Resume live GPS — this also re-registers the background task if
       // permission is still granted
-      const ok = await runTrackingService.startTracking(active.splitUnit);
+      const ok = await runTrackingService.startTracking(active.splitUnit, {
+        preserveState: true,
+        preserveBackgroundBuffer: true,
+      });
       if (!ok) {
         __DEV__ && console.log('[RunContext] recoverPendingRun: failed to restart tracking');
         return false;

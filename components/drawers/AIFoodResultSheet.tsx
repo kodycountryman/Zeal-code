@@ -91,7 +91,7 @@ export default function AIFoodResultSheet({ result, onClose }: Props) {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
         {foods.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <PlatformIcon name="search-x" size={40} color={colors.textMuted} />
+            <PlatformIcon name="search" size={40} color={colors.textMuted} />
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               No food items detected. Try taking a clearer photo.
             </Text>

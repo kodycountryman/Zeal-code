@@ -11,6 +11,7 @@ import {
   createEmptyDay,
   isDayFullyComplete,
 } from '@/services/seventyFiveHardTypes';
+import { useAppContext } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 
 function getTodayStr(): string {
@@ -22,14 +23,6 @@ function getYesterdayStr(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function daysBetween(startDate: string, endDate: string): number {
-  const [sy, sm, sd] = startDate.split('-').map(Number);
-  const [ey, em, ed] = endDate.split('-').map(Number);
-  const start = Date.UTC(sy, sm - 1, sd);
-  const end = Date.UTC(ey, em - 1, ed);
-  return Math.floor((end - start) / 86_400_000);
 }
 
 function persist(state: SeventyFiveHardState | null) {
@@ -45,9 +38,11 @@ function persist(state: SeventyFiveHardState | null) {
 }
 
 export const [SeventyFiveHardProvider, useSeventyFiveHard] = createContextHook(() => {
+  const app = useAppContext();
   const [state, setState] = useState<SeventyFiveHardState | null>(null);
   const [loaded, setLoaded] = useState(false);
   const missedDayCheckedRef = useRef(false);
+  const prevResetTokenRef = useRef<number>(app.newUserResetToken);
   const { workoutHistory } = useWorkoutTracking();
 
   // ── Load from AsyncStorage on mount ──
@@ -65,6 +60,15 @@ export const [SeventyFiveHardProvider, useSeventyFiveHard] = createContextHook((
       .catch((e) => __DEV__ && console.warn('[75Hard] Failed to load state:', e))
       .finally(() => setLoaded(true));
   }, []);
+
+  useEffect(() => {
+    if (app.newUserResetToken !== 0 && app.newUserResetToken !== prevResetTokenRef.current) {
+      prevResetTokenRef.current = app.newUserResetToken;
+      missedDayCheckedRef.current = false;
+      setState(null);
+      persist(null);
+    }
+  }, [app.newUserResetToken]);
 
   // ── Derived values ──
   const isActive = state?.active === true;

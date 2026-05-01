@@ -1,4 +1,4 @@
-# Zeal+ — Claude Code Context
+# Zeal+ — Codex Context
 
 ## Authorization
 Full read/write access to all files in this project is authorized. Make edits directly without asking for permission on individual files.

@@ -2,10 +2,12 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { FlatList, View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-interface WheelPickerProps {
-  values: number[];
-  selectedValue: number;
-  onValueChange: (value: number) => void;
+type WheelPickerValue = number | string;
+
+interface WheelPickerProps<T extends WheelPickerValue = number> {
+  values: T[];
+  selectedValue: T;
+  onValueChange: (value: T) => void;
   width?: number;
   textColor?: string;
   mutedColor?: string;
@@ -13,23 +15,29 @@ interface WheelPickerProps {
   bgColor?: string;
   visibleItems?: number;
   suffix?: string;
-  formatValue?: (v: number) => string;
+  formatValue?: (v: T) => string;
   itemHeight?: number;
 }
 
 const ITEM_H = 44;
 
-function findClosestIndex(values: number[], target: number): number {
+function findClosestIndex<T extends WheelPickerValue>(values: T[], target: T): number {
+  if (values.length === 0) return 0;
+  if (typeof target !== 'number') {
+    const exact = values.findIndex(v => v === target);
+    return exact >= 0 ? exact : 0;
+  }
   let best = 0;
-  let bestDist = Math.abs(values[0] - target);
+  let bestDist = typeof values[0] === 'number' ? Math.abs(values[0] - target) : Number.POSITIVE_INFINITY;
   for (let i = 1; i < values.length; i++) {
-    const d = Math.abs(values[i] - target);
+    const value = values[i];
+    const d = typeof value === 'number' ? Math.abs(value - target) : Number.POSITIVE_INFINITY;
     if (d < bestDist) { bestDist = d; best = i; }
   }
   return best;
 }
 
-export default function WheelPicker({
+export default function WheelPicker<T extends WheelPickerValue = number>({
   values,
   selectedValue,
   onValueChange,
@@ -39,8 +47,8 @@ export default function WheelPicker({
   formatValue,
   textColor = '#fff',
   bgColor,
-}: WheelPickerProps) {
-  const listRef = useRef<FlatList>(null);
+}: WheelPickerProps<T>) {
+  const listRef = useRef<FlatList<T>>(null);
   const initIndex = findClosestIndex(values, selectedValue);
   const [selIdx, setSelIdx] = useState<number>(initIndex);
   const lastEmitted = useRef<number>(-1);
@@ -81,7 +89,7 @@ export default function WheelPicker({
     onValueChange(values[clamped]);
   }, [values, onValueChange]);
 
-  const renderItem = useCallback(({ item: val, index: i }: { item: number; index: number }) => {
+  const renderItem = useCallback(({ item: val, index: i }: { item: T; index: number }) => {
     const dist = Math.abs(i - selIdx);
     const opacity = dist === 0 ? 1 : dist === 1 ? 0.35 : 0;
     const fontSize = dist === 0 ? 22 : 16;

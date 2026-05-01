@@ -111,6 +111,12 @@ export default function FloatingDock() {
   const [tabXOffsets, setTabXOffsets] = useState<number[]>(TABS.map(() => 0));
   const [tabItemWidth, setTabItemWidth] = useState(0);
 
+  // ───── Shared values driving the bubble ─────
+  const bubbleX = useSharedValue<number>(activeIndex);
+  const isDragging = useSharedValue<boolean>(false);
+  const dragStart = useSharedValue<number>(0);
+  const hasMeasured = useRef(false);
+
   const handleTabLayout = useCallback((index: number, x: number, width: number) => {
     setTabXOffsets((prev) => {
       const next = [...prev];
@@ -126,12 +132,6 @@ export default function FloatingDock() {
 
   // For drag gesture: derive tabWidth from measured width
   const tabWidth = tabItemWidth;
-
-  // ───── Shared values driving the bubble ─────
-  const bubbleX = useSharedValue<number>(activeIndex);
-  const isDragging = useSharedValue<boolean>(false);
-  const dragStart = useSharedValue<number>(0);
-  const hasMeasured = useRef(false);
 
   // When the route changes, spring bubble to that tab.
   useEffect(() => {

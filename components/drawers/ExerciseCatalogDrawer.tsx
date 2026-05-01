@@ -107,7 +107,7 @@ function getMuscleCategory(ex: ZealExercise): string {
       return cat.id;
     }
   }
-  if (ex.eligible_styles.some(s => s === 'cardio' || s === 'hiit' || s === 'hyrox')) return 'cardio';
+  if (ex.eligible_styles.some(s => String(s) === 'cardio' || s === 'hiit' || s === 'hyrox')) return 'cardio';
   if (ex.eligible_styles.some(s => s === 'mobility' || s === 'pilates')) return 'mobility';
   return 'core';
 }

@@ -2019,7 +2019,7 @@ function buildHyroxSimulation(fullRace: boolean, params: EngineParams): EngineRe
     cooldown_for_muscles: [],
     substitutes: [],
     variation_family: variationFamily,
-  });
+  } as unknown as ZealExercise);
 
   // Race format: Run → Station for each of the stationCount pairs. No trailing run after the last station.
   for (let i = 0; i < stations.length; i++) {
@@ -3126,4 +3126,3 @@ export function generateCoreFinisherFromEngine(params: {
     };
   });
 }
-

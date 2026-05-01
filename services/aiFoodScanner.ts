@@ -56,7 +56,7 @@ export async function captureFood(): Promise<string | null> {
 export async function analyzeFood(imageUri: string): Promise<AIFoodResult> {
   // Read image as base64
   const base64 = await FileSystem.readAsStringAsync(imageUri, {
-    encoding: FileSystem.EncodingType.Base64,
+    encoding: 'base64',
   });
 
   // 30-second timeout

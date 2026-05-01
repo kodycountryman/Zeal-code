@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PurchasesWrapper from '@/services/purchases';
+import { useAppContext } from '@/context/AppContext';
 
 export type SubscriptionState = 'never_seen' | 'active' | 'lapsed';
 export type PaywallVersion = 'trial' | 'no_trial';
@@ -61,9 +62,11 @@ try {
 }
 
 export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
+  const app = useAppContext();
   const queryClient = useQueryClient();
   const hasTriggeredThisSession = useRef(false);
   const paywallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevResetTokenRef = useRef<number>(app.newUserResetToken);
 
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [persisted, setPersisted] = useState<PersistedState>(DEFAULT_PERSISTED);
@@ -96,6 +99,28 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
       __DEV__ && console.warn('[subscription] Failed to save state:', e);
     }
   }, []);
+
+  const resetLocalSubscriptionState = useCallback(() => {
+    if (paywallTimerRef.current) {
+      clearTimeout(paywallTimerRef.current);
+      paywallTimerRef.current = null;
+    }
+    hasTriggeredThisSession.current = false;
+    persistedRef.current = DEFAULT_PERSISTED;
+    setPersisted(DEFAULT_PERSISTED);
+    setPaywallOpen(false);
+    void AsyncStorage.removeItem(STORAGE_KEY).catch((e) =>
+      __DEV__ && console.warn('[subscription] Failed to reset local state:', e)
+    );
+    void queryClient.invalidateQueries({ queryKey: ['rc_customer_info'] });
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (app.newUserResetToken !== 0 && app.newUserResetToken !== prevResetTokenRef.current) {
+      prevResetTokenRef.current = app.newUserResetToken;
+      resetLocalSubscriptionState();
+    }
+  }, [app.newUserResetToken, resetLocalSubscriptionState]);
 
   const customerInfoQuery = useQuery({
     queryKey: ['rc_customer_info'],

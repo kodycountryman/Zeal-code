@@ -157,7 +157,10 @@ export default function OnboardingScreen() {
     setStep((s) => s - 1);
   }, [step, equipPreset]);
 
-  const handleWalkthroughDone = useCallback(async () => {
+  const handleWalkthroughDone = useCallback(async (options?: {
+    healthSyncEnabled?: boolean;
+    healthConnected?: boolean;
+  }) => {
     setGenerating(true);
 
     try {
@@ -194,6 +197,8 @@ export default function OnboardingScreen() {
         recovery: recoveryEnabled,
         addCardio: addCardioEnabled,
         coreFinisher: coreFinisherEnabled,
+        healthSyncEnabled: options?.healthSyncEnabled ?? ctx.healthSyncEnabled,
+        healthConnected: options?.healthConnected ?? ctx.healthConnected,
       });
 
       // Finalize onboarding + unmount the "Building your first workout…"
@@ -250,6 +255,7 @@ export default function OnboardingScreen() {
   }, [ctx, handleWalkthroughDone]);
 
   const handleConnectHealth = useCallback(async () => {
+    let didConnectHealth = false;
     try {
       if (healthService.isAvailable()) {
         // Wrap in a 10s timeout — if the native HealthKit callback never fires
@@ -262,6 +268,7 @@ export default function OnboardingScreen() {
         ]);
         __DEV__ && console.log('[Onboarding] Health permission:', result);
         if (result.granted) {
+          didConnectHealth = true;
           ctx.setHealthSyncEnabled(true);
           ctx.setHealthConnected(true);
           __DEV__ && console.log('[Onboarding] Health connected and saved to context');
@@ -272,7 +279,10 @@ export default function OnboardingScreen() {
     } catch (e) {
       __DEV__ && console.log('[Onboarding] Health error:', e);
     }
-    handleWalkthroughDone();
+    handleWalkthroughDone({
+      healthSyncEnabled: didConnectHealth,
+      healthConnected: didConnectHealth,
+    });
   }, [ctx, handleWalkthroughDone]);
 
   const effectiveWeight = weightUnit === 'lbs' ? weightLbs : Math.round(weightLbs * 0.453592);

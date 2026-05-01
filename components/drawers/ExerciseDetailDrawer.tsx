@@ -360,7 +360,7 @@ export default function ExerciseDetailDrawer({ visible, exercise, workoutStyle, 
 
   if (!exercise) return null;
 
-  const ref = exercise.exerciseRef;
+  const ref = exercise.exerciseRef as any;
   const pref = ctx.exercisePreferences[exercise.id] ?? 'neutral';
   const isLiked = pref === 'liked';
   const isDisliked = pref === 'disliked';
