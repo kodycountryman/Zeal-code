@@ -1334,7 +1334,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     } else if (appTheme === 'zeal') {
       accent = getTodayZealAccent();
     } else if (appTheme === 'neon') {
-      accent = '#00e5ff';
+      accent = Colors.neon.brand.primary;
     }
 
     return {

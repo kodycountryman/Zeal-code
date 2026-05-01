@@ -28,13 +28,11 @@ import { BlurView } from 'expo-blur';
 import { useRouter, usePathname } from 'expo-router';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { AppIconName } from '@/constants/iconMap';
-import { showProGate, PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
+import { PRO_GOLD, PRO_LOCKED_OPACITY } from '@/services/proGate';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZealTheme } from '@/context/AppContext';
-import { getContrastTextColor } from '@/constants/colors';
 import { useTourTarget } from '@/context/AppTourContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
-import { useSubscription } from '@/context/SubscriptionContext';
 import { SWIFT_SPRING, SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 
 type TabDef = {
@@ -60,7 +58,6 @@ export default function FloatingDock() {
   const insets = useSafeAreaInsets();
   const { colors, accent, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
-  const { hasPro, openPaywall } = useSubscription();
 
   const [menuOpen, setMenuOpen] = useState(false);
   // Legacy RN Animated for the menu modal (unchanged from previous version)
@@ -87,7 +84,7 @@ export default function FloatingDock() {
   const gradientHeight = 180;
 
   const dockBlurTint = isDark ? 'dark' : 'light';
-  const dockBorderColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
+  const dockBorderColor = colors.glass.controlStrong;
   // Inner stroke removed — Apple doesn't double-border
   const inactiveIconColor = isDark ? 'rgba(255,255,255,0.50)' : 'rgba(0,0,0,0.50)';
 
@@ -264,21 +261,16 @@ export default function FloatingDock() {
       locked: false,
     },
     {
-      icon: <PlatformIcon name="sparkles" size={20} color={hasPro ? accent : colors.textMuted} />,
+      icon: <PlatformIcon name="sparkles" size={20} color={accent} />,
       label: 'Start a Plan',
       onPress: () => {
-        if (!hasPro) {
-          closeMenu();
-          setTimeout(() => showProGate('planBuilder', openPaywall), MENU_CLOSE_DELAY);
-          return;
-        }
         closeMenu();
         // Opens the unified PlanTypeChooserSheet (mounted on the Home tab).
         // User picks Strength / Run / Hybrid from the sheet, which routes
         // to the appropriate builder drawer.
         setTimeout(() => tracking.setPlanChooserVisible(true), MENU_CLOSE_DELAY);
       },
-      locked: !hasPro,
+      locked: false,
     },
     {
       icon: <PlatformIcon name="clipboard-list" size={20} color={accent} />,
@@ -314,7 +306,7 @@ export default function FloatingDock() {
               <GlassView
                 intensity={isDark ? 70 : 55}
                 tint={dockBlurTint}
-                style={[styles.pill, { borderColor: dockBorderColor }]}
+                style={[styles.pill, { borderColor: dockBorderColor, shadowColor: colors.shadow }]}
               >
                 {/* Single shared bubble — absolutely positioned, translated by shared value */}
                 {tabItemWidth > 0 && (
@@ -376,7 +368,7 @@ export default function FloatingDock() {
               tint={dockBlurTint}
               style={[
                 styles.plusButton,
-                { borderColor: dockBorderColor, shadowColor: '#000' },
+                { borderColor: dockBorderColor, shadowColor: colors.shadow },
               ]}
             >
               {menuOpen ? (
@@ -429,7 +421,8 @@ export default function FloatingDock() {
                       styles.menuPill,
                       {
                         backgroundColor: isDark ? 'rgba(28,28,30,0.92)' : 'rgba(255,255,255,0.92)',
-                        borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+                        borderColor: colors.glass.controlStrong,
+                        shadowColor: colors.shadow,
                       },
                       item.locked && { opacity: PRO_LOCKED_OPACITY },
                     ]}
@@ -565,7 +558,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 5,
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
     shadowRadius: 12,
@@ -657,7 +649,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     width: '100%',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,

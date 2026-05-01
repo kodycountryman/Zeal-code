@@ -6,7 +6,6 @@
   "types": "src/index.ts",
   "scripts": {},
   "peerDependencies": {
-    "expo": "*",
-    "expo-modules-core": "*"
+    "expo": "*"
   }
 }

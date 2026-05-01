@@ -49,6 +49,8 @@ import type { MovementType } from '@/mocks/exerciseDatabase';
 import { generateWorkoutAsync, enhanceCrossFitMetCon } from '@/services/aiWorkoutGenerator';
 import { generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
+import { buildTrainingLog, buildFeedbackData } from '@/services/feedbackProjection';
+import { maybeAdaptiveDeload } from '@/services/adaptivePlanOverride';
 import ModifyWorkoutDrawer from '@/components/drawers/ModifyWorkoutDrawer';
 import AddToWorkoutSheet, { type AddMode } from '@/components/AddToWorkoutSheet';
 import SwipeableExerciseRow from '@/components/SwipeableExerciseRow';
@@ -1205,8 +1207,15 @@ export default function WorkoutScreen() {
 
     __DEV__ && console.log(`[WorkoutScreen] doGenerate: style=${effectiveStyle} split=${effectiveSplit} duration=${effectiveDuration} rest=${effectiveRest} muscles=${effectiveMuscles.join(',')} override=${!!ov} hasPlan=${hasPlan} usedModify=${!!lm} seedOffset=${seedOffset ?? 0}`);
 
-    // Only use plan prescription (phase, volume/intensity modifiers) when user hasn't manually overridden
-    const prescription = (!ov && !style && !lm && hasPlan) ? todayPrescription : null;
+    // Keep the tab generation path aligned with WorkoutTrackingContext so
+    // readiness, RPE feedback, and adaptive deloads affect every workout start.
+    const basePrescription = (!ov && !style && !lm && hasPlan) ? todayPrescription : null;
+    const adaptive = maybeAdaptiveDeload(basePrescription, tracking.workoutHistory, ctx.muscleReadiness);
+    const prescription = adaptive.prescription;
+    tracking.recordAdaptiveOverride?.(adaptive.overridden, adaptive.reason);
+    if (adaptive.overridden) {
+      __DEV__ && console.log('[WorkoutScreen] Adaptive deload override applied:', adaptive.reason);
+    }
 
     // Use plan's stored equipment if generating a plan workout, otherwise user's global settings
     const effectiveEquipment = (prescription && hasPlan)
@@ -1223,16 +1232,21 @@ export default function WorkoutScreen() {
       sex: ctx.sex,
       specialLifeCase: ctx.specialLifeCase,
       specialLifeCaseDetail: ctx.specialLifeCaseDetail,
-      warmUp: true,
-      coolDown: true,
-      recovery: true,
-      addCardio: true,
+      warmUp: ctx.warmUp,
+      coolDown: ctx.coolDown,
+      recovery: ctx.recovery,
+      addCardio: ctx.addCardio,
       specificMuscles: effectiveMuscles,
       seedOffset: seedOffset ?? 0,
       planPhase: prescription?.phase,
       volumeModifier: prescription?.volume_modifier,
       bodyweightLbs: ctx.weight,
       exercisePreferences: ctx.exercisePreferences,
+      trainingLog: buildTrainingLog(tracking.workoutHistory),
+      feedbackData: buildFeedbackData(tracking.workoutHistory),
+      muscleReadiness: Object.fromEntries(
+        ctx.muscleReadiness.map(m => [m.name, m.value]),
+      ),
     } as const;
 
     setIsGenerating(true);
@@ -1341,9 +1355,8 @@ export default function WorkoutScreen() {
           setGeneratingElapsed(0);
           setIsGenerating(true);
         } else if (!isPlanRestDay && !isPlanPaused) {
-          // Always use the synchronous doGenerate path — it produces warmup,
-          // cooldown, recovery, cardio, and core finisher data instantly via
-          // the rule engine.  The async ensureTodayWorkoutGenerated path could
+          // Use the synchronous doGenerate path — it produces the enabled
+          // workout sections instantly via the rule engine. The async ensureTodayWorkoutGenerated path could
           // leave workout null while waiting for the promise chain, causing
           // every supplementary section to disappear.
           doGenerate();
@@ -1385,8 +1398,19 @@ export default function WorkoutScreen() {
   useEffect(() => {
     if (ctx.newUserResetToken !== 0 && ctx.newUserResetToken !== lastResetToken.current) {
       lastResetToken.current = ctx.newUserResetToken;
+      if (!tracking.isWorkoutActive) {
+        setWorkout(null);
+        setIsGenerating(false);
+        setGeneratingIsAI(false);
+        setGeneratingElapsed(0);
+        setWarmupHidden(false);
+        setTrackedExercises(new Set());
+        setDoneExercises(new Set());
+        setExpandedTrack(null);
+        setCompletedSets({});
+      }
     }
-  }, [ctx.newUserResetToken]);
+  }, [ctx.newUserResetToken, tracking.isWorkoutActive]);
 
   useEffect(() => {
     if (ctx.workoutOverride) {
@@ -4079,7 +4103,7 @@ export default function WorkoutScreen() {
                 <View style={styles.workoutInfoTop}>
                   <View style={styles.workoutInfoLabelRow}>
                     <View style={styles.workoutInfoLabelLeft}>
-                      <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today's Workout</Text>
+                      <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today&apos;s Workout</Text>
                       <Chip variant="neutral" label={currentStyle} />
                     </View>
                     <View style={{ flex: 1 }} />

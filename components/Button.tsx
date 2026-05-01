@@ -59,8 +59,6 @@ const RADIUS_BY_VARIANT: Record<ButtonVariant, number> = {
   tertiary:  10,
 };
 
-const DESTRUCTIVE_RED = '#ef4444';
-
 /**
  * The single button component for Zeal+. See STYLE.md § Buttons.
  *
@@ -92,6 +90,7 @@ function Button({
   const { colors, accent, isDark } = useZealTheme();
   const sizeSpec = SIZE_SPECS[size];
   const radius = RADIUS_BY_VARIANT[variant];
+  const destructiveColor = colors.status.danger;
 
   // ── Resolve colors per variant + destructive ──────────────────────────
   let backgroundColor: string = 'transparent';
@@ -101,10 +100,10 @@ function Button({
   let shadow: ViewStyle = {};
 
   if (variant === 'primary') {
-    backgroundColor = destructive ? DESTRUCTIVE_RED : accent;
-    textColor = '#fff';
+    backgroundColor = destructive ? destructiveColor : accent;
+    textColor = colors.textInverse;
     shadow = {
-      shadowColor: destructive ? DESTRUCTIVE_RED : accent,
+      shadowColor: destructive ? destructiveColor : accent,
       shadowOffset: { width: 0, height: 3 },
       shadowOpacity: isDark ? 0.3 : 0.18,
       shadowRadius: 8,
@@ -114,15 +113,15 @@ function Button({
     backgroundColor = 'transparent';
     // Destructive secondary: tinted red border so the action reads as risky
     // even before the user notices the text color.
-    borderColor = destructive ? `${DESTRUCTIVE_RED}59` : colors.border;
+    borderColor = destructive ? `${destructiveColor}59` : colors.border;
     borderWidth = 1;
-    textColor = destructive ? DESTRUCTIVE_RED : colors.text;
+    textColor = destructive ? destructiveColor : colors.text;
   } else {
     // tertiary
-    backgroundColor = `${destructive ? DESTRUCTIVE_RED : accent}12`;
-    borderColor = destructive ? DESTRUCTIVE_RED : accent;
+    backgroundColor = `${destructive ? destructiveColor : accent}12`;
+    borderColor = destructive ? destructiveColor : accent;
     borderWidth = 1;
-    textColor = destructive ? DESTRUCTIVE_RED : accent;
+    textColor = destructive ? destructiveColor : accent;
   }
 
   const containerStyle: ViewStyle = {

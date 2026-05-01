@@ -47,11 +47,11 @@ function Chip({
   testID,
   accessibilityLabel,
 }: Props) {
-  const { colors, accent, isDark } = useZealTheme();
+  const { colors, accent } = useZealTheme();
 
   // ── Neutral (display-only) ────────────────────────────────────────────
   if (variant === 'neutral') {
-    const bg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+    const bg = colors.glass.chip;
     const content = (
       <View style={[styles.neutralChip, { backgroundColor: bg }, style]}>
         {icon && <PlatformIcon name={icon} size={11} color={colors.textSecondary} />}

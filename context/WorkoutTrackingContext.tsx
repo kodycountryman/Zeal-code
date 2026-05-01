@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useAppContext } from '@/context/AppContext';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 import { healthService } from '@/services/healthService';
-import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import { generateWorkout, generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import { buildTrainingLog, buildFeedbackData } from '@/services/feedbackProjection';
 import { maybeAdaptiveDeload } from '@/services/adaptivePlanOverride';
@@ -380,6 +380,11 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const pendingEnsureAfterHydrateRef = useRef(false);
   const ensureTodayWorkoutGeneratedRef = useRef<() => void>(() => {});
 
+  const recordAdaptiveOverride = useCallback((applied: boolean, reason: string | null) => {
+    lastAdaptiveOverrideRef.current = { applied, reason };
+    setAdaptiveOverride({ applied, reason });
+  }, []);
+
   const ensureTodayWorkoutGenerated = useCallback(async () => {
     // Re-entrancy guard for quick tab presses.
     if (isGeneratingWorkout) return;
@@ -462,8 +467,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const baseRx = (!ov && hasPlan) ? todayPrescription : null;
     const adaptive = maybeAdaptiveDeload(baseRx, workoutHistory, ctx.muscleReadiness);
     const prescription = adaptive.prescription;
-    lastAdaptiveOverrideRef.current = { applied: adaptive.overridden, reason: adaptive.reason };
-    setAdaptiveOverride({ applied: adaptive.overridden, reason: adaptive.reason });
+    recordAdaptiveOverride(adaptive.overridden, adaptive.reason);
     if (adaptive.overridden) {
       __DEV__ && console.log('[Tracking] Adaptive deload override applied:', adaptive.reason);
     }
@@ -512,31 +516,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       ),
     };
 
-    // If we have a pre-generated plan day workout in cache, use it directly — skip AI call
-    if (hasPlan && !ov) {
-      try {
-        const planCacheKey = `@zeal_plan_day_workout_${ctx.activePlan?.id}_${todayStr}`;
-        const cached = await AsyncStorage.getItem(planCacheKey);
-        if (cached) {
-          const cachedWorkout: GeneratedWorkout = JSON.parse(cached);
-          cachedWorkout.workout = enforceStyleGrouping(cachedWorkout.workout, cachedWorkout.style);
-          generatedForDateRef.current = todayStr;
-          setCurrentGeneratedWorkout(cachedWorkout);
-          ctx.setCurrentWorkoutTitle(
-            buildCreativeWorkoutTitle({
-              style: cachedWorkout.style,
-              split: cachedWorkout.split,
-              metconFormat: cachedWorkout.metconFormat,
-              duration: cachedWorkout.estimatedDuration,
-              previousTitle: currentWorkoutTitleRef.current,
-            })
-          );
-          return;
-        }
-      } catch {
-        // Cache read failed — fall through to normal generation
-      }
-    }
+    // Generate today's workout fresh so updated readiness/RPE/history signals
+    // are honored. Future-day previews can still use cached plan workouts.
 
     const reqId = ++generationReqIdRef.current;
     generationInFlightRef.current = true;
@@ -596,9 +577,11 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     isGeneratingWorkout,
     isWorkoutActive,
     currentGeneratedWorkout,
+    workoutHistory,
     ctx,
     hasPro,
     proStatusReady,
+    recordAdaptiveOverride,
   ]);
 
   useEffect(() => {
@@ -1879,6 +1862,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     openFeedbackForLog,
     lastSavedLogId,
     adaptiveOverride,
+    recordAdaptiveOverride,
     dismissPostWorkout,
     completeWorkout,
     logPreviousWorkout,
@@ -1912,7 +1896,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setRestPreset, cancelRestTimer, initExerciseLog, updateSetLog,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout,
-    applyFeedbackPatch, openFeedbackForLog, lastSavedLogId, adaptiveOverride,
+    applyFeedbackPatch, openFeedbackForLog, lastSavedLogId, adaptiveOverride, recordAdaptiveOverride,
     dismissPostWorkout, completeWorkout,
     logPreviousWorkout, removeWorkoutLog, getLogForDate, getLogsForDate,
     getExerciseSuggestion, getLastSetsForExercise,

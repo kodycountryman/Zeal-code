@@ -257,8 +257,8 @@ const tlStyles = StyleSheet.create({
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-// Goals that map to Pro-only styles (Strength, Bodybuilding)
-const PRO_GOALS = new Set(['build_strength', 'build_muscle']);
+// Goals that map to Pro-only styles. Strength remains the free workout-plan path.
+const PRO_GOALS = new Set(['build_muscle']);
 
 export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props) {
   const { colors, accent } = useZealTheme();
@@ -774,8 +774,8 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
 
         {step === 1 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.text }]}>What's your goal?</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Choose what you're training toward</Text>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>What&apos;s your goal?</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Choose what you&apos;re training toward</Text>
             <View style={styles.goalList}>
 
               {/* ─── 75 Hard Challenge Card ─── */}
@@ -883,7 +883,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
         {!is75Hard && step === cs(2, 3) && (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: colors.text }]}>Days per week?</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>We'll build your weekly schedule around this</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>We&apos;ll build your weekly schedule around this</Text>
             <View style={styles.daysRow}>
               {DAYS_PER_WEEK_OPTIONS.map(d => {
                 const isSelected = daysPerWeek === d;
@@ -1197,7 +1197,7 @@ export default function WorkoutPlanDrawer({ visible, onClose, editPlan }: Props)
         {!is75Hard && isPreviewStep && !preGenProgress && (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: colors.text }]}>Your plan</Text>
-            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Looks good? We'll put it on your calendar.</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>Looks good? We&apos;ll put it on your calendar.</Text>
 
             <View style={[styles.summaryCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
               {([

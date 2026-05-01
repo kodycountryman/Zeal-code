@@ -60,8 +60,8 @@ function WorkoutTimerCard({ accent }: { accent: string }) {
   const prevRemaining = useRef(restTimeRemaining);
 
   const chipBg = colors.cardSecondary;
-  const dividerColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
-  const secondaryBtnBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const dividerColor = colors.glass.borderStrong;
+  const secondaryBtnBg = colors.glass.control;
   const iconColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)';
 
   // --- Progress bar animation ---

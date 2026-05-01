@@ -101,14 +101,14 @@ export default function CalendarCard({
   }, [days]);
 
   const cardShadow = !isDark ? {
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   } : {};
 
-  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+  const cardBorder = colors.glass.borderSubtle;
 
   const CardContent = (
     <View style={styles.row}>
@@ -121,7 +121,7 @@ export default function CalendarCard({
           <PlatformIcon name="calendar" size={26} color={colors.textSecondary} strokeWidth={1.8} />
         </TouchableOpacity>
 
-        <View style={[styles.edgeDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} pointerEvents="none" />
+        <View style={[styles.edgeDivider, { backgroundColor: colors.glass.controlStrong }]} pointerEvents="none" />
 
         <View style={styles.datesStripWrap}>
           <ScrollView
@@ -168,7 +168,7 @@ export default function CalendarCard({
                         styles.dayNumContainer,
                         day.isToday && { backgroundColor: accent },
                         !day.isToday && (isCompleted || isRunCompleted) && {
-                          backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+                          backgroundColor: colors.glass.chip,
                         },
                       ]}
                     >

@@ -1,7 +1,5 @@
-// ─────────────────────────────────────────────────────────────────
-// TEMPORARILY STUBBED — disabling native module to bisect launch crash.
-// Restore this file once we identify the crashing module.
-// ─────────────────────────────────────────────────────────────────
+// Temporarily stubbed while we isolate the iOS release launch crash.
+// These functions intentionally no-op so workout/run flows can call them safely.
 
 export type ActivityType = 'workout' | 'run';
 

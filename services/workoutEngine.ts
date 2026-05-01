@@ -2272,7 +2272,11 @@ export function runEngine(params: EngineParams): EngineResult {
   );
 
   const estimatedWorkingSeconds = workoutExercises.reduce((sum, e) => sum + e.exerciseTotalSeconds, 0);
-  const estimatedTotalSeconds = estimatedWorkingSeconds;
+  const estimatedSupplementalSeconds =
+    warmup.length * 45 +
+    cooldown.length * 45 +
+    recovery.length * 60;
+  const estimatedTotalSeconds = estimatedWorkingSeconds + estimatedSupplementalSeconds;
 
   const architecture = getArchitectureForStyle(s1.effectiveStyle, s1.effectiveSplit);
 
@@ -2281,6 +2285,7 @@ export function runEngine(params: EngineParams): EngineResult {
   __DEV__ && console.log('[EngineV2] Architecture:', architecture.phases.length, 'phases');
   __DEV__ && console.log('[EngineV2] Exercises:', workoutExercises.length);
   __DEV__ && console.log('[EngineV2] Working time:', Math.round(estimatedWorkingSeconds / 60), 'min');
+  __DEV__ && console.log('[EngineV2] Total estimated time:', Math.round(estimatedTotalSeconds / 60), 'min');
   __DEV__ && console.log('[EngineV2] Warmup:', warmup.length, 'Cooldown:', cooldown.length, 'Recovery:', recovery.length);
   __DEV__ && console.log('[EngineV2] Feedback applied:', feedbackApplied, 'Plan applied:', s1.planApplied);
 
@@ -2661,6 +2666,13 @@ function generateCardioItems(
   return items;
 }
 
+function estimateCardioSeconds(items: CardioItem[]): number {
+  return items.reduce((sum, item) => {
+    const match = item.duration.match(/(\d+(?:\.\d+)?)/);
+    return sum + (match ? Math.round(parseFloat(match[1]) * 60) : 0);
+  }, 0);
+}
+
 // ═══════════════════════════════════════════════════════
 // PUBLIC GENERATION API
 // ═══════════════════════════════════════════════════════
@@ -2913,7 +2925,7 @@ export function generateWorkout(params: GenerateWorkoutParams, prescription?: Da
   const rng = seededRandom(getDaySeed() + params.style.length);
   const cardioItems = generateCardioItems(params.addCardio, params.style, rng);
 
-  const estimatedMin = Math.round(result.estimatedWorkingSeconds / 60);
+  const estimatedMin = Math.round((result.estimatedTotalSeconds + estimateCardioSeconds(cardioItems)) / 60);
 
   __DEV__ && console.log('[WorkoutEngine] generateWorkout complete:', workoutExercises.length, 'exercises,', estimatedMin, 'min');
 

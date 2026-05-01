@@ -10,6 +10,18 @@ export function getContrastTextColor(bgColor: string): string {
 export const Colors = {
   accent: '#f87116',
   accentDark: '#d96010',
+  brand: {
+    primary: '#f87116',
+    primaryDark: '#d96010',
+    pro: '#d4a93e',
+  },
+  status: {
+    success: '#22c55e',
+    warning: '#eab308',
+    danger: '#ef4444',
+    info: '#3b82f6',
+    recovery: '#8b5cf6',
+  },
 
   dark: {
     background: '#141414',
@@ -23,6 +35,39 @@ export const Colors = {
     readiness: '#22c55e',
     dock: '#1e1e1e',
     dockBorder: '#383838',
+    textInverse: '#ffffff',
+    surface: {
+      background: '#141414',
+      card: '#262626',
+      cardSecondary: '#323232',
+      modal: '#262626',
+      input: '#323232',
+      overlay: 'rgba(0,0,0,0.65)',
+    },
+    glass: {
+      tint: 'rgba(38,38,38,0.45)',
+      cardBorder: 'rgba(255,255,255,0.09)',
+      borderSubtle: 'rgba(255,255,255,0.08)',
+      borderStrong: 'rgba(255,255,255,0.10)',
+      chip: 'rgba(255,255,255,0.07)',
+      control: 'rgba(255,255,255,0.08)',
+      controlStrong: 'rgba(255,255,255,0.10)',
+      divider: 'rgba(255,255,255,0.08)',
+      verticalDivider: 'rgba(255,255,255,0.10)',
+    },
+    shadow: '#000000',
+    status: {
+      success: '#22c55e',
+      warning: '#eab308',
+      danger: '#ef4444',
+      info: '#3b82f6',
+      recovery: '#8b5cf6',
+    },
+    brand: {
+      primary: '#f87116',
+      primaryDark: '#d96010',
+      pro: '#d4a93e',
+    },
   },
 
   light: {
@@ -37,6 +82,39 @@ export const Colors = {
     readiness: '#22c55e',
     dock: '#ffffff',
     dockBorder: '#e0e0e0',
+    textInverse: '#ffffff',
+    surface: {
+      background: '#f5f5f5',
+      card: '#ffffff',
+      cardSecondary: '#f0f0f0',
+      modal: '#ffffff',
+      input: '#f0f0f0',
+      overlay: 'rgba(0,0,0,0.55)',
+    },
+    glass: {
+      tint: 'rgba(255,255,255,0.45)',
+      cardBorder: 'rgba(0,0,0,0.07)',
+      borderSubtle: 'rgba(0,0,0,0.07)',
+      borderStrong: 'rgba(0,0,0,0.09)',
+      chip: 'rgba(0,0,0,0.05)',
+      control: 'rgba(0,0,0,0.06)',
+      controlStrong: 'rgba(0,0,0,0.08)',
+      divider: 'rgba(0,0,0,0.07)',
+      verticalDivider: 'rgba(0,0,0,0.09)',
+    },
+    shadow: '#000000',
+    status: {
+      success: '#22c55e',
+      warning: '#eab308',
+      danger: '#ef4444',
+      info: '#3b82f6',
+      recovery: '#8b5cf6',
+    },
+    brand: {
+      primary: '#f87116',
+      primaryDark: '#d96010',
+      pro: '#d4a93e',
+    },
   },
 
   neon: {
@@ -51,6 +129,39 @@ export const Colors = {
     readiness: '#00ff88',
     dock: '#0a0a1a',
     dockBorder: '#202040',
+    textInverse: '#06060f',
+    surface: {
+      background: '#06060f',
+      card: '#0d0d1e',
+      cardSecondary: '#141428',
+      modal: '#0d0d1e',
+      input: '#141428',
+      overlay: 'rgba(0,0,0,0.72)',
+    },
+    glass: {
+      tint: 'rgba(13,13,30,0.45)',
+      cardBorder: 'rgba(232,232,255,0.12)',
+      borderSubtle: 'rgba(232,232,255,0.10)',
+      borderStrong: 'rgba(232,232,255,0.14)',
+      chip: 'rgba(232,232,255,0.08)',
+      control: 'rgba(232,232,255,0.10)',
+      controlStrong: 'rgba(232,232,255,0.14)',
+      divider: 'rgba(232,232,255,0.10)',
+      verticalDivider: 'rgba(232,232,255,0.14)',
+    },
+    shadow: '#000000',
+    status: {
+      success: '#00ff88',
+      warning: '#eab308',
+      danger: '#ff4d6d',
+      info: '#00e5ff',
+      recovery: '#a78bfa',
+    },
+    brand: {
+      primary: '#00e5ff',
+      primaryDark: '#0891b2',
+      pro: '#eab308',
+    },
   },
 };
 

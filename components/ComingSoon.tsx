@@ -92,9 +92,9 @@ export default function ComingSoon({
     opacity: glow.value,
   }));
 
-  const borderColor = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
-  const subtleBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
-  const glassBg = isDark ? 'rgba(38,38,38,0.96)' : 'rgba(255,255,255,0.76)';
+  const borderColor = colors.glass.cardBorder;
+  const subtleBorder = colors.glass.borderSubtle;
+  const glassBg = colors.surface.card;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -224,7 +224,7 @@ export default function ComingSoon({
           {/* ───── Footer hint ───── */}
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: colors.textMuted }]}>
-              We'll let you know the moment it's ready.
+              We&apos;ll let you know the moment it&apos;s ready.
             </Text>
           </View>
         </ScrollView>

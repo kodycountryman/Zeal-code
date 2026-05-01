@@ -105,16 +105,16 @@ function TrainingScoreCard({
   }, [score, scaleAnim]);
 
   const cardShadow = !isDark ? {
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   } : {};
 
-  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
-  const dividerColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
-  const verticalDivider = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.09)';
+  const cardBorder = colors.glass.borderSubtle;
+  const dividerColor = colors.glass.divider;
+  const verticalDivider = colors.glass.verticalDivider;
   const mutedColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
 
   const targetCapped = Math.min(targetDone, targetTotal);
@@ -248,7 +248,7 @@ function TrainingScoreCard({
           <Text style={[styles.tierLabel, { color: mutedColor }]}>{tier}</Text>
         </View>
 
-        <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+        <View style={[styles.progressTrack, { backgroundColor: colors.glass.controlStrong }]}>
           {score > 0 && (
             <View
               style={[

@@ -24,9 +24,9 @@ export default function GlassCard({
 }: Props) {
   const { colors, isDark } = useZealTheme();
 
-  const borderColor = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
+  const borderColor = colors.glass.cardBorder;
   // Lower opacity so UIGlassEffect / BlurView shows through
-  const tint = isDark ? 'rgba(38,38,38,0.45)' : 'rgba(255,255,255,0.45)';
+  const tint = colors.glass.tint;
   const blurIntensity = isDark ? 70 : 55;
 
   const cardStyle: StyleProp<ViewStyle> = [
@@ -60,4 +60,3 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 });
-
