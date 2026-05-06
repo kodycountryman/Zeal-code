@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "zeal-plus",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "cover",
@@ -18,7 +17,10 @@
       "bundleIdentifier": "com.kodycountryman.zealplus",
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.healthkit": true
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
       },
       "infoPlist": {
         "NSHealthShareUsageDescription": "Zeal reads your steps, active calories, and heart rate from Apple Health to calculate your daily training readiness score and display fitness insights on your dashboard.",
@@ -30,7 +32,11 @@
         "NSCameraUsageDescription": "Zeal uses your camera for two purposes: (1) to photograph your workout as proof-of-completion for the 75 Hard challenge, and (2) to capture a meal photo for nutrition tracking — for example, you snap a photo of your dinner plate and Zeal estimates the calories and macros.",
         "NSMicrophoneUsageDescription": "Zeal uses your microphone only when you choose voice food logging, so it can transcribe and analyze a meal description.",
         "NSMotionUsageDescription": "Zeal uses motion data to support activity tracking and training insights when you grant permission.",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -59,7 +65,6 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "./plugins/withLiveActivity",
       [
         "expo-build-properties",
         {
@@ -68,6 +73,7 @@
           }
         }
       ],
+      "./plugins/withXcodePathSpaces",
       "expo-router",
       "expo-font",
       "expo-web-browser",
@@ -90,7 +96,9 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-image",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
