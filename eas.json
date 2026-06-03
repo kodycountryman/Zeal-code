@@ -17,11 +17,6 @@
     },
     "production": {
       "autoIncrement": true,
-      "resourceClass": "medium",
-      "builderEnvironment": {
-        "image": "latest",
-        "node": "22.14.0"
-      },
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "RCT_NEW_ARCH_ENABLED": "1"
