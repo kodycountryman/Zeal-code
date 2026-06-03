@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -26,7 +27,8 @@ import { supabase, getOrCreateProfile, completeOAuthSignIn } from '@/services/su
 
 WebBrowser.maybeCompleteAuthSession();
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const COMPACT = height < 700;
 const ACCENT = '#f87116';
 const BG = '#0e0e0e';
 const OAUTH_REDIRECT_TO = 'zeal-plus://auth/callback';
@@ -205,6 +207,12 @@ export default function LoginScreen() {
       />
 
       <SafeAreaView style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <Animated.View
           style={[
             styles.container,
@@ -230,16 +238,18 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          <View style={styles.bullets}>
-            {BULLETS.map(({ icon, text }, i) => (
-              <View key={i} style={styles.bulletRow}>
-                <View style={styles.bulletIconWrap}>
-                  <PlatformIcon name={icon} size={16} color={ACCENT} strokeWidth={2.5} />
+          {!COMPACT && (
+            <View style={styles.bullets}>
+              {BULLETS.map(({ icon, text }, i) => (
+                <View key={i} style={styles.bulletRow}>
+                  <View style={styles.bulletIconWrap}>
+                    <PlatformIcon name={icon} size={16} color={ACCENT} strokeWidth={2.5} />
+                  </View>
+                  <Text style={styles.bulletText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{text}</Text>
                 </View>
-                <Text style={styles.bulletText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{text}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
 
           <View style={styles.taglineBlock}>
             <Text style={styles.taglineWord}>zeal</Text>
@@ -345,6 +355,7 @@ export default function LoginScreen() {
             </View>
           </View>
         </Animated.View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -357,6 +368,9 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   container: {
     flex: 1,
