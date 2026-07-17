@@ -61,6 +61,8 @@ interface Props {
   plannedWorkouts?: PlannedWorkout[];
   /** Set of dates (YYYY-MM-DD) on which a run was completed. Renders a blue dot. */
   completedRunDates?: Set<string>;
+  /** Set of dates (YYYY-MM-DD) with an upcoming planned run. Renders a blue dot. */
+  plannedRunDates?: Set<string>;
   variant?: 'solid' | 'glass';
 }
 
@@ -72,6 +74,7 @@ export default function CalendarCard({
   completedDates,
   plannedWorkouts,
   completedRunDates,
+  plannedRunDates,
   variant = 'solid',
 }: Props) {
   const { colors, accent, isDark } = useZealTheme();
@@ -135,9 +138,13 @@ export default function CalendarCard({
             {days.map((day, idx) => {
               const isCompleted = completedDates?.has(day.fullDate) ?? false;
               const isRunCompleted = completedRunDates?.has(day.fullDate) ?? false;
+              const isRunPlanned = plannedRunDates?.has(day.fullDate) ?? false;
               const planned = plannedMap[day.fullDate];
               const plannedColor = planned ? (WORKOUT_STYLE_COLORS[planned.style] ?? accent) : null;
               const RUN_DOT_COLOR = '#3b82f6';
+              const COMBO_DOT_COLOR = '#ef4444';
+              const shouldShowRunDot = isRunCompleted || isRunPlanned;
+              const hasMultiplePlans = shouldShowRunDot && !!plannedColor;
 
               return (
                 <View key={day.fullDate} style={styles.dayWithDivider}>
@@ -193,14 +200,15 @@ export default function CalendarCard({
                     </View>
 
                     <View style={styles.dotRow}>
-                      {/* Render run + planned-workout dots side by side; falls back to placeholder when neither */}
-                      {isRunCompleted ? (
-                        <View style={[styles.plannedDot, { backgroundColor: RUN_DOT_COLOR, marginRight: plannedColor ? 3 : 0 }]} />
+                      {hasMultiplePlans ? (
+                        <View style={[styles.plannedDot, { backgroundColor: COMBO_DOT_COLOR }]} />
+                      ) : shouldShowRunDot ? (
+                        <View style={[styles.plannedDot, { backgroundColor: RUN_DOT_COLOR }]} />
                       ) : null}
-                      {plannedColor ? (
+                      {!hasMultiplePlans && plannedColor ? (
                         <View style={[styles.plannedDot, { backgroundColor: plannedColor }]} />
                       ) : null}
-                      {!isRunCompleted && !plannedColor ? (
+                      {!hasMultiplePlans && !shouldShowRunDot && !plannedColor ? (
                         <View style={styles.dotPlaceholder} />
                       ) : null}
                     </View>

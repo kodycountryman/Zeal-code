@@ -1,8 +1,9 @@
+import "@/lib/errorHandlerInit"; // must be first — patches ErrorUtils before lazy imports
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import { Platform, Alert } from "react-native";
 import Constants from "expo-constants";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -65,7 +66,9 @@ function NotificationHandler() {
     if (hasInitialized.current) return;
     
     hasInitialized.current = true;
-    void initNotificationService();
+    void initNotificationService().catch(e => {
+      __DEV__ && console.log('[NotifHandler] initNotificationService failed:', e);
+    });
 
     let responseSub: { remove: () => void } | null = null;
 
@@ -126,6 +129,10 @@ function RootLayoutNav() {
         options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
       />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="live-track"
+        options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
+      />
     </Stack>
   );
 }
@@ -234,6 +241,18 @@ export default function RootLayout() {
       void SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  // Diagnostic: surface any fatal JS error caught before React mounted
+  useEffect(() => {
+    const zealError = (global as any).__zealFatalError;
+    if (zealError) {
+      (global as any).__zealFatalError = null;
+      Alert.alert(
+        'Startup Error (Diagnostic)',
+        zealError.message + '\n\n' + String(zealError.stack).substring(0, 500),
+      );
+    }
+  }, []);
 
   if (!fontsLoaded) return null;
 

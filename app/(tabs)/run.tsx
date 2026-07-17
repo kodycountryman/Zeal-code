@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   Modal,
   Pressable,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -31,6 +32,8 @@ import RunSummary from '@/components/run/RunSummary';
 import RunPlanBuilderDrawer from '@/components/drawers/RunPlanBuilderDrawer';
 import WorkoutPlanDrawer from '@/components/drawers/WorkoutPlanDrawer';
 import PlanTypeChooserSheet from '@/components/drawers/PlanTypeChooserSheet';
+import RunActivePlanDrawer from '@/components/drawers/RunActivePlanDrawer';
+import PlanDayPreviewDrawer from '@/components/drawers/PlanDayPreviewDrawer';
 import RunHistoryDrawer from '@/components/drawers/RunHistoryDrawer';
 import RunLogDrawer from '@/components/drawers/RunLogDrawer';
 import AchievementModal, { type Achievement } from '@/components/drawers/AchievementModal';
@@ -38,12 +41,15 @@ import { type RunBadge } from '@/services/runBadges';
 import RunAudioSettingsDrawer from '@/components/drawers/RunAudioSettingsDrawer';
 import RunSettingsDrawer from '@/components/drawers/RunSettingsDrawer';
 import TabHeader from '@/components/TabHeader';
-import Chip from '@/components/Chip';
+import Button from '@/components/Button';
+import { LinearGradient } from 'expo-linear-gradient';
 import ModeToggleIcons from '@/components/train/ModeToggleIcons';
 import IntervalRunner from '@/components/run/IntervalRunner';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSeventyFiveHard } from '@/context/SeventyFiveHardContext';
 import { healthService } from '@/services/healthService';
+import type { AppIconName } from '@/constants/iconMap';
+import type { DayPrescription } from '@/services/planEngine';
 import { RunLog, RunType, METERS_PER_MILE, METERS_PER_KM } from '@/types/run';
 import { formatPace, paceToSecondsPerMile, paceToSecondsPerKm } from '@/services/runTrackingService';
 import { runTrackingService } from '@/services/runTrackingService';
@@ -57,6 +63,31 @@ const RUN_TYPE_OPTIONS: { value: RunType; label: string }[] = [
   { value: 'interval', label: 'Intervals' },
   { value: 'recovery', label: 'Recovery' },
 ];
+
+const RUN_BLUE = '#3b82f6';
+
+/** Accent color per run type — used for pill highlights and HR zone labels. */
+const RUN_TYPE_COLORS: Record<string, string> = {
+  free:     '#6b7280', // gray
+  easy:     '#22c55e', // green
+  tempo:    '#f97316', // orange
+  long_run: '#3b82f6', // blue
+  interval: '#a855f7', // purple
+  recovery: '#14b8a6', // teal
+};
+
+/**
+ * HR zone guidance per run type — displayed in the Today's Run card.
+ * No field exists on DayPrescription for this; we derive it from run_type.
+ */
+const HR_ZONE_FOR_RUN_TYPE: Record<string, { label: string; color: string }> = {
+  recovery: { label: 'Zone 1 · Under 60% max HR',  color: '#14b8a6' },
+  easy:     { label: 'Zone 2 · 60–70% max HR',     color: '#22c55e' },
+  long_run: { label: 'Zone 2–3 · 65–75% max HR',   color: '#3b82f6' },
+  tempo:    { label: 'Zone 3–4 · 75–85% max HR',   color: '#f97316' },
+  interval: { label: 'Zone 4–5 · 85–95% max HR',   color: '#a855f7' },
+  free:     { label: 'Aerobic · Comfortable effort', color: '#6b7280' },
+};
 
 function formatDistance(meters: number, units: 'imperial' | 'metric'): string {
   if (units === 'metric') {
@@ -134,6 +165,9 @@ export default function RunScreen() {
   const [planBuilderVisible, setPlanBuilderVisible] = useState(false);
   const [workoutPlanVisible, setWorkoutPlanVisible] = useState(false);
   const [planChooserVisible, setPlanChooserVisible] = useState(false);
+  const [runActivePlanVisible, setRunActivePlanVisible] = useState(false);
+  const [planDayPreviewVisible, setPlanDayPreviewVisible] = useState(false);
+  const [planDayPreviewDay, setPlanDayPreviewDay] = useState<DayPrescription | null>(null);
   const [isSavingRun, setIsSavingRun] = useState(false);
   const [healthSavedToastVisible, setHealthSavedToastVisible] = useState(false);
   // Phase 10: sleep-screen overlay during active runs
@@ -154,6 +188,51 @@ export default function RunScreen() {
     };
   }, []);
   const router = useRouter();
+
+  // ─── Plan progress data ─────────────────────────────────────────────────
+  const planProgressData = useMemo(() => {
+    if (!ctx.activeRunPlan) return null;
+    const rp = ctx.activeRunPlan;
+    const startDate = new Date(rp.startDate);
+    const today = new Date();
+    const daysSinceStart = Math.max(0, Math.floor((today.getTime() - startDate.getTime()) / 86400000));
+    const currentWeek = Math.min(rp.planLength, Math.floor(daysSinceStart / 7) + 1);
+    const weekStartDate = new Date(startDate);
+    weekStartDate.setDate(weekStartDate.getDate() + (currentWeek - 1) * 7);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 7);
+    const weekStartStr = weekStartDate.toISOString().split('T')[0];
+    const weekEndStr = weekEndDate.toISOString().split('T')[0];
+    const completedThisWeek = (rp.completedDays ?? []).filter(d => d >= weekStartStr && d < weekEndStr).length;
+    const progressFraction = Math.min(1, completedThisWeek / Math.max(1, rp.daysPerWeek));
+    return {
+      currentWeek,
+      totalWeeks: rp.planLength,
+      completedThisWeek,
+      runsPerWeek: rp.daysPerWeek,
+      progressFraction,
+    };
+  }, [ctx.activeRunPlan]);
+
+  const planProgressAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(planProgressAnim, {
+      toValue: planProgressData?.progressFraction ?? 0,
+      useNativeDriver: false,
+      tension: 50,
+      friction: 8,
+    }).start();
+  }, [planProgressData?.progressFraction, planProgressAnim]);
+
+  // ─── Auto-select the plan's prescribed run type ──────────────────────────
+  useEffect(() => {
+    const prescription = ctx.getTodayRunPrescription?.();
+    const runType = prescription?.run_type;
+    if (runType && !prescription?.is_rest && RUN_TYPE_OPTIONS.some(o => o.value === runType)) {
+      setSelectedRunType(runType);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.activeRunPlan?.id]);
 
   // Check permission status on mount
   useEffect(() => {
@@ -385,24 +464,49 @@ export default function RunScreen() {
     );
   }, [run]);
 
+  const handlePreviewRunPlanDay = useCallback((day: DayPrescription) => {
+    setRunActivePlanVisible(false);
+    setTimeout(() => {
+      setPlanDayPreviewDay(day);
+      setPlanDayPreviewVisible(true);
+    }, 250);
+  }, []);
+
   // ─── Derived ────────────────────────────────────────────────────────────
 
   const isActive = run.status === 'running' || run.status === 'paused';
   const isPaused = run.status === 'paused';
   const showPostRun = pendingRunLog !== null;
   const lastRun = run.runHistory[0] ?? null;
+  const hasRunHistory = run.runHistory.length > 0;
 
   // GPS acquired when we have at least one route point. Treadmill mode never
   // needs GPS, so treat it as always-acquired so the controls don't disable.
   const gpsAcquired = run.isTreadmillMode || run.liveMetrics.routePointCount > 0;
 
   const recentStats = useMemo(() => {
+    const fastestMile = run.runPRs.find(p => p.type === 'fastest_mile');
+    if (!hasRunHistory) {
+      return {
+        thisWeek: 'Ready',
+        totalRuns: 'First run',
+        bestPace: 'Set baseline',
+      };
+    }
     const distFmt = formatDistance(run.stats.weeklyDistanceMeters, run.preferences.units);
     return {
       thisWeek: distFmt,
-      totalRuns: run.stats.totalRuns,
+      totalRuns: String(run.stats.totalRuns),
+      bestPace: fastestMile ? formatPace(fastestMile.value) : '—:—',
     };
-  }, [run.stats, run.preferences.units]);
+  }, [hasRunHistory, run.runPRs, run.stats.totalRuns, run.stats.weeklyDistanceMeters, run.preferences.units]);
+
+  const gpsStatus = useMemo<{ icon: AppIconName; label: string }>(() => {
+    if (run.isTreadmillMode) return { icon: 'activity', label: 'Treadmill Ready' };
+    if (permissionStatus === 'denied') return { icon: 'alert-triangle', label: 'Location Required' };
+    if (permissionStatus === 'granted') return { icon: 'check-circle', label: 'GPS Ready' };
+    return { icon: 'compass', label: 'GPS Check' };
+  }, [permissionStatus, run.isTreadmillMode]);
 
   // ─── Render: post-run summary ──────────────────────────────────────────
 
@@ -549,7 +653,6 @@ export default function RunScreen() {
               onPause={run.pauseRun}
               onResume={run.resumeRun}
               onStop={handleStop}
-              gpsAcquired={gpsAcquired}
             />
           </View>
 
@@ -581,7 +684,7 @@ export default function RunScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <AmbientGlow color={accent} />
+      <AmbientGlow color={RUN_BLUE} opacity={0.008} />
       <ZealBackground />
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <TabHeader
@@ -625,21 +728,23 @@ export default function RunScreen() {
           <GlassCard style={styles.statsCard}>
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>This Week</Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>{recentStats.thisWeek}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>This Week</Text>
+                <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
+                  {recentStats.thisWeek}
+                </Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Runs</Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>{recentStats.totalRuns}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Runs</Text>
+                <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
+                  {recentStats.totalRuns}
+                </Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Best Pace</Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {run.runPRs.find(p => p.type === 'fastest_mile')
-                    ? formatPace(run.runPRs.find(p => p.type === 'fastest_mile')!.value)
-                    : '—:—'}
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Best Pace</Text>
+                <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
+                  {recentStats.bestPace}
                 </Text>
               </View>
             </View>
@@ -656,64 +761,112 @@ export default function RunScreen() {
             const isStrengthToday = false;
             const isHybrid = false;
             const planLabel = 'Active Run Plan';
+            const pd = planProgressData;
+            const barWidth = planProgressAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            });
+            const runTypeColor = (isRunToday && todayPrescription?.run_type)
+              ? (RUN_TYPE_COLORS[todayPrescription.run_type] ?? RUN_BLUE)
+              : RUN_BLUE;
+            const hrInfo = (isRunToday && todayPrescription?.run_type)
+              ? HR_ZONE_FOR_RUN_TYPE[todayPrescription.run_type]
+              : undefined;
             return (
-              <GlassCard style={styles.sectionCard}>
-                <View style={styles.planCardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.sectionLabel, { color: accent }]}>{planLabel}</Text>
-                    <Text style={[styles.planCardTitle, { color: colors.text }]}>{runPlan.name}</Text>
-                  </View>
-                  <View style={[styles.planBadge, { backgroundColor: `${accent}15`, borderColor: `${accent}30` }]}>
-                    <Text style={[styles.planBadgeText, { color: accent }]}>
-                      {runPlan.planLength}wk · {runPlan.daysPerWeek}/wk
-                    </Text>
-                  </View>
-                </View>
-                {isRunToday && todayPrescription ? (
-                  <View style={[styles.todayRunRow, { backgroundColor: `${accent}10`, borderColor: `${accent}25` }]}>
-                    <PlatformIcon name="figure-run" size={18} color={accent} />
+              <TouchableOpacity
+                onPress={() => setRunActivePlanVisible(true)}
+                activeOpacity={0.86}
+                accessibilityRole="button"
+                accessibilityLabel="View active run plan"
+              >
+                <GlassCard style={styles.sectionCard}>
+                  <View style={styles.planCardHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.todayRunLabel, { color: accent }]}>Today's Run</Text>
-                      <Text style={[styles.todayRunDescription, { color: colors.text }]} numberOfLines={2}>
-                        {todayPrescription.run_description ?? todayPrescription.session_type}
+                      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{planLabel}</Text>
+                      <Text style={[styles.planCardTitle, { color: colors.text }]}>{runPlan.name}</Text>
+                    </View>
+                    <View style={[styles.planBadge, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                      <Text style={[styles.planBadgeText, { color: colors.textSecondary }]}>
+                        {runPlan.planLength}wk · {runPlan.daysPerWeek}/wk
                       </Text>
-                      {todayPrescription.target_duration > 0 && (
-                        <Text style={[styles.todayRunMeta, { color: colors.textMuted }]}>
-                          ~{todayPrescription.target_duration} min
+                    </View>
+                  </View>
+
+                  {/* Animated plan progress bar */}
+                  {pd && (
+                    <View style={styles.planProgressContainer}>
+                      <View style={styles.planProgressRow}>
+                        <Text style={[styles.planProgressLabel, { color: colors.textSecondary }]}>
+                          Week {pd.currentWeek} of {pd.totalWeeks}
                         </Text>
-                      )}
+                        <Text style={[styles.planProgressLabel, { color: colors.textMuted }]}>
+                          {pd.completedThisWeek}/{pd.runsPerWeek} runs this week
+                        </Text>
+                      </View>
+                      <View style={[styles.planProgressTrack, { backgroundColor: colors.cardSecondary }]}>
+                        <Animated.View style={[styles.planProgressFill, { width: barWidth, backgroundColor: accent }]} />
+                      </View>
                     </View>
-                  </View>
-                ) : isStrengthToday && todayPrescription ? (
-                  <TouchableOpacity
-                    style={[styles.todayRunRow, { backgroundColor: '#3b82f610', borderColor: '#3b82f625' }]}
-                    onPress={() => router.push('/train?mode=workout')}
-                    activeOpacity={0.8}
-                  >
-                    <PlatformIcon name="dumbbell" size={18} color="#3b82f6" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.todayRunLabel, { color: '#3b82f6' }]}>TODAY'S LIFT</Text>
-                      <Text style={[styles.todayRunDescription, { color: colors.text }]} numberOfLines={2}>
-                        {todayPrescription.session_type} — {todayPrescription.target_duration} min
-                      </Text>
-                      <Text style={[styles.todayRunMeta, { color: colors.textMuted }]}>
-                        Tap to open Workout tab
-                      </Text>
+                  )}
+
+                  {isRunToday && todayPrescription ? (
+                    <View style={[styles.todayRunRow, { borderTopColor: colors.border }]}>
+                      <View style={[styles.todayRunIconWrap, { backgroundColor: `${runTypeColor}18` }]}>
+                        <PlatformIcon name="figure-run" size={16} color={runTypeColor} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.todayRunLabel, { color: colors.textSecondary }]}>Today's Run</Text>
+                        <Text style={[styles.todayRunDescription, { color: colors.text }]} numberOfLines={2}>
+                          {todayPrescription.run_description ?? todayPrescription.session_type}
+                        </Text>
+                        {todayPrescription.target_duration > 0 && (
+                          <Text style={[styles.todayRunMeta, { color: colors.textMuted }]}>
+                            ~{todayPrescription.target_duration} min
+                          </Text>
+                        )}
+                        {hrInfo && (
+                          <View style={styles.hrZoneRow}>
+                            <PlatformIcon name="heart" size={10} color={hrInfo.color} />
+                            <Text style={[styles.hrZoneText, { color: hrInfo.color }]}>{hrInfo.label}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                    <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ) : todayPrescription?.is_rest ? (
-                  <View style={[styles.todayRunRow, { backgroundColor: 'rgba(128,128,128,0.08)', borderColor: colors.border }]}>
-                    <PlatformIcon name="moon" size={18} color={colors.textSecondary} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.todayRunLabel, { color: colors.textSecondary }]}>REST DAY</Text>
-                      <Text style={[styles.todayRunDescription, { color: colors.text }]}>
-                        {todayPrescription.rest_suggestion || 'Take it easy today'}
-                      </Text>
+                  ) : isStrengthToday && todayPrescription ? (
+                    <TouchableOpacity
+                      style={[styles.todayRunRow, { borderTopColor: colors.border }]}
+                      onPress={() => router.push('/train?mode=workout')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.todayRunIconWrap, { backgroundColor: colors.cardSecondary }]}>
+                        <PlatformIcon name="dumbbell" size={16} color={RUN_BLUE} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.todayRunLabel, { color: colors.textSecondary }]}>Today's Lift</Text>
+                        <Text style={[styles.todayRunDescription, { color: colors.text }]} numberOfLines={2}>
+                          {todayPrescription.session_type} — {todayPrescription.target_duration} min
+                        </Text>
+                        <Text style={[styles.todayRunMeta, { color: colors.textMuted }]}>
+                          Tap to open Workout tab
+                        </Text>
+                      </View>
+                      <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  ) : todayPrescription?.is_rest ? (
+                    <View style={[styles.todayRunRow, { borderTopColor: colors.border }]}>
+                      <View style={[styles.todayRunIconWrap, { backgroundColor: colors.cardSecondary }]}>
+                        <PlatformIcon name="moon" size={16} color={colors.textSecondary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.todayRunLabel, { color: colors.textSecondary }]}>Rest Day</Text>
+                        <Text style={[styles.todayRunDescription, { color: colors.text }]}>
+                          {todayPrescription.rest_suggestion || 'Take it easy today'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ) : null}
-              </GlassCard>
+                  ) : null}
+                </GlassCard>
+              </TouchableOpacity>
             );
           })() : null}
 
@@ -721,39 +874,40 @@ export default function RunScreen() {
               from RunSettingsDrawer (tap the ⚙ gear icon). Keeps the pre-run
               UI focused on per-session choices (run type, start button). */}
 
-          {/* Run type selector + inline Start CTA. The inline button is the
-              primary start path — pick a type then tap Start in the same
-              card. The floating pill above the dock is the always-reachable
-              shortcut for when the user has scrolled past this card. */}
-          <GlassCard style={styles.sectionCard}>
+          {/* Run type selector — the floating Start pill is the single idle CTA. */}
+          <GlassCard style={styles.runTypeCard}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Run Type</Text>
-            <View style={styles.runTypeGrid}>
-              {RUN_TYPE_OPTIONS.map((opt) => (
-                <Chip
-                  key={opt.value}
-                  variant="selectable"
-                  label={opt.label}
-                  selected={selectedRunType === opt.value}
-                  onPress={() => setSelectedRunType(opt.value)}
-                />
-              ))}
-            </View>
-            <TouchableOpacity
-              style={[styles.inlineStartBtn, { backgroundColor: accent }]}
-              onPress={handleStart}
-              activeOpacity={0.85}
-              testID="run-inline-start-button"
-              accessibilityRole="button"
-              accessibilityLabel={`Start ${RUN_TYPE_OPTIONS.find(o => o.value === selectedRunType)?.label ?? 'run'}`}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.runTypeScrollContent}
             >
-              <PlatformIcon name="play" size={16} color="#fff" />
-              <Text style={styles.inlineStartLabel}>
-                Start {RUN_TYPE_OPTIONS.find(o => o.value === selectedRunType)?.label ?? 'Run'}
-              </Text>
-              {!gpsAcquired && !run.isTreadmillMode && (
-                <Text style={styles.inlineStartHint}>· GPS…</Text>
-              )}
-            </TouchableOpacity>
+              {RUN_TYPE_OPTIONS.map((opt) => {
+                const selected = selectedRunType === opt.value;
+                const chipColor = RUN_TYPE_COLORS[opt.value] ?? colors.textSecondary;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.runTypeChip,
+                      {
+                        backgroundColor: selected ? `${chipColor}18` : 'transparent',
+                        borderColor: selected ? chipColor : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedRunType(opt.value)}
+                    activeOpacity={0.72}
+                    accessibilityRole="button"
+                    accessibilityLabel={opt.label}
+                    accessibilityState={{ selected }}
+                  >
+                    <Text style={[styles.runTypeChipText, { color: selected ? chipColor : colors.textSecondary }]} numberOfLines={1}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </GlassCard>
 
           {/* Last run summary — tappable to open log drawer */}
@@ -808,20 +962,50 @@ export default function RunScreen() {
           <View style={{ height: 240 }} />
         </ScrollView>
 
-        {/* Floating start pill — transparent container so the pill floats
-            above the dock without a heavy toolbar bar. The inline Start
-            button in the Run Type card is the primary CTA; this pill is
-            the always-reachable shortcut. */}
-        <View style={styles.idleControlsContainer} pointerEvents="box-none">
-          <RunControls
-            status={run.status}
-            onStart={handleStart}
-            onPause={run.pauseRun}
-            onResume={run.resumeRun}
-            onStop={handleStop}
-            gpsAcquired={gpsAcquired}
-          />
-        </View>
+        {/* Bottom controls — idle: GPS + Start Run side-by-side row (mirrors Plan + Start Workout layout).
+            Active/paused: full-width RunControls with pause/resume/stop. */}
+        {run.status === 'idle' ? (
+          <View style={styles.idleControlsContainer} pointerEvents="box-none">
+            {/* Scrim fades the background out so buttons read cleanly */}
+            <LinearGradient
+              colors={['transparent', colors.background]}
+              locations={[0, 0.55]}
+              style={StyleSheet.absoluteFillObject}
+              pointerEvents="none"
+            />
+            <View style={styles.idleButtonRow}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  variant="secondary"
+                  icon={gpsStatus.icon}
+                  label={gpsStatus.label}
+                  fullWidth
+                  onPress={() => setRunSettingsVisible(true)}
+                  style={{ backgroundColor: colors.cardSecondary }}
+                />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Button
+                  variant="primary"
+                  icon="play"
+                  label="Start Run"
+                  fullWidth
+                  onPress={handleStart}
+                />
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.idleControlsContainer} pointerEvents="box-none">
+            <RunControls
+              status={run.status}
+              onStart={handleStart}
+              onPause={run.pauseRun}
+              onResume={run.resumeRun}
+              onStop={handleStop}
+            />
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Plan type chooser — tap "Start a Plan" opens this; selection routes
@@ -850,6 +1034,26 @@ export default function RunScreen() {
       <RunPlanBuilderDrawer
         visible={planBuilderVisible}
         onClose={() => setPlanBuilderVisible(false)}
+      />
+
+      {/* Active run plan */}
+      <RunActivePlanDrawer
+        visible={runActivePlanVisible}
+        onClose={() => setRunActivePlanVisible(false)}
+        onSelectDay={handlePreviewRunPlanDay}
+      />
+
+      <PlanDayPreviewDrawer
+        visible={planDayPreviewVisible}
+        onClose={() => {
+          setPlanDayPreviewVisible(false);
+          setPlanDayPreviewDay(null);
+        }}
+        onClosePlan={() => {
+          setPlanDayPreviewVisible(false);
+          setPlanDayPreviewDay(null);
+        }}
+        day={planDayPreviewDay}
       />
 
       {/* Run settings — units, auto-pause, audio (nested), HR, mileage goal */}
@@ -1013,7 +1217,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statsCard: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   statsRow: {
     flexDirection: 'row',
@@ -1036,9 +1241,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.3,
+    maxWidth: '94%',
   },
   sectionCard: {
     padding: 14,
@@ -1059,10 +1265,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 0.2,
   },
-  runTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  runTypeCard: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 9,
+  },
+  runTypeScrollContent: {
     gap: 8,
+    paddingRight: 4,
+  },
+  runTypeChip: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  runTypeChipText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0,
   },
   planCardHeader: {
     flexDirection: 'row',
@@ -1078,7 +1302,7 @@ const styles = StyleSheet.create({
   planBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
+    borderRadius: 8,
     borderWidth: 1,
   },
   planBadgeText: {
@@ -1090,10 +1314,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginTop: 4,
+    paddingTop: 12,
+    marginTop: 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  todayRunIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   todayRunLabel: {
     fontSize: 12,
@@ -1227,37 +1457,38 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     letterSpacing: 0.2,
   },
-  // Idle-state version of the bottom controls area — no bar background, no
-  // border, no shadow. Just a transparent layer so the floating pill inside
-  // <RunControls /> drops cleanly onto whatever content is behind it.
+  // Bottom controls area — sits above gradient layers (zIndex: 10) so buttons
+  // are never obscured. Idle: GPS + Start Run row with scrim. Active: RunControls.
   idleControlsContainer: {
     position: 'absolute',
     bottom: 100,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    zIndex: 10,
   },
-  // Inline Start CTA inside the Run Type card — primary pre-run action path.
-  inlineStartBtn: {
+  // GPS (secondary) + Start Run (primary) side-by-side row — mirrors the
+  // Plan + Start Workout layout on the Workout tab.
+  idleButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 4,
+  },
+  gpsStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 4,
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: -2,
   },
-  inlineStartLabel: {
-    fontSize: 15,
-    fontFamily: 'Outfit_700Bold',
-    color: '#fff',
-    letterSpacing: 0.2,
-  },
-  inlineStartHint: {
-    fontSize: 12,
+  gpsStatusText: {
+    fontSize: 11,
     fontFamily: 'Outfit_600SemiBold',
-    color: 'rgba(255,255,255,0.8)',
-    marginLeft: 4,
+    letterSpacing: 0,
   },
   // Post-run summary
   healthToast: {
@@ -1409,5 +1640,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Outfit_700Bold',
     color: '#fff',
+  },
+  // Plan progress bar
+  planProgressContainer: {
+    gap: 5,
+    marginTop: 2,
+  },
+  planProgressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  planProgressLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0,
+  },
+  planProgressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  planProgressFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  // HR zone row inside Today's Run
+  hrZoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  hrZoneText: {
+    fontSize: 11,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.2,
   },
 });

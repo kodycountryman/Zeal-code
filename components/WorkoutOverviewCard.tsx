@@ -145,7 +145,7 @@ function WorkoutOverviewCard({
           {completedLog.trainingScore > 0 && (
             <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 13, color: '#f87116' }}>+{completedLog.trainingScore} pts</Text>
           )}
-          <PlatformIcon name="chevron-right" size={14} color="rgba(255,255,255,0.28)" />
+          <PlatformIcon name="chevron-right" size={12} color={colors.textMuted} strokeWidth={1.8} />
         </TouchableOpacity>
         {activePlan && onOpenActivePlan && (
           <>
@@ -163,7 +163,7 @@ function WorkoutOverviewCard({
               <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 11, color: colors.textMuted }}>
                 Week {Math.max(1, Math.ceil((Date.now() - new Date(activePlan.startDate + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)))} of {activePlan.planLength}
               </Text>
-              <PlatformIcon name="chevron-right" size={12} color="rgba(255,255,255,0.28)" />
+              <PlatformIcon name="chevron-right" size={10} color={colors.textMuted} strokeWidth={1.8} />
             </TouchableOpacity>
           </>
         )}
@@ -188,7 +188,7 @@ function WorkoutOverviewCard({
           <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
         </View>
         {!isRestDay && onPress && (
-          <PlatformIcon name="chevron-right" size={16} color="rgba(255,255,255,0.28)" />
+          <PlatformIcon name="chevron-right" size={13} color={colors.textMuted} strokeWidth={1.8} />
         )}
       </View>
 

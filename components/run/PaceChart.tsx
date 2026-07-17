@@ -54,7 +54,7 @@ export default function PaceChart({ route, units, averagePaceSecondsPerMeter, he
     if (route.length < 3) return null;
 
     const paces = route.map(p => p.pace);
-    const smoothed = smoothPaces(paces, 7);
+    const smoothed = smoothPaces(paces, 3);
     const validIndices: number[] = [];
     const validPaces: number[] = [];
     for (let i = 0; i < smoothed.length; i++) {
@@ -65,21 +65,18 @@ export default function PaceChart({ route, units, averagePaceSecondsPerMeter, he
     }
     if (validPaces.length < 3) return null;
 
-    // Phase 8: Tighter scaling for dramatic visualization. Previous min/max
-    // used median ±50% which compressed real variation into a flat-looking
-    // line. Now: 10th-90th percentile of pace samples becomes the visible
-    // range, so normal pace shifts produce visible peaks/valleys. Outliers
-    // (GPS spikes during tunnels, brief stops) still get clamped to keep
-    // the chart from being dominated by noise.
+    // Use the middle band of the run for scaling so one brief GPS spike or
+    // stopped moment cannot flatten the chart. The line is then clamped into
+    // that window, giving pace changes visual contrast closer to elevation.
     const sorted = [...validPaces].sort((a, b) => a - b);
     const median = sorted[Math.floor(sorted.length / 2)];
-    const p10 = sorted[Math.floor(sorted.length * 0.1)] ?? sorted[0];
-    const p90 = sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1];
-    // Add a small headroom (5% of range) so the line doesn't kiss the chart edges
-    const rangeRaw = p90 - p10;
-    const headroom = Math.max(rangeRaw * 0.05, 1);
-    const min = Math.max(median * 0.4, p10 - headroom);
-    const max = Math.min(median * 2.2, p90 + headroom);
+    const p20 = sorted[Math.floor(sorted.length * 0.2)] ?? sorted[0];
+    const p80 = sorted[Math.floor(sorted.length * 0.8)] ?? sorted[sorted.length - 1];
+    const rangeRaw = Math.max(p80 - p20, median * 0.04);
+    const center = (p20 + p80) / 2;
+    const halfRange = rangeRaw * 0.6;
+    const min = Math.max(median * 0.55, center - halfRange);
+    const max = Math.min(median * 1.65, center + halfRange);
 
     return { smoothed, validIndices, validPaces, min, max, median };
   }, [route]);

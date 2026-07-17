@@ -39,6 +39,7 @@ import PlanTypeChooserSheet from '@/components/drawers/PlanTypeChooserSheet';
 import RunPlanBuilderDrawer from '@/components/drawers/RunPlanBuilderDrawer';
 import ExerciseCatalogDrawer from '@/components/drawers/ExerciseCatalogDrawer';
 import ActivePlanDrawer from '@/components/drawers/ActivePlanDrawer';
+import RunActivePlanDrawer from '@/components/drawers/RunActivePlanDrawer';
 import HelpFaqDrawer from '@/components/drawers/HelpFaqDrawer';
 import WorkoutPreviewModal from '@/components/WorkoutPreviewModal';
 import PlanWorkoutSheet from '@/components/PlanWorkoutSheet';
@@ -60,10 +61,14 @@ import { useRun } from '@/context/RunContext';
 import SeventyFiveHardBanner from '@/components/SeventyFiveHardBanner';
 import OutdoorWorkoutCard from '@/components/OutdoorWorkoutCard';
 import RunOverviewCard from '@/components/run/RunOverviewCard';
+import RunPlanOverviewCard from '@/components/run/RunPlanOverviewCard';
 import TabHeader from '@/components/TabHeader';
 import SeventyFiveHardChecklist from '@/components/SeventyFiveHardChecklist';
 import { useTourTarget, useAppTour } from '@/context/AppTourContext';
 
+function getLocalDateStr(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 function getMuscleGroupsFromSplit(split: string, style: string): string {
   const s = split.toLowerCase();
@@ -153,11 +158,11 @@ export default function HomeScreen() {
 
   const firstName = ctx.userName ? ctx.userName.split(' ')[0] : '';
   const todayPrescription = ctx.getTodayPrescription();
+  const todayRunPrescription = ctx.getTodayRunPrescription();
+  const todayDateStr = useMemo(() => getLocalDateStr(), []);
   const todayPlannedWorkout = useMemo(() => {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    return ctx.getPlannedWorkoutForDate(dateStr);
-  }, [ctx.getPlannedWorkoutForDate, ctx.plannedWorkouts]);
+    return ctx.getPlannedWorkoutForDate(todayDateStr);
+  }, [ctx.getPlannedWorkoutForDate, ctx.plannedWorkouts, todayDateStr]);
 
   const effectiveWorkout = useMemo(() => {
     const ov = ctx.workoutOverride;
@@ -268,6 +273,7 @@ export default function HomeScreen() {
   const [insightsVisible, setInsightsVisible] = useState(false);
   const [helpFaqVisible, setHelpFaqVisible] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [runActivePlanVisible, setRunActivePlanVisible] = useState(false);
 
   const handlePreviewPress = useCallback(() => {
     // Open immediately; modal will show either the populated preview or the generating animation.
@@ -334,6 +340,10 @@ export default function HomeScreen() {
   const todayLogs = tracking.todayLogs;
   const hasTodayWorkout = todayLogs.length > 0;
   const latestTodayLog = todayLogs[0] ?? null;
+  const todayRunLog = useMemo(
+    () => run.runHistory.find(log => log.date === todayDateStr) ?? null,
+    [run.runHistory, todayDateStr],
+  );
 
   const handleCalendarPress = useCallback(() => {
     tracking.setCalendarModalVisible(true);
@@ -347,14 +357,15 @@ export default function HomeScreen() {
     return set;
   }, [tracking.workoutHistory]);
 
-  // Merge manually planned workouts + active plan schedule days for calendar dots
+  // Merge manually planned workouts + strength days from active plan for calendar dots.
+  // Run days get their own blue dots so hybrid/run schedules do not look like lifts.
   const allPlannedWorkouts = useMemo(() => {
     const merged = [...(ctx.plannedWorkouts ?? [])];
     const existingDates = new Set(merged.map(p => p.date));
     if (ctx.planSchedule && ctx.activePlan) {
       for (const week of (ctx.planSchedule as any).weeks ?? []) {
         for (const day of week.days ?? []) {
-          if (!day.is_rest && !existingDates.has(day.date)) {
+          if (!day.is_rest && day.activity_type !== 'run' && !existingDates.has(day.date)) {
             merged.push({
               id: `plan_${day.date}`,
               date: day.date,
@@ -371,8 +382,29 @@ export default function HomeScreen() {
     return merged;
   }, [ctx.plannedWorkouts, ctx.planSchedule, ctx.activePlan]);
 
+  const plannedRunDates = useMemo(() => {
+    const set = new Set<string>();
+    const addRunDays = (schedule: any) => {
+      for (const week of schedule?.weeks ?? []) {
+        for (const day of week.days ?? []) {
+          if (!day.is_rest && day.activity_type === 'run') set.add(day.date);
+        }
+      }
+    };
+    if (ctx.activeRunPlan && ctx.runPlanSchedule) addRunDays(ctx.runPlanSchedule);
+    if (ctx.activePlan?.mode === 'hybrid' && ctx.planSchedule) addRunDays(ctx.planSchedule);
+    return set;
+  }, [ctx.activeRunPlan, ctx.runPlanSchedule, ctx.activePlan, ctx.planSchedule]);
+
   const handleSelectDayEvent = useCallback((event: DayEvent) => {
     setDayLogsVisible(false);
+    if (event.kind === 'planned' && event.planDay) {
+      setTimeout(() => {
+        setPlanDayPreviewDay(event.planDay ?? null);
+        setPlanDayPreviewVisible(true);
+      }, 250);
+      return;
+    }
     if (event.type === 'workout') {
       tracking.setSelectedLogId(event.id);
       tracking.setWorkoutLogDetailVisible(true);
@@ -435,25 +467,67 @@ export default function HomeScreen() {
       return;
     }
 
-    // No completed events — check for plan prescription or future-day sheet
-    if (ctx.activePlan && ctx.planSchedule) {
-      for (const week of (ctx.planSchedule as any).weeks ?? []) {
+    const plannedEvents: DayEvent[] = [];
+    let singlePlannedDay: DayPrescription | null = null;
+
+    // No completed events — collect both dedicated run-plan prescriptions and strength/hybrid prescriptions.
+    if (ctx.activeRunPlan && ctx.runPlanSchedule) {
+      for (const week of (ctx.runPlanSchedule as any).weeks ?? []) {
         for (const day of week.days ?? []) {
-          if (day.date === dateStr && !day.is_rest) {
-            setPlanDayPreviewDay(day);
-            setPlanDayPreviewVisible(true);
-            return;
+          if (day.date === dateStr && !day.is_rest && day.activity_type === 'run') {
+            singlePlannedDay = day;
+            plannedEvents.push({
+              type: 'run',
+              id: `planned-run-${day.date}`,
+              name: day.run_description || day.session_type || 'Planned Run',
+              subtitle: `${day.target_duration} min`,
+              kind: 'planned',
+              planDay: day,
+            });
           }
         }
       }
     }
+
+    if (ctx.activePlan && ctx.planSchedule) {
+      for (const week of (ctx.planSchedule as any).weeks ?? []) {
+        for (const day of week.days ?? []) {
+          if (day.date === dateStr && !day.is_rest) {
+            singlePlannedDay = day;
+            plannedEvents.push({
+              type: day.activity_type === 'run' ? 'run' : 'workout',
+              id: `planned-${day.activity_type === 'run' ? 'run' : 'workout'}-${day.date}`,
+              name: day.activity_type === 'run'
+                ? day.run_description || day.session_type || 'Planned Run'
+                : day.session_type || day.style || 'Planned Workout',
+              subtitle: `${day.target_duration} min`,
+              kind: 'planned',
+              planDay: day,
+            });
+          }
+        }
+      }
+    }
+
+    if (plannedEvents.length > 1) {
+      setDayLogsDate(dateStr);
+      setDayLogsEvents(plannedEvents);
+      setDayLogsVisible(true);
+      return;
+    }
+    if (singlePlannedDay) {
+      setPlanDayPreviewDay(singlePlannedDay);
+      setPlanDayPreviewVisible(true);
+      return;
+    }
+
     // Future days without active plan → manual plan sheet
     if (dayOffset > 0) {
       setPlanSheetDate(dateStr);
       setPlanSheetVisible(true);
       return;
     }
-  }, [tracking, ctx.activePlan, ctx.planSchedule, run.runHistory, run.preferences]);
+  }, [tracking, ctx.activeRunPlan, ctx.runPlanSchedule, ctx.activePlan, ctx.planSchedule, run.runHistory, run.preferences]);
 
   const handleViewTodayLog = useCallback(() => {
     if (latestTodayLog) {
@@ -462,6 +536,28 @@ export default function HomeScreen() {
     }
     router.push('/train?mode=workout');
   }, [tracking, latestTodayLog, router]);
+
+  const handleRunPlanCardPress = useCallback(() => {
+    if (todayRunLog) {
+      setSelectedRunId(todayRunLog.id);
+      setRunLogVisible(true);
+      return;
+    }
+    const isRunDay = todayRunPrescription?.activity_type === 'run' && !todayRunPrescription.is_rest;
+    if (isRunDay) {
+      router.push('/train?mode=run');
+      return;
+    }
+    setRunActivePlanVisible(true);
+  }, [router, todayRunLog, todayRunPrescription]);
+
+  const handlePreviewRunPlanDay = useCallback((day: DayPrescription) => {
+    setRunActivePlanVisible(false);
+    setTimeout(() => {
+      setPlanDayPreviewDay(day);
+      setPlanDayPreviewVisible(true);
+    }, 250);
+  }, []);
 
 
 
@@ -526,6 +622,7 @@ export default function HomeScreen() {
               completedDates={completedDates}
               plannedWorkouts={allPlannedWorkouts}
               completedRunDates={completedRunDates}
+              plannedRunDates={plannedRunDates}
               variant={isDark ? 'glass' : 'solid'}
             />
           </Animated.View>
@@ -626,6 +723,7 @@ export default function HomeScreen() {
               completedDates={completedDates}
               plannedWorkouts={allPlannedWorkouts}
               completedRunDates={completedRunDates}
+              plannedRunDates={plannedRunDates}
               variant={isDark ? 'glass' : 'solid'}
             />
           </Animated.View>
@@ -699,10 +797,15 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
-          {(run.runHistory.length > 0 || (todayPrescription?.activity_type === 'run' && !todayPrescription?.is_rest)) && (
+          {ctx.activeRunPlan && (
             <Animated.View entering={cardAnims.d240}>
-              <RunOverviewCard
-                todayPrescription={todayPrescription}
+              <RunPlanOverviewCard
+                todayPrescription={todayRunPrescription}
+                activePlan={ctx.activeRunPlan}
+                completedRun={todayRunLog}
+                units={run.preferences.units}
+                onPress={handleRunPlanCardPress}
+                onOpenActivePlan={() => setRunActivePlanVisible(true)}
                 variant={isDark ? 'glass' : 'solid'}
               />
             </Animated.View>
@@ -776,7 +879,7 @@ export default function HomeScreen() {
                     <Text style={[styles.startPlanTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{title}</Text>
                     <Text style={[styles.startPlanSub, { color: colors.textSecondary }]} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.85}>{sub}</Text>
                   </View>
-                  <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
+                  <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} strokeWidth={1.8} />
                 </TouchableOpacity>
               </Animated.View>
             );
@@ -910,6 +1013,12 @@ export default function HomeScreen() {
           setEditingPlan(ctx.activePlan ?? undefined);
           tracking.setWorkoutPlanVisible(true);
         }}
+      />
+
+      <RunActivePlanDrawer
+        visible={runActivePlanVisible}
+        onClose={() => setRunActivePlanVisible(false)}
+        onSelectDay={handlePreviewRunPlanDay}
       />
 
       <HelpFaqDrawer

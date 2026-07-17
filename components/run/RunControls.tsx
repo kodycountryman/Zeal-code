@@ -11,8 +11,6 @@ interface Props {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
-  /** When true, show a small warning if GPS hasn't acquired yet. */
-  gpsAcquired?: boolean;
 }
 
 const triggerHaptic = (style: 'light' | 'medium' | 'heavy' = 'medium') => {
@@ -31,7 +29,6 @@ export default function RunControls({
   onPause,
   onResume,
   onStop,
-  gpsAcquired = true,
 }: Props) {
   const { accent, colors, isDark } = useZealTheme();
 
@@ -53,10 +50,7 @@ export default function RunControls({
     pulse.setValue(1);
   }, [status, pulse]);
 
-  // Pre-run idle state — compact pill anchored above the dock. The primary
-  // "Start <type>" CTA now lives inline in the Run Type card on the pre-run
-  // screen; this pill is the always-reachable shortcut when the user has
-  // scrolled past the type selector.
+  // Pre-run idle state — compact pill anchored above the dock.
   if (status === 'idle') {
     return (
       <View style={styles.idleContainer}>
@@ -75,12 +69,6 @@ export default function RunControls({
           >
             <PlatformIcon name="play" size={18} color="#fff" />
             <Text style={styles.startPillLabel}>Start Run</Text>
-            {!gpsAcquired && (
-              <>
-                <View style={styles.startPillDivider} />
-                <Text style={styles.startPillHint}>GPS…</Text>
-              </>
-            )}
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -167,18 +155,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 0.2,
     color: '#fff',
-  },
-  startPillDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    marginHorizontal: 2,
-  },
-  startPillHint: {
-    fontSize: 12,
-    fontFamily: 'Outfit_600SemiBold',
-    color: 'rgba(255,255,255,0.85)',
-    letterSpacing: 0.3,
   },
   activeContainer: {
     flexDirection: 'row',

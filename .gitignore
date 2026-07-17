@@ -50,3 +50,7 @@ node_modules
 
 # Local ASO screenshot scratch dir (has its own .git)
 .aso-screenshots/
+
+# Vim swap files
+*.swp
+*.swo

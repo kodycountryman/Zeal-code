@@ -41,6 +41,16 @@ import {
   cancelWeeklySummary,
   type NotifPermissionStatus,
 } from '@/services/notificationService';
+import * as WebBrowser from 'expo-web-browser';
+import {
+  beginLinkIdentity,
+  unlinkIdentityByProvider,
+  listLinkedIdentities,
+  supabase,
+  type LinkableProvider,
+} from '@/services/supabase';
+
+const OAUTH_LINK_REDIRECT = 'zeal-plus://auth/callback';
 
 const WORKOUT_STYLES = [
   'Strength', 'Bodybuilding', 'CrossFit', 'Hyrox',
@@ -106,6 +116,89 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
 
   const [notifPermStatus, setNotifPermStatus] = useState<NotifPermissionStatus>('undetermined');
   const [localNotif, setLocalNotif] = useState<NotifPrefs>(ctx.notifPrefs);
+
+  // ── Connected accounts (provider linking) ─────────────────────────
+  const [linkedProviders, setLinkedProviders] = useState<Set<string>>(new Set());
+  const [linkingProvider, setLinkingProvider] = useState<LinkableProvider | null>(null);
+
+  const refreshLinkedProviders = useCallback(async () => {
+    try {
+      const ids = await listLinkedIdentities();
+      setLinkedProviders(new Set(ids.map((i) => i.provider)));
+    } catch (e) {
+      __DEV__ && console.warn('[Settings] refreshLinkedProviders error:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (visible) void refreshLinkedProviders();
+  }, [visible, refreshLinkedProviders]);
+
+  const handleLinkProvider = useCallback(async (provider: LinkableProvider) => {
+    if (linkingProvider) return;
+    setLinkingProvider(provider);
+    try {
+      const url = await beginLinkIdentity(provider, OAUTH_LINK_REDIRECT);
+      const result = await WebBrowser.openAuthSessionAsync(url, OAUTH_LINK_REDIRECT);
+      if (result.type === 'success') {
+        // For linkIdentity (vs sign-in), the link is established by Supabase
+        // server-side once the user authorizes the provider. The callback URL
+        // does NOT carry a fresh code that should be exchanged for a session
+        // — calling exchangeCodeForSession on it produces "invalid claim:
+        // missing sub claim" because it's a link callback, not a sign-in.
+        //
+        // Just refresh the existing session so user.identities reflects the
+        // newly attached provider, then re-read the linked-providers list.
+        await supabase.auth.refreshSession().catch(() => {});
+
+        // Verify the provider is now in the identities list. If not, the
+        // link silently failed (rare — usually means the OAuth flow returned
+        // before completing).
+        const ids = await listLinkedIdentities();
+        const linked = ids.some((i) => i.provider === provider);
+        setLinkedProviders(new Set(ids.map((i) => i.provider)));
+        if (linked) {
+          Alert.alert('Connected', `${provider === 'google' ? 'Google' : 'Apple'} is now linked to your account.`);
+        } else {
+          Alert.alert(
+            'Link Incomplete',
+            'The connection didn\'t complete. Please try again.',
+          );
+        }
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        // User cancelled — no-op.
+      }
+    } catch (e: any) {
+      const msg = e?.message ?? 'Could not link this account. Please try again.';
+      Alert.alert('Link Failed', msg);
+      __DEV__ && console.warn('[Settings] linkIdentity error:', e);
+    } finally {
+      setLinkingProvider(null);
+    }
+  }, [linkingProvider]);
+
+  const handleUnlinkProvider = useCallback(async (provider: LinkableProvider) => {
+    Alert.alert(
+      'Disconnect Account',
+      `Disconnect ${provider === 'google' ? 'Google' : 'Apple'} from this account? You'll still be able to sign in with any other linked method.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await unlinkIdentityByProvider(provider);
+              await refreshLinkedProviders();
+            } catch (e: any) {
+              Alert.alert('Disconnect Failed', e?.message ?? 'Could not disconnect this provider.');
+              __DEV__ && console.warn('[Settings] unlinkIdentity error:', e);
+            }
+          },
+        },
+      ],
+    );
+  }, [refreshLinkedProviders]);
 
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
@@ -926,6 +1019,66 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               </TouchableOpacity>
             </Animated.View>
           </View>
+        </GlassCard>
+
+        {/* ── Connected Accounts ── */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Connected Accounts</Text>
+        <GlassCard variant={isDark ? 'glass' : 'solid'} style={[styles.section, { padding: 0, gap: 0 }]}>
+          {/* Google */}
+          {(() => {
+            const isLinked = linkedProviders.has('google');
+            const busy = linkingProvider === 'google';
+            return (
+              <TouchableOpacity
+                style={[styles.signOutRow, { borderBottomWidth: Platform.OS === 'ios' ? StyleSheet.hairlineWidth : 1, borderBottomColor: colors.border }]}
+                onPress={() => (isLinked ? handleUnlinkProvider('google') : handleLinkProvider('google'))}
+                activeOpacity={0.7}
+                disabled={busy}
+                testID="link-google-btn"
+              >
+                <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: 'Outfit_700Bold', color: colors.text, fontSize: 14 }}>G</Text>
+                </View>
+                <Text style={[styles.signOutText, { color: colors.text }]}>
+                  {isLinked ? 'Google · Connected' : 'Connect with Google'}
+                </Text>
+                {busy ? (
+                  <ActivityIndicator size="small" color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+                ) : isLinked ? (
+                  <PlatformIcon name="check" size={16} color="#22c55e" style={{ marginLeft: 'auto' }} />
+                ) : (
+                  <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+                )}
+              </TouchableOpacity>
+            );
+          })()}
+
+          {/* Apple — iOS only */}
+          {Platform.OS === 'ios' && (() => {
+            const isLinked = linkedProviders.has('apple');
+            const busy = linkingProvider === 'apple';
+            return (
+              <TouchableOpacity
+                style={styles.signOutRow}
+                onPress={() => (isLinked ? handleUnlinkProvider('apple') : handleLinkProvider('apple'))}
+                activeOpacity={0.7}
+                disabled={busy}
+                testID="link-apple-btn"
+              >
+                <PlatformIcon name="apple" size={18} color={colors.text} strokeWidth={2} />
+                <Text style={[styles.signOutText, { color: colors.text }]}>
+                  {isLinked ? 'Apple · Connected' : 'Connect with Apple'}
+                </Text>
+                {busy ? (
+                  <ActivityIndicator size="small" color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+                ) : isLinked ? (
+                  <PlatformIcon name="check" size={16} color="#22c55e" style={{ marginLeft: 'auto' }} />
+                ) : (
+                  <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+                )}
+              </TouchableOpacity>
+            );
+          })()}
         </GlassCard>
 
         {/* ── Card 5: Legal ── */}

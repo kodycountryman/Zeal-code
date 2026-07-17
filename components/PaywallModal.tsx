@@ -27,7 +27,7 @@ const TERMS_URL = 'https://zealplus.app/terms-of-service.html';
 const PRIVACY_URL = 'https://zealplus.app/privacy-policy.html';
 
 const TRIAL_SUB = "Try everything free for 7 days.\nNo charge until Day 8 — cancel anytime.";
-const NO_TRIAL_SUB = "Everything Zeal offers, for less than\na coffee a week.";
+const NO_TRIAL_SUB = "Try everything free for 7 days.\nThen $5.99/month — cancel anytime.";
 
 const FEATURES: { icon: AppIconName; label: string; sub: string }[] = [
   {
@@ -57,7 +57,7 @@ interface Props {
   isRestoring: boolean;
   purchaseError: string | null;
   restoreError: string | null;
-  /** Localized price string pulled from the App Store via RevenueCat, e.g. "$5.99". */
+  /** Display price shown in paywall copy, e.g. "$5.99". */
   priceString: string | null;
 }
 
@@ -78,7 +78,7 @@ export default function PaywallModal({
   const ctaScale = useSharedValue(1);
   const ctaAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
 
-  const isTrial = version === 'trial';
+  const isTrial = true;
 
   useEffect(() => {
     if (visible) {
@@ -265,21 +265,13 @@ export function ConnectedPaywallModal() {
     isRestoring,
     purchaseError,
     restoreError,
-    offerings,
   } = useSubscription();
 
-  // Pull the localized price string from RevenueCat offerings.
-  // Falls back to the first available package if `monthly` isn't populated.
-  // If RC offerings haven't loaded (dev builds without RC keys, cold launch
-  // before the fetch resolves, etc.) fall back to the known App Store price
-  // so the paywall never renders a naked dash. RC's localized string wins
-  // as soon as it arrives.
-  const FALLBACK_MONTHLY_PRICE = '$5.99';
-  const monthlyPackage =
-    offerings?.current?.monthly ??
-    offerings?.current?.availablePackages?.[0] ??
-    null;
-  const priceString: string = monthlyPackage?.product?.priceString ?? FALLBACK_MONTHLY_PRICE;
+  // Display copy is intentionally fixed to the approved App Store price.
+  // RevenueCat offerings still drive purchasing in SubscriptionContext, but
+  // sandbox/test products can report prices like $0.99 and make the paywall
+  // copy look wrong.
+  const priceString = '$5.99';
 
   return (
     <PaywallModal

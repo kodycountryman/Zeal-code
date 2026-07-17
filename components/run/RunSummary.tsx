@@ -109,6 +109,7 @@ export default function RunSummary({
   const storyCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareShowMap, setShareShowMap] = useState(true);
+  const [shareShowSplits, setShareShowSplits] = useState(false);
 
   const handleShare = async (format: ShareCardFormat = 'square') => {
     if (isSharing) return;
@@ -344,14 +345,29 @@ export default function RunSummary({
 
       {/* ─── Share buttons (both modes) ──────────────────────────────── */}
       {log.route.length >= 2 && (
-        <View style={[styles.shareMapRow, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-          <Text style={[styles.shareMapLabel, { color: colors.textSecondary }]}>Include map on share card</Text>
-          <Switch
-            value={shareShowMap}
-            onValueChange={setShareShowMap}
-            trackColor={{ false: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)', true: accent }}
-            thumbColor="#fff"
-          />
+        <View style={[styles.shareOptions, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+          <View style={styles.shareOptionRow}>
+            <Text style={[styles.shareMapLabel, { color: colors.textSecondary }]}>Map background</Text>
+            <Switch
+              value={shareShowMap}
+              onValueChange={setShareShowMap}
+              trackColor={{ false: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)', true: accent }}
+              thumbColor="#fff"
+            />
+          </View>
+          {log.splits.length > 0 && (
+            <View style={[styles.shareOptionRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', borderTopWidth: StyleSheet.hairlineWidth }]}>
+              <Text style={[styles.shareMapLabel, { color: colors.textSecondary }]}>
+                Split markers ({log.splitUnit === 'metric' ? '1 km' : '1 mi'})
+              </Text>
+              <Switch
+                value={shareShowSplits}
+                onValueChange={setShareShowSplits}
+                trackColor={{ false: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)', true: accent }}
+                thumbColor="#fff"
+              />
+            </View>
+          )}
         </View>
       )}
       <View style={styles.shareRow}>
@@ -459,10 +475,26 @@ export default function RunSummary({
       {/* ─── Off-screen share card render targets ────────────────────── */}
       {/* Rendered at left:-9999 so they snapshot correctly but are invisible */}
       <View pointerEvents="none" style={styles.offscreen} collapsable={false}>
-        <ShareCard ref={squareCardRef} log={log} format="square" accent={accent} showRoute={shareShowMap} />
+        <ShareCard
+          ref={squareCardRef}
+          log={log}
+          format="square"
+          accent={accent}
+          showRoute
+          showMap={shareShowMap}
+          showSplits={shareShowSplits}
+        />
       </View>
       <View pointerEvents="none" style={styles.offscreen} collapsable={false}>
-        <ShareCard ref={storyCardRef} log={log} format="story" accent={accent} showRoute={shareShowMap} />
+        <ShareCard
+          ref={storyCardRef}
+          log={log}
+          format="story"
+          accent={accent}
+          showRoute
+          showMap={shareShowMap}
+          showSplits={shareShowSplits}
+        />
       </View>
     </View>
   );
@@ -578,14 +610,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingVertical: 6,
   },
-  shareMapRow: {
+  shareOptions: {
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  shareOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
   },
   shareMapLabel: {
     fontSize: 13,

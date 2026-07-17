@@ -35,6 +35,7 @@ import {
   cancelRunStreakReminder,
 } from '@/services/notificationService';
 import { computeRunTrainingScore } from '@/services/runScoreService';
+import * as CloudSync from '@/services/cloudSync';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -373,6 +374,75 @@ export const [RunProvider, useRun] = createContextHook(() => {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // ─── Cloud sync (Phase 3): run history, PRs, preferences ──────────────
+  // Pulls cross-device run data on sign-in. If cloud is empty but local
+  // has data, pushes local up (idempotent first-sync migration).
+  const cloudHydratedForUserRef = useRef<string | null>(null);
+  const runHistoryRef = useRef(runHistory);
+  const runPRsRef = useRef(runPRs);
+  const runPrefsRef = useRef(preferences);
+  runHistoryRef.current = runHistory;
+  runPRsRef.current = runPRs;
+  runPrefsRef.current = preferences;
+
+  useEffect(() => {
+    if (!loaded) return;
+    const userId = app.currentUserId;
+    if (!userId) return;
+    if (cloudHydratedForUserRef.current === userId) return;
+    cloudHydratedForUserRef.current = userId;
+
+    void Promise.all([
+      CloudSync.pullRunHistory(userId),
+      CloudSync.pullRunPRs(userId),
+      CloudSync.pullRunPreferences(userId),
+    ]).then(([cloudHistory, cloudPRs, cloudPrefs]) => {
+      if (cloudHistory && cloudHistory.length > 0) {
+        setRunHistory(cloudHistory);
+        AsyncStorage.setItem(RUN_HISTORY_KEY, JSON.stringify(cloudHistory)).catch(() => {});
+      } else if (runHistoryRef.current.length > 0) {
+        void CloudSync.pushRunHistory(userId, runHistoryRef.current);
+      }
+      if (cloudPRs && cloudPRs.length > 0) {
+        setRunPRs(cloudPRs);
+        AsyncStorage.setItem(RUN_PR_HISTORY_KEY, JSON.stringify(cloudPRs)).catch(() => {});
+      } else if (runPRsRef.current.length > 0) {
+        void CloudSync.pushRunPRs(userId, runPRsRef.current);
+      }
+      if (cloudPrefs) {
+        setPreferences({ ...DEFAULT_RUN_PREFERENCES, ...cloudPrefs });
+        AsyncStorage.setItem(RUN_PREFERENCES_KEY, JSON.stringify(cloudPrefs)).catch(() => {});
+      } else {
+        void CloudSync.pushRunPreferences(userId, runPrefsRef.current);
+      }
+    }).catch((e) => __DEV__ && console.warn('[RunContext] cloud hydrate error:', e));
+  }, [loaded, app.currentUserId]);
+
+  useEffect(() => {
+    const userId = app.currentUserId;
+    if (!userId) return;
+    if (cloudHydratedForUserRef.current !== userId) return;
+    if (runHistory.length === 0) return;
+    const t = setTimeout(() => void CloudSync.pushRunHistory(userId, runHistory), 1000);
+    return () => clearTimeout(t);
+  }, [runHistory, app.currentUserId]);
+
+  useEffect(() => {
+    const userId = app.currentUserId;
+    if (!userId) return;
+    if (cloudHydratedForUserRef.current !== userId) return;
+    const t = setTimeout(() => void CloudSync.pushRunPRs(userId, runPRs), 1000);
+    return () => clearTimeout(t);
+  }, [runPRs, app.currentUserId]);
+
+  useEffect(() => {
+    const userId = app.currentUserId;
+    if (!userId) return;
+    if (cloudHydratedForUserRef.current !== userId) return;
+    const t = setTimeout(() => void CloudSync.pushRunPreferences(userId, preferences), 1500);
+    return () => clearTimeout(t);
+  }, [preferences, app.currentUserId]);
 
   // ─── Subscribe to tracking service snapshots ───────────────────────────
   useEffect(() => {

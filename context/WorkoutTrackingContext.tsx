@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Platform, AppState, type AppStateStatus } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppContext } from '@/context/AppContext';
+import * as CloudSync from '@/services/cloudSync';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 import { healthService } from '@/services/healthService';
 import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
@@ -697,6 +698,59 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time hydrate; ctx.setCurrentWorkoutTitle is stable
   }, []);
 
+  // ── Cloud sync: workout history + PRs (Phase 3) ────────────────────────
+  // After local history hydrates and we know the signed-in user, pull the
+  // cross-device snapshot. If cloud is empty but local has data, push
+  // local up — idempotent thanks to (user_id, client_id) UNIQUE constraint.
+  const cloudHydratedForUserRef = useRef<string | null>(null);
+  const historyRef = useRef(workoutHistory);
+  const prsRef = useRef(prHistory);
+  historyRef.current = workoutHistory;
+  prsRef.current = prHistory;
+
+  useEffect(() => {
+    if (!historyLoaded) return;
+    const userId = ctx.currentUserId;
+    if (!userId) return;
+    if (cloudHydratedForUserRef.current === userId) return;
+    cloudHydratedForUserRef.current = userId;
+
+    void Promise.all([
+      CloudSync.pullWorkoutHistory(userId),
+      CloudSync.pullPersonalRecords(userId),
+    ]).then(([cloudHistory, cloudPRs]) => {
+      if (cloudHistory && cloudHistory.length > 0) {
+        setWorkoutHistory(cloudHistory.slice(0, 100));
+        AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(cloudHistory.slice(0, 100))).catch(() => {});
+      } else if (historyRef.current.length > 0) {
+        void CloudSync.pushWorkoutHistory(userId, historyRef.current);
+      }
+      if (cloudPRs && cloudPRs.length > 0) {
+        setPrHistory(cloudPRs);
+        AsyncStorage.setItem(PR_KEY, JSON.stringify(cloudPRs)).catch(() => {});
+      } else if (prsRef.current.length > 0) {
+        void CloudSync.pushPersonalRecords(userId, prsRef.current);
+      }
+    }).catch((e) => __DEV__ && console.warn('[Tracking] cloud hydrate error:', e));
+  }, [historyLoaded, ctx.currentUserId]);
+
+  useEffect(() => {
+    const userId = ctx.currentUserId;
+    if (!userId) return;
+    if (cloudHydratedForUserRef.current !== userId) return;
+    if (workoutHistory.length === 0) return;
+    const t = setTimeout(() => void CloudSync.pushWorkoutHistory(userId, workoutHistory), 1000);
+    return () => clearTimeout(t);
+  }, [workoutHistory, ctx.currentUserId]);
+
+  useEffect(() => {
+    const userId = ctx.currentUserId;
+    if (!userId) return;
+    if (cloudHydratedForUserRef.current !== userId) return;
+    const t = setTimeout(() => void CloudSync.pushPersonalRecords(userId, prHistory), 1000);
+    return () => clearTimeout(t);
+  }, [prHistory, ctx.currentUserId]);
+
   useEffect(() => {
     if (!dailySnapshotReady || !currentGeneratedWorkout) return;
     const day = getTodayStr();
@@ -918,6 +972,22 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setSessionPRs([]);
     setConfirmedPRs([]);
     setIsTimerMinimized(false);
+  }, []);
+
+  /** Append an exercise to the active workout's list. Used by Live Track. */
+  const addExerciseToActiveWorkout = useCallback((exercise: WorkoutExercise) => {
+    setActiveWorkout(prev => {
+      if (!prev) return prev;
+      return { ...prev, workout: [...prev.workout, exercise] };
+    });
+  }, []);
+
+  /** Rename the active workout (updates the `split` field used by the saved log). */
+  const setActiveWorkoutName = useCallback((name: string) => {
+    setActiveWorkout(prev => {
+      if (!prev) return prev;
+      return { ...prev, split: name };
+    });
   }, []);
 
   const startRestTimer = useCallback((seconds: number) => {
@@ -1842,6 +1912,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     startWorkout,
     pauseWorkout,
     resetWorkout,
+    addExerciseToActiveWorkout,
+    setActiveWorkoutName,
     startRestTimer,
     adjustRestTimer,
     setRestPreset,
@@ -1892,7 +1964,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     readinessPercent, weeklyHoursMin, todayLogs,
     currentGeneratedWorkout, setCurrentGeneratedWorkout,
     isGeneratingWorkout, ensureTodayWorkoutGenerated,
-    startWorkout, pauseWorkout, resetWorkout, startRestTimer, adjustRestTimer,
+    startWorkout, pauseWorkout, resetWorkout, addExerciseToActiveWorkout, setActiveWorkoutName, startRestTimer, adjustRestTimer,
     setRestPreset, cancelRestTimer, initExerciseLog, updateSetLog,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout,

@@ -12,6 +12,8 @@ import type { PlanGoal, PlanLength, ExperienceLevel as PlanExperienceLevel } fro
 import { ALL_EQUIPMENT_IDS, CROSSFIT_EQUIPMENT_PRESET } from '@/mocks/equipmentData';
 import { type FitnessLevel } from '@/constants/fitnessLevel';
 import { supabase, updateProfile } from '@/services/supabase';
+import * as CloudSync from '@/services/cloudSync';
+import { hydrateFromCloud, clearFirstSyncFlag } from '@/services/cloudSyncOrchestrator';
 
 export type AppTheme = 'system' | 'dark' | 'light' | 'zeal' | 'neon';
 export type Sex = 'male' | 'female' | 'prefer_not';
@@ -577,6 +579,213 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       .catch(() => setLoaded(true));
   }, []);
 
+  // ── Cloud sync (Supabase) ──────────────────────────────────────────────
+  // Tracks the currently signed-in Supabase user. Wired via
+  // onAuthStateChange so it reflects login/logout in real time. When
+  // present alongside `loaded === true`, we hydrate cloud state into
+  // context + push any local-only data on first sync.
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const hydratedForUserRef = useRef<string | null>(null);
+  // Refs into current state so the orchestrator can read fresh values
+  // at the moment of first-sync without becoming a useEffect dep.
+  const stateRefs = useRef({
+    savedGyms,
+    savedWorkouts,
+    exercisePreferences,
+    activePlan,
+    planSchedule,
+    activeRunPlan,
+    runPlanSchedule,
+    plannedWorkouts,
+  });
+  stateRefs.current = {
+    savedGyms,
+    savedWorkouts,
+    exercisePreferences,
+    activePlan,
+    planSchedule,
+    activeRunPlan,
+    runPlanSchedule,
+    plannedWorkouts,
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      setCurrentUserId(data.session?.user?.id ?? null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    if (!currentUserId) return;
+    if (hydratedForUserRef.current === currentUserId) return;
+    hydratedForUserRef.current = currentUserId;
+
+    void hydrateFromCloud(currentUserId, {
+      getSavedGyms: () => stateRefs.current.savedGyms,
+      getSavedWorkouts: () => stateRefs.current.savedWorkouts,
+      getExercisePreferences: () => stateRefs.current.exercisePreferences,
+      getPlans: () => {
+        const out: { plan: WorkoutPlan; schedule: GeneratedPlanSchedule | null }[] = [];
+        const sp = stateRefs.current.activePlan;
+        if (sp) out.push({ plan: sp, schedule: stateRefs.current.planSchedule });
+        const rp = stateRefs.current.activeRunPlan;
+        if (rp) out.push({ plan: rp, schedule: stateRefs.current.runPlanSchedule });
+        return out;
+      },
+      getPlannedWorkouts: () => stateRefs.current.plannedWorkouts,
+    })
+      .then((snapshot) => {
+        if (snapshot.savedGyms && snapshot.savedGyms.length > 0) {
+          setSavedGyms(snapshot.savedGyms);
+          // Mirror to local cache so cold-start without internet still
+          // sees the cross-device data.
+          AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
+            ...stateRefs.current,
+            savedGyms: snapshot.savedGyms,
+          })).catch(() => {});
+        }
+        if (snapshot.savedWorkouts && snapshot.savedWorkouts.length > 0) {
+          setSavedWorkouts(snapshot.savedWorkouts);
+          AsyncStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(snapshot.savedWorkouts)).catch(() => {});
+        }
+        if (snapshot.exercisePreferences && Object.keys(snapshot.exercisePreferences).length > 0) {
+          setExercisePreferences(snapshot.exercisePreferences);
+          AsyncStorage.setItem(EXERCISE_PREFS_KEY, JSON.stringify(snapshot.exercisePreferences)).catch(() => {});
+        }
+        if (snapshot.plans && snapshot.plans.length > 0) {
+          const sp = snapshot.plans.find((p) => (p.plan.mode ?? 'strength') !== 'run');
+          const rp = snapshot.plans.find((p) => p.plan.mode === 'run');
+          if (sp) {
+            setActivePlan(sp.plan);
+            AsyncStorage.setItem(WORKOUT_PLAN_KEY, JSON.stringify(sp.plan)).catch(() => {});
+            if (sp.schedule) {
+              setPlanSchedule(sp.schedule);
+              AsyncStorage.setItem(PLAN_SCHEDULE_KEY, JSON.stringify(sp.schedule)).catch(() => {});
+            }
+          }
+          if (rp) {
+            setActiveRunPlan(rp.plan);
+            AsyncStorage.setItem(RUN_PLAN_KEY, JSON.stringify(rp.plan)).catch(() => {});
+            if (rp.schedule) {
+              setRunPlanSchedule(rp.schedule);
+              AsyncStorage.setItem(RUN_PLAN_SCHEDULE_KEY, JSON.stringify(rp.schedule)).catch(() => {});
+            }
+          }
+        }
+        if (snapshot.plannedWorkouts && snapshot.plannedWorkouts.length > 0) {
+          setPlannedWorkouts(snapshot.plannedWorkouts);
+          AsyncStorage.setItem(PLANNED_WORKOUTS_KEY, JSON.stringify(snapshot.plannedWorkouts)).catch(() => {});
+        }
+        if (snapshot.profileSettings) {
+          const s = snapshot.profileSettings;
+          if (s.dateOfBirth !== undefined) setDateOfBirth(s.dateOfBirth);
+          if (s.heightFt !== undefined) setHeightFt(s.heightFt);
+          if (s.heightIn !== undefined) setHeightIn(s.heightIn);
+          if (s.weight !== undefined) setWeight(s.weight);
+          if (s.sex !== undefined) setSex(s.sex as Sex);
+          if (s.bodyFat !== undefined) setBodyFat(s.bodyFat);
+          if (s.trainingGoals) setTrainingGoals(s.trainingGoals);
+          if (s.specialLifeCase) setSpecialLifeCase(s.specialLifeCase as SpecialLifeCase);
+          if (s.specialLifeCaseDetail !== undefined) setSpecialLifeCaseDetail(s.specialLifeCaseDetail);
+          if (s.activityLevel) setActivityLevel(s.activityLevel as ActivityLevel);
+          if (s.workoutStyle) setWorkoutStyle(s.workoutStyle);
+          if (s.trainingSplit) setTrainingSplit(s.trainingSplit);
+          if (s.targetDuration !== undefined) setTargetDuration(s.targetDuration);
+          if (s.restBetweenSets !== undefined) setRestBetweenSets(s.restBetweenSets);
+          if (s.warmUp !== undefined) setWarmUp(s.warmUp);
+          if (s.coolDown !== undefined) setCoolDown(s.coolDown);
+          if (s.recovery !== undefined) setRecovery(s.recovery);
+          if (s.addCardio !== undefined) setAddCardio(s.addCardio);
+          if (s.coreFinisher !== undefined) setCoreFinisher(s.coreFinisher);
+          if (s.selectedEquipment) setSelectedEquipment(s.selectedEquipment);
+          if (s.notifPrefs) setNotifPrefs(s.notifPrefs as NotifPrefs);
+        }
+      })
+      .catch((e) => __DEV__ && console.warn('[AppContext] cloud hydrate error:', e));
+  }, [loaded, currentUserId]);
+
+  // ── Push-on-change effects (Phase 1 + 2) ──────────────────────────────
+  // Each effect debounces local edits and mirrors them up to Supabase.
+  // Skipped until cloud hydrate has run for the current user, so we don't
+  // race the pull and clobber freshly-fetched cross-device data.
+  const pushReady = (): boolean =>
+    !!currentUserId && loaded && hydratedForUserRef.current === currentUserId;
+
+  useEffect(() => {
+    if (!pushReady()) return;
+    const t = setTimeout(() => void CloudSync.pushSavedGyms(currentUserId!, savedGyms), 800);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedGyms, currentUserId, loaded]);
+
+  useEffect(() => {
+    if (!pushReady()) return;
+    const t = setTimeout(() => void CloudSync.pushSavedWorkouts(currentUserId!, savedWorkouts), 800);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedWorkouts, currentUserId, loaded]);
+
+  useEffect(() => {
+    if (!pushReady()) return;
+    const t = setTimeout(() => void CloudSync.pushExercisePreferences(currentUserId!, exercisePreferences), 800);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercisePreferences, currentUserId, loaded]);
+
+  useEffect(() => {
+    if (!pushReady()) return;
+    const t = setTimeout(() => void CloudSync.pushPlannedWorkouts(currentUserId!, plannedWorkouts), 800);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plannedWorkouts, currentUserId, loaded]);
+
+  useEffect(() => {
+    if (!pushReady()) return;
+    const t = setTimeout(() => {
+      const rows: { plan: WorkoutPlan; schedule: GeneratedPlanSchedule | null }[] = [];
+      if (activePlan) rows.push({ plan: activePlan, schedule: planSchedule });
+      if (activeRunPlan) rows.push({ plan: activeRunPlan, schedule: runPlanSchedule });
+      void CloudSync.pushWorkoutPlans(currentUserId!, rows);
+    }, 1200);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlan, planSchedule, activeRunPlan, runPlanSchedule, currentUserId, loaded]);
+
+  // Profile settings (extended fields) — coarse-grained push when any
+  // profile/preference field changes. Debounced longer than entity pushes
+  // since these can chain when the user edits Settings.
+  useEffect(() => {
+    if (!pushReady()) return;
+    const t = setTimeout(() => {
+      void CloudSync.pushProfileSettings(currentUserId!, {
+        dateOfBirth, heightFt, heightIn, weight, sex, bodyFat,
+        trainingGoals, specialLifeCase, specialLifeCaseDetail, activityLevel,
+        workoutStyle, trainingSplit, targetDuration, restBetweenSets,
+        warmUp, coolDown, recovery, addCardio, coreFinisher,
+        selectedEquipment, notifPrefs,
+      });
+    }, 1500);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    dateOfBirth, heightFt, heightIn, weight, sex, bodyFat,
+    trainingGoals, specialLifeCase, specialLifeCaseDetail, activityLevel,
+    workoutStyle, trainingSplit, targetDuration, restBetweenSets,
+    warmUp, coolDown, recovery, addCardio, coreFinisher,
+    selectedEquipment, notifPrefs, currentUserId, loaded,
+  ]);
+
   const applyWorkoutOverride = useCallback((override: WorkoutOverride) => {
     const withDate = { ...override, setDate: getTodayDateStr() };
     __DEV__ && console.log('[AppContext] Setting workout override:', withDate);
@@ -935,13 +1144,18 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const logout = useCallback(() => {
     __DEV__ && console.log('[AppContext] Logging out — clearing isLoggedIn');
     setIsLoggedIn(false);
+    // Clear the cloud-sync first-sync marker for this user so the next
+    // sign-in re-runs the migration (e.g. switching accounts on the same
+    // device shouldn't reuse the previous user's marker).
+    if (currentUserId) void clearFirstSyncFlag(currentUserId);
+    hydratedForUserRef.current = null;
     void supabase.auth.signOut().catch((e) =>
       __DEV__ && console.log('[AppContext] Supabase signOut error:', e)
     );
     AsyncStorage.removeItem(IS_LOGGED_IN_KEY).catch((e) =>
       __DEV__ && console.log('[AppContext] isLoggedIn remove error:', e)
     );
-  }, []);
+  }, [currentUserId]);
 
   const performFullReset = useCallback(async (options?: { preserveAuthSession?: boolean }) => {
     const sessionToRestore = options?.preserveAuthSession
@@ -1023,11 +1237,13 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
 
   const deleteAccount = useCallback(async () => {
     __DEV__ && console.log('[AppContext] Deleting account — clearing all storage and resetting state');
+    if (currentUserId) await clearFirstSyncFlag(currentUserId);
+    hydratedForUserRef.current = null;
     await supabase.auth.signOut().catch((e) =>
       __DEV__ && console.log('[AppContext] Supabase signOut error during delete:', e)
     );
     await performFullReset();
-  }, [performFullReset]);
+  }, [performFullReset, currentUserId]);
 
   const resetForNewUser = useCallback(async () => {
     __DEV__ && console.log('[AppContext] Resetting for new user — clearing all storage and state');
@@ -1468,6 +1684,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       startPlanGeneration,
       clearPlanGenProgress,
       cancelPlanGeneration,
+      // Cloud sync
+      currentUserId,
     }),
     [
       userName, userPhotoUri, dateOfBirth, heightFt, heightIn, weight, sex, bodyFat,
@@ -1496,6 +1714,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
       plannedWorkouts, savePlannedWorkout, deletePlannedWorkout, getPlannedWorkoutForDate,
       googlePrefill, setGooglePrefill, deleteAccount, resetForNewUser, saveOnboardingProfile, newUserResetToken,
       planGenProgress, startPlanGeneration, clearPlanGenProgress, cancelPlanGeneration,
+      currentUserId,
     ]
   );
 });

@@ -1,8 +1,17 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+
+function fmtElapsed(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 import * as Haptics from 'expo-haptics';
 import {
   View,
   TouchableOpacity,
+  Alert,
   Text,
   StyleSheet,
   Modal,
@@ -16,6 +25,8 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   withSpring,
+  withTiming,
+  withRepeat,
   interpolate,
   interpolateColor,
   runOnJS,
@@ -58,6 +69,32 @@ export default function FloatingDock() {
   const insets = useSafeAreaInsets();
   const { colors, accent, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
+
+  // ── Live-track session detection ──────────────────────────────────────────
+  const isLiveSession = tracking.isWorkoutActive && tracking.activeWorkout?.style === 'Freestyle';
+  const [liveElapsed, setLiveElapsed] = useState(0);
+  useEffect(() => {
+    if (!isLiveSession) { setLiveElapsed(0); return; }
+    const id = setInterval(() => {
+      setLiveElapsed(Math.floor(tracking.workoutElapsedRef.current));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isLiveSession, tracking.workoutElapsedRef]);
+
+  // Pulsing dot for the resume pill — opacity breathes in/out while live
+  const dotOpacity = useSharedValue(1);
+  useEffect(() => {
+    if (!isLiveSession) {
+      dotOpacity.value = 1;
+      return;
+    }
+    dotOpacity.value = withRepeat(
+      withTiming(0.25, { duration: 900 }),
+      -1,
+      true,
+    );
+  }, [isLiveSession, dotOpacity]);
+  const dotPulseStyle = useAnimatedStyle(() => ({ opacity: dotOpacity.value }));
 
   const [menuOpen, setMenuOpen] = useState(false);
   // Legacy RN Animated for the menu modal (unchanged from previous version)
@@ -253,6 +290,25 @@ export default function FloatingDock() {
   const MENU_CLOSE_DELAY = 220;
 
   const menuItems = [
+    {
+      icon: <PlatformIcon name="dumbbell" size={20} color={accent} />,
+      label: isLiveSession ? 'Resume Workout' : 'Track Live',
+      onPress: () => {
+        closeMenu();
+        // Guard: a planned (non-Freestyle) workout is already active —
+        // don't clobber it. Prompt the user instead.
+        if (tracking.isWorkoutActive && !isLiveSession) {
+          setTimeout(() => Alert.alert(
+            'Workout in Progress',
+            'Finish your current workout before starting a new Live Track session.',
+            [{ text: 'OK' }],
+          ), MENU_CLOSE_DELAY);
+          return;
+        }
+        setTimeout(() => router.push('/live-track' as any), MENU_CLOSE_DELAY);
+      },
+      locked: false,
+    },
     { icon: <PlatformIcon name="hammer" size={20} color={accent} />, label: 'Build Workout', onPress: () => { closeMenu(); setTimeout(() => tracking.setBuildWorkoutVisible(true), MENU_CLOSE_DELAY); }, locked: false },
     {
       icon: <PlatformIcon name="figure-run" size={20} color={accent} />,
@@ -298,6 +354,29 @@ export default function FloatingDock() {
           style={[styles.gradientLayer, { height: gradientHeight }]}
           pointerEvents="none"
         />
+
+        {/* ── Live session resume pill ── */}
+        {isLiveSession && (
+          <TouchableOpacity
+            onPress={() => { closeMenu(); router.push('/live-track' as any); }}
+            activeOpacity={0.82}
+            style={styles.resumePillTouchable}
+          >
+            <BlurView
+              intensity={isDark ? 70 : 55}
+              tint={dockBlurTint}
+              style={[styles.resumePill, { borderColor: `${accent}50`, shadowColor: accent }]}
+            >
+              <Animated.View style={[styles.resumePillDot, { backgroundColor: accent }, dotPulseStyle]} />
+              <PlatformIcon name="dumbbell" size={13} color={accent} />
+              <Text style={[styles.resumePillText, { color: colors.text }]} numberOfLines={1}>
+                {tracking.activeWorkout?.split ?? 'Live Workout'}
+              </Text>
+              <Text style={[styles.resumePillTimer, { color: accent }]}>{fmtElapsed(liveElapsed)}</Text>
+              <PlatformIcon name="chevron-up" size={13} color={colors.textSecondary} />
+            </BlurView>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.dockRow} pointerEvents="box-none">
           {/* ───── Left: Glass pill with 4 tabs + draggable bubble ───── */}
@@ -665,5 +744,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Outfit_600SemiBold',
     flex: 1,
+  },
+
+  // ── Live session resume pill ──────────────────────────────────────────────
+  resumePillTouchable: {
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  resumePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  resumePillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  resumePillText: {
+    fontSize: 13,
+    fontFamily: 'Outfit_600SemiBold',
+    flex: 1,
+    maxWidth: 160,
+  },
+  resumePillTimer: {
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.5,
   },
 });

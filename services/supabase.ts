@@ -115,3 +115,75 @@ export async function updateProfile(userId: string, updates: Partial<Omit<ZealPr
     __DEV__ && console.error('[Supabase] Failed to update profile:', error);
   }
 }
+
+// ── Identity / provider linking ────────────────────────────────────
+// Used by SettingsDrawer to let an existing user attach Google/Apple to
+// the current Supabase user so they can sign in on a second device with
+// either provider. Linking goes through an OAuth web flow — the same
+// redirect we use on the login screen — so it works against the same
+// existing account without creating a duplicate user.
+
+export type LinkableProvider = 'google' | 'apple';
+
+export interface IdentitySummary {
+  provider: string;
+  email?: string | null;
+  identityId: string;
+}
+
+/**
+ * Returns the providers currently linked to the signed-in user. Reads
+ * from `user.identities` (populated by Supabase Auth on session load).
+ */
+export async function listLinkedIdentities(): Promise<IdentitySummary[]> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user) {
+    __DEV__ && console.warn('[Supabase] listLinkedIdentities — no user', error);
+    return [];
+  }
+  const ids = data.user.identities ?? [];
+  return ids.map((i) => ({
+    provider: i.provider,
+    email: (i.identity_data as { email?: string } | undefined)?.email ?? null,
+    identityId: i.id,
+  }));
+}
+
+/**
+ * Begin an OAuth identity-link flow. Returns the URL the caller should
+ * open in a web browser session; on success, Supabase attaches the new
+ * provider to the currently signed-in user (no second account is
+ * created). After the user returns, call `completeOAuthSignIn` with the
+ * callback URL — it works the same way as during sign-in because
+ * Supabase rebuilds the same session.
+ */
+export async function beginLinkIdentity(
+  provider: LinkableProvider,
+  redirectTo: string,
+): Promise<string> {
+  const { data, error } = await supabase.auth.linkIdentity({
+    provider,
+    options: { redirectTo },
+  });
+  if (error) throw error;
+  if (!data?.url) throw new Error('No URL returned from linkIdentity');
+  return data.url;
+}
+
+/**
+ * Detach a previously-linked provider from the signed-in user. The user
+ * must have at least one remaining identity afterward — Supabase rejects
+ * the call if it would leave the account orphaned.
+ */
+export async function unlinkIdentityByProvider(provider: LinkableProvider): Promise<void> {
+  const identities = await listLinkedIdentities();
+  const target = identities.find((i) => i.provider === provider);
+  if (!target) return;
+  // The Supabase JS SDK accepts the full UserIdentity object — refetch
+  // to get the typed shape.
+  const { data: userRes } = await supabase.auth.getUser();
+  const fullIdentity = userRes?.user?.identities?.find((i) => i.id === target.identityId);
+  if (!fullIdentity) return;
+  const { error } = await supabase.auth.unlinkIdentity(fullIdentity);
+  if (error) throw error;
+}

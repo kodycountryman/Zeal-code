@@ -12,7 +12,7 @@ import BaseDrawer from '@/components/drawers/BaseDrawer';
 import GlassCard from '@/components/GlassCard';
 import StyleTrackerDrawer from '@/components/drawers/StyleTrackerDrawer';
 import MuscleReadinessDrawer from '@/components/drawers/MuscleReadinessDrawer';
-import Svg, { Polygon, Line, Circle as SvgCircle, Polyline } from 'react-native-svg';
+import Svg, { Polygon, Line, Circle as SvgCircle, Polyline, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -33,6 +33,7 @@ import {
   RADAR_CATEGORY_LABELS,
   type RadarCategory,
   type RadarPercentileResult,
+  type RadarScoreSource,
 } from '@/constants/strengthStandards';
 import {
   detectInsightPatterns,
@@ -140,15 +141,55 @@ const RADAR_SIZE = 280;
 const RADAR_CENTER = RADAR_SIZE / 2;
 const RADAR_RADIUS = 105;
 const RADAR_AXES: RadarCategory[] = ['upper_push', 'upper_pull', 'lower_body', 'core', 'conditioning', 'cardio'];
+const RADAR_CATEGORY_COLORS: Record<RadarCategory, string> = {
+  upper_push: '#ef4444',
+  upper_pull: '#8b5cf6',
+  lower_body: '#22c55e',
+  core: '#3b82f6',
+  conditioning: '#f59e0b',
+  cardio: '#06b6d4',
+};
+const RADAR_SOURCE_LABELS: Record<RadarScoreSource, string> = {
+  benchmark: 'Benchmark',
+  volume_estimate: 'Volume estimate',
+  core_volume: 'Core volume',
+  training_mix: 'Training mix',
+  recent_runs: 'Recent runs',
+  missing: 'Needs data',
+};
+const RADAR_SOURCE_COPY: Record<RadarScoreSource, string> = {
+  benchmark: 'Compared against bodyweight-normalized compound lift standards.',
+  volume_estimate: 'Estimated from recent logged sets because no benchmark lift is available.',
+  core_volume: 'Estimated from core exercise volume over the last 4 weeks.',
+  training_mix: 'Estimated from conditioning sessions and metcon-style exercises.',
+  recent_runs: 'Built from recent runs: volume, frequency, and pace.',
+  missing: 'Not enough logged data yet.',
+};
+const RADAR_MISSING_PROMPTS: Record<RadarCategory, string> = {
+  upper_push: 'Log bench or press',
+  upper_pull: 'Log rows or pull-ups',
+  lower_body: 'Log squats or deadlifts',
+  core: 'Log core work',
+  conditioning: 'Log conditioning',
+  cardio: 'Log runs',
+};
+const RADAR_IMPROVE_COPY: Record<RadarCategory, string> = {
+  upper_push: 'Log bench press or overhead press for the cleanest score.',
+  upper_pull: 'Log rows or pull-ups; weighted pull-ups improve precision.',
+  lower_body: 'Log squats or deadlifts for the best lower-body benchmark.',
+  core: 'Log planks, weighted core work, carries, and anti-rotation moves.',
+  conditioning: 'Log HIIT, CrossFit, Hyrox, sled, rower, or interval sessions.',
+  cardio: 'Log outdoor or treadmill runs; consistent weekly mileage improves this axis.',
+};
 
 function polarToCartesian(angleDeg: number, radius: number): { x: number; y: number } {
   const angleRad = ((angleDeg - 90) * Math.PI) / 180;
   return { x: RADAR_CENTER + radius * Math.cos(angleRad), y: RADAR_CENTER + radius * Math.sin(angleRad) };
 }
 
-function RadarChart({ data, colors: themeColors, accent }: { data: RadarPercentileResult[]; colors: any; accent: string }) {
+function RadarChart({ data, colors: themeColors }: { data: RadarPercentileResult[]; colors: any }) {
   const gridLevels = [0.25, 0.5, 0.75, 1.0];
-  const angleStep = 360 / 6;
+  const angleStep = 360 / RADAR_AXES.length;
 
   const axisPoints = data.map((d, i) => {
     const angle = i * angleStep;
@@ -162,23 +203,120 @@ function RadarChart({ data, colors: themeColors, accent }: { data: RadarPercenti
     };
   });
 
-  const dataPolygon = axisPoints.map(p => `${p.data.x},${p.data.y}`).join(' ');
+  const segments = axisPoints.flatMap((point, index) => {
+    const next = axisPoints[(index + 1) % axisPoints.length];
+    if (point.percentile === null || next.percentile === null) return [];
+    return [{ point, next, index }];
+  });
+
+  const glowPasses = [
+    { strokeWidth: 26, opacity: 0.07 },
+    { strokeWidth: 16, opacity: 0.13 },
+    { strokeWidth: 8,  opacity: 0.22 },
+    { strokeWidth: 4,  opacity: 0.32 },
+  ];
 
   return (
     <Svg width={RADAR_SIZE} height={RADAR_SIZE} viewBox={`0 0 ${RADAR_SIZE} ${RADAR_SIZE}`}>
+      <Defs>
+        {/* Edge stroke gradients: point A → point B */}
+        {segments.map(({ point, next, index }) => (
+          <LinearGradient
+            key={`grad-${index}`}
+            id={`grad-${index}`}
+            x1={point.data.x}
+            y1={point.data.y}
+            x2={next.data.x}
+            y2={next.data.y}
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%"   stopColor={RADAR_CATEGORY_COLORS[point.category]} stopOpacity="1" />
+            <Stop offset="100%" stopColor={RADAR_CATEGORY_COLORS[next.category]}  stopOpacity="1" />
+          </LinearGradient>
+        ))}
+      </Defs>
+
+      {/* Grid */}
       {gridLevels.map((level) => {
-        const pts = Array.from({ length: 6 }, (_, i) => {
+        const pts = Array.from({ length: RADAR_AXES.length }, (_, i) => {
           const p = polarToCartesian(i * angleStep, RADAR_RADIUS * level);
           return `${p.x},${p.y}`;
         }).join(' ');
         return <Polygon key={`grid-${level}`} points={pts} fill="none" stroke={themeColors.border} strokeWidth={0.8} opacity={0.5} />;
       })}
+
+      {/* Axis lines */}
       {axisPoints.map((p) => (
         <Line key={`axis-${p.category}`} x1={RADAR_CENTER} y1={RADAR_CENTER} x2={p.outer.x} y2={p.outer.y} stroke={themeColors.border} strokeWidth={0.6} opacity={0.4} />
       ))}
-      <Polygon points={dataPolygon} fill={accent} fillOpacity={0.25} stroke={accent} strokeWidth={2} />
-      {axisPoints.map((p) => (
-        <SvgCircle key={`dot-${p.category}`} cx={p.data.x} cy={p.data.y} r={3.5} fill={p.percentile !== null ? accent : themeColors.textMuted} />
+
+      {/* Fill triangles — same A→B gradient as stroke so each wedge transitions hue correctly */}
+      {segments.map(({ point, next, index }) => (
+        <Polygon
+          key={`fill-${index}`}
+          points={`${RADAR_CENTER},${RADAR_CENTER} ${point.data.x},${point.data.y} ${next.data.x},${next.data.y}`}
+          fill={`url(#grad-${index})`}
+          fillOpacity={0.28}
+        />
+      ))}
+
+      {/* Glow passes — wide→narrow, soft→intense, radiate inward from boundary */}
+      {glowPasses.map(({ strokeWidth, opacity }, pass) =>
+        segments.map(({ point, next, index }) => (
+          <Line
+            key={`glow-${pass}-${index}`}
+            x1={point.data.x}
+            y1={point.data.y}
+            x2={next.data.x}
+            y2={next.data.y}
+            stroke={`url(#grad-${index})`}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            opacity={opacity}
+          />
+        ))
+      )}
+
+      {/* Crisp outer stroke */}
+      {segments.map(({ point, next, index }) => (
+        <Line
+          key={`stroke-${index}`}
+          x1={point.data.x}
+          y1={point.data.y}
+          x2={next.data.x}
+          y2={next.data.y}
+          stroke={`url(#grad-${index})`}
+          strokeWidth={2.4}
+          strokeLinecap="round"
+        />
+      ))}
+
+      {/* Dot glow rings */}
+      {axisPoints.filter((p) => p.percentile !== null).map((p) => (
+        <SvgCircle
+          key={`glow-${p.category}`}
+          cx={p.data.x}
+          cy={p.data.y}
+          r={9}
+          fill={RADAR_CATEGORY_COLORS[p.category]}
+          fillOpacity={0.18}
+        />
+      ))}
+
+      {/* Dots */}
+      {axisPoints.map((p) => p.percentile !== null ? (
+        <SvgCircle key={`dot-${p.category}`} cx={p.data.x} cy={p.data.y} r={3.8} fill={RADAR_CATEGORY_COLORS[p.category]} />
+      ) : (
+        <SvgCircle
+          key={`dot-${p.category}`}
+          cx={polarToCartesian(p.angle, RADAR_RADIUS * 0.2).x}
+          cy={polarToCartesian(p.angle, RADAR_RADIUS * 0.2).y}
+          r={2.5}
+          fill="none"
+          stroke={themeColors.textMuted}
+          strokeWidth={1}
+          opacity={0.35}
+        />
       ))}
     </Svg>
   );
@@ -417,7 +555,7 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
   // ─── Info toast helpers ─────────────────────────────────
   const CARD_INFO: Record<string, string> = {
-    'FITNESS PROFILE': 'Your estimated fitness percentile across 6 categories — strength, conditioning, and cardio — vs. others of the same sex & bodyweight. Tap a spoke for details.',
+    'FITNESS PROFILE': 'Your capability profile across strength, conditioning, and cardio. Each axis shows its source so benchmark scores and estimates stay clear.',
     'MUSCLE READINESS': 'How recovered each muscle group is based on recent training volume and difficulty. Green = ready, yellow = building, red = recovering.',
     'THIS WEEK': 'A snapshot of your training this 7-day window — workouts, total time, streak, and new PRs.',
     'TRAINING LOAD': 'Your weekly training volume trend. Rising bars = increasing load. Spikes may mean overreaching; flat lines may signal time for a deload.',
@@ -568,31 +706,45 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
 
             <View style={styles.radarWrapper}>
               <View style={[styles.radarContainer, !hasPro && { opacity: PRO_LOCKED_OPACITY }]}>
-                <RadarChart data={radarData} colors={colors} accent={accent} />
+                <RadarChart data={radarData} colors={colors} />
 
                 {radarData.map((d, i) => {
                   const angle = i * 60;
-                  const labelRadius = RADAR_RADIUS + 30;
+                  const labelAdjust: Partial<Record<RadarCategory, { radius: number; dx: number; dy: number }>> = {
+                    upper_push: { radius: RADAR_RADIUS + 38, dx: 0, dy: -4 },
+                    upper_pull: { radius: RADAR_RADIUS + 36, dx: 6, dy: -2 },
+                    lower_body: { radius: RADAR_RADIUS + 36, dx: 8, dy: 3 },
+                    core: { radius: RADAR_RADIUS + 34, dx: 0, dy: 5 },
+                    conditioning: { radius: RADAR_RADIUS + 38, dx: -8, dy: 3 },
+                    cardio: { radius: RADAR_RADIUS + 38, dx: -8, dy: -2 },
+                  };
+                  const adjust = labelAdjust[d.category] ?? { radius: RADAR_RADIUS + 30, dx: 0, dy: 0 };
+                  const labelRadius = adjust.radius;
                   const pos = polarToCartesian(angle, labelRadius);
                   return (
                     <TouchableOpacity
                       key={d.category}
-                      style={[styles.axisLabel, { left: pos.x - 44, top: pos.y - 18 }]}
+                      style={[styles.axisLabel, { left: pos.x - 48 + adjust.dx, top: pos.y - 18 + adjust.dy }]}
                       onPress={() => hasPro ? handleAxisTap(d.category) : showProGate('insights', openPaywall)}
                       activeOpacity={0.6}
                     >
-                      <Text style={[styles.axisLabelText, { color: colors.text }]} numberOfLines={2}>
+                      <Text
+                        style={[styles.axisLabelText, { color: d.percentile !== null ? colors.text : colors.textSecondary }]}
+                        numberOfLines={2}
+                      >
                         {d.label}
                       </Text>
                       {d.percentile !== null ? (
                         <View style={styles.axisBadgeRow}>
-                          <Text style={[styles.axisValueText, { color: accent }]}>{d.percentile}%</Text>
+                          <Text style={[styles.axisValueText, { color: TIER_COLORS[d.tier!] }]}>{d.percentile}%</Text>
                           <View style={[styles.tierBadge, { backgroundColor: `${TIER_COLORS[d.tier!]}20` }]}>
                             <Text style={[styles.tierBadgeText, { color: TIER_COLORS[d.tier!] }]}>{d.tier}</Text>
                           </View>
                         </View>
                       ) : (
-                        <Text style={[styles.axisValueText, { color: colors.textMuted }]}>?</Text>
+                        <Text style={[styles.axisMissingText, { color: colors.textMuted }]} numberOfLines={2}>
+                          {RADAR_MISSING_PROMPTS[d.category]}
+                        </Text>
                       )}
                     </TouchableOpacity>
                   );
@@ -603,11 +755,22 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                 <TouchableOpacity style={styles.radarOverlay} onPress={() => showProGate('insights', openPaywall)} activeOpacity={0.9}>
                   <View style={styles.radarLockBadge}>
                     <PlatformIcon name="crown" size={20} color={PRO_GOLD} strokeWidth={1.5} />
-                    <Text style={styles.radarLockSub}>Strength Profile</Text>
+                    <Text style={styles.radarLockSub}>Fitness Profile</Text>
                   </View>
                 </TouchableOpacity>
               )}
             </View>
+
+            {hasPro && (
+              <View style={styles.radarSourceLegend}>
+                {(['benchmark', 'volume_estimate', 'recent_runs'] as RadarScoreSource[]).map(source => (
+                  <View key={source} style={styles.sourceLegendItem}>
+                    <View style={[styles.sourceLegendDot, { backgroundColor: colors.textMuted }]} />
+                    <Text style={[styles.sourceLegendText, { color: colors.textMuted }]}>{RADAR_SOURCE_LABELS[source]}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {hasPro && <Text style={[styles.tipHint, { color: colors.textMuted }]}>Tap a category for details</Text>}
 
@@ -617,22 +780,32 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
               const next = axisData.drivingExercise
                 ? getNextTierTarget(ctx.sex === 'female' ? 'female' : 'male', axisData.drivingExercise, ctx.weight || 160, axisData.percentile ?? 0)
                 : null;
-
-              // Per-axis no-data messages (each axis has its own prompt)
-              const noDataMessage: Partial<Record<typeof tipAxis, string>> = {
-                cardio: 'Log runs to see your cardio ranking here.',
-                conditioning: 'Do HIIT, CrossFit, or Hyrox sessions to build your conditioning score.',
-                core: 'Log core exercises (planks, crunches, leg raises) to build your core score.',
-                upper_push: 'Bench press or overhead press gives the most accurate ranking — accessory volume still counts.',
-                upper_pull: 'Rows or pull-ups give the most accurate ranking — all back/bicep work still counts.',
-                lower_body: 'Log squats or deadlifts for a precise ranking — all leg work already contributes.',
-              };
+              const scoreText = axisData.percentile !== null && axisData.tier
+                ? `${axisData.percentile}% · ${axisData.tier}`
+                : 'Needs data';
+              const confidenceText = axisData.confidence === 'none'
+                ? 'No confidence yet'
+                : `${axisData.confidence[0].toUpperCase()}${axisData.confidence.slice(1)} confidence`;
 
               return (
                 <Animated.View style={[styles.tipCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', opacity: tipAnim }]}>
-                  <Text style={[styles.tipTitle, { color: accent }]}>{RADAR_CATEGORY_LABELS[tipAxis]}</Text>
+                  <View style={styles.tipHeaderRow}>
+                    <View style={[styles.tipColorDot, { backgroundColor: RADAR_CATEGORY_COLORS[tipAxis] }]} />
+                    <Text style={[styles.tipTitle, { color: colors.text }]}>{RADAR_CATEGORY_LABELS[tipAxis]}</Text>
+                  </View>
+                  <View style={styles.tipMetaRow}>
+                    <View style={[styles.tipPill, { backgroundColor: colors.cardSecondary }]}>
+                      <Text style={[styles.tipPillText, { color: colors.text }]}>{scoreText}</Text>
+                    </View>
+                    <View style={[styles.tipPill, { backgroundColor: colors.cardSecondary }]}>
+                      <Text style={[styles.tipPillText, { color: colors.textSecondary }]}>{RADAR_SOURCE_LABELS[axisData.source]}</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                    {confidenceText}. {RADAR_SOURCE_COPY[axisData.source]}
+                  </Text>
                   {axisData.drivingExercise && (
-                    <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                    <Text style={[styles.tipText, { color: colors.textSecondary, marginTop: 4 }]}>
                       Based on: {axisData.drivingExercise} (est. 1RM: {axisData.drivingE1RM} lb)
                     </Text>
                   )}
@@ -641,30 +814,9 @@ export default function InsightsDrawer({ visible, onClose }: Props) {
                       Hit {next.target1RM} lb to reach {next.tier}
                     </Text>
                   )}
-                  {axisData.percentile === null && tipAxis && noDataMessage[tipAxis] && (
-                    <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                      {noDataMessage[tipAxis]}
-                    </Text>
-                  )}
-                  {axisData.percentile !== null && !axisData.drivingExercise && (
-                    tipAxis === 'cardio' ? (
-                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                        Score from recent runs — volume, frequency, and pace combined.
-                      </Text>
-                    ) : tipAxis === 'conditioning' ? (
-                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                        Score from conditioning-style sessions and metcon exercises.
-                      </Text>
-                    ) : tipAxis === 'core' ? (
-                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                        Score from core exercise volume over the last 4 weeks.
-                      </Text>
-                    ) : (
-                      <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                        Volume-based estimate — log compound lifts for a more precise ranking.
-                      </Text>
-                    )
-                  )}
+                  <Text style={[styles.tipText, { color: colors.textSecondary, marginTop: 4 }]}>
+                    How to improve: {RADAR_IMPROVE_COPY[tipAxis]}
+                  </Text>
                 </Animated.View>
               );
             })()}
@@ -2038,15 +2190,25 @@ const styles = StyleSheet.create({
   radarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   radarLockBadge: { alignItems: 'center', gap: 6, backgroundColor: 'rgba(12,12,15,0.85)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 },
   radarLockSub: { fontSize: 12, color: '#aaa', textAlign: 'center', fontWeight: '600' },
-  axisLabel: { position: 'absolute', width: 88, alignItems: 'center' },
+  axisLabel: { position: 'absolute', width: 96, alignItems: 'center' },
   axisLabelText: { fontSize: 10, fontWeight: '700', textAlign: 'center', lineHeight: 13 },
   axisValueText: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  axisMissingText: { fontSize: 8, fontWeight: '600', textAlign: 'center', lineHeight: 10, marginTop: 2 },
   axisBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   tierBadge: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
   tierBadgeText: { fontSize: 7, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase' },
+  radarSourceLegend: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 2 },
+  sourceLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sourceLegendDot: { width: 5, height: 5, borderRadius: 3, opacity: 0.55 },
+  sourceLegendText: { fontSize: 9, fontWeight: '600' },
   tipHint: { fontSize: 11, textAlign: 'center', marginTop: 2 },
-  tipCard: { borderRadius: 12, padding: 14 },
-  tipTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  tipCard: { borderRadius: 12, padding: 14, gap: 6 },
+  tipHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  tipColorDot: { width: 8, height: 8, borderRadius: 4 },
+  tipTitle: { fontSize: 13, fontWeight: '700' },
+  tipMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tipPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  tipPillText: { fontSize: 10, fontWeight: '700' },
   tipText: { fontSize: 12, lineHeight: 18 },
 
   // AI Coach

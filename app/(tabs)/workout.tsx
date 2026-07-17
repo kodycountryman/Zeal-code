@@ -86,6 +86,7 @@ import { SWIFT_REANIMATED_SPRING } from '@/constants/animation';
 import { useTourTarget, useAppTour } from '@/context/AppTourContext';
 
 const WEIGHT_TIP_KEY = '@zeal_weight_chip_tip_seen_v1';
+const ZEAL_ORANGE = '#f87116';
 
 
 const SPRING_BTN = { damping: 15, stiffness: 400, mass: 0.5 } as const;
@@ -2317,13 +2318,18 @@ export default function WorkoutScreen() {
       <Pressable
         onPress={() => handleToggleTrackPanel(ex.id, ex)}
         hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
-        style={({ pressed }) => [{ paddingLeft: 8, paddingVertical: 8 }, pressed && { opacity: 0.8 }]}
+        style={({ pressed }) => [
+          styles.trackDisclosureButton,
+          {
+            opacity: isCompleted ? 0.48 : pressed ? 0.78 : 1,
+          },
+        ]}
       >
-        <PlatformIcon name="chevron-down"
-          size={22}
-          color={isCompleted ? colors.textMuted : '#ffffff'}
-          strokeWidth={2.8}
-          style={{ transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }}
+        <PlatformIcon
+          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+          size={15}
+          color={colors.textMuted}
+          strokeWidth={2.4}
         />
       </Pressable>
     );
@@ -3959,19 +3965,30 @@ export default function WorkoutScreen() {
         )}
 
         {(!hasCompletedToday || postWorkoutDismissed) && !hasPro && !planLapseBannerDismissed && ctx.activePlan && PRO_STYLES_SET.has(ctx.activePlan.style) && !tracking.isWorkoutActive && (
-          <View style={[styles.coreStyleBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
-            <View style={styles.coreStyleBannerContent}>
-              <PlatformIcon name="info" size={14} color="#f59e0b" />
-              <Text style={[styles.coreStyleBannerText, { color: colors.text }]}>
-                {'Your plan uses '}
-                <Text style={{ fontWeight: '700' as const }}>{ctx.activePlan.style}</Text>
-                {', a Pro style. '}
-                <Text style={{ fontWeight: '700' as const, color: '#f59e0b' }} onPress={openPaywall}>Upgrade to keep it</Text>
-                {' or switch styles in Settings.'}
-              </Text>
+          <View style={[styles.coreStyleBanner, styles.proPlanBanner, { backgroundColor: colors.card, borderColor: cardBorder }]}>
+            <View style={styles.proPlanBannerContent}>
+              <View style={[styles.proPlanBannerIcon, { backgroundColor: '#f59e0b18' }]}>
+                <PlatformIcon name="info" size={14} color="#f59e0b" />
+              </View>
+              <View style={styles.proPlanBannerCopy}>
+                <Text style={[styles.proPlanBannerTitle, { color: colors.text }]} numberOfLines={1}>
+                  {ctx.activePlan.style} is Pro
+                </Text>
+                <Text style={[styles.proPlanBannerSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
+                  Upgrade to keep this plan, or switch styles in Settings.
+                </Text>
+              </View>
             </View>
             <TouchableOpacity
+              onPress={openPaywall}
+              style={[styles.proPlanBannerCta, { backgroundColor: '#f59e0b1F', borderColor: '#f59e0b45' }]}
+              activeOpacity={0.78}
+            >
+              <Text style={styles.proPlanBannerCtaText}>Upgrade</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => setPlanLapseBannerDismissed(true)}
+              style={styles.proPlanBannerClose}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.7}
             >
@@ -4104,26 +4121,28 @@ export default function WorkoutScreen() {
                   <View style={styles.workoutInfoLabelRow}>
                     <View style={styles.workoutInfoLabelLeft}>
                       <Text style={[styles.workoutInfoLabel, { color: colors.textSecondary }]}>Today&apos;s Workout</Text>
-                      <Chip variant="neutral" label={currentStyle} />
                     </View>
                     <View style={{ flex: 1 }} />
                     <View ref={tourShuffleRef as any} collapsable={false}>
-                      <Button
-                        variant="tertiary"
-                        size="sm"
-                        icon="refresh"
-                        label="Shuffle"
+                      <TouchableOpacity
+                        style={[
+                          styles.shufflePill,
+                          {
+                            backgroundColor: colors.cardSecondary,
+                            borderColor: `${colors.border}66`,
+                          },
+                        ]}
                         testID="shuffle-workout"
                         onPress={handleRegenerate}
-                      />
+                        activeOpacity={0.78}
+                        accessibilityRole="button"
+                        accessibilityLabel="Shuffle workout"
+                      >
+                        <PlatformIcon name="refresh" size={12} color={ZEAL_ORANGE} strokeWidth={2.4} />
+                        <Text style={[styles.shufflePillText, { color: colors.textSecondary }]}>Shuffle</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-
-                  {ctx.activePlan && todayPrescription && (
-                    <Text style={[styles.workoutPlanContext, { color: colors.textMuted }]}>
-                      {`Week ${pwApWeek} · ${PHASE_DISPLAY_NAMES[todayPrescription.phase as PlanPhase] ?? todayPrescription.phase}`}
-                    </Text>
-                  )}
 
                   <View style={styles.workoutInfoTitleRow}>
                     <Text style={styles.workoutInfoTitle} numberOfLines={1}>
@@ -4131,13 +4150,16 @@ export default function WorkoutScreen() {
                     </Text>
                   </View>
 
-                  <Text style={[styles.workoutInfoSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {`${displayDuration} min`}
-                    {targetedMuscles.length > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
-                    {targetedMuscles.length > 0 && targetedMuscles.slice(0, 2).join(', ')}
-                    {totalExercises > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
-                    {totalExercises > 0 && `${totalExercises} exercises`}
-                  </Text>
+                  <View style={styles.workoutInfoMetaRow}>
+                    <Chip variant="neutral" label={currentStyle} />
+                    <Text style={[styles.workoutInfoSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {`${displayDuration} min`}
+                      {targetedMuscles.length > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
+                      {targetedMuscles.length > 0 && targetedMuscles.slice(0, 2).join(', ')}
+                      {totalExercises > 0 && <Text style={{ color: colors.text, opacity: 0.45 }}>{' · '}</Text>}
+                      {totalExercises > 0 && `${totalExercises} exercises`}
+                    </Text>
+                  </View>
 
                 </View>
 
@@ -5767,10 +5789,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   workoutInfoSubtitle: {
+    flex: 1,
     fontSize: 13,
     fontFamily: 'Outfit_400Regular',
     letterSpacing: 0.1,
     marginTop: -2,
+  },
+  workoutInfoMetaRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    minWidth: 0,
   },
   workoutInfoChips: {
     flexDirection: 'row' as const,
@@ -5788,6 +5817,20 @@ const styles = StyleSheet.create({
   workoutInfoChipText: {
     fontSize: 11,
     fontFamily: 'Outfit_500Medium',
+  },
+  shufflePill: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  shufflePillText: {
+    fontSize: 11,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.1,
   },
 
   workoutInfoDivider: {
@@ -6017,6 +6060,13 @@ const styles = StyleSheet.create({
   trackBtnText: {
     fontSize: 13,
     fontWeight: '600' as const,
+  },
+  trackDisclosureButton: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginLeft: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 8,
   },
   gripDots: {
     paddingHorizontal: 6,
@@ -7118,6 +7168,58 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
+  },
+  proPlanBanner: {
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  proPlanBannerContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
+  },
+  proPlanBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proPlanBannerCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  proPlanBannerTitle: {
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+  },
+  proPlanBannerSubtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: 'Outfit_400Regular',
+  },
+  proPlanBannerCta: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  proPlanBannerCtaText: {
+    color: '#f59e0b',
+    fontSize: 12,
+    fontFamily: 'Outfit_700Bold',
+  },
+  proPlanBannerClose: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   /* ── Post-Workout Completed Screen ── */

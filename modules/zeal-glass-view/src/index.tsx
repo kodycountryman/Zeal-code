@@ -3,10 +3,9 @@ import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 
 // ─────────────────────────────────────────────────────────────────
-// <GlassView> — real UIGlassEffect on iOS 26+, BlurView elsewhere.
+// <GlassView> — Expo BlurView fallback. Native glass is intentionally disabled.
 // ─────────────────────────────────────────────────────────────────
 
-// Bisect: JS side stubbed — native module still compiled but not used from JS
 const NativeGlassView: React.ComponentType<{ children?: React.ReactNode; style?: StyleProp<ViewStyle> }> | null = null;
 
 interface GlassViewProps {

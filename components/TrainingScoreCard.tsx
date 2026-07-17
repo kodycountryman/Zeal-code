@@ -236,7 +236,7 @@ function TrainingScoreCard({
           <Text style={[styles.label, { color: colors.text }]}>
             Training Score
           </Text>
-          <PlatformIcon name="chevron-right" size={16} color={colors.textSecondary} />
+          <PlatformIcon name="chevron-right" size={13} color={colors.textMuted} strokeWidth={1.8} />
         </View>
 
         <View style={styles.scoreRow}>

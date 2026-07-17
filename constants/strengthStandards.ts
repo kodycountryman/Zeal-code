@@ -23,6 +23,16 @@ export type RadarCategory =
 
 export type StrengthTier = 'Beginner' | 'Novice' | 'Intermediate' | 'Advanced' | 'Elite';
 
+export type RadarScoreSource =
+  | 'benchmark'
+  | 'volume_estimate'
+  | 'core_volume'
+  | 'training_mix'
+  | 'recent_runs'
+  | 'missing';
+
+export type RadarScoreConfidence = 'high' | 'medium' | 'low' | 'none';
+
 export const TIER_COLORS: Record<StrengthTier, string> = {
   Beginner: '#6b7280',      // gray
   Novice: '#3b82f6',        // blue
@@ -270,6 +280,8 @@ export interface RadarPercentileResult {
   tier: StrengthTier | null;
   drivingExercise: string | null;
   drivingE1RM: number | null;
+  source: RadarScoreSource;
+  confidence: RadarScoreConfidence;
 }
 
 export const RADAR_CATEGORY_LABELS: Record<RadarCategory, string> = {
@@ -589,6 +601,8 @@ export function getRadarPercentiles(
         tier: cardioPct !== null ? getTierForPercentile(cardioPct) : null,
         drivingExercise: null,
         drivingE1RM: null,
+        source: cardioPct !== null ? 'recent_runs' : 'missing',
+        confidence: cardioPct !== null ? 'medium' : 'none',
       };
     }
 
@@ -600,6 +614,8 @@ export function getRadarPercentiles(
         tier: conditioningPct !== null ? getTierForPercentile(conditioningPct) : null,
         drivingExercise: null,
         drivingE1RM: null,
+        source: conditioningPct !== null ? 'training_mix' : 'missing',
+        confidence: conditioningPct !== null ? 'low' : 'none',
       };
     }
 
@@ -611,6 +627,8 @@ export function getRadarPercentiles(
         tier: corePct !== null ? getTierForPercentile(corePct) : null,
         drivingExercise: null,
         drivingE1RM: null,
+        source: corePct !== null ? 'core_volume' : 'missing',
+        confidence: corePct !== null ? 'low' : 'none',
       };
     }
 
@@ -625,6 +643,8 @@ export function getRadarPercentiles(
         tier: getTierForPercentile(best.percentile),
         drivingExercise: best.exerciseName,
         drivingE1RM: best.e1rm,
+        source: 'benchmark',
+        confidence: 'high',
       };
     }
 
@@ -638,6 +658,8 @@ export function getRadarPercentiles(
       tier: volPct !== null ? getTierForPercentile(volPct) : null,
       drivingExercise: null,
       drivingE1RM: null,
+      source: volPct !== null ? 'volume_estimate' : 'missing',
+      confidence: volPct !== null ? 'medium' : 'none',
     };
   });
 }

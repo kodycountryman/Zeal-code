@@ -17,6 +17,7 @@ interface WheelPickerProps<T extends WheelPickerValue = number> {
   suffix?: string;
   formatValue?: (v: T) => string;
   itemHeight?: number;
+  scrollEnabled?: boolean;
 }
 
 const ITEM_H = 44;
@@ -47,6 +48,7 @@ export default function WheelPicker<T extends WheelPickerValue = number>({
   formatValue,
   textColor = '#fff',
   bgColor,
+  scrollEnabled = true,
 }: WheelPickerProps<T>) {
   const listRef = useRef<FlatList<T>>(null);
   const initIndex = findClosestIndex(values, selectedValue);
@@ -137,6 +139,7 @@ export default function WheelPicker<T extends WheelPickerValue = number>({
         onMomentumScrollEnd={onEnd}
         onScrollEndDrag={onEnd}
         scrollEventThrottle={16}
+        scrollEnabled={scrollEnabled}
         nestedScrollEnabled
         ListHeaderComponent={Spacer}
         ListFooterComponent={Spacer}

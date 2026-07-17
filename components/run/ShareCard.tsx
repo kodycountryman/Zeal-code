@@ -36,6 +36,10 @@ interface Props {
   accent?: string;
   /** Whether to render the SVG route path. Defaults to true. */
   showRoute?: boolean;
+  /** Whether to render native map tiles behind the route. */
+  showMap?: boolean;
+  /** Whether to add split markers and a compact split strip. */
+  showSplits?: boolean;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -64,7 +68,50 @@ function formatPaceForUnit(secondsPerMeter: number, units: 'imperial' | 'metric'
  * card's route-preview area. Returns the path data plus the bounding box used
  * for sizing, or null if the route is too short.
  */
-function buildNormalizedRoutePath(log: RunLog, targetW: number, targetH: number): string | null {
+function distanceBetween(a: RoutePoint, b: RoutePoint): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const phi1 = toRad(a.latitude);
+  const phi2 = toRad(b.latitude);
+  const dPhi = toRad(b.latitude - a.latitude);
+  const dLambda = toRad(b.longitude - a.longitude);
+  const ha = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(ha), Math.sqrt(1 - ha));
+}
+
+function findRouteSplitMarkers(log: RunLog): { latitude: number; longitude: number; label: string }[] {
+  if (log.route.length < 2 || log.splits.length === 0) return [];
+  const unitDistance = log.splitUnit === 'metric' ? METERS_PER_KM : METERS_PER_MILE;
+  const markers: { latitude: number; longitude: number; label: string }[] = [];
+  let cumulative = 0;
+  let nextMarkerAt = unitDistance;
+  let nextIndex = 1;
+
+  for (let i = 1; i < log.route.length && nextIndex <= log.splits.length; i++) {
+    const a = log.route[i - 1];
+    const b = log.route[i];
+    const segmentDistance = distanceBetween(a, b);
+    cumulative += segmentDistance;
+
+    while (cumulative >= nextMarkerAt && segmentDistance > 0 && nextIndex <= log.splits.length) {
+      const overshoot = cumulative - nextMarkerAt;
+      const t = 1 - overshoot / segmentDistance;
+      markers.push({
+        latitude: a.latitude + (b.latitude - a.latitude) * t,
+        longitude: a.longitude + (b.longitude - a.longitude) * t,
+        label: String(nextIndex),
+      });
+      nextIndex += 1;
+      nextMarkerAt += unitDistance;
+    }
+  }
+  return markers;
+}
+
+function buildNormalizedRouteArtwork(
+  log: RunLog,
+  targetW: number,
+  targetH: number,
+): { path: string; splitMarkers: { x: number; y: number; label: string }[] } | null {
   if (log.route.length < 2) return null;
   let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
   for (const p of log.route) {
@@ -86,22 +133,34 @@ function buildNormalizedRoutePath(log: RunLog, targetW: number, targetH: number)
   const offsetX = (targetW - lonRange * scale) / 2;
   const offsetY = (targetH - latRange * scale) / 2;
 
-  return log.route
+  const toPoint = (latitude: number, longitude: number) => {
+    const x = offsetX + (longitude - minLon) * scale;
+    const y = offsetY + (maxLat - latitude) * scale;
+    return { x, y };
+  };
+
+  const path = log.route
     .map((p, i) => {
       // Longitude → X, Latitude → Y (flipped because screen Y grows downward)
-      const x = offsetX + (p.longitude - minLon) * scale;
-      const y = offsetY + (maxLat - p.latitude) * scale;
+      const { x, y } = toPoint(p.latitude, p.longitude);
       const cmd = i === 0 ? 'M' : 'L';
       return `${cmd} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(' ');
+
+  const splitMarkers = findRouteSplitMarkers(log).map((marker) => {
+    const point = toPoint(marker.latitude, marker.longitude);
+    return { ...point, label: marker.label };
+  });
+
+  return { path, splitMarkers };
 }
 
 /**
  * Shareable run summary card. The ref is used by react-native-view-shot to
  * capture the rendered JSX as a PNG for the native share sheet.
  */
-const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116', showRoute = true }, ref) => {
+const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116', showRoute = true, showMap = true, showSplits = false }, ref) => {
   const baseWidth = format === 'story' ? 360 : 360;
   const baseHeight = format === 'story' ? 640 : 360;
 
@@ -118,8 +177,11 @@ const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116', sh
 
   // Route path sized for the card
   const routeAreaW = baseWidth - 48;
-  const routeAreaH = format === 'story' ? 240 : 140;
-  const routePath = useMemo(() => buildNormalizedRoutePath(log, routeAreaW, routeAreaH), [log, routeAreaW, routeAreaH]);
+  const routeAreaH = format === 'story'
+    ? (showSplits ? 210 : 240)
+    : (showSplits ? 112 : 140);
+  const routeArtwork = useMemo(() => buildNormalizedRouteArtwork(log, routeAreaW, routeAreaH), [log, routeAreaW, routeAreaH]);
+  const shouldShowFallbackRoute = !showMap || !hasMapsModule();
 
   return (
     <View
@@ -171,14 +233,32 @@ const ShareCard = forwardRef<View, Props>(({ log, format, accent = '#f87116', sh
         </View>
 
         {/* Route — Phase 9: real map tiles when available, SVG fallback otherwise */}
-        {showRoute && log.route.length >= 2 && (
-          <View style={[styles.routeWrap, { width: routeAreaW, height: routeAreaH }]}>
-            <RouteMapBackground route={log.route} width={routeAreaW} height={routeAreaH} accent={accent} />
-            {/* SVG fallback only used when MapView isn't available */}
-            {!hasMapsModule() && routePath && (
-              <RoutePathRenderer path={routePath} width={routeAreaW} height={routeAreaH} color={accent} />
+        {showRoute && log.route.length >= 2 && routeArtwork && (
+          <View style={[styles.routeWrap, { width: routeAreaW, height: routeAreaH, backgroundColor: showMap ? 'transparent' : 'rgba(255,255,255,0.06)' }]}>
+            {showMap && (
+              <RouteMapBackground
+                route={log.route}
+                width={routeAreaW}
+                height={routeAreaH}
+                accent={accent}
+                showSplits={showSplits}
+                splitMarkers={findRouteSplitMarkers(log)}
+              />
+            )}
+            {shouldShowFallbackRoute && (
+              <RoutePathRenderer
+                path={routeArtwork.path}
+                width={routeAreaW}
+                height={routeAreaH}
+                color={accent}
+                splitMarkers={showSplits ? routeArtwork.splitMarkers : []}
+              />
             )}
           </View>
+        )}
+
+        {showSplits && log.splits.length > 0 && (
+          <SplitSummaryStrip log={log} accent={accent} compact={format !== 'story'} />
         )}
 
         {/* Stats row */}
@@ -222,9 +302,21 @@ export default ShareCard;
 // MapView (dev build): real map tiles with the route overlaid as a Polyline.
 // Both kept in the same file so view-shot captures them as part of the card.
 
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 
-function RoutePathRenderer({ path, width, height, color }: { path: string; width: number; height: number; color: string }) {
+function RoutePathRenderer({
+  path,
+  width,
+  height,
+  color,
+  splitMarkers = [],
+}: {
+  path: string;
+  width: number;
+  height: number;
+  color: string;
+  splitMarkers?: { x: number; y: number; label: string }[];
+}) {
   return (
     <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
       <Path
@@ -235,7 +327,45 @@ function RoutePathRenderer({ path, width, height, color }: { path: string; width
         strokeLinejoin="round"
         fill="none"
       />
+      {splitMarkers.map(marker => (
+        <React.Fragment key={marker.label}>
+          <Circle cx={marker.x} cy={marker.y} r={10} fill="#0f0f0f" stroke={color} strokeWidth={2} />
+          <SvgText
+            x={marker.x}
+            y={marker.y + 3.5}
+            fill={color}
+            fontSize={10}
+            fontWeight="800"
+            textAnchor="middle"
+          >
+            {marker.label}
+          </SvgText>
+        </React.Fragment>
+      ))}
     </Svg>
+  );
+}
+
+function SplitSummaryStrip({ log, accent, compact }: { log: RunLog; accent: string; compact: boolean }) {
+  const visibleSplits = log.splits.slice(0, compact ? 4 : 6);
+  const remaining = log.splits.length - visibleSplits.length;
+  const unitLabel = log.splitUnit === 'metric' ? 'K' : 'M';
+
+  return (
+    <View style={styles.splitStrip}>
+      {visibleSplits.map(split => (
+        <View key={split.index} style={styles.splitPill}>
+          <Text style={[styles.splitPillIndex, { color: accent }]}>{unitLabel}{split.index}</Text>
+          <Text style={styles.splitPillPace}>{formatPaceForUnit(split.paceSecondsPerMeter, log.splitUnit)}</Text>
+        </View>
+      ))}
+      {remaining > 0 && (
+        <View style={styles.splitPill}>
+          <Text style={[styles.splitPillIndex, { color: accent }]}>+{remaining}</Text>
+          <Text style={styles.splitPillPace}>more</Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -262,15 +392,19 @@ function RouteMapBackground({
   width,
   height,
   accent,
+  showSplits,
+  splitMarkers,
 }: {
   route: RoutePoint[];
   width: number;
   height: number;
   accent: string;
+  showSplits: boolean;
+  splitMarkers: { latitude: number; longitude: number; label: string }[];
 }) {
   const Maps = getMapsModule();
   if (!Maps || route.length < 2) return null;
-  const { default: MapView, Polyline, PROVIDER_GOOGLE } = Maps;
+  const { default: MapView, Marker, Polyline, PROVIDER_GOOGLE } = Maps;
 
   // Region computed to fit the entire route with a little padding
   let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
@@ -321,6 +455,17 @@ function RouteMapBackground({
           lineCap="round"
           lineJoin="round"
         />
+        {showSplits && splitMarkers.map(marker => (
+          <Marker
+            key={marker.label}
+            coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={[styles.mapSplitMarker, { borderColor: accent }]}>
+              <Text style={[styles.mapSplitMarkerText, { color: accent }]}>{marker.label}</Text>
+            </View>
+          </Marker>
+        ))}
       </MapView>
       {/* Subtle overlay tint so the stats overlay stays legible */}
       <View
@@ -402,6 +547,50 @@ const styles = StyleSheet.create({
   routeWrap: {
     alignSelf: 'center',
     marginVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  splitStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'center',
+    marginTop: -4,
+  },
+  splitPill: {
+    minWidth: 46,
+    alignItems: 'center',
+    gap: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  splitPillIndex: {
+    fontSize: 9,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: 0.4,
+  },
+  splitPillPace: {
+    fontSize: 10,
+    fontFamily: 'Outfit_700Bold',
+    color: '#fff',
+    letterSpacing: -0.1,
+  },
+  mapSplitMarker: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f0f0f',
+  },
+  mapSplitMarkerText: {
+    fontSize: 10,
+    fontFamily: 'Outfit_800ExtraBold',
   },
   statsRow: {
     flexDirection: 'row',

@@ -11,14 +11,18 @@ import BaseDrawer from '@/components/drawers/BaseDrawer';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext } from '@/context/AppContext';
 import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { useRun } from '@/context/RunContext';
 import { WORKOUT_STYLE_COLORS } from '@/constants/colors';
 import { PHASE_DISPLAY_NAMES } from '@/services/planConstants';
 import type { PlanPhase } from '@/services/planConstants';
 import type { DayPrescription } from '@/services/planEngine';
 import { generateWorkoutAsync, enforceStyleGrouping } from '@/services/aiWorkoutGenerator';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
+import { formatPace } from '@/services/runTrackingService';
+import { METERS_PER_KM, METERS_PER_MILE } from '@/types/run';
 
 const PLAN_DAY_CACHE_PREFIX = '@zeal_plan_day_workout_';
+const RUN_BLUE = '#3b82f6';
 
 // Maps session type keywords → muscle group names (matching MuscleReadinessItem.name)
 const SESSION_MUSCLES: Array<{ keys: string[]; muscles: string[] }> = [
@@ -61,6 +65,31 @@ function SectionHeader({ label, color }: { label: string; color: string }) {
   );
 }
 
+function toTitle(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getLocalDateStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatRunDistance(miles: number | undefined, units: 'imperial' | 'metric'): string | null {
+  if (!miles || miles <= 0) return null;
+  if (units === 'metric') return `${((miles * METERS_PER_MILE) / METERS_PER_KM).toFixed(1)} km`;
+  return `${miles.toFixed(miles >= 10 ? 0 : 1)} mi`;
+}
+
+function formatRunPace(day: DayPrescription, units: 'imperial' | 'metric'): string | null {
+  if (!day.target_pace_min_sec_per_mile || !day.target_pace_max_sec_per_mile) return null;
+  if (units === 'metric') {
+    const min = day.target_pace_min_sec_per_mile * (METERS_PER_KM / METERS_PER_MILE);
+    const max = day.target_pace_max_sec_per_mile * (METERS_PER_KM / METERS_PER_MILE);
+    return `${formatPace(min)}-${formatPace(max)}/km`;
+  }
+  return `${formatPace(day.target_pace_min_sec_per_mile)}-${formatPace(day.target_pace_max_sec_per_mile)}/mi`;
+}
+
 // ── Skeleton row ──────────────────────────────────────────────────────────────
 
 function SkeletonRow({ opacity, colors }: { opacity: number; colors: any }) {
@@ -94,13 +123,15 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const tracking = useWorkoutTracking();
+  const run = useRun();
   const router = useRouter();
 
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const styleColor = day ? (WORKOUT_STYLE_COLORS[day.style] ?? accent) : accent;
+  const isRunDay = day?.activity_type === 'run' && !day.is_rest;
+  const styleColor = isRunDay ? RUN_BLUE : day ? (WORKOUT_STYLE_COLORS[day.style] ?? accent) : accent;
 
   // Muscle readiness warning
   const fatigued = day && !day.is_rest
@@ -113,7 +144,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
   const isGeneratingInBackground = !!(ctx.planGenProgress && (ctx.planGenProgress.phase === 'week1' || ctx.planGenProgress.phase === 'background'));
 
   useEffect(() => {
-    if (!visible || !day || day.is_rest) {
+    if (!visible || !day || day.is_rest || isRunDay) {
       setWorkout(null);
       setError(null);
       setLoading(false);
@@ -193,17 +224,24 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
       });
 
     return () => { cancelled = true; };
-  }, [visible, day?.date, isGeneratingInBackground]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, day?.date, isGeneratingInBackground, isRunDay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = useCallback(() => {
-    if (!day || !workout) return;
+    if (!day) return;
+    if (isRunDay) {
+      onClose();
+      onClosePlan();
+      setTimeout(() => router.push('/(tabs)/train?mode=run' as any), 400);
+      return;
+    }
+    if (!workout) return;
     // Tag with planDayDate so the tracking context recognizes this as a plan workout
     const taggedWorkout = { ...workout, planDayDate: day.date };
     tracking.setCurrentGeneratedWorkout(taggedWorkout);
     onClose();
     onClosePlan();
     setTimeout(() => router.push('/(tabs)/train?mode=workout' as any), 400);
-  }, [day, workout, onClose, onClosePlan, router, tracking]);
+  }, [day, isRunDay, workout, onClose, onClosePlan, router, tracking]);
 
   if (!day) return null;
 
@@ -211,6 +249,9 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
   const exerciseCount = workout?.workout?.length ?? 0;
   const warmupCount = workout?.warmup?.length ?? 0;
   const groupedExercises = workout ? buildExerciseGroups(workout.workout) : [];
+  const runDistance = formatRunDistance(day.target_distance_miles, run.preferences.units);
+  const runPace = formatRunPace(day, run.preferences.units);
+  const isTodayRunDay = isRunDay && day.date === getLocalDateStr();
 
   const renderGroupBadge = (type: 'superset' | 'circuit' | 'rounds' | null) => {
     if (!type) return null;
@@ -287,7 +328,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         {/* ── Eyebrow ─────────────────────────────────────── */}
         <View style={styles.eyebrowRow}>
           <View style={[styles.styleDot, { backgroundColor: styleColor }]} />
-          <Text style={[styles.eyebrowText, { color: colors.textSecondary }]}>{day.style.toUpperCase()}</Text>
+          <Text style={[styles.eyebrowText, { color: colors.textSecondary }]}>{isRunDay ? 'RUN' : day.style.toUpperCase()}</Text>
           {day.is_deload_week && (
             <>
               <Text style={[styles.eyebrowSep, { color: colors.textMuted }]}>·</Text>
@@ -298,28 +339,48 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
 
         {/* ── Session title ────────────────────────────────── */}
         <Text style={[styles.sessionTitle, { color: colors.text }]} numberOfLines={2}>
-          {day.session_type || day.style}
+          {isRunDay
+            ? day.run_description || toTitle(day.run_type ?? 'Run')
+            : day.session_type || day.style}
         </Text>
         <Text style={[styles.sessionSubtitle, { color: colors.textSecondary }]}>{phaseLabel}</Text>
 
         {/* ── Stat chips ──────────────────────────────────── */}
         <View style={styles.statsRow}>
-          {exerciseCount > 0 && (
+          {!isRunDay && exerciseCount > 0 && (
             <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
               <PlatformIcon name="layers" size={13} color={colors.textMuted} />
               <Text style={[styles.statText, { color: colors.text }]}>{exerciseCount} exercises</Text>
             </View>
           )}
-          {warmupCount > 0 && (
+          {!isRunDay && warmupCount > 0 && (
             <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
               <PlatformIcon name="dumbbell" size={13} color={colors.textMuted} />
               <Text style={[styles.statText, { color: colors.text }]}>{warmupCount} warm-up</Text>
+            </View>
+          )}
+          {isRunDay && runDistance && (
+            <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
+              <PlatformIcon name="compass" size={13} color={colors.textMuted} />
+              <Text style={[styles.statText, { color: colors.text }]}>{runDistance}</Text>
+            </View>
+          )}
+          {isRunDay && runPace && (
+            <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
+              <PlatformIcon name="zap" size={13} color={colors.textMuted} />
+              <Text style={[styles.statText, { color: colors.text }]}>{runPace}</Text>
             </View>
           )}
           <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
             <PlatformIcon name="clock" size={13} color={colors.textMuted} />
             <Text style={[styles.statText, { color: colors.text }]}>{day.target_duration} min</Text>
           </View>
+          {isRunDay && day.run_type && (
+            <View style={[styles.statPill, { backgroundColor: isDark ? '#1a1a1a' : '#f4f4f4', borderColor: `${colors.border}90` }]}>
+              <PlatformIcon name="activity" size={13} color={colors.textMuted} />
+              <Text style={[styles.statText, { color: colors.text }]}>{toTitle(day.run_type)}</Text>
+            </View>
+          )}
         </View>
 
         {/* ── Day notes ───────────────────────────────────── */}
@@ -346,7 +407,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         )}
 
         {/* ── Loading skeleton ────────────────────────────── */}
-        {loading && (
+        {loading && !isRunDay && (
           <>
             <SectionHeader label="EXERCISE LIST" color={colors.textSecondary} />
             {[0.9, 0.75, 0.6, 0.48, 0.36].map((op, i) => (
@@ -356,7 +417,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         )}
 
         {/* ── Still generating in background ───────────────── */}
-        {error === 'still_generating' && !loading && (
+        {error === 'still_generating' && !loading && !isRunDay && (
           <View style={[styles.errorCard, { backgroundColor: `${styleColor}0d`, borderColor: `${styleColor}30` }]}>
             <PlatformIcon name="sparkles" size={13} color={styleColor} />
             <Text style={[styles.errorText, { color: styleColor }]}>
@@ -367,7 +428,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         )}
 
         {/* ── Error state ─────────────────────────────────── */}
-        {error && error !== 'still_generating' && !loading && (
+        {error && error !== 'still_generating' && !loading && !isRunDay && (
           <View style={[styles.errorCard, { backgroundColor: '#ef44440d', borderColor: '#ef444430' }]}>
             <PlatformIcon name="alert-triangle" size={13} color="#ef4444" />
             <Text style={styles.errorText}>{error}</Text>
@@ -375,7 +436,7 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
         )}
 
         {/* ── Exercise list ───────────────────────────────── */}
-        {!loading && workout && workout.workout.length > 0 && (
+        {!loading && !isRunDay && workout && workout.workout.length > 0 && (
           <>
             <SectionHeader label="EXERCISE LIST" color={colors.textSecondary} />
             {(() => {
@@ -400,7 +461,9 @@ export default function PlanDayPreviewDrawer({ visible, onClose, onClosePlan, da
           onPress={handleStart}
           activeOpacity={0.85}
         >
-          <Text style={styles.startBtnText}>Start This Workout</Text>
+          <Text style={styles.startBtnText}>
+            {isRunDay ? (isTodayRunDay ? 'Start This Run' : 'Open Run Tab') : 'Start This Workout'}
+          </Text>
           <PlatformIcon name="chevron-right" size={16} color="#fff" />
         </TouchableOpacity>
 

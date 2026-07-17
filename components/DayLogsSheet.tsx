@@ -5,12 +5,15 @@ import DrawerHeader from '@/components/drawers/DrawerHeader';
 import GlassCard from '@/components/GlassCard';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme } from '@/context/AppContext';
+import type { DayPrescription } from '@/services/planEngine';
 
 export interface DayEvent {
   type: 'workout' | 'run';
   id: string;
   name: string;
   subtitle: string;
+  kind?: 'completed' | 'planned';
+  planDay?: DayPrescription;
 }
 
 interface Props {
