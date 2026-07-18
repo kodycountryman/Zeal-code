@@ -322,8 +322,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                                 selectedValue={set.weight}
                                 onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'weight', v)}
                                 textColor={set.done ? colors.textMuted : colors.text}
-                                visibleItems={3}
-                                itemHeight={32}
+                                visibleItems={1}
                               />
                               <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
                             </View>
@@ -337,8 +336,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                               selectedValue={set.reps}
                               onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'reps', v)}
                               textColor={set.done ? colors.textMuted : colors.text}
-                              visibleItems={3}
-                              itemHeight={32}
+                              visibleItems={1}
                               formatValue={tt.isHoldForTime ? formatHoldTime : undefined}
                             />
                             <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
@@ -410,8 +408,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                             selectedValue={curSet.weight}
                             onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'weight', v)}
                             textColor={colors.text}
-                            visibleItems={3}
-                            itemHeight={40}
+                            visibleItems={1}
                           />
                           <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
                         </View>
@@ -425,8 +422,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                           selectedValue={curSet.reps}
                           onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'reps', v)}
                           textColor={colors.text}
-                          visibleItems={3}
-                          itemHeight={40}
+                          visibleItems={1}
                           formatValue={t.isHoldForTime ? formatHoldTime : undefined}
                         />
                         <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
@@ -616,8 +612,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   wheelBoxCompact: {
-    height: 96,
-    borderRadius: 16,
+    height: 44,
+    borderRadius: 12,
   },
   groupBadge: {
     borderRadius: 10,
@@ -671,17 +667,17 @@ const styles = StyleSheet.create({
   },
   wheelBox: {
     alignSelf: 'stretch',
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 120,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   wheelChevron: {
     position: 'absolute',
-    right: 8,
-    bottom: 5,
+    right: 5,
+    bottom: 3,
   },
   logBtn: {
     flexDirection: 'row',
