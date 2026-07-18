@@ -1090,15 +1090,6 @@ export default function WorkoutScreen() {
   const todayPrescription = ctx.getTodayPrescription();
   const isPlanRestDay = !!pwPlan && !!todayPrescription && todayPrescription.is_rest;
   const isPlanPaused = !!pwPlan && !!pwPlan.pausedAt;
-  // Clamp to the last available week so the card still shows progress past plan end
-  const pwWeekSched = pwPlan ? (
-    ctx.planSchedule?.weeks.find(w => w.week_number === pwApWeek)
-    ?? ctx.planSchedule?.weeks[ctx.planSchedule.weeks.length - 1]
-  ) : undefined;
-  const pwWeekDays = pwWeekSched?.days ?? [];
-  const pwTodayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
-  const pwWeekTraining = pwWeekDays.filter(d => !d.is_rest);
-  const pwWeekDone = pwPlan ? pwWeekTraining.filter(d => pwPlan.completedDays?.includes(d.date)).length : 0;
 
   const rotateLoopRef = useRef<RNAnimated.CompositeAnimation | null>(null);
   const pulseLoopRef = useRef<RNAnimated.CompositeAnimation | null>(null);
@@ -3806,9 +3797,9 @@ export default function WorkoutScreen() {
         {/* ── POST-WORKOUT COMPLETED STATE ── */}
         {hasCompletedToday && !tracking.isWorkoutActive && !postWorkoutDismissed && (
           <View style={styles.postWorkoutWrap}>
-            {/* Today's completed workout card */}
+            {/* Big square completed card */}
             <TouchableOpacity
-              style={[styles.postWorkoutLogCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
+              style={[styles.postWorkoutHeroCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
               onPress={() => {
                 if (latestTodayLog) {
                   tracking.setSelectedLogId(latestTodayLog.id);
@@ -3816,53 +3807,34 @@ export default function WorkoutScreen() {
                 }
               }}
               activeOpacity={0.7}
+              testID="post-workout-hero"
             >
-              <View style={styles.postWorkoutLogTop}>
-                <View style={[styles.postWorkoutCheckCircle, { backgroundColor: `${currentAccent}20` }]}>
-                  <PlatformIcon name="check" size={20} color={currentAccent} strokeWidth={2.5} />
-                </View>
-                <View style={styles.postWorkoutLogText}>
-                  <Text style={[styles.postWorkoutLogTitle, { color: colors.text }]}>Workout Complete</Text>
-                  <Text style={[styles.postWorkoutLogSub, { color: colors.textSecondary }]}>
-                    {latestTodayLog?.workoutStyle ?? currentStyle}
-                    {latestTodayLog?.duration ? ` · ${latestTodayLog.duration} min` : ''}
-                    {(latestTodayLog?.exercises?.length ?? 0) > 0 ? ` · ${latestTodayLog!.exercises.length} exercises` : ''}
-                  </Text>
-                  {tracking.todayLogs.length > 1 && (
-                    <Text style={[styles.postWorkoutLogExtra, { color: colors.textMuted }]}>
-                      +{tracking.todayLogs.length - 1} more today
-                    </Text>
-                  )}
-                </View>
-                <PlatformIcon name="chevron-right" size={18} color={colors.textMuted} />
+              <View style={[styles.postWorkoutHeroCheck, { backgroundColor: `${currentAccent}20` }]}>
+                <PlatformIcon name="check" size={44} color={currentAccent} strokeWidth={2.5} />
+              </View>
+              <Text style={[styles.postWorkoutHeroTitle, { color: colors.text }]}>Workout Complete</Text>
+              <Text style={[styles.postWorkoutHeroSub, { color: colors.textSecondary }]}>
+                {latestTodayLog?.workoutStyle ?? currentStyle}
+                {latestTodayLog?.duration ? ` · ${latestTodayLog.duration} min` : ''}
+                {(latestTodayLog?.exercises?.length ?? 0) > 0 ? ` · ${latestTodayLog!.exercises.length} exercises` : ''}
+              </Text>
+              {tracking.todayLogs.length > 1 && (
+                <Text style={[styles.postWorkoutHeroExtra, { color: colors.textMuted }]}>
+                  +{tracking.todayLogs.length - 1} more today
+                </Text>
+              )}
+              <View style={styles.postWorkoutHeroHint}>
+                <Text style={[styles.postWorkoutHeroHintText, { color: colors.textMuted }]}>View details</Text>
+                <PlatformIcon name="chevron-right" size={13} color={colors.textMuted} />
               </View>
             </TouchableOpacity>
 
-            {/* AI Coach recovery tip */}
-            <GlassCard
-              style={[styles.postWorkoutCoachCard, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', borderWidth: 1 }]}
-              variant={isDark ? 'glass' : 'solid'}
-            >
-              <PlatformIcon name="brain" size={14} color={currentAccent} />
-              <Text style={[styles.postWorkoutCoachText, { color: colors.textSecondary }]} numberOfLines={3}>
-                {(() => {
-                  const style = latestTodayLog?.workoutStyle ?? currentStyle;
-                  const dur = latestTodayLog?.duration ?? 0;
-                  if (dur >= 60) return 'Strong session. Prioritize protein within the hour and get 7–9 hrs of sleep tonight to maximize adaptation.';
-                  if (style === 'CrossFit' || style === 'HIIT') return 'High-intensity work done. Replenish with fast carbs and protein. Foam roll anything that feels tight.';
-                  if (style === 'Strength' || style === 'Bodybuilding') return 'Muscles are broken down — now they rebuild. Hit 25–40g of protein and keep stress low for the next 24 hrs.';
-                  if (style === 'Mobility' || style === 'Pilates') return 'Great choice for your joints and posture. Stay hydrated and let your nervous system reset before your next heavy session.';
-                  return 'Recovery starts now. Hydrate, eat well, and sleep deep. That\'s where the gains actually happen.';
-                })()}
-              </Text>
-            </GlassCard>
-
-            {/* Start another workout section */}
-            <View style={styles.postWorkoutSection}>
-              <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>START ANOTHER</Text>
-              <View style={styles.postWorkoutActionRow}>
+            {/* Big square start-another card */}
+            <View style={[styles.postWorkoutStartCard, { backgroundColor: colors.card, borderColor: cardBorder }]}>
+              <Text style={[styles.postWorkoutStartTitle, { color: colors.text }]}>Start Another Workout</Text>
+              <View style={styles.postWorkoutStartActions}>
                 <TouchableOpacity
-                  style={[styles.postWorkoutActionBtn, { backgroundColor: currentAccent }]}
+                  style={[styles.postWorkoutStartBtn, { backgroundColor: currentAccent }]}
                   onPress={() => {
                     const next = regenCounter + 1;
                     setRegenCounter(next);
@@ -3872,94 +3844,18 @@ export default function WorkoutScreen() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <PlatformIcon name="zap" size={16} color="#fff" fill="#fff" />
-                  <Text style={styles.postWorkoutActionBtnText}>Quick Workout</Text>
+                  <PlatformIcon name="zap" size={17} color="#fff" fill="#fff" />
+                  <Text style={styles.postWorkoutStartBtnText}>Quick Workout</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.postWorkoutActionBtnOutline, { borderColor: `${currentAccent}50` }]}
+                  style={[styles.postWorkoutStartBtnOutline, { borderColor: `${currentAccent}50` }]}
                   onPress={() => setStartAnotherVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <PlatformIcon name="sliders-horizontal" size={15} color={currentAccent} />
-                  <Text style={[styles.postWorkoutActionBtnOutlineText, { color: currentAccent }]}>Custom Workout</Text>
+                  <PlatformIcon name="sliders-horizontal" size={16} color={currentAccent} />
+                  <Text style={[styles.postWorkoutStartBtnOutlineText, { color: currentAccent }]}>Custom Workout</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-
-            {/* Plan / schedule section */}
-            <View style={styles.postWorkoutSection}>
-              <Text style={[styles.postWorkoutSectionLabel, { color: colors.textSecondary }]}>Planning</Text>
-
-              {/* Active plan — rich card with week progress dots */}
-              {pwPlan && (
-                <TouchableOpacity
-                  style={[styles.postWorkoutPlanRichCard, { backgroundColor: `${currentAccent}0a`, borderColor: `${currentAccent}28` }]}
-                  onPress={() => tracking.setActivePlanVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.postWorkoutPlanRichTop}>
-                    <View style={[styles.postWorkoutPlanIcon, { backgroundColor: `${currentAccent}16` }]}>
-                      <PlatformIcon name="calendar-range" size={16} color={currentAccent} />
-                    </View>
-                    <View style={styles.postWorkoutPlanText}>
-                      <Text style={[styles.postWorkoutPlanTitle, { color: colors.text }]} numberOfLines={1}>
-                        {pwPlan.name}
-                      </Text>
-                      <Text style={[styles.postWorkoutPlanSub, { color: colors.textSecondary }]}>
-                        {'Week '}{pwApWeek}{' of '}{pwPlan.planLength}
-                        {pwWeekTraining.length > 0 ? `  ·  ${pwWeekDone}/${pwWeekTraining.length} this week` : ''}
-                      </Text>
-                    </View>
-                    <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
-                  </View>
-                  {pwWeekDays.length > 0 && (
-                    <View style={styles.postWorkoutDayDots}>
-                      {pwWeekDays.map((d, i) => {
-                        const isCompleted = !d.is_rest && pwPlan.completedDays?.includes(d.date);
-                        const isToday = d.date === pwTodayStr;
-                        const isMissed = pwPlan.missedDays?.includes(d.date);
-                        return (
-                          <View
-                            key={i}
-                            style={[
-                              styles.postWorkoutDayDot,
-                              d.is_rest
-                                ? { backgroundColor: colors.border }
-                                : isCompleted
-                                  ? { backgroundColor: '#22c55e' }
-                                  : isToday
-                                    ? { backgroundColor: currentAccent }
-                                    : isMissed
-                                      ? { backgroundColor: '#ef4444' }
-                                      : { backgroundColor: `${currentAccent}30` },
-                            ]}
-                          />
-                        );
-                      })}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-
-              {/* No active plan — prompt to plan */}
-              {!pwPlan && (
-                <TouchableOpacity
-                  style={[styles.postWorkoutPlanCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
-                  onPress={() => setPlanChoiceVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.postWorkoutPlanIcon, { backgroundColor: `${currentAccent}16` }]}>
-                    <PlatformIcon name="calendar-plus" size={16} color={currentAccent} />
-                  </View>
-                  <View style={styles.postWorkoutPlanText}>
-                    <Text style={[styles.postWorkoutPlanTitle, { color: colors.text }]}>Plan a Future Workout</Text>
-                    <Text style={[styles.postWorkoutPlanSub, { color: colors.textSecondary }]}>
-                      Build for a future day or start a training plan
-                    </Text>
-                  </View>
-                  <PlatformIcon name="chevron-right" size={16} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
             </View>
           </View>
         )}
@@ -7224,145 +7120,100 @@ const styles = StyleSheet.create({
 
   /* ── Post-Workout Completed Screen ── */
   postWorkoutWrap: {
-    gap: 24,
+    gap: 16,
     paddingTop: 4,
   },
-  postWorkoutLogCard: {
-    borderRadius: 20,
+  // Big square hero card — centered check, title, stats
+  postWorkoutHeroCard: {
+    aspectRatio: 1,
+    borderRadius: 26,
     borderWidth: 1,
-    padding: 18,
-  },
-  postWorkoutLogTop: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 14,
-  },
-  postWorkoutCheckCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+    gap: 10,
+    padding: 24,
   },
-  postWorkoutLogText: {
-    flex: 1,
-    gap: 2,
+  postWorkoutHeroCheck: {
+    width: 88,
+    height: 88,
+    borderRadius: 30,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginBottom: 8,
   },
-  postWorkoutLogTitle: {
-    fontSize: 17,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.3,
+  postWorkoutHeroTitle: {
+    fontSize: 26,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.6,
+    textAlign: 'center' as const,
   },
-  postWorkoutLogSub: {
-    fontSize: 13,
+  postWorkoutHeroSub: {
+    fontSize: 15,
     fontFamily: 'Outfit_400Regular',
     letterSpacing: 0.1,
+    textAlign: 'center' as const,
   },
-  postWorkoutLogExtra: {
-    fontSize: 11,
-    fontFamily: 'Outfit_400Regular',
-    marginTop: 2,
-  },
-  postWorkoutCoachCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    overflow: 'hidden',
-  },
-  postWorkoutCoachText: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: 'Outfit_300Light',
-    lineHeight: 18,
-    letterSpacing: 0.1,
-  },
-  postWorkoutSection: {
-    gap: 10,
-  },
-  postWorkoutSectionLabel: {
+  postWorkoutHeroExtra: {
     fontSize: 12,
-    fontFamily: 'Outfit_600SemiBold',
-    letterSpacing: 0,
-    paddingLeft: 2,
+    fontFamily: 'Outfit_400Regular',
   },
-  postWorkoutActionRow: {
+  postWorkoutHeroHint: {
     flexDirection: 'row' as const,
-    gap: 10,
+    alignItems: 'center' as const,
+    gap: 3,
+    marginTop: 10,
   },
-  postWorkoutActionBtn: {
-    flex: 1,
+  postWorkoutHeroHintText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.1,
+  },
+  // Big square start-another card — title + stacked actions
+  postWorkoutStartCard: {
+    aspectRatio: 1,
+    borderRadius: 26,
+    borderWidth: 1,
+    alignItems: 'stretch' as const,
+    justifyContent: 'center' as const,
+    gap: 22,
+    padding: 24,
+  },
+  postWorkoutStartTitle: {
+    fontSize: 22,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.5,
+    textAlign: 'center' as const,
+  },
+  postWorkoutStartActions: {
+    gap: 12,
+  },
+  postWorkoutStartBtn: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     gap: 8,
-    paddingVertical: 15,
-    borderRadius: 16,
+    paddingVertical: 17,
+    borderRadius: 18,
   },
-  postWorkoutActionBtnText: {
-    fontSize: 15,
+  postWorkoutStartBtnText: {
+    fontSize: 16,
     fontFamily: 'Outfit_700Bold',
     color: '#fff',
     letterSpacing: -0.2,
   },
-  postWorkoutActionBtnOutline: {
-    flex: 1,
+  postWorkoutStartBtnOutline: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     gap: 8,
-    paddingVertical: 15,
-    borderRadius: 16,
+    paddingVertical: 17,
+    borderRadius: 18,
     borderWidth: 1.5,
   },
-  postWorkoutActionBtnOutlineText: {
-    fontSize: 15,
+  postWorkoutStartBtnOutlineText: {
+    fontSize: 16,
     fontFamily: 'Outfit_600SemiBold',
     letterSpacing: -0.2,
-  },
-  postWorkoutPlanCard: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  // Richer plan card shown in post-workout when a plan is active
-  postWorkoutPlanRichCard: {
-    borderRadius: 16, borderWidth: 1, padding: 16, gap: 12,
-  },
-  postWorkoutPlanRichTop: {
-    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 14,
-  },
-  postWorkoutDayDots: {
-    flexDirection: 'row' as const, gap: 5, paddingLeft: 2,
-  },
-  postWorkoutDayDot: {
-    width: 8, height: 8, borderRadius: 4,
-  },
-  postWorkoutPlanIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  postWorkoutPlanText: {
-    flex: 1,
-    gap: 2,
-  },
-  postWorkoutPlanTitle: {
-    fontSize: 14,
-    fontFamily: 'Outfit_600SemiBold',
-    letterSpacing: -0.1,
-  },
-  postWorkoutPlanSub: {
-    fontSize: 12,
-    fontFamily: 'Outfit_400Regular',
-    letterSpacing: 0.1,
   },
 
   /* ── Plan Choice Modal ── */
