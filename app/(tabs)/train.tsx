@@ -37,9 +37,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTrain } from '@/context/TrainContext';
 import { useAppTour } from '@/context/AppTourContext';
 import { useAppContext, useZealTheme } from '@/context/AppContext';
+import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import ModeToggleIcons from '@/components/train/ModeToggleIcons';
 import MiniSessionBar from '@/components/train/MiniSessionBar';
@@ -58,9 +60,38 @@ const SLIDE_EASING = Easing.out(Easing.cubic);
 export default function TrainScreen() {
   const { mode, loaded, syncFromQueryParam } = useTrain();
   const { colors } = useZealTheme();
-  const { userPhotoUri } = useAppContext();
+  const { userPhotoUri, activePlan, activeRunPlan } = useAppContext();
+  const tracking = useWorkoutTracking();
   const params = useLocalSearchParams<{ mode?: string }>();
   const { width: screenWidth } = useWindowDimensions();
+
+  // ── Occasional "Start a Plan" nudge ────────────────────────────────────
+  // The Home-screen CTA was removed; instead, when the user has no active
+  // plan at all, every 4th visit to this tab (starting with the 3rd) opens
+  // the plan chooser. Counter persists across sessions. Guard values are
+  // read through a ref so the effect fires once per tab focus, not again
+  // when the chooser closes.
+  const nudgeStateRef = useRef({ skip: false, setPlanChooserVisible: tracking.setPlanChooserVisible });
+  nudgeStateRef.current = {
+    skip: !!activePlan || !!activeRunPlan || tracking.isWorkoutActive || tracking.planChooserVisible,
+    setPlanChooserVisible: tracking.setPlanChooserVisible,
+  };
+  useFocusEffect(
+    useCallback(() => {
+      if (nudgeStateRef.current.skip) return;
+      let cancelled = false;
+      (async () => {
+        const raw = await AsyncStorage.getItem('train_plan_nudge_visits');
+        const count = (parseInt(raw ?? '0', 10) || 0) + 1;
+        AsyncStorage.setItem('train_plan_nudge_visits', String(count)).catch(() => {});
+        if (cancelled || count % 4 !== 3) return;
+        setTimeout(() => {
+          if (!cancelled && !nudgeStateRef.current.skip) nudgeStateRef.current.setPlanChooserVisible(true);
+        }, 600);
+      })();
+      return () => { cancelled = true; };
+    }, [])
+  );
 
   // Drawers inside each embedded screen are opened via exported helpers
   // from those route files (see openWorkoutProfileDrawer /

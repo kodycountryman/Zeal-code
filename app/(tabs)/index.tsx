@@ -845,46 +845,6 @@ export default function HomeScreen() {
           </Animated.View>
 
 
-          {/* ─── Start / Add a Plan CTA — below TrainingScoreCard ── */}
-          {!(ctx.activePlan && ctx.activeRunPlan) && (() => {
-            const hasWorkout = !!ctx.activePlan;
-            const hasRun = !!ctx.activeRunPlan;
-            const title = !hasWorkout && !hasRun
-              ? 'Start a Plan'
-              : hasWorkout
-              ? 'Start a Running Plan'
-              : 'Start a Workout Plan';
-            const sub = !hasWorkout && !hasRun
-              ? 'Strength, Run, or Hybrid — pick a goal and we\'ll build your schedule.'
-              : hasWorkout
-              ? 'Add a running plan to complement your strength training.'
-              : 'Add a workout plan to complement your running.';
-            return (
-              <Animated.View entering={cardAnims.d300}>
-                <TouchableOpacity
-                  onPress={() => tracking.setPlanChooserVisible(true)}
-                  activeOpacity={0.8}
-                  style={[styles.startPlanCard, {
-                    borderColor: colors.border,
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                  }]}
-                  testID="home-start-plan-cta"
-                >
-                  <View style={[styles.startPlanIconWrap, {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
-                  }]}>
-                    <PlatformIcon name="calendar" size={24} color={colors.textSecondary} strokeWidth={1.8} />
-                  </View>
-                  <View style={styles.startPlanCopy}>
-                    <Text style={[styles.startPlanTitle, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{title}</Text>
-                    <Text style={[styles.startPlanSub, { color: colors.textSecondary }]} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.85}>{sub}</Text>
-                  </View>
-                  <PlatformIcon name="chevron-right" size={14} color={colors.textMuted} strokeWidth={1.8} />
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          })()}
-
           <View style={styles.bibleContainer} testID="bible-verse">
             <Text style={[styles.bibleText, { color: colors.textSecondary }]}>
               {mockBibleVerse.text}
@@ -1172,37 +1132,6 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 16,
     overflow: 'hidden',
-  },
-  // Phase 7
-  startPlanCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: 24,
-    borderWidth: 1.5,
-  },
-  startPlanIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  startPlanCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  startPlanTitle: {
-    fontSize: 17,
-    fontFamily: 'Outfit_700Bold',
-    letterSpacing: -0.2,
-  },
-  startPlanSub: {
-    fontSize: 13,
-    fontFamily: 'Outfit_400Regular',
-    lineHeight: 18,
   },
   addPlanTile: {
     flexDirection: 'row',
