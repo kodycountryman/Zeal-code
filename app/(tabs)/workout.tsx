@@ -46,7 +46,7 @@ import {
   type SeventyFiveHardSession,
 } from '@/services/workoutEngine';
 import type { MovementType } from '@/mocks/exerciseDatabase';
-import { generateWorkoutAsync, enhanceCrossFitMetCon } from '@/services/aiWorkoutGenerator';
+import { generateWorkoutAsync } from '@/services/aiWorkoutGenerator';
 import { generateCoreFinisherFromEngine } from '@/services/workoutEngine';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
 import { buildTrainingLog, buildFeedbackData } from '@/services/feedbackProjection';
@@ -1259,18 +1259,10 @@ export default function WorkoutScreen() {
     // against SPLIT_TO_MUSCLES before scoring even begins.
     const result = generateWorkoutAsync(params as any, prescription, hasPro);
 
-    // CrossFit MetCon AI enhancement — runs async, updates format/theme after workout displays
-    if (effectiveStyle === 'CrossFit' && result.metconFormat) {
-      enhanceCrossFitMetCon(result).then(enhanced => {
-        setWorkout(prev => prev ? {
-          ...prev,
-          metconFormat: enhanced.format,
-          metconTimeCap: enhanced.timeCap,
-          metconRounds: enhanced.rounds,
-        } : prev);
-        ctx.setCurrentWorkoutTitle(enhanced.theme);
-      }).catch(() => { /* rule engine format stands */ });
-    }
+    // CrossFit format, time cap, and rounds come from the rule engine
+    // (pinned to the user's WOD style, or deterministically selected on
+    // Auto). No AI involvement — the engine's structure is authoritative
+    // and the local title generator names the session.
 
     // Core finisher — synchronous engine selection, instant and reliable
     const suppressCoreFinisher = (params.volumeModifier ?? 1.0) < 0.75;

@@ -1,19 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Enhancement Layer for Workout Generation
 // ─────────────────────────────────────────────────────────────────────────────
-// The rule engine (workoutEngine.ts) is the sole exercise selection path.
-// AI is used ONLY for:
-//   1. CrossFit MetCon format creativity
-//   2. Style grouping enforcement (for cached workouts)
-// Core finisher generation uses the rule engine (generateCoreFinisherFromEngine).
-// AI never selects, substitutes, or reorders main workout exercises.
+// The rule engine (workoutEngine.ts) is the sole generation path — exercise
+// selection, format choice, set/rep schemes, and rest are all deterministic.
+// No AI is involved in workout generation. (The former CrossFit MetCon AI
+// decorator was removed: it overwrote the engine's user-pinned format.)
 // ─────────────────────────────────────────────────────────────────────────────
-
-import { generateObject } from 'ai';
-import { google } from '@ai-sdk/google';
-import { z } from 'zod';
-
-const gemini = google('gemini-2.0-flash');
 
 import type {
   GeneratedWorkout,
@@ -82,50 +74,4 @@ export function enforceStyleGrouping<T extends { groupType: string | null; group
     default:
       return exercises;
   }
-}
-
-// ─── CrossFit MetCon AI Enhancement ──────────────────────────────────────────
-// After the rule engine generates a CrossFit workout, this optional AI call
-// adds creative MetCon format selection. The AI receives exercise names only
-// and returns format metadata — it NEVER substitutes or reorders exercises.
-
-const MetConEnhancementSchema = z.object({
-  format: z.enum(['AMRAP', 'EMOM', 'For Time', 'Chipper', 'Ladder', 'Tabata']).describe('MetCon format'),
-  timeCap: z.number().int().min(4).max(30).nullable().describe('Time cap in minutes (null if no cap)'),
-  rounds: z.number().int().min(1).max(10).nullable().describe('Number of rounds (null for AMRAP/Chipper)'),
-  theme: z.string().describe('One-line creative theme for this WOD, e.g. "The Grinder", "Death by Pull-Ups"'),
-});
-
-export async function enhanceCrossFitMetCon(
-  workout: GeneratedWorkout,
-): Promise<{ format: string; timeCap: number | null; rounds: number | null; theme: string }> {
-  const exerciseNames = workout.workout
-    .filter(e => e.groupType === 'rounds' || e.groupType === 'circuit')
-    .map(e => e.name);
-
-  if (exerciseNames.length === 0) {
-    exerciseNames.push(...workout.workout.map(e => e.name));
-  }
-
-  const prompt = `You are a CrossFit programming coach. Given these MetCon exercises, choose the best format and create a creative WOD theme.
-
-EXERCISES: ${exerciseNames.join(', ')}
-DURATION TARGET: ${workout.estimatedDuration} minutes
-
-Pick the format that best fits these movements. AMRAP for mixed-modal, EMOM for alternating skill work, For Time for sprint efforts, Chipper for long 6+ exercise lists, Ladder for progressive loading, Tabata for short intense bursts.
-
-Be creative with the theme name — make it memorable like benchmark WODs (e.g., "Fran", "Murph", "The Filthy Fifty").`;
-
-  const { object: result } = await generateObject({
-    model: gemini,
-    messages: [{ role: 'user', content: prompt }],
-    schema: MetConEnhancementSchema,
-  });
-
-  return {
-    format: result.format,
-    timeCap: result.timeCap,
-    rounds: result.rounds,
-    theme: result.theme,
-  };
 }
