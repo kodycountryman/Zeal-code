@@ -445,6 +445,7 @@ export default function FloatingDock() {
             <GlassView
               intensity={isDark ? 70 : 55}
               tint={dockBlurTint}
+              interactive
               style={[
                 styles.plusButton,
                 { borderColor: dockBorderColor, shadowColor: colors.shadow },
