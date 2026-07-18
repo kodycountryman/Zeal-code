@@ -114,6 +114,23 @@ function perpendicularDistanceMeters(
  * @param toleranceMeters  Larger = more aggressive thinning. 5m is a good
  *                          default for run routes (GPS noise is ~3-10m).
  */
+/**
+ * Evenly downsample a route to at most `maxPoints`, always keeping the first
+ * and last points. Unlike Douglas-Peucker, this preserves the time
+ * distribution of samples, so pace-over-time and elevation charts rendered
+ * from stored history stay faithful — DP collapses straight stretches to a
+ * few points, which starved those charts (and their render gates) of data.
+ */
+export function downsampleRoute<T>(route: T[], maxPoints: number): T[] {
+  if (route.length <= maxPoints || maxPoints < 2) return route;
+  const out: T[] = [];
+  const step = (route.length - 1) / (maxPoints - 1);
+  for (let i = 0; i < maxPoints; i++) {
+    out.push(route[Math.round(i * step)]);
+  }
+  return out;
+}
+
 export function simplifyRoute<T extends { latitude: number; longitude: number }>(
   points: T[],
   toleranceMeters = 5,

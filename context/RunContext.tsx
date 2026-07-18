@@ -16,7 +16,7 @@ import {
   ACTIVE_RUN_KEY,
   DEFAULT_RUN_PREFERENCES,
 } from '@/types/run';
-import { runTrackingService, TrackingSnapshot, simplifyRoute } from '@/services/runTrackingService';
+import { runTrackingService, TrackingSnapshot, downsampleRoute } from '@/services/runTrackingService';
 import { healthService } from '@/services/healthService';
 import { detectNewPRs, mergePRs, prTypeLabel } from '@/services/runPRService';
 import { detectNewlyEarnedRunBadges, type RunBadge } from '@/services/runBadges';
@@ -794,11 +794,12 @@ export const [RunProvider, useRun] = createContextHook(() => {
    * Persist a finalized run, run PR detection, and optionally sync to Health.
    */
   const saveRun = useCallback(async (run: RunLog): Promise<{ newPRs: RunPR[]; newBadges: RunBadge[]; trainingScore: number }> => {
-    // Thin the GPS route before persisting. A typical 1-hour run captures
-    // ~720 points at our 5s tracking interval; Douglas-Peucker with a 5m
-    // tolerance reduces that to ~150-300 while preserving the visible shape,
-    // shrinking AsyncStorage size and downstream chart-render work.
-    const thinnedRoute = run.route.length > 50 ? simplifyRoute(run.route, 5) : run.route;
+    // Thin the GPS route before persisting. Time-uniform downsampling to
+    // ~300 points keeps storage bounded while preserving the pace-over-time
+    // and elevation curves; geometric simplification (Douglas-Peucker) was
+    // collapsing straight stretches so hard the history view lost its
+    // pace/elevation charts entirely.
+    const thinnedRoute = downsampleRoute(run.route, 300);
     if (__DEV__ && thinnedRoute.length < run.route.length) {
       const ratio = ((thinnedRoute.length / run.route.length) * 100).toFixed(0);
       console.log(`[RunContext] Thinned route from ${run.route.length} → ${thinnedRoute.length} points (${ratio}%)`);
