@@ -52,6 +52,7 @@ import type { AppIconName } from '@/constants/iconMap';
 import type { DayPrescription } from '@/services/planEngine';
 import { RunLog, RunType, METERS_PER_MILE, METERS_PER_KM } from '@/types/run';
 import { formatPace, paceToSecondsPerMile, paceToSecondsPerKm } from '@/services/runTrackingService';
+import { openWorkoutProfileDrawer } from './workout';
 import { runTrackingService } from '@/services/runTrackingService';
 import { prTypeLabel } from '@/services/runPRService';
 
@@ -689,8 +690,9 @@ export default function RunScreen() {
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <TabHeader
           title="Run"
-          // TODO(profile): once AthleteProfileDrawer is wired into Run, swap this to setProfileVisible(true)
-          onAvatarPress={() => setRunSettingsVisible(true)}
+          // Occluded by TrainScreen's overlay header in normal use, but kept
+          // consistent: the avatar opens the shared Athlete Profile drawer.
+          onAvatarPress={() => openWorkoutProfileDrawer()}
           avatarTestID="run-profile-avatar"
           rightSlot={
             // Header-right cluster: mode toggle + settings gear. Keeping the

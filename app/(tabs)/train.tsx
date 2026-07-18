@@ -163,16 +163,13 @@ export default function TrainScreen() {
     opacity: interpolate(titleProgress.value, [0, 1], [0, 1]),
   }));
 
+  // The avatar always opens the Athlete Profile drawer, matching Home. It is
+  // hosted by the workout sub-screen, but both sub-screens stay mounted and
+  // the drawer renders through the root portal, so it works from run mode
+  // too. Run settings remain on the gear button.
   const handleAvatarPress = useCallback(() => {
-    if (mode === 'workout') {
-      openWorkoutProfileDrawer();
-    } else {
-      // TODO(profile): route to a shared profile drawer once AthleteProfileDrawer
-      // is wired into the run flow. For now, tapping the avatar in run mode
-      // opens the run settings drawer (matches existing behavior).
-      openRunSettingsDrawer();
-    }
-  }, [mode]);
+    openWorkoutProfileDrawer();
+  }, []);
 
   const handleGearPress = useCallback(() => {
     openRunSettingsDrawer();
