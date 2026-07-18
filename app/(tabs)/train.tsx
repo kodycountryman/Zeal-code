@@ -60,6 +60,7 @@ const SLIDE_EASING = Easing.out(Easing.cubic);
 // Small white elapsed clock shown in the header while a workout is active.
 // Isolated component so the per-second tick re-renders only this text.
 function HeaderElapsedClock() {
+  const { colors, isDark } = useZealTheme();
   const elapsed = useWorkoutElapsed();
   const m = Math.floor(elapsed / 60);
   const s = elapsed % 60;
@@ -68,8 +69,8 @@ function HeaderElapsedClock() {
     ? `${h}:${(m % 60).toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
     : `${m}:${s.toString().padStart(2, '0')}`;
   return (
-    <View style={styles.headerClock}>
-      <Text style={styles.headerClockText}>{label}</Text>
+    <View style={[styles.headerClock, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+      <Text style={[styles.headerClockText, { color: colors.text }]}>{label}</Text>
     </View>
   );
 }
@@ -340,14 +341,12 @@ const styles = StyleSheet.create({
     top: 0,
   },
   headerClock: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginLeft: 2,
   },
   headerClockText: {
-    color: '#ffffff',
     fontSize: 13,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 0.2,

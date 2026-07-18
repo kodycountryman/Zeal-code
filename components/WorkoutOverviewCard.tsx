@@ -143,7 +143,7 @@ function WorkoutOverviewCard({
             {completedLog.workoutName}
           </Text>
           {completedLog.trainingScore > 0 && (
-            <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 13, color: '#f87116' }}>+{completedLog.trainingScore} pts</Text>
+            <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 13, color: accent }}>+{completedLog.trainingScore} pts</Text>
           )}
           <PlatformIcon name="chevron-right" size={12} color={colors.textMuted} strokeWidth={1.8} />
         </TouchableOpacity>

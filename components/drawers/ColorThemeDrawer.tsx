@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useZealTheme, useAppContext, AppTheme } from '@/context/AppContext';
+import { getContrastTextColor } from '@/constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import BaseDrawer from '@/components/drawers/BaseDrawer';
 
@@ -100,7 +101,7 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
         onPress={handleApply}
         activeOpacity={0.85}
       >
-        <Text style={styles.headerApplyText}>Apply</Text>
+        <Text style={[styles.headerApplyText, { color: getContrastTextColor(accent) }]}>Apply</Text>
       </TouchableOpacity>
     </View>
   );
@@ -130,7 +131,7 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
                 <Text
                   style={[
                     styles.tabText,
-                    { color: localTheme === t.id ? '#fff' : colors.textSecondary },
+                    { color: localTheme === t.id ? getContrastTextColor(accent) : colors.textSecondary },
                     localTheme === t.id && { fontWeight: '700' as const },
                   ]}
                 >

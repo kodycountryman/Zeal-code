@@ -137,7 +137,7 @@ export function openRunSettingsDrawer() {
 }
 
 export default function RunScreen() {
-  const { colors, accent, isDark } = useZealTheme();
+  const { colors, accent, isDark, isZeal } = useZealTheme();
   const ctx = useAppContext();
   const run = useRun();
   const { hasPro, openPaywall } = useSubscription();
@@ -515,7 +515,7 @@ export default function RunScreen() {
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <AmbientGlow color={accent} />
-        <ZealBackground />
+        {isZeal && <ZealBackground />}
         <SafeAreaView edges={['top']} style={{ flex: 1 }}>
           <View style={styles.topBar}>
             <Text style={[styles.summaryTitle, { color: colors.text }]}>Run Complete</Text>
@@ -553,7 +553,7 @@ export default function RunScreen() {
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <AmbientGlow color={accent} />
-        <ZealBackground />
+        {isZeal && <ZealBackground />}
         <SafeAreaView edges={['top']} style={{ flex: 1 }}>
           <View style={styles.topBar}>
             <View style={styles.activeTopBarLeft}>
@@ -686,7 +686,7 @@ export default function RunScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <AmbientGlow color={RUN_BLUE} opacity={0.008} />
-      <ZealBackground />
+      {isZeal && <ZealBackground />}
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <TabHeader
           title="Run"
