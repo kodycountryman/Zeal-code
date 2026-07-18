@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import WheelPicker from '@/components/WheelPicker';
@@ -56,6 +56,7 @@ function formatClock(totalSeconds: number): string {
 
 export default function WalkthroughMode({ visible, workout, accent, onClose, onToggleSet, getTrackingType }: Props) {
   const { colors, isDark } = useZealTheme();
+  const insets = useSafeAreaInsets();
   const tracking = useWorkoutTracking();
   const elapsed = useWorkoutElapsed();
   const restRemaining = useRestTimeRemaining();
@@ -229,7 +230,11 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <View style={[styles.root, {
+        backgroundColor: colors.background,
+        paddingTop: Math.max(insets.top, 16) + 4,
+        paddingBottom: Math.max(insets.bottom, 12),
+      }]}>
         {/* ── Header ── */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={[styles.headerBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]} activeOpacity={0.7} testID="walkthrough-close">
@@ -512,7 +517,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
             {!isLast && <PlatformIcon name="chevron-right" size={18} color={colors.textSecondary} />}
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
