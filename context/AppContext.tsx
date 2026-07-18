@@ -222,18 +222,24 @@ function getTodayDateStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function getYesterdayDateStr(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Login streak with a grace period: opening the app on a new day adds one.
+// Missing a day or two doesn't break it — the streak only resets after
+// three consecutive missed days.
+function daysBetweenDateStrs(a: string, b: string): number {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  if (!ay || !by) return Number.POSITIVE_INFINITY;
+  const da = new Date(ay, am - 1, ad).getTime();
+  const db = new Date(by, bm - 1, bd).getTime();
+  return Math.round((db - da) / 86400000);
 }
 
-// Login streak: consecutive days the app was opened. Same day → unchanged,
-// opened yesterday → +1, missed a full day or more → back to 1 (today).
 function rollLoginStreak(savedStreak: number, savedDate: string): { streak: number; date: string } {
   const today = getTodayDateStr();
   if (savedDate === today) return { streak: Math.max(savedStreak, 1), date: today };
-  if (savedDate === getYesterdayDateStr()) return { streak: Math.max(savedStreak, 1) + 1, date: today };
+  const gap = daysBetweenDateStrs(savedDate, today);
+  // gap 1 = opened yesterday; gap 2-3 = missed one or two full days (grace).
+  if (gap >= 1 && gap <= 3) return { streak: Math.max(savedStreak, 1) + 1, date: today };
   return { streak: 1, date: today };
 }
 

@@ -48,13 +48,13 @@ export default function StreakBottomSheet({ visible, streak, onClose }: Props) {
         </View>
 
         <View style={[styles.infoCard, { backgroundColor: colors.cardSecondary }]}>
-          <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>MISSED A DAY?</Text>
+          <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>GRACE PERIOD</Text>
           <Text style={[styles.infoCardBody, { color: colors.textSecondary }]}>
-            {'Miss a full day and the streak resets — the day you come back becomes '}
+            {'Life happens — missing a day or two won\'t break your streak. It only resets after '}
             <Text style={[styles.infoCardBody, { color: colors.text, fontWeight: '700' as const }]}>
-              day 1
+              3 consecutive missed days
             </Text>
-            {' of your next run. Rest days still count, as long as you open the app.'}
+            {', so a rest weekend never costs you the fire.'}
           </Text>
         </View>
 
