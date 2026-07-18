@@ -1856,7 +1856,15 @@ export default function WorkoutScreen() {
         updated = {
           ...workout,
           workout: workout.workout.map(ex =>
-            ex.id === swapTargetExercise.id ? { ...exercises[0], id: swapTargetExercise.id } : ex
+            ex.id === swapTargetExercise.id
+              ? {
+                  ...exercises[0],
+                  id: swapTargetExercise.id,
+                  // Preserve superset/circuit membership through a swap
+                  groupId: swapTargetExercise.groupId ?? null,
+                  groupType: swapTargetExercise.groupType ?? null,
+                }
+              : ex
           ),
         };
       }
@@ -1883,13 +1891,28 @@ export default function WorkoutScreen() {
     setTimeout(() => setAddSheetVisible(true), 100);
   }, []);
 
-  const handleDeleteExercise = useCallback((exId: string) => {
+  const performDeleteExercise = useCallback((exId: string) => {
+    const workout = workoutRef.current;
     if (!workout) return;
     const inMain = workout.workout.some(ex => ex.id === exId);
     const inCoreFinisher = workout.coreFinisher?.some(ex => ex.id === exId);
     let updated: GeneratedWorkout;
     if (inMain) {
-      updated = { ...workout, workout: workout.workout.filter(ex => ex.id !== exId) };
+      // Remove, then dissolve any group left with a single member — an
+      // orphaned "superset of one" renders as a broken group header.
+      const remaining = workout.workout.filter(ex => ex.id !== exId);
+      const groupCounts = new Map<string, number>();
+      remaining.forEach(ex => {
+        if (ex.groupId) groupCounts.set(ex.groupId, (groupCounts.get(ex.groupId) ?? 0) + 1);
+      });
+      updated = {
+        ...workout,
+        workout: remaining.map(ex =>
+          ex.groupId && (groupCounts.get(ex.groupId) ?? 0) < 2
+            ? { ...ex, groupId: null, groupType: null }
+            : ex
+        ),
+      };
     } else if (inCoreFinisher) {
       updated = { ...workout, coreFinisher: workout.coreFinisher!.filter(ex => ex.id !== exId) };
     } else {
@@ -1912,7 +1935,8 @@ export default function WorkoutScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-  }, [workout, tracking]);
+  }, [tracking]);
+
 
   const handleSwapExercise = useCallback((ex: WorkoutExercise) => {
     __DEV__ && console.log('[WorkoutScreen] Initiating swap for:', ex.name);
@@ -1923,6 +1947,30 @@ export default function WorkoutScreen() {
     setSwipeOpenId(null);
     setTimeout(() => setAddSheetVisible(true), 100);
   }, []);
+  const handleDeleteExercise = useCallback((exId: string) => {
+    const w = workoutRef.current;
+    if (!w) return;
+    const ex = w.workout.find(e => e.id === exId);
+    // Deleting from a 2-member superset would orphan the partner — ask
+    // whether to swap in a replacement instead. Larger groups just shrink.
+    if (ex?.groupId) {
+      const members = w.workout.filter(e => e.groupId === ex.groupId);
+      if (members.length === 2) {
+        const other = members.find(m => m.id !== exId);
+        Alert.alert(
+          'Remove from Superset?',
+          `${other?.name ?? 'The other movement'} will become a standalone movement.`,
+          [
+            { text: 'Replace Movement…', onPress: () => handleSwapExercise(ex) },
+            { text: 'Just Remove', style: 'destructive', onPress: () => performDeleteExercise(exId) },
+            { text: 'Cancel', style: 'cancel' },
+          ],
+        );
+        return;
+      }
+    }
+    performDeleteExercise(exId);
+  }, [performDeleteExercise, handleSwapExercise]);
 
   // Overflow ("…") menu on each log panel. Exposes Delete / Swap / Recommend
   // more / Recommend less. The "recommend" options write to the existing
@@ -1999,6 +2047,50 @@ export default function WorkoutScreen() {
     } else {
       remaining.push(...movingExercises);
     }
+
+    // Dropping a standalone exercise strictly inside a superset (a grouped
+    // member on both sides) offers to replace one of its movements; the
+    // replaced movement moves out as a standalone right after the group.
+    if (movingExercises.length === 1) {
+      const moving = movingExercises[0];
+      const newIdx = remaining.findIndex(e => e.id === moving.id);
+      const prevEx = remaining[newIdx - 1];
+      const nextEx = remaining[newIdx + 1];
+      if (prevEx?.groupId && prevEx.groupId === nextEx?.groupId && moving.groupId !== prevEx.groupId) {
+        const members = w.workout.filter(e => e.groupId === prevEx.groupId);
+        const applyReplace = (memberId: string) => {
+          const cur = workoutRef.current;
+          if (!cur) return;
+          const list = cur.workout.filter(e => e.id !== moving.id);
+          const memberIdx = list.findIndex(e => e.id === memberId);
+          if (memberIdx === -1) return;
+          const member = list[memberIdx];
+          list[memberIdx] = { ...moving, groupId: member.groupId, groupType: member.groupType };
+          let end = memberIdx;
+          while (end + 1 < list.length && list[end + 1].groupId === member.groupId) end++;
+          list.splice(end + 1, 0, { ...member, groupId: null, groupType: null });
+          const updatedW = { ...cur, workout: list };
+          if (Platform.OS !== 'web') {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          }
+          setWorkout(updatedW);
+          tracking.setCurrentGeneratedWorkout(updatedW);
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+        };
+        Alert.alert(
+          'Add to Superset?',
+          `Which movement should ${moving.name} replace? The replaced movement becomes a standalone below the superset.`,
+          [
+            ...members.map(m => ({ text: `Replace ${m.name}`, onPress: () => applyReplace(m.id) })),
+            { text: 'Cancel', style: 'cancel' as const },
+          ],
+        );
+        return;
+      }
+    }
+
     const updated = { ...w, workout: remaining };
     if (Platform.OS !== 'web') {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
