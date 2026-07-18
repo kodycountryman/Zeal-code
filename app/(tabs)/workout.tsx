@@ -3797,9 +3797,13 @@ export default function WorkoutScreen() {
         {/* ── POST-WORKOUT COMPLETED STATE ── */}
         {hasCompletedToday && !tracking.isWorkoutActive && !postWorkoutDismissed && (
           <View style={styles.postWorkoutWrap}>
-            {/* Big square completed card */}
+            {/* Big completed card — sized so both cards fit on screen together */}
             <TouchableOpacity
-              style={[styles.postWorkoutHeroCard, { backgroundColor: colors.card, borderColor: cardBorder }]}
+              style={[styles.postWorkoutHeroCard, {
+                backgroundColor: colors.card,
+                borderColor: cardBorder,
+                height: Math.max(280, Math.min(screenHeight * 0.38, 400)),
+              }]}
               onPress={() => {
                 if (latestTodayLog) {
                   tracking.setSelectedLogId(latestTodayLog.id);
@@ -3829,8 +3833,12 @@ export default function WorkoutScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Big square start-another card */}
-            <View style={[styles.postWorkoutStartCard, { backgroundColor: colors.card, borderColor: cardBorder }]}>
+            {/* Start-another card — sized so both cards fit on screen together */}
+            <View style={[styles.postWorkoutStartCard, {
+              backgroundColor: colors.card,
+              borderColor: cardBorder,
+              height: Math.max(210, Math.min(screenHeight * 0.27, 290)),
+            }]}>
               <Text style={[styles.postWorkoutStartTitle, { color: colors.text }]}>Start Another Workout</Text>
               <View style={styles.postWorkoutStartActions}>
                 <TouchableOpacity
@@ -7125,7 +7133,6 @@ const styles = StyleSheet.create({
   },
   // Big square hero card — centered check, title, stats
   postWorkoutHeroCard: {
-    aspectRatio: 1,
     borderRadius: 26,
     borderWidth: 1,
     alignItems: 'center' as const,
@@ -7170,7 +7177,6 @@ const styles = StyleSheet.create({
   },
   // Big square start-another card — title + stacked actions
   postWorkoutStartCard: {
-    aspectRatio: 1,
     borderRadius: 26,
     borderWidth: 1,
     alignItems: 'stretch' as const,
