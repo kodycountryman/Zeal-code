@@ -210,13 +210,30 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
 
   // Tap-to-expand wheel state — one open cell at a time, list-mode style.
   const [activeCell, setActiveCell] = useState<{ exId: string; field: 'weight' | 'reps' } | null>(null);
+  // Last wheel edit — offered as "use for remaining sets".
+  const [pendingApply, setPendingApply] = useState<{ exId: string; setIdx: number; field: 'weight' | 'reps'; value: number } | null>(null);
   const toggleCell = useCallback((exId: string, field: 'weight' | 'reps') => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setActiveCell(prev => (prev && prev.exId === exId && prev.field === field) ? null : { exId, field });
   }, []);
   useEffect(() => {
     setActiveCell(null);
+    setPendingApply(null);
   }, [clampedIndex, currentTarget?.ex.id, currentTarget?.setIdx]);
+
+  const editSetValue = useCallback((exId: string, setIdx: number, field: 'weight' | 'reps', value: number) => {
+    tracking.updateSetLog(exId, setIdx, field, value);
+    setPendingApply({ exId, setIdx, field, value });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracking.updateSetLog]);
+
+  const applyPendingToRemaining = useCallback(() => {
+    if (!pendingApply) return;
+    tracking.applyValueToRemainingSets(pendingApply.exId, pendingApply.setIdx, pendingApply.field, pendingApply.value);
+    setPendingApply(null);
+    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingApply, tracking.applyValueToRemainingSets]);
 
   const goPrev = useCallback(() => setGroupIndex(i => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => {
@@ -405,7 +422,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                             <TapWheel
                               values={exIsDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
                               selectedValue={set.weight}
-                              onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'weight', v)}
+                              onValueChange={(v) => editSetValue(ex.id, curRound, 'weight', v)}
                               active={activeCell?.exId === ex.id && activeCell?.field === 'weight'}
                               onToggle={() => toggleCell(ex.id, 'weight')}
                               accent={accent}
@@ -419,7 +436,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                           <TapWheel
                             values={exRepsValues}
                             selectedValue={set.reps}
-                            onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'reps', v)}
+                            onValueChange={(v) => editSetValue(ex.id, curRound, 'reps', v)}
                             active={activeCell?.exId === ex.id && activeCell?.field === 'reps'}
                             onToggle={() => toggleCell(ex.id, 'reps')}
                             accent={accent}
@@ -429,6 +446,20 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                           />
                         </View>
                       </View>
+
+                      {pendingApply && pendingApply.exId === ex.id && exSets.slice(pendingApply.setIdx + 1).some(s => !s.done) && (
+                        <TouchableOpacity
+                          onPress={applyPendingToRemaining}
+                          style={[styles.applyPill, { borderColor: `${accent}50`, backgroundColor: `${accent}12` }]}
+                          activeOpacity={0.8}
+                        >
+                          <PlatformIcon name="copy" size={13} color={accent} />
+                          <Text style={[styles.applyPillText, { color: accent }]}>
+                            Use {pendingApply.field === 'weight' ? `${pendingApply.value} lb` : `${pendingApply.value} reps`} for remaining sets
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
                       <TouchableOpacity
                         onPress={() => tracking.addSet(ex.id)}
                         style={styles.addSetBtn}
@@ -483,7 +514,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                         <TapWheel
                           values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
                           selectedValue={curSet.weight}
-                          onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'weight', v)}
+                          onValueChange={(v) => editSetValue(curEx.id, curSetIdx, 'weight', v)}
                           active={activeCell?.exId === curEx.id && activeCell?.field === 'weight'}
                           onToggle={() => toggleCell(curEx.id, 'weight')}
                           accent={accent}
@@ -496,7 +527,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                       <TapWheel
                         values={repsValues}
                         selectedValue={curSet.reps}
-                        onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'reps', v)}
+                        onValueChange={(v) => editSetValue(curEx.id, curSetIdx, 'reps', v)}
                         active={activeCell?.exId === curEx.id && activeCell?.field === 'reps'}
                         onToggle={() => toggleCell(curEx.id, 'reps')}
                         accent={accent}
@@ -767,6 +798,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 5,
     bottom: 3,
+  },
+  applyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginTop: 12,
+  },
+  applyPillText: {
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.1,
   },
   addSetBtn: {
     flexDirection: 'row',

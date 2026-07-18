@@ -284,7 +284,15 @@ function getSuggestedWeight(
 
   if (best1RM > 0) {
     const targetWeight = weightAtReps(best1RM, targetReps);
-    const progressive = Math.round((targetWeight + increment) / roundTo) * roundTo;
+    let progressive = Math.round((targetWeight + increment) / roundTo) * roundTo;
+    // Progressive-overload floor: when today's rep target is comparable to
+    // the last session's (±2 reps), never suggest below the weight the user
+    // actually lifted +2.5% — their own logged loads lead the progression,
+    // not just the modeled 1RM curve.
+    if (lastWeight > 0 && Math.abs(lastReps - targetReps) <= 2) {
+      const overloadFloor = Math.round((lastWeight * 1.025) / roundTo) * roundTo;
+      if (overloadFloor > progressive) progressive = overloadFloor;
+    }
     __DEV__ && console.log(`[Suggest] ${exercise.name}: 1RM=${Math.round(best1RM)}, @${targetReps}reps=${Math.round(targetWeight)}, +${increment}→${progressive}`);
     return { suggestedWeight: progressive, lastWeight, lastReps, oneRepMax: Math.round(best1RM) };
   }
@@ -1150,6 +1158,16 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     });
   }, []);
 
+  // Copy an edited value onto this and all later not-yet-logged sets.
+  const applyValueToRemainingSets = useCallback((exerciseId: string, fromSetIdx: number, field: 'weight' | 'reps', value: number) => {
+    setExerciseLogs(prev => {
+      const log = prev[exerciseId];
+      if (!log) return prev;
+      const newSets = log.sets.map((s, i) => (i >= fromSetIdx && !s.done ? { ...s, [field]: value } : s));
+      return { ...prev, [exerciseId]: { ...log, sets: newSets } };
+    });
+  }, []);
+
   const applyWeightToAllSets = useCallback((exerciseId: string, weight: number) => {
     setExerciseLogs(prev => {
       const log = prev[exerciseId];
@@ -2002,6 +2020,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     initExerciseLog,
     clearExerciseLog,
     updateSetLog,
+    applyValueToRemainingSets,
     applyWeightToAllSets,
     markSetDone,
     addSet,
@@ -2047,7 +2066,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     currentGeneratedWorkout, setCurrentGeneratedWorkout,
     isGeneratingWorkout, ensureTodayWorkoutGenerated,
     startWorkout, pauseWorkout, resetWorkout, addExerciseToActiveWorkout, setActiveWorkoutName, startRestTimer, adjustRestTimer,
-    setRestPreset, cancelRestTimer, initExerciseLog, clearExerciseLog, updateSetLog,
+    setRestPreset, cancelRestTimer, initExerciseLog, clearExerciseLog, updateSetLog, applyValueToRemainingSets,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout,
     applyFeedbackPatch, openFeedbackForLog, lastSavedLogId, adaptiveOverride, recordAdaptiveOverride,
