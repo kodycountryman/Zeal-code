@@ -4256,15 +4256,15 @@ export default function WorkoutScreen() {
                 style={{
                   flexDirection: 'row', alignItems: 'center', gap: 4,
                   paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12,
-                  borderWidth: 1, borderColor: `${colors.textMuted}35`,
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  borderWidth: 1, borderColor: `${currentAccent}38`,
+                  backgroundColor: `${currentAccent}10`,
                 }}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
                 testID="walkthrough-mode-btn"
               >
-                <PlatformIcon name="footprints" size={11} color={colors.textMuted} />
-                <Text style={{ color: colors.textMuted, fontSize: 11, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.1 }}>
+                <PlatformIcon name="footprints" size={11} color={`${currentAccent}cc`} />
+                <Text style={{ color: `${currentAccent}cc`, fontSize: 11, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.1 }}>
                   Walk-through
                 </Text>
               </TouchableOpacity>

@@ -27,7 +27,7 @@
  * from the old /workout and /run routes.
  */
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Image, View, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { Image, View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -41,7 +41,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTrain } from '@/context/TrainContext';
 import { useAppTour } from '@/context/AppTourContext';
 import { useAppContext, useZealTheme } from '@/context/AppContext';
-import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { useWorkoutTracking, useWorkoutElapsed } from '@/context/WorkoutTrackingContext';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import ModeToggleIcons from '@/components/train/ModeToggleIcons';
 import MiniSessionBar from '@/components/train/MiniSessionBar';
@@ -56,6 +56,23 @@ import RunScreen, { openRunSettingsDrawer } from './run';
 // Ease-out cubic lands smoothly without any rebound.
 const SLIDE_DURATION_MS = 300;
 const SLIDE_EASING = Easing.out(Easing.cubic);
+
+// Small white elapsed clock shown in the header while a workout is active.
+// Isolated component so the per-second tick re-renders only this text.
+function HeaderElapsedClock() {
+  const elapsed = useWorkoutElapsed();
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  const h = Math.floor(m / 60);
+  const label = h > 0
+    ? `${h}:${(m % 60).toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    : `${m}:${s.toString().padStart(2, '0')}`;
+  return (
+    <View style={styles.headerClock}>
+      <Text style={styles.headerClockText}>{label}</Text>
+    </View>
+  );
+}
 
 export default function TrainScreen() {
   const { mode, loaded, syncFromQueryParam } = useTrain();
@@ -226,6 +243,7 @@ export default function TrainScreen() {
                   Run
                 </Animated.Text>
               </View>
+              {tracking.isWorkoutActive && <HeaderElapsedClock />}
             </View>
 
             {/* Right cluster — mode toggle + animated settings gear */}
@@ -323,6 +341,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
+  },
+  headerClock: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginLeft: 2,
+  },
+  headerClockText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.2,
+    fontVariant: ['tabular-nums'],
   },
   rightCluster: {
     flexDirection: 'row',
