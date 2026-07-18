@@ -31,11 +31,13 @@ export default function RunLogDrawer({ visible, onClose, runId }: Props) {
   }, [log, run, onClose]);
 
   const handleSaveEdits = useCallback(
-    async (updates: { rating: number | null; notes: string }) => {
+    async (updates: { rating: number | null; notes: string; averageHeartRate: number | null; maxHeartRate: number | null }) => {
       if (!log) return;
       await run.updateRun(log.id, {
         rating: updates.rating,
         notes: updates.notes,
+        averageHeartRate: updates.averageHeartRate,
+        maxHeartRate: updates.maxHeartRate,
       });
     },
     [log, run],

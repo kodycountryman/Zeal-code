@@ -1105,7 +1105,7 @@ export const [RunProvider, useRun] = createContextHook(() => {
     // heavier and rarely matters. Could add later if desired.
   }, [runHistory]);
 
-  const updateRun = useCallback(async (runId: string, updates: Partial<Pick<RunLog, 'rating' | 'feelingLevel' | 'notes' | 'runType'>>) => {
+  const updateRun = useCallback(async (runId: string, updates: Partial<Pick<RunLog, 'rating' | 'feelingLevel' | 'notes' | 'runType' | 'averageHeartRate' | 'maxHeartRate' | 'calories'>>) => {
     const updatedHistory = runHistory.map(r =>
       r.id === runId ? { ...r, ...updates } : r,
     );

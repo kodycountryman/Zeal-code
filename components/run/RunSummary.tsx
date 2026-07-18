@@ -51,7 +51,7 @@ interface Props {
   /** Optional edit handler for log_view mode — triggers inline edit of rating/notes. */
   editable?: boolean;
   /** Optional callback fired when user saves edits to rating/notes (log_view). */
-  onSaveEdits?: (updates: { rating: number | null; notes: string }) => void;
+  onSaveEdits?: (updates: { rating: number | null; notes: string; averageHeartRate: number | null; maxHeartRate: number | null }) => void;
 }
 
 function formatDistance(meters: number, units: 'imperial' | 'metric'): string {
@@ -103,6 +103,8 @@ export default function RunSummary({
   const [isEditing, setIsEditing] = useState(false);
   const [editRating, setEditRating] = useState<number | null>(log.rating);
   const [editNotes, setEditNotes] = useState(log.notes ?? '');
+  const [editAvgHr, setEditAvgHr] = useState(log.averageHeartRate != null ? String(log.averageHeartRate) : '');
+  const [editMaxHr, setEditMaxHr] = useState(log.maxHeartRate != null ? String(log.maxHeartRate) : '');
 
   // ─── Share card refs (off-screen render targets) ─────────────────────
   const squareCardRef = useRef<View>(null);
@@ -131,6 +133,8 @@ export default function RunSummary({
   const handleStartEdit = () => {
     setEditRating(log.rating);
     setEditNotes(log.notes ?? '');
+    setEditAvgHr(log.averageHeartRate != null ? String(log.averageHeartRate) : '');
+    setEditMaxHr(log.maxHeartRate != null ? String(log.maxHeartRate) : '');
     setIsEditing(true);
   };
 
@@ -138,11 +142,22 @@ export default function RunSummary({
     setIsEditing(false);
     setEditRating(log.rating);
     setEditNotes(log.notes ?? '');
+    setEditAvgHr(log.averageHeartRate != null ? String(log.averageHeartRate) : '');
+    setEditMaxHr(log.maxHeartRate != null ? String(log.maxHeartRate) : '');
   };
 
   const handleConfirmEdits = () => {
     if (onSaveEdits) {
-      onSaveEdits({ rating: editRating, notes: editNotes });
+      const toNum = (t: string) => {
+        const n = parseInt(t.trim(), 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      onSaveEdits({
+        rating: editRating,
+        notes: editNotes,
+        averageHeartRate: toNum(editAvgHr),
+        maxHeartRate: toNum(editMaxHr),
+      });
     }
     setIsEditing(false);
   };
@@ -342,6 +357,40 @@ export default function RunSummary({
           </Text>
         )}
       </GlassCard>
+
+      {/* ─── Heart rate (edit mode) — backfill wearable metrics ───────── */}
+      {mode === 'log_view' && isEditing && (
+        <GlassCard style={styles.sectionCard}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>HEART RATE</Text>
+          <View style={styles.hrEditRow}>
+            <View style={styles.hrEditField}>
+              <Text style={[styles.hrEditLabel, { color: colors.textMuted }]}>Avg HR (bpm)</Text>
+              <TextInput
+                value={editAvgHr}
+                onChangeText={setEditAvgHr}
+                keyboardType="number-pad"
+                placeholder="—"
+                placeholderTextColor={colors.textMuted}
+                maxLength={3}
+                style={[styles.hrEditInput, { color: colors.text, borderColor: colors.border }]}
+                testID="run-edit-avg-hr"
+              />
+            </View>
+            <View style={styles.hrEditField}>
+              <Text style={[styles.hrEditLabel, { color: colors.textMuted }]}>Max HR (bpm)</Text>
+              <TextInput
+                value={editMaxHr}
+                onChangeText={setEditMaxHr}
+                keyboardType="number-pad"
+                placeholder="—"
+                placeholderTextColor={colors.textMuted}
+                maxLength={3}
+                style={[styles.hrEditInput, { color: colors.text, borderColor: colors.border }]}
+              />
+            </View>
+          </View>
+        </GlassCard>
+      )}
 
       {/* ─── Share buttons (both modes) ──────────────────────────────── */}
       {log.route.length >= 2 && (
@@ -594,6 +643,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Outfit_500Medium',
     letterSpacing: 0.3,
+  },
+  hrEditRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  hrEditField: {
+    flex: 1,
+    gap: 4,
+  },
+  hrEditLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  hrEditInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontWeight: '600',
   },
   notesInput: {
     borderWidth: 1,

@@ -84,6 +84,7 @@ function startOfToday(): Date {
 class HealthService {
   private _initialized = false;
   private _permissionsGranted = false;
+  private _initPromise: Promise<HealthPermissionResult> | null = null;
   private _appleHealthKit: any = null;
   private _healthConnect: any = null;
   private _loadAttempted = false;
@@ -114,15 +115,37 @@ class HealthService {
 
   setConnectedFromStorage(value: boolean) {
     if (value && this.isAvailable()) {
-      this._initialized = true;
-      this._permissionsGranted = true;
-      __DEV__ && console.log('[HealthService] Restored connected state from storage');
+      // HealthKit (and Health Connect) must be re-initialized on every app
+      // launch — flipping the flags alone leaves every query silently
+      // failing. Permissions were already granted, so this re-init is
+      // non-interactive (no permission sheet is shown again).
+      void this.requestPermissions().then((res) => {
+        __DEV__ && console.log('[HealthService] Silent re-init from storage:', res.granted, res.error ?? '');
+      });
+    }
+  }
+
+  // Queries issued while a (re-)init is still in flight wait for it instead
+  // of failing the initialized-flags check with empty results.
+  private async _waitForPendingInit(): Promise<void> {
+    if (!this._initialized && this._initPromise) {
+      try { await this._initPromise; } catch { /* handled by caller flags */ }
     }
   }
 
   async requestPermissions(): Promise<HealthPermissionResult> {
     __DEV__ && console.log('[HealthService] Requesting permissions on', Platform.OS);
     this._ensureLoaded();
+    const inFlight = this._doRequestPermissions();
+    this._initPromise = inFlight;
+    try {
+      return await inFlight;
+    } finally {
+      if (this._initPromise === inFlight) this._initPromise = null;
+    }
+  }
+
+  private async _doRequestPermissions(): Promise<HealthPermissionResult> {
     try {
       if (Platform.OS === 'ios') return await this._requestHealthKit();
       if (Platform.OS === 'android') return await this._requestHealthConnect();
@@ -147,6 +170,9 @@ class HealthService {
             AHK.Constants.Permissions.ActiveEnergyBurned,
             AHK.Constants.Permissions.RestingHeartRate,
             AHK.Constants.Permissions.HeartRate,
+            // Read workouts recorded by watches (Garmin/Fitbit/Amazfit → Apple Health)
+            AHK.Constants.Permissions.Workout,
+            AHK.Constants.Permissions.DistanceWalkingRunning,
           ],
           write: [
             AHK.Constants.Permissions.Workout,
@@ -201,6 +227,7 @@ class HealthService {
   }
 
   async getSteps(date: Date = new Date()): Promise<number> {
+    await this._waitForPendingInit();
     if (!this._initialized || !this._permissionsGranted) return 0;
     this._ensureLoaded();
     if (Platform.OS === 'ios' && this._appleHealthKit) {
@@ -233,6 +260,7 @@ class HealthService {
   }
 
   async getActiveEnergy(date: Date = new Date()): Promise<number> {
+    await this._waitForPendingInit();
     if (!this._initialized || !this._permissionsGranted) return 0;
     this._ensureLoaded();
     if (Platform.OS === 'ios' && this._appleHealthKit) {
@@ -273,6 +301,7 @@ class HealthService {
   }
 
   async getHeartRate(date: Date = new Date()): Promise<number | null> {
+    await this._waitForPendingInit();
     if (!this._initialized || !this._permissionsGranted) return null;
     this._ensureLoaded();
     if (Platform.OS === 'ios' && this._appleHealthKit) {
@@ -326,6 +355,7 @@ class HealthService {
   }
 
   async getRecentWorkouts(days: number = 7): Promise<HealthWorkoutSession[]> {
+    await this._waitForPendingInit();
     if (!this._initialized || !this._permissionsGranted) {
       __DEV__ && console.log('[HealthService] getRecentWorkouts skipped — not connected');
       return [];
@@ -404,6 +434,7 @@ class HealthService {
   }
 
   async writeWorkout(data: WorkoutWriteData): Promise<boolean> {
+    await this._waitForPendingInit();
     if (!this._initialized || !this._permissionsGranted) {
       __DEV__ && console.log('[HealthService] writeWorkout skipped — not connected');
       return false;
@@ -460,6 +491,7 @@ class HealthService {
    * Returns true on success.
    */
   async writeRunWorkout(data: RunWriteData): Promise<boolean> {
+    await this._waitForPendingInit();
     if (!this._initialized || !this._permissionsGranted) {
       __DEV__ && console.log('[HealthService] writeRunWorkout skipped — not connected');
       return false;

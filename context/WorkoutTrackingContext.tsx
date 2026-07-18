@@ -1716,6 +1716,15 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     __DEV__ && console.log('[HealthImport] Keep both:', dupId);
   }, [markImportSeen]);
 
+  // Patch an existing history entry (post-hoc details like wearable HR/notes).
+  const updateWorkoutLog = useCallback((logId: string, updates: Partial<Pick<WorkoutLog, 'averageHeartRate' | 'maxHeartRate' | 'calories' | 'notes'>>) => {
+    setWorkoutHistory(hist => {
+      const updated = hist.map(l => (l.id === logId ? { ...l, ...updates } : l));
+      AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated.slice(0, 100))).catch(console.warn);
+      return updated;
+    });
+  }, []);
+
   const dismissDuplicate = useCallback((dupId: string) => {
     setDuplicateCandidates(prev => {
       const dup = prev.find(d => d.id === dupId);
@@ -1871,6 +1880,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     sessionPRs,
     confirmedPRs,
     workoutHistory,
+    updateWorkoutLog,
     prHistory,
     activeWorkout,
     currentGeneratedWorkout,
@@ -1968,6 +1978,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     pendingHealthImports, duplicateCandidates, healthImportReviewVisible, setHealthImportReviewVisible,
     acceptHealthImport, dismissHealthImport, mergeDuplicate, keepBothDuplicate, dismissDuplicate,
     resetTrackingData,
+  
+    updateWorkoutLog,
   ]);
 });
 

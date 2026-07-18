@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   Animated,
+  TextInput,
 } from 'react-native';
 import { useSheetAnimation } from '@/hooks/useSheetAnimation';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -42,6 +43,21 @@ export default function WorkoutLogDetail() {
   const tracking = useWorkoutTracking();
   const run = useRun();
   const log = tracking.selectedLog;
+
+  // ── Post-hoc details editor (wearable HR, calories, notes) ──
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [avgHrText, setAvgHrText] = useState('');
+  const [maxHrText, setMaxHrText] = useState('');
+  const [calText, setCalText] = useState('');
+  const [notesText, setNotesText] = useState('');
+  useEffect(() => {
+    setDetailsOpen(false);
+    setAvgHrText(log?.averageHeartRate != null ? String(log.averageHeartRate) : '');
+    setMaxHrText(log?.maxHeartRate != null ? String(log.maxHeartRate) : '');
+    setCalText(log?.calories != null ? String(log.calories) : '');
+    setNotesText(log?.notes ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log?.id]);
 
   if (!tracking.workoutLogDetailVisible || !log) return null;
 
@@ -265,6 +281,101 @@ export default function WorkoutLogDetail() {
                 </View>
               );
             })()}
+
+            {/* Add / edit wearable details */}
+            {!detailsOpen ? (
+              <TouchableOpacity
+                style={[styles.addFeedbackCta, { backgroundColor: `${accent}10`, borderColor: `${accent}30` }]}
+                onPress={() => setDetailsOpen(true)}
+                activeOpacity={0.85}
+                testID="add-details-cta"
+                accessibilityRole="button"
+                accessibilityLabel="Add heart rate and other details"
+              >
+                <PlatformIcon name="heart-pulse" size={14} color={accent} />
+                <Text style={[styles.addFeedbackLabel, { color: accent }]}>
+                  {log.averageHeartRate != null || log.maxHeartRate != null ? 'Edit details' : 'Add details'}
+                </Text>
+                <PlatformIcon name="chevron-right" size={14} color={accent} />
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.detailsForm, { borderColor: `${accent}30`, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>WORKOUT DETAILS</Text>
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsField}>
+                    <Text style={[styles.detailsFieldLabel, { color: colors.textMuted }]}>Avg HR (bpm)</Text>
+                    <TextInput
+                      style={[styles.detailsInput, { color: colors.text, borderColor: colors.border }]}
+                      value={avgHrText}
+                      onChangeText={setAvgHrText}
+                      keyboardType="number-pad"
+                      placeholder="—"
+                      placeholderTextColor={colors.textMuted}
+                      maxLength={3}
+                      testID="details-avg-hr"
+                    />
+                  </View>
+                  <View style={styles.detailsField}>
+                    <Text style={[styles.detailsFieldLabel, { color: colors.textMuted }]}>Max HR (bpm)</Text>
+                    <TextInput
+                      style={[styles.detailsInput, { color: colors.text, borderColor: colors.border }]}
+                      value={maxHrText}
+                      onChangeText={setMaxHrText}
+                      keyboardType="number-pad"
+                      placeholder="—"
+                      placeholderTextColor={colors.textMuted}
+                      maxLength={3}
+                    />
+                  </View>
+                  <View style={styles.detailsField}>
+                    <Text style={[styles.detailsFieldLabel, { color: colors.textMuted }]}>Calories</Text>
+                    <TextInput
+                      style={[styles.detailsInput, { color: colors.text, borderColor: colors.border }]}
+                      value={calText}
+                      onChangeText={setCalText}
+                      keyboardType="number-pad"
+                      placeholder="—"
+                      placeholderTextColor={colors.textMuted}
+                      maxLength={5}
+                    />
+                  </View>
+                </View>
+                <Text style={[styles.detailsFieldLabel, { color: colors.textMuted }]}>Notes</Text>
+                <TextInput
+                  style={[styles.detailsInput, styles.detailsNotesInput, { color: colors.text, borderColor: colors.border }]}
+                  value={notesText}
+                  onChangeText={setNotesText}
+                  placeholder="How did it go?"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                />
+                <View style={styles.detailsActions}>
+                  <TouchableOpacity onPress={() => setDetailsOpen(false)} activeOpacity={0.7} style={styles.detailsCancelBtn}>
+                    <Text style={[styles.detailsCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const toNum = (t: string) => {
+                        const n = parseInt(t.trim(), 10);
+                        return Number.isFinite(n) && n > 0 ? n : null;
+                      };
+                      tracking.updateWorkoutLog(log.id, {
+                        averageHeartRate: toNum(avgHrText),
+                        maxHeartRate: toNum(maxHrText),
+                        calories: toNum(calText) ?? undefined,
+                        notes: notesText.trim() || undefined,
+                      });
+                      setDetailsOpen(false);
+                    }}
+                    activeOpacity={0.8}
+                    style={[styles.detailsSaveBtn, { backgroundColor: accent }]}
+                    testID="details-save"
+                  >
+                    <Text style={styles.detailsSaveText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {log.notes && log.notes.trim().length > 0 && (
               <View style={styles.notesBlock}>
@@ -522,6 +633,64 @@ const styles = StyleSheet.create({
   },
   advancedValue: {
     fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  detailsForm: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+    gap: 8,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  detailsField: {
+    flex: 1,
+    gap: 4,
+  },
+  detailsFieldLabel: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    letterSpacing: 0.3,
+  },
+  detailsInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  detailsNotesInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+    fontWeight: '400' as const,
+    fontSize: 14,
+  },
+  detailsActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 4,
+  },
+  detailsCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  detailsCancelText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  detailsSaveBtn: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+  },
+  detailsSaveText: {
+    color: '#fff',
+    fontSize: 13,
     fontWeight: '700' as const,
   },
   notesBlock: {
