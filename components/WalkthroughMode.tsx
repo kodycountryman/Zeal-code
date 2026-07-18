@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -161,6 +161,11 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
   const repsValues = t.isHoldForTime ? TIME_VALUES_SECONDS : REPS_VALUES;
   const metricLabel = t.isHoldForTime ? 'HOLD' : t.isCaloriesMovement ? 'CALS' : t.isDistanceOnly || t.isWeightDistance ? 'DIST' : 'REPS';
 
+  // Superset round bookkeeping: the round shown is the first with any
+  // movement still unlogged; all movements' wheels for it render together.
+  const maxRounds = Math.max(0, ...group.exercises.map(ex => tracking.exerciseLogs[ex.id]?.sets.length ?? ex.sets));
+  const curRound = currentTarget?.setIdx ?? Math.max(0, maxRounds - 1);
+
   // Weight/target metadata for an exercise: prefer the live log's first-set
   // weight (what the wheels hold), else the suggestion engine.
   const exerciseMeta = (ex: WorkoutExercise): string => {
@@ -176,28 +181,19 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
     return parts.join(' · ');
   };
 
-  // Up next: within a superset, the next alternating set; otherwise the next movement.
+  // Up next: the superset's next round, or the next movement group.
   const upNext = ((): { title: string; meta: string | null } | null => {
-    if (currentTarget && group.exercises.length > 1) {
-      const maxSets = Math.max(0, ...group.exercises.map(ex => tracking.exerciseLogs[ex.id]?.sets.length ?? ex.sets));
-      let passedCurrent = false;
-      for (let r = 0; r < maxSets; r++) {
-        for (const ex of group.exercises) {
-          const exSets = tracking.exerciseLogs[ex.id]?.sets ?? [];
-          if (r < exSets.length && !exSets[r].done) {
-            if (!passedCurrent && ex.id === curEx.id && r === curSetIdx) { passedCurrent = true; continue; }
-            if (passedCurrent) {
-              const tt = getTrackingType(ex);
-              const showW = !tt.isRepsOnly && !tt.isHoldForTime && !tt.isCaloriesMovement && !tt.isDistanceOnly;
-              const w = exSets[r].weight;
-              return {
-                title: ex.name,
-                meta: `Set ${r + 1} of ${exSets.length}${showW && w > 0 ? ` · ${w} lb` : ''}`,
-              };
-            }
-          }
-        }
-      }
+    if (currentTarget && group.exercises.length > 1 && curRound + 1 < maxRounds) {
+      const weights = group.exercises.flatMap(ex => {
+        const tt = getTrackingType(ex);
+        const showW = !tt.isRepsOnly && !tt.isHoldForTime && !tt.isCaloriesMovement && !tt.isDistanceOnly;
+        const w = tracking.exerciseLogs[ex.id]?.sets[curRound + 1]?.weight ?? 0;
+        return showW && w > 0 ? [`${w} lb`] : [];
+      });
+      return {
+        title: `Set ${curRound + 2} of ${maxRounds}`,
+        meta: weights.length > 0 ? weights.join('  +  ') : null,
+      };
     }
     if (!nextGroup) return null;
     return {
@@ -268,90 +264,197 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
         </View>
 
         {/* ── Current set focus ── */}
-        <View style={styles.focusArea}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.focusArea} showsVerticalScrollIndicator={false}>
           {groupLabel && (
             <View style={[styles.groupBadge, { backgroundColor: `${accent}18`, borderColor: `${accent}40` }]}>
               <Text style={[styles.groupBadgeText, { color: accent }]}>{groupLabel}</Text>
             </View>
           )}
 
-          <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2} adjustsFontSizeToFit>
-            {curEx.name}
-          </Text>
+          {group.exercises.length > 1 ? (
+            /* ── Superset / circuit: every movement's wheels for this round,
+                  one Log button that logs them all and starts the rest ── */
+            currentTarget ? (
+              <>
+                <Text style={[styles.setCounter, { color: accent }]}>
+                  SET {curRound + 1} <Text style={{ color: colors.textMuted }}>OF {maxRounds}</Text>
+                </Text>
+                <View style={styles.setDots}>
+                  {Array.from({ length: maxRounds }, (_, i) => {
+                    const roundDone = group.exercises.every(ex => {
+                      const s = tracking.exerciseLogs[ex.id]?.sets ?? [];
+                      return i >= s.length || s[i].done;
+                    });
+                    return (
+                      <View key={i} style={[styles.setDot, {
+                        backgroundColor: roundDone ? accent
+                          : i === curRound ? `${accent}60`
+                          : isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)',
+                      }]} />
+                    );
+                  })}
+                </View>
 
-          {currentTarget && curSet ? (
+                {group.exercises.map(ex => {
+                  const exSets = tracking.exerciseLogs[ex.id]?.sets ?? [];
+                  const set = exSets[curRound];
+                  if (!set) return null;
+                  const tt = getTrackingType(ex);
+                  const exIsDumbbell = (ex.equipment ?? '').toLowerCase().includes('dumbbell');
+                  const exShowWeight = !tt.isRepsOnly && !tt.isHoldForTime && !tt.isCaloriesMovement && !tt.isDistanceOnly;
+                  const exRepsValues = tt.isHoldForTime ? TIME_VALUES_SECONDS : REPS_VALUES;
+                  const exMetric = tt.isHoldForTime ? 'HOLD' : tt.isCaloriesMovement ? 'CALS' : tt.isDistanceOnly || tt.isWeightDistance ? 'DIST' : 'REPS';
+                  return (
+                    <View key={ex.id} style={styles.ssBlock}>
+                      <View style={styles.ssNameRow}>
+                        <Text style={[styles.ssName, { color: set.done ? colors.textMuted : colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                          {ex.name}
+                        </Text>
+                        {set.done && <PlatformIcon name="check" size={16} color={accent} strokeWidth={3} />}
+                      </View>
+                      <View style={styles.wheelRow}>
+                        {exShowWeight && (
+                          <View style={styles.wheelField}>
+                            <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>WEIGHT</Text>
+                            <View style={[styles.wheelBox, styles.wheelBoxCompact, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
+                              <WheelPicker
+                                values={exIsDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
+                                selectedValue={set.weight}
+                                onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'weight', v)}
+                                textColor={set.done ? colors.textMuted : colors.text}
+                                visibleItems={3}
+                                itemHeight={32}
+                              />
+                              <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
+                            </View>
+                          </View>
+                        )}
+                        <View style={styles.wheelField}>
+                          <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>{exMetric}</Text>
+                          <View style={[styles.wheelBox, styles.wheelBoxCompact, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
+                            <WheelPicker
+                              values={exRepsValues}
+                              selectedValue={set.reps}
+                              onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'reps', v)}
+                              textColor={set.done ? colors.textMuted : colors.text}
+                              visibleItems={3}
+                              itemHeight={32}
+                              formatValue={tt.isHoldForTime ? formatHoldTime : undefined}
+                            />
+                            <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    // Log every not-yet-done movement of this round in order —
+                    // the shared handler skips rest for mid-superset movements
+                    // and starts the rest timer on the group's last one.
+                    group.exercises.forEach(ex => {
+                      const s = tracking.exerciseLogs[ex.id]?.sets ?? [];
+                      if (curRound < s.length && !s[curRound].done) onToggleSet(ex.id, curRound, ex);
+                    });
+                  }}
+                  style={[styles.logBtn, { backgroundColor: accent }]}
+                  activeOpacity={0.85}
+                  testID="walkthrough-log-set"
+                >
+                  <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
+                  <Text style={styles.logBtnText}>Log Set</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.completeWrap}>
+                <View style={[styles.completeCircle, { backgroundColor: `${accent}20` }]}>
+                  <PlatformIcon name="check" size={40} color={accent} strokeWidth={2.5} />
+                </View>
+                <Text style={[styles.completeText, { color: colors.text }]}>Superset complete</Text>
+                {!isLast && <Text style={[styles.completeSub, { color: colors.textSecondary }]}>Moving on…</Text>}
+              </View>
+            )
+          ) : (
             <>
-              <Text style={[styles.setCounter, { color: accent }]}>
-                SET {curSetIdx + 1} <Text style={{ color: colors.textMuted }}>OF {curSets.length}</Text>
+              <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2} adjustsFontSizeToFit>
+                {curEx.name}
               </Text>
 
-              {/* Per-set dots for this movement */}
-              <View style={styles.setDots}>
-                {curSets.map((s, i) => (
-                  <View key={i} style={[styles.setDot, {
-                    backgroundColor: s.done ? accent
-                      : i === curSetIdx ? `${accent}60`
-                      : isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)',
-                  }]} />
-                ))}
-              </View>
+              {currentTarget && curSet ? (
+                <>
+                  <Text style={[styles.setCounter, { color: accent }]}>
+                    SET {curSetIdx + 1} <Text style={{ color: colors.textMuted }}>OF {curSets.length}</Text>
+                  </Text>
 
-              {/* Big wheels for just this set */}
-              <View style={styles.wheelRow}>
-                {showWeight && (
-                  <View style={styles.wheelField}>
-                    <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>WEIGHT</Text>
-                    <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-                      <WheelPicker
-                        values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
-                        selectedValue={curSet.weight}
-                        onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'weight', v)}
-                        textColor={colors.text}
-                        visibleItems={3}
-                        itemHeight={40}
-                      />
-                      <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
+                  {/* Per-set dots for this movement */}
+                  <View style={styles.setDots}>
+                    {curSets.map((s, i) => (
+                      <View key={i} style={[styles.setDot, {
+                        backgroundColor: s.done ? accent
+                          : i === curSetIdx ? `${accent}60`
+                          : isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)',
+                      }]} />
+                    ))}
+                  </View>
+
+                  {/* Big wheels for just this set */}
+                  <View style={styles.wheelRow}>
+                    {showWeight && (
+                      <View style={styles.wheelField}>
+                        <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>WEIGHT</Text>
+                        <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
+                          <WheelPicker
+                            values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
+                            selectedValue={curSet.weight}
+                            onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'weight', v)}
+                            textColor={colors.text}
+                            visibleItems={3}
+                            itemHeight={40}
+                          />
+                          <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
+                        </View>
+                      </View>
+                    )}
+                    <View style={styles.wheelField}>
+                      <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>{metricLabel}</Text>
+                      <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
+                        <WheelPicker
+                          values={repsValues}
+                          selectedValue={curSet.reps}
+                          onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'reps', v)}
+                          textColor={colors.text}
+                          visibleItems={3}
+                          itemHeight={40}
+                          formatValue={t.isHoldForTime ? formatHoldTime : undefined}
+                        />
+                        <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
+                      </View>
                     </View>
                   </View>
-                )}
-                <View style={styles.wheelField}>
-                  <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>{metricLabel}</Text>
-                  <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-                    <WheelPicker
-                      values={repsValues}
-                      selectedValue={curSet.reps}
-                      onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'reps', v)}
-                      textColor={colors.text}
-                      visibleItems={3}
-                      itemHeight={40}
-                      formatValue={t.isHoldForTime ? formatHoldTime : undefined}
-                    />
-                    <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
-                  </View>
-                </View>
-              </View>
 
-              {/* Giant log button */}
-              <TouchableOpacity
-                onPress={() => onToggleSet(curEx.id, curSetIdx, curEx)}
-                style={[styles.logBtn, { backgroundColor: accent }]}
-                activeOpacity={0.85}
-                testID="walkthrough-log-set"
-              >
-                <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
-                <Text style={styles.logBtnText}>Log Set</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.completeWrap}>
-              <View style={[styles.completeCircle, { backgroundColor: `${accent}20` }]}>
-                <PlatformIcon name="check" size={40} color={accent} strokeWidth={2.5} />
-              </View>
-              <Text style={[styles.completeText, { color: colors.text }]}>Movement complete</Text>
-              {!isLast && (
-                <Text style={[styles.completeSub, { color: colors.textSecondary }]}>Moving on…</Text>
+                  {/* Giant log button */}
+                  <TouchableOpacity
+                    onPress={() => onToggleSet(curEx.id, curSetIdx, curEx)}
+                    style={[styles.logBtn, { backgroundColor: accent }]}
+                    activeOpacity={0.85}
+                    testID="walkthrough-log-set"
+                  >
+                    <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
+                    <Text style={styles.logBtnText}>Log Set</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.completeWrap}>
+                  <View style={[styles.completeCircle, { backgroundColor: `${accent}20` }]}>
+                    <PlatformIcon name="check" size={40} color={accent} strokeWidth={2.5} />
+                  </View>
+                  <Text style={[styles.completeText, { color: colors.text }]}>Movement complete</Text>
+                  {!isLast && <Text style={[styles.completeSub, { color: colors.textSecondary }]}>Moving on…</Text>}
+                </View>
               )}
-            </View>
+            </>
           )}
 
           {/* Up next */}
@@ -368,7 +471,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
               )}
             </View>
           )}
-        </View>
+        </ScrollView>
 
         {/* ── Footer nav ── */}
         <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
@@ -489,10 +592,32 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
   },
   focusArea: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 18,
+    paddingBottom: 8,
     alignItems: 'center',
+  },
+  ssBlock: {
+    alignSelf: 'stretch',
+    gap: 6,
+    marginTop: 14,
+  },
+  ssNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  ssName: {
+    fontSize: 19,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.4,
+    textAlign: 'center',
+  },
+  wheelBoxCompact: {
+    height: 96,
+    borderRadius: 16,
   },
   groupBadge: {
     borderRadius: 10,
