@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,7 +14,7 @@ import { useRun } from '@/context/RunContext';
 import GlassCard from '@/components/GlassCard';
 import Chip from '@/components/Chip';
 import { useRouter } from 'expo-router';
-import { formatPace, paceToSecondsPerMile, paceToSecondsPerKm } from '@/services/runTrackingService';
+import { formatPace } from '@/services/runTrackingService';
 import { METERS_PER_MILE, METERS_PER_KM, RunUnits } from '@/types/run';
 import type { DayPrescription } from '@/services/planEngine';
 
@@ -30,28 +30,6 @@ const RUN_BLUE = '#3b82f6';
 function formatDistance(meters: number, units: RunUnits): string {
   if (units === 'metric') return `${(meters / METERS_PER_KM).toFixed(2)} km`;
   return `${(meters / METERS_PER_MILE).toFixed(2)} mi`;
-}
-
-function formatRelativeDay(dateStr: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  const diffDays = Math.round((today.getTime() - date.getTime()) / 86400000);
-  if (diffDays === 0) return 'today';
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) {
-    return date.toLocaleDateString(undefined, { weekday: 'long' }).toLowerCase();
-  }
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function formatPaceLabel(secPerMeter: number, units: RunUnits): string {
-  const secPerUnit = units === 'metric'
-    ? paceToSecondsPerKm(secPerMeter)
-    : paceToSecondsPerMile(secPerMeter);
-  const suffix = units === 'metric' ? '/km' : '/mi';
-  return `${formatPace(secPerUnit)}${suffix}`;
 }
 
 function buildPrescriptionDescription(p: DayPrescription, units: RunUnits): string {
@@ -70,7 +48,7 @@ function buildPrescriptionDescription(p: DayPrescription, units: RunUnits): stri
 }
 
 function RunOverviewCard({ todayPrescription, variant = 'solid', onPress }: Props) {
-  const { colors, accent, isDark } = useZealTheme();
+  const { colors, isDark } = useZealTheme();
   const router = useRouter();
   const run = useRun();
 
@@ -136,7 +114,6 @@ function RunOverviewCard({ todayPrescription, variant = 'solid', onPress }: Prop
     ? Math.min(1, weeklyMeters / weeklyGoalMeters)
     : 0;
 
-  const lastRun = run.runHistory[0] ?? null;
   const isRunPrescription = todayPrescription?.activity_type === 'run' && !todayPrescription.is_rest;
 
   const handleStartRun = () => {
@@ -147,14 +124,13 @@ function RunOverviewCard({ todayPrescription, variant = 'solid', onPress }: Prop
     router.push('/train?mode=run');
   };
 
-  // ── Empty state — no history, no plan ─────────────────────────────────
-  if (!isRunPrescription && !lastRun) {
+  // Nothing planned today — render nothing. Completed runs intentionally do
+  // not surface here; run history lives in the calendar and the Run tab.
+  if (!isRunPrescription) {
     return null;
   }
 
-  // ── Today's prescription state (planned run) ──────────────────────────
-  if (isRunPrescription) {
-    const description = buildPrescriptionDescription(todayPrescription!, run.preferences.units);
+  const description = buildPrescriptionDescription(todayPrescription!, run.preferences.units);
     const paceText = todayPrescription?.target_pace_min_sec_per_mile && todayPrescription?.target_pace_max_sec_per_mile
       ? (() => {
           const mid = (todayPrescription.target_pace_min_sec_per_mile + todayPrescription.target_pace_max_sec_per_mile) / 2;
@@ -166,7 +142,7 @@ function RunOverviewCard({ todayPrescription, variant = 'solid', onPress }: Prop
         })()
       : null;
 
-    return (
+  return (
       <GlassCard
         onPress={handleStartRun}
         activeOpacity={0.78}
@@ -208,74 +184,7 @@ function RunOverviewCard({ todayPrescription, variant = 'solid', onPress }: Prop
           )}
         </View>
       </GlassCard>
-    );
-  }
-
-  // ── Last-run summary state (no plan, has history) ─────────────────────
-  if (lastRun) {
-    const distStr = formatDistance(lastRun.distanceMeters, run.preferences.units);
-    const paceStr = lastRun.averagePaceSecondsPerMeter > 0
-      ? formatPaceLabel(lastRun.averagePaceSecondsPerMeter, run.preferences.units)
-      : '—';
-    const dayLabel = formatRelativeDay(lastRun.date);
-
-    return (
-      <GlassCard
-        onPress={handleStartRun}
-        activeOpacity={0.78}
-        variant={variant}
-        style={[styles.card, { borderColor: cardBorder }, cardShadow]}
-        testID="run-overview-card"
-      >
-        <View style={styles.inner}>
-          <View style={styles.labelRow}>
-            <View style={styles.labelLeft}>
-              <Animated.View style={[styles.pulseDot, { backgroundColor: RUN_BLUE }, pulseStyle]} />
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Last Run · {dayLabel}</Text>
-            </View>
-            <PlatformIcon name="chevron-right" size={16} color="rgba(255,255,255,0.28)" />
-          </View>
-
-          <View style={styles.statRow}>
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, { color: colors.text }]}>{distStr.split(' ')[0]}</Text>
-              <Text style={[styles.statUnit, { color: colors.textMuted }]}>{distStr.split(' ')[1] ?? ''}</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]} />
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, { color: colors.text }]}>{paceStr.split('/')[0]}</Text>
-              <Text style={[styles.statUnit, { color: colors.textMuted }]}>/{paceStr.split('/')[1] ?? ''}</Text>
-            </View>
-            {run.stats.weeklyDistanceMeters > 0 && (
-              <>
-                <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]} />
-                <View style={styles.stat}>
-                  <Text style={[styles.statValue, { color: colors.text }]}>
-                    {formatDistance(run.stats.weeklyDistanceMeters, run.preferences.units).split(' ')[0]}
-                  </Text>
-                  <Text style={[styles.statUnit, { color: colors.textMuted }]}>this wk</Text>
-                </View>
-              </>
-            )}
-          </View>
-
-          <TouchableOpacity
-            onPress={handleStartRun}
-            activeOpacity={0.8}
-            style={[styles.startBtn, { backgroundColor: RUN_BLUE }]}
-            accessibilityRole="button"
-            accessibilityLabel="Start a run"
-            accessibilityHint="Opens the run tracking screen"
-          >
-            <PlatformIcon name="play" size={12} color="#fff" />
-            <Text style={styles.startBtnText}>Start Run</Text>
-          </TouchableOpacity>
-        </View>
-      </GlassCard>
-    );
-  }
-
-  return null;
+  );
 }
 
 export default memo(RunOverviewCard);
@@ -339,44 +248,5 @@ const styles = StyleSheet.create({
   weeklyText: {
     fontSize: 11,
     fontFamily: 'Outfit_400Regular',
-  },
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  stat: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-    gap: 3,
-  },
-  statValue: {
-    fontSize: 22,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.5,
-  },
-  statUnit: {
-    fontSize: 11,
-    fontFamily: 'Outfit_400Regular',
-  },
-  statDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 22,
-  },
-  startBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  startBtnText: {
-    fontSize: 13,
-    fontFamily: 'Outfit_700Bold',
-    color: '#fff',
-    letterSpacing: 0.2,
   },
 });
