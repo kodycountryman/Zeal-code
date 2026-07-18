@@ -105,6 +105,7 @@
       "@react-native-community/datetimepicker",
       "expo-image",
       "expo-sharing",
+      "react-native-health",
       "react-native-health-connect"
     ],
     "experiments": {
