@@ -357,7 +357,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                       if (curRound < s.length && !s[curRound].done) onToggleSet(ex.id, curRound, ex);
                     });
                   }}
-                  style={[styles.logBtn, { backgroundColor: accent }]}
+                  style={[styles.logBtn, styles.logBtnSuperset, { backgroundColor: accent }]}
                   activeOpacity={0.85}
                   testID="walkthrough-log-set"
                 >
@@ -596,8 +596,8 @@ const styles = StyleSheet.create({
   },
   ssBlock: {
     alignSelf: 'stretch',
-    gap: 6,
-    marginTop: 14,
+    gap: 12,
+    marginTop: 28,
   },
   ssNameRow: {
     flexDirection: 'row',
@@ -606,9 +606,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ssName: {
-    fontSize: 19,
+    fontSize: 25,
     fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.4,
+    letterSpacing: -0.6,
     textAlign: 'center',
   },
   wheelBoxCompact: {
@@ -654,6 +654,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     alignSelf: 'stretch',
+  },
+  logBtnSuperset: {
+    marginTop: 32,
   },
   wheelField: {
     flex: 1,
