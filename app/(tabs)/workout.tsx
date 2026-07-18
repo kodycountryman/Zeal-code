@@ -507,8 +507,10 @@ function constrainInsertIdx(
     return Math.max(groupIndices[0], Math.min(groupIndices[groupIndices.length - 1] + 1, rawIdx));
   }
 
-  // Standalone or full group move — skip positions inside other groups
-  if (rawIdx > 0 && rawIdx < allEx.length) {
+  // Full group move — skip positions inside other groups. A single
+  // standalone exercise MAY land inside a group: releasing there opens the
+  // "which movement should it replace?" prompt in handleDropToIndex.
+  if (isGroupMove && rawIdx > 0 && rawIdx < allEx.length) {
     const atEx = allEx[rawIdx];
     const prevEx = allEx[rawIdx - 1];
     if (
@@ -2274,9 +2276,9 @@ export default function WorkoutScreen() {
           }
         }
         insertIdx = constrainInsertIdx(insertIdx, allExNow, dragMovingIds.current);
-        setDragInsertIdx(insertIdx);
         if (insertIdx !== prevInsertIdxRef.current) {
           prevInsertIdxRef.current = insertIdx;
+          setDragInsertIdx(insertIdx);
           const originIdx = dragOriginIdxRef.current;
           const draggedHeight = rowLayoutsRef.current.get(exId)?.height ?? 60;
           allExNow.forEach((ex, i) => {
