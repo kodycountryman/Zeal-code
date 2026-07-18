@@ -2855,7 +2855,14 @@ export default function WorkoutScreen() {
     }
 
     const setsArr = Array.from({ length: ex.sets }, (_, i) => i);
-    const done = completedSets[ex.id] ?? new Set<number>();
+    // Done-state derives from the shared exercise logs (single source of
+    // truth) so walk-through mode, mark-exercise-done, and restored sessions
+    // all reflect here; completedSets remains only a same-frame fallback for
+    // the instant between tap and the rAF'd markSetDone commit.
+    const doneLog = tracking.exerciseLogs[ex.id];
+    const done = doneLog
+      ? new Set<number>(doneLog.sets.flatMap((s, i) => (s.done ? [i] : [])))
+      : (completedSets[ex.id] ?? new Set<number>());
     return (
       <View style={_trackPanelStyle}>
       <View style={_logSetsCardStyle}>

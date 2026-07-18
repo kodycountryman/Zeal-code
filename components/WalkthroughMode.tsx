@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import WheelPicker from '@/components/WheelPicker';
-import WorkoutTimerCard from '@/components/WorkoutTimerCard';
 import { useZealTheme } from '@/context/AppContext';
-import { useWorkoutTracking } from '@/context/WorkoutTrackingContext';
+import { useWorkoutTracking, useWorkoutElapsed, useRestTimeRemaining } from '@/context/WorkoutTrackingContext';
 import type { GeneratedWorkout, WorkoutExercise } from '@/services/workoutEngine';
 
 // Wheel ranges mirror the compact log panel in workout.tsx so both modes
@@ -47,9 +46,20 @@ function formatHoldTime(s: number): string {
   return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `${sec}s`;
 }
 
+function formatClock(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export default function WalkthroughMode({ visible, workout, accent, onClose, onToggleSet, getTrackingType }: Props) {
   const { colors, isDark } = useZealTheme();
   const tracking = useWorkoutTracking();
+  const elapsed = useWorkoutElapsed();
+  const restRemaining = useRestTimeRemaining();
+  const restActive = tracking.isRestActive && restRemaining > 0;
 
   // ── Group consecutive exercises that share a groupId ───────────────────
   const groups = useMemo<Group[]>(() => {
@@ -99,6 +109,19 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
 
   const allDone = group ? isGroupDone(group) : false;
 
+  // ── Current set: round-robin scan so supersets alternate movements ─────
+  const currentTarget = useMemo(() => {
+    if (!group) return null;
+    const maxSets = Math.max(0, ...group.exercises.map(ex => tracking.exerciseLogs[ex.id]?.sets.length ?? ex.sets));
+    for (let r = 0; r < maxSets; r++) {
+      for (const ex of group.exercises) {
+        const sets = tracking.exerciseLogs[ex.id]?.sets ?? [];
+        if (r < sets.length && !sets[r].done) return { ex, setIdx: r };
+      }
+    }
+    return null; // whole group logged
+  }, [group, tracking.exerciseLogs]);
+
   // ── Auto-advance: all sets done + rest finished → next movement ────────
   const advancedForRef = useRef<string | null>(null);
   useEffect(() => {
@@ -124,6 +147,35 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
     : group.groupType === 'circuit' ? 'CIRCUIT'
     : group.groupType === 'rounds' ? 'ROUNDS'
     : null;
+
+  const curEx = currentTarget?.ex ?? group.exercises[0];
+  const curLog = tracking.exerciseLogs[curEx.id];
+  const curSets = curLog?.sets ?? [];
+  const curSetIdx = currentTarget?.setIdx ?? Math.max(0, curSets.length - 1);
+  const curSet = curSets[curSetIdx];
+  const t = getTrackingType(curEx);
+  const isDumbbell = (curEx.equipment ?? '').toLowerCase().includes('dumbbell');
+  const showWeight = !t.isRepsOnly && !t.isHoldForTime && !t.isCaloriesMovement && !t.isDistanceOnly;
+  const repsValues = t.isHoldForTime ? TIME_VALUES_SECONDS : REPS_VALUES;
+  const metricLabel = t.isHoldForTime ? 'HOLD' : t.isCaloriesMovement ? 'CALS' : t.isDistanceOnly || t.isWeightDistance ? 'DIST' : 'REPS';
+
+  // Up next: within a superset, the next alternating set; otherwise the next movement.
+  const upNextText = (() => {
+    if (currentTarget && group.exercises.length > 1) {
+      const maxSets = Math.max(0, ...group.exercises.map(ex => tracking.exerciseLogs[ex.id]?.sets.length ?? ex.sets));
+      let passedCurrent = false;
+      for (let r = 0; r < maxSets; r++) {
+        for (const ex of group.exercises) {
+          const exSets = tracking.exerciseLogs[ex.id]?.sets ?? [];
+          if (r < exSets.length && !exSets[r].done) {
+            if (!passedCurrent && ex.id === curEx.id && r === curSetIdx) { passedCurrent = true; continue; }
+            if (passedCurrent) return `${ex.name} · Set ${r + 1}`;
+          }
+        }
+      }
+    }
+    return nextGroup ? nextGroup.exercises.map(e => e.name).join(' + ') : null;
+  })();
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
@@ -154,108 +206,137 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
           <View style={styles.headerBtnGhost} />
         </View>
 
-        {/* ── Same floating timer card as compact mode ── */}
-        <View style={styles.timerWrap}>
-          <WorkoutTimerCard accent={accent} />
+        {/* ── Big timer — flips emphasis to the rest countdown when resting ── */}
+        <View style={[styles.timerBar, {
+          backgroundColor: restActive ? `${accent}14` : colors.card,
+          borderColor: restActive ? `${accent}50` : colors.border,
+        }]}>
+          {restActive ? (
+            <>
+              <View style={styles.timerMain}>
+                <Text style={[styles.timerLabel, { color: accent }]}>REST</Text>
+                <Text style={[styles.timerValue, { color: accent }]}>{formatClock(restRemaining)}</Text>
+              </View>
+              <View style={styles.timerSide}>
+                <Text style={[styles.timerSideLabel, { color: colors.textMuted }]}>ELAPSED</Text>
+                <Text style={[styles.timerSideValue, { color: colors.textSecondary }]}>{formatClock(elapsed)}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => tracking.cancelRestTimer()}
+                style={[styles.skipRestBtn, { borderColor: `${accent}60` }]}
+                activeOpacity={0.7}
+                testID="walkthrough-skip-rest"
+              >
+                <Text style={[styles.skipRestText, { color: accent }]}>Skip</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.timerMain}>
+              <Text style={[styles.timerLabel, { color: colors.textMuted }]}>ELAPSED</Text>
+              <Text style={[styles.timerValue, { color: colors.text }]}>{formatClock(elapsed)}</Text>
+            </View>
+          )}
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ── Current set focus ── */}
+        <View style={styles.focusArea}>
           {groupLabel && (
             <View style={[styles.groupBadge, { backgroundColor: `${accent}18`, borderColor: `${accent}40` }]}>
               <Text style={[styles.groupBadgeText, { color: accent }]}>{groupLabel}</Text>
             </View>
           )}
 
-          {group.exercises.map(ex => {
-            const log = tracking.exerciseLogs[ex.id];
-            const t = getTrackingType(ex);
-            const isDumbbell = (ex.equipment ?? '').toLowerCase().includes('dumbbell');
-            const showWeight = !t.isRepsOnly && !t.isHoldForTime && !t.isCaloriesMovement && !t.isDistanceOnly;
-            const repsValues = t.isHoldForTime ? TIME_VALUES_SECONDS : REPS_VALUES;
-            const metricLabel = t.isHoldForTime ? 'HOLD' : t.isCaloriesMovement ? 'CALS' : t.isDistanceOnly || t.isWeightDistance ? 'DIST' : 'REPS';
-            return (
-              <View key={ex.id} style={[styles.exerciseCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.exerciseName, { color: colors.text }]}>{ex.name}</Text>
-                <Text style={[styles.exerciseMeta, { color: colors.textSecondary }]}>
-                  {ex.sets} × {ex.reps}{ex.muscleGroup ? `  ·  ${ex.muscleGroup}` : ''}
-                </Text>
+          <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2} adjustsFontSizeToFit>
+            {curEx.name}
+          </Text>
 
-                {/* Column labels */}
-                <View style={styles.setHeaderRow}>
-                  <Text style={[styles.setHeaderCell, styles.setNumCol, { color: colors.textMuted }]}>SET</Text>
-                  {showWeight && <Text style={[styles.setHeaderCell, styles.wheelCol, { color: colors.textMuted }]}>WEIGHT</Text>}
-                  <Text style={[styles.setHeaderCell, styles.wheelCol, { color: colors.textMuted }]}>{metricLabel}</Text>
-                  <Text style={[styles.setHeaderCell, styles.doneCol, { color: colors.textMuted }]}>DONE</Text>
-                </View>
+          {currentTarget && curSet ? (
+            <>
+              <Text style={[styles.setCounter, { color: accent }]}>
+                SET {curSetIdx + 1} <Text style={{ color: colors.textMuted }}>OF {curSets.length}</Text>
+              </Text>
 
-                {(log?.sets ?? []).map((set, setIdx) => (
-                  <View key={setIdx} style={[styles.setRow, { borderTopColor: `${colors.border}50` }]}>
-                    <Text style={[styles.setNum, styles.setNumCol, { color: set.done ? accent : colors.textSecondary }]}>
-                      {set.setNumber}
-                    </Text>
-                    {showWeight && (
-                      <View style={[styles.wheelBox, styles.wheelCol, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-                        <WheelPicker
-                          values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
-                          selectedValue={set.weight}
-                          onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
-                          textColor={set.done ? colors.textMuted : colors.text}
-                          visibleItems={1}
-                        />
-                        <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
-                      </View>
-                    )}
-                    <View style={[styles.wheelBox, styles.wheelCol, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
+              {/* Per-set dots for this movement */}
+              <View style={styles.setDots}>
+                {curSets.map((s, i) => (
+                  <View key={i} style={[styles.setDot, {
+                    backgroundColor: s.done ? accent
+                      : i === curSetIdx ? `${accent}60`
+                      : isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)',
+                  }]} />
+                ))}
+              </View>
+
+              {/* Big wheels for just this set */}
+              <View style={styles.wheelRow}>
+                {showWeight && (
+                  <View style={styles.wheelField}>
+                    <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>WEIGHT</Text>
+                    <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
                       <WheelPicker
-                        values={repsValues}
-                        selectedValue={set.reps}
-                        onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
-                        textColor={set.done ? colors.textMuted : colors.text}
-                        visibleItems={1}
-                        formatValue={t.isHoldForTime ? formatHoldTime : undefined}
+                        values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
+                        selectedValue={curSet.weight}
+                        onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'weight', v)}
+                        textColor={colors.text}
+                        visibleItems={3}
+                        itemHeight={40}
                       />
                       <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
                     </View>
-                    <View style={styles.doneCol}>
-                      <TouchableOpacity
-                        onPress={() => onToggleSet(ex.id, setIdx, ex)}
-                        style={[styles.doneBtn, {
-                          backgroundColor: set.done ? accent : 'transparent',
-                          borderColor: set.done ? accent : colors.border,
-                        }]}
-                        activeOpacity={0.7}
-                        testID={`walkthrough-done-${ex.id}-${setIdx}`}
-                      >
-                        <PlatformIcon name="check" size={18} color={set.done ? '#fff' : colors.textMuted} strokeWidth={3} />
-                      </TouchableOpacity>
-                    </View>
                   </View>
-                ))}
-
-                <TouchableOpacity
-                  onPress={() => tracking.addSet(ex.id)}
-                  style={styles.addSetBtn}
-                  activeOpacity={0.7}
-                >
-                  <PlatformIcon name="plus" size={13} color={colors.textSecondary} />
-                  <Text style={[styles.addSetText, { color: colors.textSecondary }]}>Add Set</Text>
-                </TouchableOpacity>
+                )}
+                <View style={styles.wheelField}>
+                  <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>{metricLabel}</Text>
+                  <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
+                    <WheelPicker
+                      values={repsValues}
+                      selectedValue={curSet.reps}
+                      onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'reps', v)}
+                      textColor={colors.text}
+                      visibleItems={3}
+                      itemHeight={40}
+                      formatValue={t.isHoldForTime ? formatHoldTime : undefined}
+                    />
+                    <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
+                  </View>
+                </View>
               </View>
-            );
-          })}
 
-          {/* Up next preview */}
-          {nextGroup && (
-            <View style={[styles.upNext, { borderColor: colors.border }]}>
-              <Text style={[styles.upNextLabel, { color: colors.textMuted }]}>UP NEXT</Text>
-              <Text style={[styles.upNextText, { color: colors.textSecondary }]} numberOfLines={2}>
-                {nextGroup.exercises.map(e => e.name).join('  +  ')}
-              </Text>
+              {/* Giant log button */}
+              <TouchableOpacity
+                onPress={() => onToggleSet(curEx.id, curSetIdx, curEx)}
+                style={[styles.logBtn, { backgroundColor: accent }]}
+                activeOpacity={0.85}
+                testID="walkthrough-log-set"
+              >
+                <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
+                <Text style={styles.logBtnText}>Log Set</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.completeWrap}>
+              <View style={[styles.completeCircle, { backgroundColor: `${accent}20` }]}>
+                <PlatformIcon name="check" size={40} color={accent} strokeWidth={2.5} />
+              </View>
+              <Text style={[styles.completeText, { color: colors.text }]}>Movement complete</Text>
+              {!isLast && (
+                <Text style={[styles.completeSub, { color: colors.textSecondary }]}>
+                  {restActive ? 'Advancing after rest…' : 'Moving on…'}
+                </Text>
+              )}
             </View>
           )}
 
-          <View style={{ height: 20 }} />
-        </ScrollView>
+          {/* Up next */}
+          {upNextText && (
+            <View style={[styles.upNext, { borderColor: colors.border }]}>
+              <Text style={[styles.upNextLabel, { color: colors.textMuted }]}>UP NEXT</Text>
+              <Text style={[styles.upNextText, { color: colors.textSecondary }]} numberOfLines={2}>
+                {upNextText}
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* ── Footer nav ── */}
         <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
@@ -269,12 +350,12 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
           </TouchableOpacity>
           <TouchableOpacity
             onPress={goNext}
-            style={[styles.nextBtn, { backgroundColor: accent }]}
-            activeOpacity={0.85}
+            style={[styles.nextBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
+            activeOpacity={0.8}
             testID="walkthrough-next"
           >
-            <Text style={styles.nextBtnText}>{isLast ? 'Done' : 'Next Movement'}</Text>
-            {!isLast && <PlatformIcon name="chevron-right" size={18} color="#fff" />}
+            <Text style={[styles.nextBtnText, { color: colors.text }]}>{isLast ? 'Done' : 'Next Movement'}</Text>
+            {!isLast && <PlatformIcon name="chevron-right" size={18} color={colors.textSecondary} />}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -327,110 +408,171 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  timerWrap: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-  },
-  scroll: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
+  timerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     gap: 14,
   },
+  timerMain: {
+    flex: 1,
+  },
+  timerLabel: {
+    fontSize: 11,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 1.2,
+  },
+  timerValue: {
+    fontSize: 38,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  timerSide: {
+    alignItems: 'flex-end',
+  },
+  timerSideLabel: {
+    fontSize: 9,
+    fontFamily: 'Outfit_600SemiBold',
+    letterSpacing: 0.8,
+  },
+  timerSideValue: {
+    fontSize: 17,
+    fontFamily: 'Outfit_700Bold',
+    fontVariant: ['tabular-nums'],
+  },
+  skipRestBtn: {
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  skipRestText: {
+    fontSize: 13,
+    fontFamily: 'Outfit_700Bold',
+  },
+  focusArea: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    alignItems: 'center',
+  },
   groupBadge: {
-    alignSelf: 'flex-start',
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 4,
+    marginBottom: 10,
   },
   groupBadgeText: {
     fontSize: 11,
     fontFamily: 'Outfit_800ExtraBold',
     letterSpacing: 1,
   },
-  exerciseCard: {
-    borderRadius: 26,
-    borderWidth: 1,
-    padding: 18,
-  },
   exerciseName: {
-    fontSize: 22,
+    fontSize: 30,
     fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
+    textAlign: 'center',
   },
-  exerciseMeta: {
-    fontSize: 13,
-    fontFamily: 'Outfit_400Regular',
-    marginTop: 2,
-    marginBottom: 12,
-  },
-  setHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingBottom: 6,
-  },
-  setHeaderCell: {
-    fontSize: 10,
-    fontFamily: 'Outfit_600SemiBold',
+  setCounter: {
+    fontSize: 17,
+    fontFamily: 'Outfit_800ExtraBold',
     letterSpacing: 0.6,
-    textAlign: 'center',
+    marginTop: 8,
   },
-  setNumCol: { width: 30 },
-  wheelCol: { flex: 1 },
-  doneCol: { width: 52, alignItems: 'center' },
-  setRow: {
+  setDots: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 7,
+    marginTop: 10,
+    marginBottom: 18,
   },
-  setNum: {
-    fontSize: 16,
+  setDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  wheelRow: {
+    flexDirection: 'row',
+    gap: 14,
+    alignSelf: 'stretch',
+  },
+  wheelField: {
+    flex: 1,
+    gap: 6,
+    alignItems: 'center',
+  },
+  wheelLabel: {
+    fontSize: 12,
     fontFamily: 'Outfit_700Bold',
-    textAlign: 'center',
+    letterSpacing: 1,
   },
   wheelBox: {
-    borderRadius: 12,
+    alignSelf: 'stretch',
+    borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 44,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
   },
   wheelChevron: {
     position: 'absolute',
-    right: 5,
-    bottom: 3,
+    right: 8,
+    bottom: 5,
   },
-  doneBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addSetBtn: {
+  logBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 10,
-    marginTop: 4,
+    gap: 10,
+    alignSelf: 'stretch',
+    height: 62,
+    borderRadius: 20,
+    marginTop: 18,
   },
-  addSetText: {
-    fontSize: 13,
-    fontFamily: 'Outfit_600SemiBold',
+  logBtnText: {
+    color: '#fff',
+    fontSize: 19,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.3,
+  },
+  completeWrap: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 30,
+  },
+  completeCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completeText: {
+    fontSize: 22,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.5,
+  },
+  completeSub: {
+    fontSize: 14,
+    fontFamily: 'Outfit_400Regular',
   },
   upNext: {
+    alignSelf: 'stretch',
     borderWidth: 1,
     borderRadius: 16,
     borderStyle: 'dashed',
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 3,
+    marginTop: 'auto',
+    marginBottom: 12,
   },
   upNextLabel: {
     fontSize: 10,
@@ -438,8 +580,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   upNextText: {
-    fontSize: 14,
-    fontFamily: 'Outfit_500Medium',
+    fontSize: 15,
+    fontFamily: 'Outfit_600SemiBold',
   },
   footer: {
     flexDirection: 'row',
@@ -468,7 +610,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   nextBtnText: {
-    color: '#fff',
     fontSize: 16,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: -0.2,
