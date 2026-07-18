@@ -115,6 +115,7 @@ export interface GenerateWorkoutParams {
 // V2 ENGINE CODE STARTS BELOW
 // ═══════════════════════════════════════════════════════
 
+import { MUSCLE_CHIPS } from '@/services/workoutConfig';
 import {
   getZealExerciseDatabase,
   getExerciseDatabase,
@@ -492,9 +493,19 @@ function stage2SplitResolution(split: string, specificMuscles: string[]): string
   __DEV__ && console.log('[EngineV2] Stage 2: Split Resolution, split=', split, 'specificMuscles=', specificMuscles.length);
 
   if (specificMuscles.length > 0) {
-    const lowered = specificMuscles.map(m => m.toLowerCase().replace(/\s+/g, '_'));
-    __DEV__ && console.log('[EngineV2] Using specific muscles:', lowered);
-    return lowered;
+    // The Modify drawer sends chip DISPLAY names ("Rear Delts", "Back",
+    // "Shoulders"). Map each through MUSCLE_CHIPS to its DB enums — a bare
+    // lowercase produced enums like "rear_delts"/"back" that match nothing,
+    // silently breaking targeting for those chips. Names that don't match a
+    // chip (already-enum callers) keep the legacy lowercase pass-through.
+    const resolved = specificMuscles.flatMap(m => {
+      const chip = MUSCLE_CHIPS.find(c => c.display === m);
+      if (chip) return chip.enums;
+      return [m.toLowerCase().replace(/\s+/g, '_')];
+    });
+    const deduped = [...new Set(resolved)];
+    __DEV__ && console.log('[EngineV2] Using specific muscles:', deduped);
+    return deduped;
   }
 
   const muscles = SPLIT_TO_MUSCLES[split];
