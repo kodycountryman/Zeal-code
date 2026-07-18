@@ -3,6 +3,10 @@ __DEV__ && console.log('[WorkoutConfig] Loading Phase 4 shared workout configura
 export interface StyleControlConfig {
   slot_label: string;
   slot_options: string[];
+  /** True when the slot picks a FORMAT (WOD style, session type) rather than
+   *  a muscle split — formats coexist with specific-muscle targeting instead
+   *  of being replaced by it. */
+  slot_is_format?: boolean;
   show_specific_muscles: boolean;
   muscles_label: string;
   show_rest_slider: boolean;
@@ -35,6 +39,7 @@ export const WORKOUT_SESSION_CONFIG: Record<string, StyleControlConfig> = {
   },
   CrossFit: {
     slot_label: 'WOD STYLE',
+    slot_is_format: true,
     slot_options: ['Auto', 'AMRAP', 'EMOM', 'RFT', 'Chipper', 'Ladder'],
     show_specific_muscles: true,
     muscles_label: 'TARGET',
@@ -45,6 +50,7 @@ export const WORKOUT_SESSION_CONFIG: Record<string, StyleControlConfig> = {
   },
   Hyrox: {
     slot_label: 'TRAINING FORMAT',
+    slot_is_format: true,
     slot_options: ['Auto', 'Station Practice', 'Compromised Run', 'Strength Circuit', 'Half Simulation', 'Full Simulation'],
     show_specific_muscles: true,
     muscles_label: 'TARGET',
@@ -66,6 +72,7 @@ export const WORKOUT_SESSION_CONFIG: Record<string, StyleControlConfig> = {
   },
   Mobility: {
     slot_label: 'SESSION TYPE',
+    slot_is_format: true,
     slot_options: ['Auto', 'Full-Body Flow', 'Targeted', 'Foam Rolling + Stretch', 'Recovery Day'],
     show_specific_muscles: true,
     muscles_label: 'SPECIFIC MUSCLES',
@@ -76,6 +83,7 @@ export const WORKOUT_SESSION_CONFIG: Record<string, StyleControlConfig> = {
   },
   Pilates: {
     slot_label: 'CLASS TYPE',
+    slot_is_format: true,
     slot_options: ['Auto', 'Classical Mat Flow', 'Themed Flow', 'Pilates Circuit', 'Reformer Flow'],
     show_specific_muscles: true,
     muscles_label: 'EMPHASIS AREAS',

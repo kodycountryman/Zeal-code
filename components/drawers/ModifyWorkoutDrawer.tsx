@@ -158,6 +158,9 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
 
   const handleSlotSelect = useCallback((sp: string) => {
     setLocalSplit(sp);
+    // Format slots (WOD style, session type) are orthogonal to muscle
+    // targeting — changing the format must not clear the user's chips.
+    if (getStyleConfig(localStyle).slot_is_format) return;
     const muscles = SPLIT_TO_MUSCLES[sp] ?? [];
     if (muscles.length > 0) {
       const names = MUSCLE_CHIPS
@@ -169,15 +172,20 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
       setSelectedMuscles([]);
       setMusclesAutoFrom('');
     }
-  }, []);
+  }, [localStyle]);
 
   const handleMuscleToggle = useCallback((muscle: string) => {
-    setLocalSplit('');
+    // For muscle-split styles, picking muscles replaces the split. For
+    // format styles (CrossFit WOD style, Hyrox format, Mobility/Pilates
+    // session type) the slot is orthogonal to targeting and must survive.
+    if (!getStyleConfig(localStyle).slot_is_format) {
+      setLocalSplit('');
+    }
     setMusclesAutoFrom('');
     setSelectedMuscles(prev =>
       prev.includes(muscle) ? prev.filter(m => m !== muscle) : [...prev, muscle]
     );
-  }, []);
+  }, [localStyle]);
 
   const handleClearMuscles = useCallback(() => {
     setMusclesAutoFrom('');
