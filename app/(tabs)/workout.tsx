@@ -2474,7 +2474,7 @@ export default function WorkoutScreen() {
           ? (parseNumberPrefix(ex.reps ?? '') ?? 10)
           : isDistanceOnly || isWeightDistance
             ? (parseNumberPrefix(ex.reps ?? '') ?? 100)
-            : (suggestion.lastReps > 0 ? suggestion.lastReps : targetReps);
+            : targetReps;
 
       const setsData = log?.sets ?? Array.from({ length: ex.sets }, (_, i) => ({
         setNumber: i + 1,

@@ -377,7 +377,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
   const [weeklyHoursMin, setWeeklyHoursMin] = useState<number>(0);
 
   const [activeWorkout, setActiveWorkout] = useState<GeneratedWorkout | null>(null);
-  const [currentGeneratedWorkout, setCurrentGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
+  const [currentGeneratedWorkout, setCurrentGeneratedWorkoutState] = useState<GeneratedWorkout | null>(null);
   const [isGeneratingWorkout, setIsGeneratingWorkout] = useState(false);
   const generatedForDateRef = useRef<string | null>(null);
   // Captures the most recent maybeAdaptiveDeload() result during generation
@@ -1069,11 +1069,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
         ...Array.from({ length: exercise.sets - existing.sets.length }, (_, i) => ({
           setNumber: existing.sets.length + i + 1,
           weight: Math.round(weightData.suggestedWeight / 5) * 5,
-          reps: weightData.lastReps > 0
-            ? weightData.lastReps
-            : padRange
-              ? rampedReps(padRange, existing.sets.length + i, exercise.sets)
-              : targetReps,
+          reps: padRange ? rampedReps(padRange, existing.sets.length + i, exercise.sets) : targetReps,
           done: false,
         })),
       ];
@@ -1089,11 +1085,10 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     const sets: SetLog[] = Array.from({ length: exercise.sets }, (_, i) => ({
       setNumber: i + 1,
       weight: Math.round(weightData.suggestedWeight / 5) * 5,
-      reps: weightData.lastReps > 0
-        ? weightData.lastReps
-        : repsRange
-          ? rampedReps(repsRange, i, exercise.sets)
-          : targetReps,
+      // Reps follow today's prescription (range ramp or target) — the last
+      // session's rep count must not override the program, or the wheels
+      // contradict the card's "sets × reps" metadata.
+      reps: repsRange ? rampedReps(repsRange, i, exercise.sets) : targetReps,
       done: false,
     }));
 
@@ -1109,6 +1104,30 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setExerciseLogs(prev => ({ ...prev, [exercise.id]: log }));
     __DEV__ && console.log('[Tracking] Initialized exercise log:', exercise.name, 'suggested:', weightData.suggestedWeight, 'last:', weightData.lastWeight);
   }, [exerciseLogs, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight]);
+
+  // Keep each exercise's header weight string in lockstep with the live
+  // suggestion engine — the same source the log wheels prefill from — so the
+  // card metadata ("20 lb · 5×6") can never drift from the wheels.
+  const syncSuggestedWeights = useCallback((w: GeneratedWorkout | null): GeneratedWorkout | null => {
+    if (!w) return w;
+    const syncList = (list?: WorkoutExercise[]) => list?.map(ex => {
+      const sw = ex.suggestedWeight;
+      if (!sw || sw === 'BW' || sw === '0 lb' || sw.includes('NaN') || !sw.includes('lb')) return ex;
+      const { suggestedWeight } = getSuggestedWeight(ex, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight);
+      if (!suggestedWeight || suggestedWeight <= 0) return ex;
+      const next = `${Math.round(suggestedWeight / 5) * 5} lb`;
+      return next === sw ? ex : { ...ex, suggestedWeight: next };
+    });
+    return {
+      ...w,
+      workout: syncList(w.workout) ?? w.workout,
+      coreFinisher: w.coreFinisher ? syncList(w.coreFinisher) : w.coreFinisher,
+    } as GeneratedWorkout;
+  }, [prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight]);
+
+  const setCurrentGeneratedWorkout = useCallback((w: GeneratedWorkout | null) => {
+    setCurrentGeneratedWorkoutState(syncSuggestedWeights(w));
+  }, [syncSuggestedWeights]);
 
   const updateSetLog = useCallback((exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: number) => {
     setExerciseLogs(prev => {
