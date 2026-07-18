@@ -10,6 +10,9 @@
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "RCT_NEW_ARCH_ENABLED": "1"
+      },
+      "ios": {
+        "image": "macos-sequoia-15.5-xcode-26.0"
       }
     },
     "preview": {
@@ -20,6 +23,9 @@
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "RCT_NEW_ARCH_ENABLED": "1"
+      },
+      "ios": {
+        "image": "macos-sequoia-15.5-xcode-26.0"
       }
     }
   },
