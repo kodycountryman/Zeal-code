@@ -27,6 +27,22 @@ import {
 import { resolvePushPullLegs } from '@/utils/training';
 
 const HISTORY_KEY = '@zeal_workout_history_v1';
+
+// "8-12" style prescriptions: prefill sets on a fatigue ramp — top of the
+// range while fresh, bottom of the range on the last set.
+function parseRepsRange(reps: string): { min: number; max: number } | null {
+  const m = (reps ?? '').match(/^\s*(\d+)\s*[-–]\s*(\d+)/);
+  if (!m) return null;
+  const a = parseInt(m[1], 10);
+  const b = parseInt(m[2], 10);
+  if (!a || !b || a === b) return null;
+  return { min: Math.min(a, b), max: Math.max(a, b) };
+}
+
+function rampedReps(range: { min: number; max: number }, setIndex: number, totalSets: number): number {
+  if (totalSets <= 1) return range.max;
+  return Math.round(range.max - (setIndex * (range.max - range.min)) / (totalSets - 1));
+}
 const PR_KEY = '@zeal_pr_history_v1';
 const WEEKLY_HOURS_KEY = '@zeal_weekly_hours_v1';
 const SEEN_HEALTH_IMPORTS_KEY = '@zeal_health_seen_imports_v1';
@@ -1047,12 +1063,17 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       // fresh default rows, never trim rows the user may have logged.
       const weightData = getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight);
       const targetReps = parseInt(exercise.reps, 10) || 8;
+      const padRange = parseRepsRange(exercise.reps);
       const padded: SetLog[] = [
         ...existing.sets,
         ...Array.from({ length: exercise.sets - existing.sets.length }, (_, i) => ({
           setNumber: existing.sets.length + i + 1,
           weight: Math.round(weightData.suggestedWeight / 5) * 5,
-          reps: weightData.lastReps > 0 ? weightData.lastReps : targetReps,
+          reps: weightData.lastReps > 0
+            ? weightData.lastReps
+            : padRange
+              ? rampedReps(padRange, existing.sets.length + i, exercise.sets)
+              : targetReps,
           done: false,
         })),
       ];
@@ -1063,11 +1084,16 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
     const weightData = getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight);
     const targetReps = parseInt(exercise.reps, 10) || 8;
+    const repsRange = parseRepsRange(exercise.reps);
 
     const sets: SetLog[] = Array.from({ length: exercise.sets }, (_, i) => ({
       setNumber: i + 1,
       weight: Math.round(weightData.suggestedWeight / 5) * 5,
-      reps: weightData.lastReps > 0 ? weightData.lastReps : targetReps,
+      reps: weightData.lastReps > 0
+        ? weightData.lastReps
+        : repsRange
+          ? rampedReps(repsRange, i, exercise.sets)
+          : targetReps,
       done: false,
     }));
 

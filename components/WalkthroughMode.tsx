@@ -369,6 +369,15 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                           </View>
                         </View>
                       </View>
+                      <TouchableOpacity
+                        onPress={() => tracking.addSet(ex.id)}
+                        style={styles.addSetBtn}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
+                      >
+                        <PlatformIcon name="plus" size={12} color={colors.textMuted} />
+                        <Text style={[styles.addSetText, { color: colors.textMuted }]}>Add Set</Text>
+                      </TouchableOpacity>
                     </View>
                   );
                 })}
@@ -697,6 +706,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 5,
     bottom: 3,
+  },
+  addSetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    marginTop: 6,
+    alignSelf: 'center',
+  },
+  addSetText: {
+    fontSize: 13,
+    fontFamily: 'Outfit_600SemiBold',
   },
   logBtn: {
     flexDirection: 'row',

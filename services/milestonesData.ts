@@ -11,11 +11,11 @@ export const MILESTONES: Milestone[] = [
   { id: 'first5',         name: 'First 5',        description: 'Complete 5 workouts',       target: 5,   type: 'workouts', icon: 'zap' },
   { id: 'pr_machine',     name: 'PR Machine',      description: 'Set 5 personal records',    target: 5,   type: 'prs',      icon: 'trophy' },
   { id: 'first10',        name: 'First 10',        description: 'Complete 10 workouts',      target: 10,  type: 'workouts', icon: 'flame' },
-  { id: '7day_streak',    name: '7-Day Streak',    description: 'Keep a 7-day streak',       target: 7,   type: 'streak',   icon: 'flame' },
+  { id: '7day_streak',    name: '7-Day Training Streak',  description: 'Work out 7 days in a row',  target: 7,   type: 'streak',   icon: 'flame' },
   { id: 'record_breaker', name: 'Record Breaker',  description: 'Set 15 personal records',   target: 15,  type: 'prs',      icon: 'award' },
   { id: 'quarter_century',name: 'Quarter Century', description: 'Complete 25 workouts',      target: 25,  type: 'workouts', icon: 'medal' },
   { id: 'half_century',   name: 'Half Century',    description: 'Complete 50 workouts',      target: 50,  type: 'workouts', icon: 'crown' },
-  { id: '30day_streak',   name: '30-Day Streak',   description: 'Keep a 30-day streak',      target: 30,  type: 'streak',   icon: 'shield' },
+  { id: '30day_streak',   name: '30-Day Training Streak', description: 'Work out 30 days in a row', target: 30,  type: 'streak',   icon: 'shield' },
   { id: 'century',        name: 'Century',         description: 'Complete 100 workouts',     target: 100, type: 'workouts', icon: 'medal' },
   { id: 'iron_will',      name: 'Iron Will',       description: 'Train 365 total days',      target: 365, type: 'workouts', icon: 'shield' },
 ];

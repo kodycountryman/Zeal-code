@@ -43,25 +43,25 @@ export default function StreakBottomSheet({ visible, streak, onClose }: Props) {
         <View style={[styles.infoCard, { backgroundColor: colors.cardSecondary }]}>
           <Text style={[styles.infoCardTitle, { color: accent }]}>HOW IT WORKS</Text>
           <Text style={[styles.infoCardBody, { color: colors.textSecondary }]}>
-            Complete at least one workout each day to grow your streak. Your streak increases every time you mark a session as done.
+            Open Zeal+ each day to grow your streak. It counts up once per day you show up — training, checking your plan, or logging anything at all.
           </Text>
         </View>
 
         <View style={[styles.infoCard, { backgroundColor: colors.cardSecondary }]}>
-          <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>GRACE PERIOD</Text>
+          <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>MISSED A DAY?</Text>
           <Text style={[styles.infoCardBody, { color: colors.textSecondary }]}>
-            {'Sometimes a 2-day rest is exactly what your body needs — and you shouldn\'t be penalized for smart recovery. Your streak stays intact until you\'ve missed '}
+            {'Miss a full day and the streak resets — the day you come back becomes '}
             <Text style={[styles.infoCardBody, { color: colors.text, fontWeight: '700' as const }]}>
-              3 consecutive days
+              day 1
             </Text>
-            .
+            {' of your next run. Rest days still count, as long as you open the app.'}
           </Text>
         </View>
 
         <View style={[styles.infoCard, { backgroundColor: colors.cardSecondary }]}>
           <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>PROTECT YOUR STREAK</Text>
           <Text style={[styles.infoCardBody, { color: colors.textSecondary }]}>
-            {'Even a short custom workout counts — log a workout on any day to keep the fire alive.'}
+            {'A ten-second check-in keeps the fire alive — open the app on rest days to review tomorrow\'s session or log your recovery.'}
           </Text>
         </View>
       </View>
