@@ -474,9 +474,10 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
               onPress={handleLogPress}
               style={[styles.logBtn, { backgroundColor: accent }]}
               activeOpacity={0.85}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
               testID="walkthrough-log-set"
             >
-              <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
+              <PlatformIcon name="check" size={28} color="#fff" strokeWidth={3} />
               <Text style={styles.logBtnText}>Log Set</Text>
             </TouchableOpacity>
           )}
@@ -729,15 +730,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 12,
     alignSelf: 'stretch',
-    height: 62,
-    borderRadius: 20,
+    height: 80,
+    borderRadius: 24,
     marginTop: 14,
   },
   logBtnText: {
     color: '#fff',
-    fontSize: 19,
+    fontSize: 22,
     fontFamily: 'Outfit_800ExtraBold',
     letterSpacing: -0.3,
   },
