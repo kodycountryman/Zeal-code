@@ -65,6 +65,7 @@ import EquipmentDrawer from '@/components/drawers/EquipmentDrawer';
 import AmbientGlow from '@/components/AmbientGlow';
 import ZealBackground from '@/components/ZealBackground';
 import WorkoutTimerCard from '@/components/WorkoutTimerCard';
+import WalkthroughMode from '@/components/WalkthroughMode';
 import PostWorkoutSheet from '@/components/drawers/PostWorkoutSheet';
 import HealthImportBanner from '@/components/HealthImportBanner';
 import HealthImportSheet from '@/components/HealthImportSheet';
@@ -878,6 +879,7 @@ export default function WorkoutScreen() {
   const [equipmentVisible, setEquipmentVisible] = useState(false);
   const [infoLabel, setInfoLabel] = useState<string | null>(null);
   const [regenCounter, setRegenCounter] = useState<number>(() => Math.floor(Math.random() * 9999) + 1);
+  const [walkthroughVisible, setWalkthroughVisible] = useState(false);
   const [startAnotherVisible, setStartAnotherVisible] = useState(false);
   const [postWorkoutDismissed, setPostWorkoutDismissed] = useState(false);
   const wasWorkoutActiveRef = useRef(false);
@@ -3774,6 +3776,24 @@ export default function WorkoutScreen() {
           }
         />
         {tracking.isWorkoutActive && <WorkoutTimerCard accent={currentAccent} />}
+        {tracking.isWorkoutActive && workout && (
+          <TouchableOpacity
+            onPress={() => setWalkthroughVisible(true)}
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+              marginHorizontal: 16, marginTop: 8, paddingVertical: 12, borderRadius: 16,
+              borderWidth: 1.5, borderColor: `${currentAccent}50`,
+              backgroundColor: `${currentAccent}0d`,
+            }}
+            activeOpacity={0.8}
+            testID="walkthrough-mode-btn"
+          >
+            <PlatformIcon name="footprints" size={15} color={currentAccent} />
+            <Text style={{ color: currentAccent, fontSize: 14, fontFamily: 'Outfit_700Bold', letterSpacing: -0.2 }}>
+              Walk-through Mode
+            </Text>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
 
       <GestureDetector gesture={scrollGesture}>
@@ -4934,6 +4954,17 @@ export default function WorkoutScreen() {
         visible={insightsVisible}
         onClose={() => setInsightsVisible(false)}
       />
+
+      {workout && (
+        <WalkthroughMode
+          visible={walkthroughVisible}
+          workout={workout}
+          accent={currentAccent}
+          onClose={() => setWalkthroughVisible(false)}
+          onToggleSet={handleToggleSet}
+          getTrackingType={getExerciseTrackingType}
+        />
+      )}
 
       <SettingsDrawer
         visible={settingsVisible}
