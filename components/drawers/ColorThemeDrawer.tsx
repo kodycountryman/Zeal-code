@@ -22,7 +22,29 @@ const THEMES: { id: AppTheme; label: string }[] = [
   { id: 'light', label: 'Light' },
   { id: 'zeal', label: 'Zeal' },
   { id: 'neon', label: 'Neon' },
+  { id: 'paper', label: 'Paper' },
+  { id: 'earth', label: 'Earth' },
+  { id: 'mythril', label: 'Mythril' },
 ];
+
+// Swatch previews for the flat custom palettes. Zeal/Neon keep their
+// bespoke previews below.
+const SWATCH_PREVIEWS: Partial<Record<AppTheme, {
+  bg: string; card: string; accent: string; text: string; sub: string; caption: string;
+}>> = {
+  paper: {
+    bg: '#fafaf8', card: '#ffffff', accent: '#37352f', text: '#37352f',
+    sub: '#787066', caption: 'Minimal paper white with ink accents',
+  },
+  earth: {
+    bg: '#f2ede3', card: '#faf6ee', accent: '#b0653a', text: '#3b3128',
+    sub: '#7d7264', caption: 'Warm sand, espresso, and terracotta',
+  },
+  mythril: {
+    bg: '#16151d', card: '#201e2b', accent: '#8b78f0', text: '#e8e6f2',
+    sub: '#9a94b8', caption: 'Deep violet dark with soft purple',
+  },
+};
 
 export default function ColorThemeDrawer({ visible, onClose }: Props) {
   const { colors, accent } = useZealTheme();
@@ -118,6 +140,24 @@ export default function ColorThemeDrawer({ visible, onClose }: Props) {
             ))}
           </View>
 
+          {SWATCH_PREVIEWS[localTheme] && (() => {
+            const p = SWATCH_PREVIEWS[localTheme]!;
+            return (
+              <View style={styles.themePreview}>
+                <View style={[styles.swatchPreview, { backgroundColor: p.bg }]}>
+                  <View style={[styles.swatchCard, { backgroundColor: p.card, borderColor: `${p.text}1a` }]}>
+                    <View style={[styles.swatchAccentDot, { backgroundColor: p.accent }]} />
+                    <View style={styles.swatchLines}>
+                      <View style={[styles.swatchLineWide, { backgroundColor: p.text }]} />
+                      <View style={[styles.swatchLineNarrow, { backgroundColor: p.sub }]} />
+                    </View>
+                  </View>
+                  <Text style={[styles.swatchCaption, { color: p.sub }]}>{p.caption}</Text>
+                </View>
+              </View>
+            );
+          })()}
+
           {localTheme === 'zeal' && (
             <View style={styles.themePreview}>
               <LinearGradient
@@ -211,18 +251,42 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
   tabStrip: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     borderRadius: 12,
     padding: 4,
     gap: 2,
   },
   tab: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '23%',
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabText: { fontSize: 12, fontWeight: '500' },
   themePreview: { borderRadius: 14, overflow: 'hidden' },
+  swatchPreview: {
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+  },
+  swatchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignSelf: 'stretch',
+  },
+  swatchAccentDot: { width: 18, height: 18, borderRadius: 9 },
+  swatchLines: { flex: 1, gap: 5 },
+  swatchLineWide: { height: 6, borderRadius: 3, width: '70%', opacity: 0.85 },
+  swatchLineNarrow: { height: 5, borderRadius: 2.5, width: '45%', opacity: 0.5 },
+  swatchCaption: { fontSize: 11, textAlign: 'center' },
   zealPreview: {
     height: 80,
     alignItems: 'center',

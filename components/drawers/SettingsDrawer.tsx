@@ -91,7 +91,7 @@ interface Props {
 
 const DANGER_ZONE_HEIGHT = 100;
 
-export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq, onReplayTour }: Props) {
+export default function SettingsDrawer({ visible, onClose, onOpenColorTheme, onOpenEquipment, onOpenExerciseCatalog, onOpenHelpFaq, onReplayTour }: Props) {
   const { colors, accent, isDark } = useZealTheme();
   const ctx = useAppContext();
   const router = useRouter();
@@ -673,8 +673,7 @@ export default function SettingsDrawer({ visible, onClose, onOpenColorTheme: _on
               locked: !hasPro,
               testID: 'settings-subscription',
             },
-            // COLOR THEME ROW — temporarily hidden (ColorThemeDrawer.tsx preserved, re-add this block to restore)
-            // { iconComponent: <PlatformIcon name="palette" size={18} color={colors.textSecondary} />, label: 'Color Theme', sub: appThemeLabel, onPress: onOpenColorTheme, testID: 'settings-color-theme' },
+            { iconComponent: <PlatformIcon name="palette" size={18} color={colors.textSecondary} />, label: 'Color Theme', sub: appThemeLabel, onPress: onOpenColorTheme, testID: 'settings-color-theme' },
             {
               iconComponent: hasPro
                 ? <PlatformIcon name="dumbbell" size={18} color={colors.textSecondary} />

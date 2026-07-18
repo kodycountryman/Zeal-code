@@ -15,7 +15,7 @@ import { supabase, updateProfile } from '@/services/supabase';
 import * as CloudSync from '@/services/cloudSync';
 import { hydrateFromCloud, clearFirstSyncFlag } from '@/services/cloudSyncOrchestrator';
 
-export type AppTheme = 'system' | 'dark' | 'light' | 'zeal' | 'neon';
+export type AppTheme = 'system' | 'dark' | 'light' | 'zeal' | 'neon' | 'paper' | 'earth' | 'mythril';
 export type Sex = 'male' | 'female' | 'prefer_not';
 export type { FitnessLevel };
 export type SpecialLifeCase =
@@ -1569,12 +1569,16 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     let isDark: boolean;
     if (appTheme === 'system') isDark = systemScheme === 'dark';
     else if (appTheme === 'dark' || appTheme === 'zeal') isDark = true;
-    else if (appTheme === 'light') isDark = false;
-    else if (appTheme === 'neon') isDark = true;
+    else if (appTheme === 'light' || appTheme === 'paper' || appTheme === 'earth') isDark = false;
+    else if (appTheme === 'neon' || appTheme === 'mythril') isDark = true;
     else isDark = systemScheme === 'dark';
 
     const baseColors =
-      appTheme === 'neon' ? Colors.neon : isDark ? Colors.dark : Colors.light;
+      appTheme === 'neon' ? Colors.neon
+      : appTheme === 'paper' ? Colors.paper
+      : appTheme === 'earth' ? Colors.earth
+      : appTheme === 'mythril' ? Colors.mythril
+      : isDark ? Colors.dark : Colors.light;
 
     let accent = Colors.accent;
     if (
@@ -1585,8 +1589,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
 
     } else if (appTheme === 'zeal') {
       accent = getTodayZealAccent();
-    } else if (appTheme === 'neon') {
-      accent = Colors.neon.brand.primary;
+    } else if (appTheme === 'neon' || appTheme === 'paper' || appTheme === 'earth' || appTheme === 'mythril') {
+      accent = baseColors.brand.primary;
     }
 
     return {
