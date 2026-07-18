@@ -882,6 +882,13 @@ export default function WorkoutScreen() {
   const [infoLabel, setInfoLabel] = useState<string | null>(null);
   const [regenCounter, setRegenCounter] = useState<number>(() => Math.floor(Math.random() * 9999) + 1);
   const [walkthroughVisible, setWalkthroughVisible] = useState(false);
+  // In-app prompt for superset membership edits. System Alert buttons are a
+  // no-op on react-native-web, so these flows use a real modal sheet.
+  const [supersetPrompt, setSupersetPrompt] = useState<
+    | { kind: 'replace'; moving: WorkoutExercise; members: WorkoutExercise[]; allowPlaceAbove: boolean }
+    | { kind: 'delete'; ex: WorkoutExercise; otherName: string }
+    | null
+  >(null);
   const [startAnotherVisible, setStartAnotherVisible] = useState(false);
   const [postWorkoutDismissed, setPostWorkoutDismissed] = useState(false);
   const wasWorkoutActiveRef = useRef(false);
@@ -1959,15 +1966,7 @@ export default function WorkoutScreen() {
       const members = w.workout.filter(e => e.groupId === ex.groupId);
       if (members.length === 2) {
         const other = members.find(m => m.id !== exId);
-        Alert.alert(
-          'Remove from Superset?',
-          `${other?.name ?? 'The other movement'} will become a standalone movement.`,
-          [
-            { text: 'Replace Movement…', onPress: () => handleSwapExercise(ex) },
-            { text: 'Just Remove', style: 'destructive', onPress: () => performDeleteExercise(exId) },
-            { text: 'Cancel', style: 'cancel' },
-          ],
-        );
+        setSupersetPrompt({ kind: 'delete', ex, otherName: other?.name ?? 'The other movement' });
         return;
       }
     }
@@ -2030,6 +2029,48 @@ export default function WorkoutScreen() {
     }
   }, [ctx, hasPro, openPaywall, handleSwapExercise, handleDeleteExercise]);
 
+  const commitWorkoutList = useCallback((list: WorkoutExercise[]) => {
+    const cur = workoutRef.current;
+    if (!cur) return;
+    const updatedW = { ...cur, workout: list };
+    if (Platform.OS !== 'web') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setWorkout(updatedW);
+    tracking.setCurrentGeneratedWorkout(updatedW);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  }, [tracking]);
+
+  // The incoming exercise takes the member's superset slot; the member moves
+  // out as a standalone directly below the group.
+  const applySupersetReplace = useCallback((moving: WorkoutExercise, memberId: string) => {
+    const cur = workoutRef.current;
+    if (!cur) return;
+    const list = cur.workout.filter(e => e.id !== moving.id);
+    const memberIdx = list.findIndex(e => e.id === memberId);
+    if (memberIdx === -1) return;
+    const member = list[memberIdx];
+    list[memberIdx] = { ...moving, groupId: member.groupId, groupType: member.groupType };
+    let end = memberIdx;
+    while (end + 1 < list.length && list[end + 1].groupId === member.groupId) end++;
+    list.splice(end + 1, 0, { ...member, groupId: null, groupType: null });
+    commitWorkoutList(list);
+    setSupersetPrompt(null);
+  }, [commitWorkoutList]);
+
+  // Boundary drop resolved as a plain reorder: standalone directly above the group.
+  const applySupersetPlaceAbove = useCallback((moving: WorkoutExercise, groupId: string) => {
+    const cur = workoutRef.current;
+    if (!cur) return;
+    const list = cur.workout.filter(e => e.id !== moving.id);
+    const firstIdx = list.findIndex(e => e.groupId === groupId);
+    list.splice(firstIdx === -1 ? list.length : firstIdx, 0, moving);
+    commitWorkoutList(list);
+    setSupersetPrompt(null);
+  }, [commitWorkoutList]);
+
   const handleDropToIndex = useCallback((movingIds: string[], insertIdx: number) => {
     const w = workoutRef.current;
     if (!w) return;
@@ -2050,45 +2091,21 @@ export default function WorkoutScreen() {
       remaining.push(...movingExercises);
     }
 
-    // Dropping a standalone exercise strictly inside a superset (a grouped
-    // member on both sides) offers to replace one of its movements; the
-    // replaced movement moves out as a standalone right after the group.
+    // Dropping a standalone exercise into a superset offers to replace one of
+    // its movements (via an in-app sheet — system alerts don't render buttons
+    // on web). Strictly-inside drops prompt directly; a drop on the group's
+    // top edge also offers "place above" since the intent is ambiguous.
     if (movingExercises.length === 1) {
       const moving = movingExercises[0];
       const newIdx = remaining.findIndex(e => e.id === moving.id);
       const prevEx = remaining[newIdx - 1];
       const nextEx = remaining[newIdx + 1];
-      if (prevEx?.groupId && prevEx.groupId === nextEx?.groupId && moving.groupId !== prevEx.groupId) {
-        const members = w.workout.filter(e => e.groupId === prevEx.groupId);
-        const applyReplace = (memberId: string) => {
-          const cur = workoutRef.current;
-          if (!cur) return;
-          const list = cur.workout.filter(e => e.id !== moving.id);
-          const memberIdx = list.findIndex(e => e.id === memberId);
-          if (memberIdx === -1) return;
-          const member = list[memberIdx];
-          list[memberIdx] = { ...moving, groupId: member.groupId, groupType: member.groupType };
-          let end = memberIdx;
-          while (end + 1 < list.length && list[end + 1].groupId === member.groupId) end++;
-          list.splice(end + 1, 0, { ...member, groupId: null, groupType: null });
-          const updatedW = { ...cur, workout: list };
-          if (Platform.OS !== 'web') {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          }
-          setWorkout(updatedW);
-          tracking.setCurrentGeneratedWorkout(updatedW);
-          if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          }
-        };
-        Alert.alert(
-          'Add to Superset?',
-          `Which movement should ${moving.name} replace? The replaced movement becomes a standalone below the superset.`,
-          [
-            ...members.map(m => ({ text: `Replace ${m.name}`, onPress: () => applyReplace(m.id) })),
-            { text: 'Cancel', style: 'cancel' as const },
-          ],
-        );
+      const strictlyInside = !!prevEx?.groupId && prevEx.groupId === nextEx?.groupId && moving.groupId !== prevEx.groupId;
+      const topBoundary = !strictlyInside && !!nextEx?.groupId && prevEx?.groupId !== nextEx.groupId && moving.groupId !== nextEx.groupId;
+      if (strictlyInside || topBoundary) {
+        const gid = (strictlyInside ? prevEx!.groupId : nextEx!.groupId)!;
+        const members = w.workout.filter(e => e.groupId === gid && e.id !== moving.id);
+        setSupersetPrompt({ kind: 'replace', moving, members, allowPlaceAbove: topBoundary });
         return;
       }
     }
@@ -5055,6 +5072,82 @@ export default function WorkoutScreen() {
         onClose={() => setInsightsVisible(false)}
       />
 
+      {/* Superset membership prompt — in-app sheet (Alert buttons are a no-op on web) */}
+      <Modal
+        visible={supersetPrompt !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSupersetPrompt(null)}
+        statusBarTranslucent
+      >
+        <TouchableOpacity
+          style={styles.ssPromptOverlay}
+          activeOpacity={1}
+          onPress={() => setSupersetPrompt(null)}
+        >
+          <TouchableOpacity activeOpacity={1} style={[styles.ssPromptCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {supersetPrompt?.kind === 'replace' && (
+              <>
+                <Text style={[styles.ssPromptTitle, { color: colors.text }]}>Add to Superset?</Text>
+                <Text style={[styles.ssPromptSub, { color: colors.textSecondary }]}>
+                  Which movement should {supersetPrompt.moving.name} replace? The replaced movement becomes a standalone below the superset.
+                </Text>
+                {supersetPrompt.members.map(m => (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[styles.ssPromptOption, { backgroundColor: `${currentAccent}14`, borderColor: `${currentAccent}40` }]}
+                    onPress={() => applySupersetReplace(supersetPrompt.moving, m.id)}
+                    activeOpacity={0.8}
+                    testID={`ss-replace-${m.id}`}
+                  >
+                    <PlatformIcon name="repeat" size={15} color={currentAccent} />
+                    <Text style={[styles.ssPromptOptionText, { color: currentAccent }]} numberOfLines={1}>Replace {m.name}</Text>
+                  </TouchableOpacity>
+                ))}
+                {supersetPrompt.allowPlaceAbove && supersetPrompt.members[0]?.groupId && (
+                  <TouchableOpacity
+                    style={[styles.ssPromptOption, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', borderColor: colors.border }]}
+                    onPress={() => applySupersetPlaceAbove(supersetPrompt.moving, supersetPrompt.members[0].groupId!)}
+                    activeOpacity={0.8}
+                  >
+                    <PlatformIcon name="arrow-up" size={15} color={colors.textSecondary} />
+                    <Text style={[styles.ssPromptOptionText, { color: colors.text }]}>Place above superset</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+            {supersetPrompt?.kind === 'delete' && (
+              <>
+                <Text style={[styles.ssPromptTitle, { color: colors.text }]}>Remove from Superset?</Text>
+                <Text style={[styles.ssPromptSub, { color: colors.textSecondary }]}>
+                  {supersetPrompt.otherName} will become a standalone movement.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.ssPromptOption, { backgroundColor: `${currentAccent}14`, borderColor: `${currentAccent}40` }]}
+                  onPress={() => { const ex = supersetPrompt.ex; setSupersetPrompt(null); handleSwapExercise(ex); }}
+                  activeOpacity={0.8}
+                >
+                  <PlatformIcon name="repeat" size={15} color={currentAccent} />
+                  <Text style={[styles.ssPromptOptionText, { color: currentAccent }]}>Replace Movement…</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.ssPromptOption, { backgroundColor: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.35)' }]}
+                  onPress={() => { const exId = supersetPrompt.ex.id; setSupersetPrompt(null); performDeleteExercise(exId); }}
+                  activeOpacity={0.8}
+                  testID="ss-just-remove"
+                >
+                  <PlatformIcon name="trash" size={15} color="#ef4444" />
+                  <Text style={[styles.ssPromptOptionText, { color: '#ef4444' }]}>Just Remove</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity style={styles.ssPromptCancel} onPress={() => setSupersetPrompt(null)} activeOpacity={0.7}>
+              <Text style={[styles.ssPromptCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {workout && (
         <WalkthroughMode
           visible={walkthroughVisible}
@@ -7355,6 +7448,54 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Outfit_600SemiBold',
     letterSpacing: -0.2,
+  },
+
+  /* ── Superset membership prompt ── */
+  ssPromptOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  ssPromptCard: {
+    borderRadius: 26,
+    borderWidth: 1,
+    padding: 20,
+    gap: 10,
+  },
+  ssPromptTitle: {
+    fontSize: 18,
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.4,
+  },
+  ssPromptSub: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  ssPromptOption: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  ssPromptOptionText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: -0.1,
+  },
+  ssPromptCancel: {
+    alignItems: 'center' as const,
+    paddingVertical: 10,
+  },
+  ssPromptCancelText: {
+    fontSize: 13,
+    fontFamily: 'Outfit_600SemiBold',
   },
 
   /* ── Plan Choice Modal ── */
