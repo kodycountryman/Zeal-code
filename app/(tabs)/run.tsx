@@ -636,15 +636,15 @@ export default function RunScreen() {
               <TouchableOpacity
                 onPress={() => setSleepActive(true)}
                 style={[styles.sleepBtn, {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                  borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+                  backgroundColor: isDark ? 'rgba(20,20,20,0.92)' : 'rgba(255,255,255,0.92)',
+                  borderColor: colors.border,
                 }]}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 testID="run-sleep-screen-btn"
                 accessibilityLabel="Sleep screen — large stats, taps blocked"
               >
                 <PlatformIcon name="moon" size={16} color={accent} />
-                <Text style={[styles.sleepBtnText, { color: colors.textSecondary }]}>Sleep screen</Text>
+                <Text style={[styles.sleepBtnText, { color: colors.text }]}>Sleep screen</Text>
               </TouchableOpacity>
             )}
             <RunControls
