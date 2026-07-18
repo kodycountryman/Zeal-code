@@ -125,8 +125,6 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
     : group.groupType === 'rounds' ? 'ROUNDS'
     : null;
 
-  const mutedWheelColor = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)';
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -196,30 +194,27 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                       {set.setNumber}
                     </Text>
                     {showWeight && (
-                      <View style={[styles.wheelBox, styles.wheelCol, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.30)' }]}>
+                      <View style={[styles.wheelBox, styles.wheelCol, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
                         <WheelPicker
                           values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
                           selectedValue={set.weight}
                           onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'weight', v)}
                           textColor={set.done ? colors.textMuted : colors.text}
-                          mutedColor={mutedWheelColor}
-                          accentColor={accent}
-                          visibleItems={3}
-                          suffix=" lb"
+                          visibleItems={1}
                         />
+                        <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
                       </View>
                     )}
-                    <View style={[styles.wheelBox, styles.wheelCol, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.30)' }]}>
+                    <View style={[styles.wheelBox, styles.wheelCol, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
                       <WheelPicker
                         values={repsValues}
                         selectedValue={set.reps}
                         onValueChange={(v) => tracking.updateSetLog(ex.id, setIdx, 'reps', v)}
                         textColor={set.done ? colors.textMuted : colors.text}
-                        mutedColor={mutedWheelColor}
-                        accentColor={accent}
-                        visibleItems={3}
+                        visibleItems={1}
                         formatValue={t.isHoldForTime ? formatHoldTime : undefined}
                       />
+                      <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
                     </View>
                     <View style={styles.doneCol}>
                       <TouchableOpacity
@@ -400,8 +395,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 96,
+    height: 44,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  wheelChevron: {
+    position: 'absolute',
+    right: 5,
+    bottom: 3,
   },
   doneBtn: {
     width: 44,

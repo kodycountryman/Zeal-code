@@ -3776,24 +3776,6 @@ export default function WorkoutScreen() {
           }
         />
         {tracking.isWorkoutActive && <WorkoutTimerCard accent={currentAccent} />}
-        {tracking.isWorkoutActive && workout && (
-          <TouchableOpacity
-            onPress={() => setWalkthroughVisible(true)}
-            style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-              marginHorizontal: 16, marginTop: 8, paddingVertical: 12, borderRadius: 16,
-              borderWidth: 1.5, borderColor: `${currentAccent}50`,
-              backgroundColor: `${currentAccent}0d`,
-            }}
-            activeOpacity={0.8}
-            testID="walkthrough-mode-btn"
-          >
-            <PlatformIcon name="footprints" size={15} color={currentAccent} />
-            <Text style={{ color: currentAccent, fontSize: 14, fontFamily: 'Outfit_700Bold', letterSpacing: -0.2 }}>
-              Walk-through Mode
-            </Text>
-          </TouchableOpacity>
-        )}
       </SafeAreaView>
 
       <GestureDetector gesture={scrollGesture}>
@@ -4262,6 +4244,23 @@ export default function WorkoutScreen() {
               <Text style={[styles.progressHint, { color: colors.textMuted }]}>
                 {exerciseProgress.done} of {exerciseProgress.total} exercises
               </Text>
+              <TouchableOpacity
+                onPress={() => setWalkthroughVisible(true)}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12,
+                  borderWidth: 1, borderColor: `${colors.textMuted}35`,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                testID="walkthrough-mode-btn"
+              >
+                <PlatformIcon name="footprints" size={11} color={colors.textMuted} />
+                <Text style={{ color: colors.textMuted, fontSize: 11, fontFamily: 'Outfit_600SemiBold', letterSpacing: 0.1 }}>
+                  Walk-through
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
