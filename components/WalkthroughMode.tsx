@@ -137,6 +137,31 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
     return () => { clearTimeout(t); };
   }, [visible, group, allDone, isLast, groups.length]);
 
+  const handleLogPress = useCallback(() => {
+    if (!group) return;
+    if (group.exercises.length > 1) {
+      // Log every not-yet-done movement of this round in order — the shared
+      // handler skips rest for mid-superset movements and starts the rest
+      // timer on the group's last one.
+      const maxR = Math.max(0, ...group.exercises.map(ex => tracking.exerciseLogs[ex.id]?.sets.length ?? ex.sets));
+      for (let r = 0; r < maxR; r++) {
+        const anyUndone = group.exercises.some(ex => {
+          const s = tracking.exerciseLogs[ex.id]?.sets ?? [];
+          return r < s.length && !s[r].done;
+        });
+        if (!anyUndone) continue;
+        group.exercises.forEach(ex => {
+          const s = tracking.exerciseLogs[ex.id]?.sets ?? [];
+          if (r < s.length && !s[r].done) onToggleSet(ex.id, r, ex);
+        });
+        return;
+      }
+      return;
+    }
+    const target = currentTarget;
+    if (target) onToggleSet(target.ex.id, target.setIdx, target.ex);
+  }, [group, currentTarget, onToggleSet, tracking.exerciseLogs]);
+
   const goPrev = useCallback(() => setGroupIndex(i => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => {
     if (isLast) { onClose(); return; }
@@ -265,6 +290,7 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
 
         {/* ── Current set focus ── */}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.focusArea} showsVerticalScrollIndicator={false}>
+          <View style={styles.centerWrap}>
           {groupLabel && (
             <View style={[styles.groupBadge, { backgroundColor: `${accent}18`, borderColor: `${accent}40` }]}>
               <Text style={[styles.groupBadgeText, { color: accent }]}>{groupLabel}</Text>
@@ -347,23 +373,6 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                   );
                 })}
 
-                <TouchableOpacity
-                  onPress={() => {
-                    // Log every not-yet-done movement of this round in order —
-                    // the shared handler skips rest for mid-superset movements
-                    // and starts the rest timer on the group's last one.
-                    group.exercises.forEach(ex => {
-                      const s = tracking.exerciseLogs[ex.id]?.sets ?? [];
-                      if (curRound < s.length && !s[curRound].done) onToggleSet(ex.id, curRound, ex);
-                    });
-                  }}
-                  style={[styles.logBtn, styles.logBtnSuperset, { backgroundColor: accent }]}
-                  activeOpacity={0.85}
-                  testID="walkthrough-log-set"
-                >
-                  <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
-                  <Text style={styles.logBtnText}>Log Set</Text>
-                </TouchableOpacity>
               </>
             ) : (
               <View style={styles.completeWrap}>
@@ -430,16 +439,6 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                     </View>
                   </View>
 
-                  {/* Giant log button */}
-                  <TouchableOpacity
-                    onPress={() => onToggleSet(curEx.id, curSetIdx, curEx)}
-                    style={[styles.logBtn, { backgroundColor: accent }]}
-                    activeOpacity={0.85}
-                    testID="walkthrough-log-set"
-                  >
-                    <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
-                    <Text style={styles.logBtnText}>Log Set</Text>
-                  </TouchableOpacity>
                 </>
               ) : (
                 <View style={styles.completeWrap}>
@@ -451,6 +450,21 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                 </View>
               )}
             </>
+          )}
+
+          </View>
+
+          {/* Pinned action — Log applies to the whole current round */}
+          {currentTarget && (
+            <TouchableOpacity
+              onPress={handleLogPress}
+              style={[styles.logBtn, { backgroundColor: accent }]}
+              activeOpacity={0.85}
+              testID="walkthrough-log-set"
+            >
+              <PlatformIcon name="check" size={24} color="#fff" strokeWidth={3} />
+              <Text style={styles.logBtnText}>Log Set</Text>
+            </TouchableOpacity>
           )}
 
           {/* Up next */}
@@ -590,9 +604,14 @@ const styles = StyleSheet.create({
   focusArea: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 18,
+    paddingTop: 12,
     paddingBottom: 8,
+  },
+  centerWrap: {
+    flexGrow: 1,
+    alignSelf: 'stretch',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   ssBlock: {
     alignSelf: 'stretch',
@@ -643,7 +662,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 7,
     marginTop: 10,
-    marginBottom: 18,
+    marginBottom: 28,
   },
   setDot: {
     width: 10,
@@ -654,9 +673,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     alignSelf: 'stretch',
-  },
-  logBtnSuperset: {
-    marginTop: 32,
   },
   wheelField: {
     flex: 1,
@@ -690,7 +706,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     height: 62,
     borderRadius: 20,
-    marginTop: 18,
+    marginTop: 14,
   },
   logBtnText: {
     color: '#fff',
@@ -727,7 +743,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 3,
-    marginTop: 'auto',
+    marginTop: 14,
     marginBottom: 12,
   },
   upNextLabel: {
