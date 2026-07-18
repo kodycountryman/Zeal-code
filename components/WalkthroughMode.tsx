@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Platform, LayoutAnimation, UIManager } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -32,6 +36,47 @@ interface Props {
   onToggleSet: (exId: string, setIdx: number, exercise?: WorkoutExercise) => void;
   /** Reuses workout.tsx's tracking-type classifier (avoids a circular import). */
   getTrackingType: (ex: WorkoutExercise) => WalkthroughTrackingType;
+}
+
+interface TapWheelProps {
+  values: number[];
+  selectedValue: number;
+  onValueChange: (v: number) => void;
+  active: boolean;
+  onToggle: () => void;
+  accent: string;
+  colors: { text: string; textMuted: string; border: string; cardSecondary: string };
+  muted?: boolean;
+  formatValue?: (v: number) => string;
+}
+
+function TapWheel({ values, selectedValue, onValueChange, active, onToggle, accent, colors, muted, formatValue }: TapWheelProps) {
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={onToggle} style={styles.wheelTouch}>
+      <View style={[
+        styles.wheelBox,
+        active && styles.wheelBoxActive,
+        {
+          borderColor: active ? `${accent}88` : colors.border,
+          backgroundColor: colors.cardSecondary,
+        },
+      ]}>
+        <WheelPicker
+          values={values}
+          selectedValue={selectedValue}
+          onValueChange={onValueChange}
+          textColor={muted ? colors.textMuted : colors.text}
+          mutedColor={`${colors.textMuted}80`}
+          accentColor={accent}
+          visibleItems={active ? 3 : 1}
+          formatValue={formatValue}
+        />
+        {!active && (
+          <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 interface Group {
@@ -162,6 +207,16 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
     const target = currentTarget;
     if (target) onToggleSet(target.ex.id, target.setIdx, target.ex);
   }, [group, currentTarget, onToggleSet, tracking.exerciseLogs]);
+
+  // Tap-to-expand wheel state — one open cell at a time, list-mode style.
+  const [activeCell, setActiveCell] = useState<{ exId: string; field: 'weight' | 'reps' } | null>(null);
+  const toggleCell = useCallback((exId: string, field: 'weight' | 'reps') => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setActiveCell(prev => (prev && prev.exId === exId && prev.field === field) ? null : { exId, field });
+  }, []);
+  useEffect(() => {
+    setActiveCell(null);
+  }, [clampedIndex, currentTarget?.ex.id, currentTarget?.setIdx]);
 
   const goPrev = useCallback(() => setGroupIndex(i => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => {
@@ -347,31 +402,31 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                         {exShowWeight && (
                           <View style={styles.wheelField}>
                             <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>WEIGHT</Text>
-                            <View style={[styles.wheelBox, styles.wheelBoxCompact, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-                              <WheelPicker
-                                values={exIsDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
-                                selectedValue={set.weight}
-                                onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'weight', v)}
-                                textColor={set.done ? colors.textMuted : colors.text}
-                                visibleItems={1}
-                              />
-                              <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
-                            </View>
+                            <TapWheel
+                              values={exIsDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
+                              selectedValue={set.weight}
+                              onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'weight', v)}
+                              active={activeCell?.exId === ex.id && activeCell?.field === 'weight'}
+                              onToggle={() => toggleCell(ex.id, 'weight')}
+                              accent={accent}
+                              colors={colors}
+                              muted={set.done}
+                            />
                           </View>
                         )}
                         <View style={styles.wheelField}>
                           <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>{exMetric}</Text>
-                          <View style={[styles.wheelBox, styles.wheelBoxCompact, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-                            <WheelPicker
-                              values={exRepsValues}
-                              selectedValue={set.reps}
-                              onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'reps', v)}
-                              textColor={set.done ? colors.textMuted : colors.text}
-                              visibleItems={1}
-                              formatValue={tt.isHoldForTime ? formatHoldTime : undefined}
-                            />
-                            <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
-                          </View>
+                          <TapWheel
+                            values={exRepsValues}
+                            selectedValue={set.reps}
+                            onValueChange={(v) => tracking.updateSetLog(ex.id, curRound, 'reps', v)}
+                            active={activeCell?.exId === ex.id && activeCell?.field === 'reps'}
+                            onToggle={() => toggleCell(ex.id, 'reps')}
+                            accent={accent}
+                            colors={colors}
+                            muted={set.done}
+                            formatValue={tt.isHoldForTime ? formatHoldTime : undefined}
+                          />
                         </View>
                       </View>
                       <TouchableOpacity
@@ -425,31 +480,29 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
                     {showWeight && (
                       <View style={styles.wheelField}>
                         <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>WEIGHT</Text>
-                        <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-                          <WheelPicker
-                            values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
-                            selectedValue={curSet.weight}
-                            onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'weight', v)}
-                            textColor={colors.text}
-                            visibleItems={1}
-                          />
-                          <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
-                        </View>
+                        <TapWheel
+                          values={isDumbbell ? DUMBBELL_WEIGHT_VALUES : WEIGHT_VALUES}
+                          selectedValue={curSet.weight}
+                          onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'weight', v)}
+                          active={activeCell?.exId === curEx.id && activeCell?.field === 'weight'}
+                          onToggle={() => toggleCell(curEx.id, 'weight')}
+                          accent={accent}
+                          colors={colors}
+                        />
                       </View>
                     )}
                     <View style={styles.wheelField}>
                       <Text style={[styles.wheelLabel, { color: colors.textMuted }]}>{metricLabel}</Text>
-                      <View style={[styles.wheelBox, { borderColor: colors.border, backgroundColor: colors.cardSecondary }]}>
-                        <WheelPicker
-                          values={repsValues}
-                          selectedValue={curSet.reps}
-                          onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'reps', v)}
-                          textColor={colors.text}
-                          visibleItems={1}
-                          formatValue={t.isHoldForTime ? formatHoldTime : undefined}
-                        />
-                        <PlatformIcon name="chevron-down" size={12} color={`${colors.textMuted}50`} style={styles.wheelChevron} />
-                      </View>
+                      <TapWheel
+                        values={repsValues}
+                        selectedValue={curSet.reps}
+                        onValueChange={(v) => tracking.updateSetLog(curEx.id, curSetIdx, 'reps', v)}
+                        active={activeCell?.exId === curEx.id && activeCell?.field === 'reps'}
+                        onToggle={() => toggleCell(curEx.id, 'reps')}
+                        accent={accent}
+                        colors={colors}
+                        formatValue={t.isHoldForTime ? formatHoldTime : undefined}
+                      />
                     </View>
                   </View>
 
@@ -644,10 +697,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.6,
     textAlign: 'center',
   },
-  wheelBoxCompact: {
-    height: 44,
-    borderRadius: 12,
-  },
   groupBadge: {
     borderRadius: 10,
     borderWidth: 1,
@@ -706,6 +755,13 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  wheelTouch: {
+    alignSelf: 'stretch',
+  },
+  wheelBoxActive: {
+    height: 132,
+    borderWidth: 1.5,
   },
   wheelChevron: {
     position: 'absolute',
