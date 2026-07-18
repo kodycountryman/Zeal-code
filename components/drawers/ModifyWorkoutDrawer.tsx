@@ -151,7 +151,9 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
     setLocalSplit(cfg.slot_options[0] ?? 'Auto');
     setSelectedMuscles([]);
     setMusclesAutoFrom('');
-    setLocalDuration(clampDurationToStyle(ctxRef.current.targetDuration, s));
+    // Keep the user's chosen duration (today's modify state), only clamped
+    // to the new style's valid range — don't reset to the settings default.
+    setLocalDuration(prev => clampDurationToStyle(prev, s));
   }, [hasPro, openPaywall]);
 
   const handleSlotSelect = useCallback((sp: string) => {
