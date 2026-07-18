@@ -1050,13 +1050,21 @@ function stage5LoadAndReps(
       if (minReps > maxReps) maxReps = minReps;
     }
     if (style === 'strength' && ex.is_compound) {
+      // Level-gated strength rep schemes: beginners learn compounds in a
+      // moderate 5-8 window instead of heavy triples; advanced lifters may
+      // work down to heavy doubles on primaries.
+      const lvl = (fitnessLevel || 'intermediate').toLowerCase();
       if (scored.role === 'primary') {
-        minReps = Math.max(ex.rep_range_floor ?? 8, 3);
-        maxReps = Math.min(ex.rep_range_ceiling ?? 12, 6);
+        const floor = lvl === 'beginner' ? 5 : lvl === 'advanced' ? 2 : 3;
+        const ceil = lvl === 'beginner' ? 8 : 6;
+        minReps = Math.max(ex.rep_range_floor ?? 8, floor);
+        maxReps = Math.min(ex.rep_range_ceiling ?? 12, ceil);
         if (minReps > maxReps) maxReps = minReps;
       } else if (scored.role === 'secondary') {
-        minReps = Math.max(ex.rep_range_floor ?? 8, 5);
-        maxReps = Math.min(ex.rep_range_ceiling ?? 12, 8);
+        const floor = lvl === 'beginner' ? 6 : 5;
+        const ceil = lvl === 'beginner' ? 10 : 8;
+        minReps = Math.max(ex.rep_range_floor ?? 8, floor);
+        maxReps = Math.min(ex.rep_range_ceiling ?? 12, ceil);
         if (minReps > maxReps) maxReps = minReps;
       }
     }
