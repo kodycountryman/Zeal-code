@@ -1037,7 +1037,29 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
 
   const initExerciseLog = useCallback((exercise: WorkoutExercise) => {
     const existing = exerciseLogs[exercise.id];
-    if (existing) return;
+    // A log is only reusable if it still describes this exercise. After a
+    // swap the id is preserved but the movement changes, and a modify can
+    // change the prescription — stale logs desync the wheels from the card
+    // metadata, so reconcile instead of blindly returning.
+    if (existing && existing.exerciseName === exercise.name) {
+      if (existing.sets.length >= exercise.sets) return;
+      // Prescription grew (e.g. modify raised the set count) — pad with
+      // fresh default rows, never trim rows the user may have logged.
+      const weightData = getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight);
+      const targetReps = parseInt(exercise.reps, 10) || 8;
+      const padded: SetLog[] = [
+        ...existing.sets,
+        ...Array.from({ length: exercise.sets - existing.sets.length }, (_, i) => ({
+          setNumber: existing.sets.length + i + 1,
+          weight: Math.round(weightData.suggestedWeight / 5) * 5,
+          reps: weightData.lastReps > 0 ? weightData.lastReps : targetReps,
+          done: false,
+        })),
+      ];
+      setExerciseLogs(prev => ({ ...prev, [exercise.id]: { ...existing, sets: padded } }));
+      __DEV__ && console.log('[Tracking] Padded exercise log to match prescription:', exercise.name, existing.sets.length, '→', exercise.sets);
+      return;
+    }
 
     const weightData = getSuggestedWeight(exercise, prHistory, workoutHistory, ctx.fitnessLevel, ctx.sex, ctx.weight);
     const targetReps = parseInt(exercise.reps, 10) || 8;
@@ -1069,6 +1091,17 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
       const newSets = [...log.sets];
       newSets[setIndex] = { ...newSets[setIndex], [field]: value };
       return { ...prev, [exerciseId]: { ...log, sets: newSets } };
+    });
+  }, []);
+
+  // Drop a single exercise's log — used when that exercise is swapped out or
+  // deleted so stale sets can't leak into the wheels or saved history.
+  const clearExerciseLog = useCallback((exerciseId: string) => {
+    setExerciseLogs(prev => {
+      if (!prev[exerciseId]) return prev;
+      const next = { ...prev };
+      delete next[exerciseId];
+      return next;
     });
   }, []);
 
@@ -1922,6 +1955,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setRestPreset,
     cancelRestTimer,
     initExerciseLog,
+    clearExerciseLog,
     updateSetLog,
     applyWeightToAllSets,
     markSetDone,
@@ -1968,7 +2002,7 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     currentGeneratedWorkout, setCurrentGeneratedWorkout,
     isGeneratingWorkout, ensureTodayWorkoutGenerated,
     startWorkout, pauseWorkout, resetWorkout, addExerciseToActiveWorkout, setActiveWorkoutName, startRestTimer, adjustRestTimer,
-    setRestPreset, cancelRestTimer, initExerciseLog, updateSetLog,
+    setRestPreset, cancelRestTimer, initExerciseLog, clearExerciseLog, updateSetLog,
     applyWeightToAllSets, markSetDone, addSet, removeSet, unmarkExerciseComplete, markExerciseComplete,
     updateExerciseResult, calculateTrainingScore, calculateScore, beginPostWorkout,
     applyFeedbackPatch, openFeedbackForLog, lastSavedLogId, adaptiveOverride, recordAdaptiveOverride,

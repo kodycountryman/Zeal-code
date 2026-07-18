@@ -1860,6 +1860,9 @@ export default function WorkoutScreen() {
       }
       setWorkout(updated);
       tracking.setCurrentGeneratedWorkout(updated);
+      // The replacement keeps the old exercise id — drop the old log so the
+      // wheels re-initialize from the new movement's metadata.
+      tracking.clearExerciseLog(swapTargetExercise.id);
       setSwapTargetExercise(null);
     } else {
       __DEV__ && console.log('[WorkoutScreen] Adding', exercises.length, 'exercise(s) to workout');
@@ -1901,6 +1904,7 @@ export default function WorkoutScreen() {
     }
     setWorkout(updated);
     tracking.setCurrentGeneratedWorkout(updated);
+    tracking.clearExerciseLog(exId);
     setSwipeOpenId(null);
     __DEV__ && console.log('[WorkoutScreen] Deleted exercise:', exId);
     if (Platform.OS !== 'web') {
