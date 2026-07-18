@@ -19,7 +19,6 @@ import {
   scheduleWeeklySummary,
 } from '@/services/notificationService';
 import { buildCreativeWorkoutTitle } from '@/services/workoutTitle';
-import { calcCurrentStreak } from '@/services/milestonesData';
 import {
   recalculateReadinessFromHistory,
   normalizeSetCounts,
@@ -1357,9 +1356,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     // a key-naming mismatch between raw and broad muscle names).
     ctx.setMuscleReadiness(recalculateReadinessFromHistory(newHistory, new Date()));
 
-    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
-    ctx.setStreak(newStreak);
-    ctx.setLastStreakDate(getTodayStr());
+    // Streak is login-based (rolled in AppContext on app open/foreground);
+    // workout completion no longer overwrites it.
 
     ctx.saveState();
 
@@ -1605,11 +1603,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
 
-    // Streak is derived from the set of distinct workout dates — adding any
-    // new date (past or present) recomputes correctly.
-    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
-    ctx.setStreak(newStreak);
-    ctx.setLastStreakDate(getTodayStr());
+    // Streak is login-based (rolled in AppContext on app open/foreground);
+    // workout completion no longer overwrites it.
 
     // Only bump weekly-hours when the logged date falls in the current week;
     // older logs are valid history but don't change "this week".
@@ -1660,9 +1655,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory.slice(0, 100))).catch(console.warn);
 
-    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
-    ctx.setStreak(newStreak);
-    ctx.setLastStreakDate(getTodayStr());
+    // Streak is login-based (rolled in AppContext on app open/foreground);
+    // workout completion no longer overwrites it.
 
     markImportSeen(importItem.id);
     setPendingHealthImports(prev => prev.filter(i => i.id !== importItem.id));
@@ -1777,9 +1771,8 @@ export const [WorkoutTrackingProvider, useWorkoutTracking] = createContextHook((
     setWorkoutHistory(newHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory)).catch(console.warn);
 
-    const newStreak = calcCurrentStreak(newHistory.map(l => l.date));
-    ctx.setStreak(newStreak);
-    ctx.setLastStreakDate(getTodayStr());
+    // Streak is login-based (rolled in AppContext on app open/foreground);
+    // workout completion no longer overwrites it.
 
     // Remove any PRs that were set during the deleted session
     const newPRHistory = prHistory.filter(pr => pr.sessionId !== logId);

@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useColorScheme } from 'react-native';
+import { AppState, useColorScheme } from 'react-native';
 import { healthService } from '@/services/healthService';
 import type { WorkoutExercise, GenerateWorkoutParams } from '@/services/workoutEngine';
 import { Colors, WORKOUT_STYLE_COLORS, ZEAL_ACCENT_COLORS } from '@/constants/colors';
@@ -222,6 +222,21 @@ function getTodayDateStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function getYesterdayDateStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Login streak: consecutive days the app was opened. Same day → unchanged,
+// opened yesterday → +1, missed a full day or more → back to 1 (today).
+function rollLoginStreak(savedStreak: number, savedDate: string): { streak: number; date: string } {
+  const today = getTodayDateStr();
+  if (savedDate === today) return { streak: Math.max(savedStreak, 1), date: today };
+  if (savedDate === getYesterdayDateStr()) return { streak: Math.max(savedStreak, 1) + 1, date: today };
+  return { streak: 1, date: today };
+}
+
 function getAgeFromDateOfBirth(dateOfBirth: string): number | null {
   if (!dateOfBirth) return null;
   const dob = new Date(dateOfBirth);
@@ -298,6 +313,24 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
 
   const [streak, setStreak] = useState<number>(1);
   const [lastStreakDate, setLastStreakDate] = useState<string>(getTodayDateStr());
+
+  const streakRef = useRef({ streak, lastStreakDate });
+  useEffect(() => { streakRef.current = { streak, lastStreakDate }; }, [streak, lastStreakDate]);
+
+  // Roll the login streak when the app returns to the foreground, so a day
+  // change is caught even when the app was left backgrounded overnight.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const { streak: s, lastStreakDate: date } = streakRef.current;
+      const rolled = rollLoginStreak(s, date);
+      if (rolled.date !== date || rolled.streak !== s) {
+        setStreak(rolled.streak);
+        setLastStreakDate(rolled.date);
+      }
+    });
+    return () => sub.remove();
+  }, []);
   const [trainingScore, setTrainingScore] = useState<number>(0);
   const [hoursTrainedToday, setHoursTrainedToday] = useState<string>('0h');
   const [targetDone, setTargetDone] = useState<number>(0);
@@ -418,8 +451,11 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
               ];
               setSavedGyms(merged);
             }
-            if (d.streak !== undefined) setStreak(d.streak);
-            if (d.lastStreakDate) setLastStreakDate(d.lastStreakDate);
+            {
+              const rolled = rollLoginStreak(d.streak ?? 1, d.lastStreakDate ?? '');
+              setStreak(rolled.streak);
+              setLastStreakDate(rolled.date);
+            }
             if (d.trainingScore !== undefined) setTrainingScore(d.trainingScore);
             if (d.hoursTrainedToday) setHoursTrainedToday(d.hoursTrainedToday);
             if (d.targetDone !== undefined) setTargetDone(d.targetDone);
