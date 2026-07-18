@@ -122,18 +122,20 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
     return null; // whole group logged
   }, [group, tracking.exerciseLogs]);
 
-  // ── Auto-advance: all sets done + rest finished → next movement ────────
+  // ── Auto-advance: advance as soon as the last set is logged. The rest
+  // timer keeps running in the top bar, so the user immediately sees the
+  // next movement's weight and can set up equipment during the rest.
   const advancedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!visible || !group || !allDone || tracking.isRestActive || isLast) return;
+    if (!visible || !group || !allDone || isLast) return;
     if (advancedForRef.current === group.key) return;
     advancedForRef.current = group.key;
     const t = setTimeout(() => {
       setGroupIndex(i => Math.min(i + 1, groups.length - 1));
       if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }, 700);
+    }, 450);
     return () => { clearTimeout(t); };
-  }, [visible, group, allDone, tracking.isRestActive, isLast, groups.length]);
+  }, [visible, group, allDone, isLast, groups.length]);
 
   const goPrev = useCallback(() => setGroupIndex(i => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => {
@@ -159,8 +161,23 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
   const repsValues = t.isHoldForTime ? TIME_VALUES_SECONDS : REPS_VALUES;
   const metricLabel = t.isHoldForTime ? 'HOLD' : t.isCaloriesMovement ? 'CALS' : t.isDistanceOnly || t.isWeightDistance ? 'DIST' : 'REPS';
 
+  // Weight/target metadata for an exercise: prefer the live log's first-set
+  // weight (what the wheels hold), else the suggestion engine.
+  const exerciseMeta = (ex: WorkoutExercise): string => {
+    const tt = getTrackingType(ex);
+    const parts: string[] = [`${ex.sets} × ${ex.reps}`];
+    if (!tt.isRepsOnly && !tt.isHoldForTime && !tt.isCaloriesMovement && !tt.isDistanceOnly) {
+      const logged = tracking.exerciseLogs[ex.id]?.sets[0]?.weight;
+      const w = logged && logged > 0
+        ? logged
+        : Math.round(tracking.getExerciseSuggestion(ex).suggestedWeight / 5) * 5;
+      if (w > 0) parts.push(`${w} lb`);
+    }
+    return parts.join(' · ');
+  };
+
   // Up next: within a superset, the next alternating set; otherwise the next movement.
-  const upNextText = (() => {
+  const upNext = ((): { title: string; meta: string | null } | null => {
     if (currentTarget && group.exercises.length > 1) {
       const maxSets = Math.max(0, ...group.exercises.map(ex => tracking.exerciseLogs[ex.id]?.sets.length ?? ex.sets));
       let passedCurrent = false;
@@ -169,12 +186,24 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
           const exSets = tracking.exerciseLogs[ex.id]?.sets ?? [];
           if (r < exSets.length && !exSets[r].done) {
             if (!passedCurrent && ex.id === curEx.id && r === curSetIdx) { passedCurrent = true; continue; }
-            if (passedCurrent) return `${ex.name} · Set ${r + 1}`;
+            if (passedCurrent) {
+              const tt = getTrackingType(ex);
+              const showW = !tt.isRepsOnly && !tt.isHoldForTime && !tt.isCaloriesMovement && !tt.isDistanceOnly;
+              const w = exSets[r].weight;
+              return {
+                title: ex.name,
+                meta: `Set ${r + 1} of ${exSets.length}${showW && w > 0 ? ` · ${w} lb` : ''}`,
+              };
+            }
           }
         }
       }
     }
-    return nextGroup ? nextGroup.exercises.map(e => e.name).join(' + ') : null;
+    if (!nextGroup) return null;
+    return {
+      title: nextGroup.exercises.map(e => e.name).join(' + '),
+      meta: nextGroup.exercises.map(exerciseMeta).join('   +   '),
+    };
   })();
 
   return (
@@ -320,20 +349,23 @@ export default function WalkthroughMode({ visible, workout, accent, onClose, onT
               </View>
               <Text style={[styles.completeText, { color: colors.text }]}>Movement complete</Text>
               {!isLast && (
-                <Text style={[styles.completeSub, { color: colors.textSecondary }]}>
-                  {restActive ? 'Advancing after rest…' : 'Moving on…'}
-                </Text>
+                <Text style={[styles.completeSub, { color: colors.textSecondary }]}>Moving on…</Text>
               )}
             </View>
           )}
 
           {/* Up next */}
-          {upNextText && (
+          {upNext && (
             <View style={[styles.upNext, { borderColor: colors.border }]}>
               <Text style={[styles.upNextLabel, { color: colors.textMuted }]}>UP NEXT</Text>
               <Text style={[styles.upNextText, { color: colors.textSecondary }]} numberOfLines={2}>
-                {upNextText}
+                {upNext.title}
               </Text>
+              {upNext.meta && (
+                <Text style={[styles.upNextMeta, { color: colors.textMuted }]} numberOfLines={2}>
+                  {upNext.meta}
+                </Text>
+              )}
             </View>
           )}
         </View>
@@ -582,6 +614,11 @@ const styles = StyleSheet.create({
   upNextText: {
     fontSize: 15,
     fontFamily: 'Outfit_600SemiBold',
+  },
+  upNextMeta: {
+    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
+    letterSpacing: 0.1,
   },
   footer: {
     flexDirection: 'row',
