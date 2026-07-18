@@ -338,6 +338,35 @@ export default function ModifyWorkoutDrawer({ visible, onClose, onWorkoutChanged
           ))}
         </View>
 
+        {/* ── Rest Between Sets ── style-gated (formats govern their own timing) ── */}
+        {showRestSlider(localStyle, localSplit) && (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.restHeaderRow}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>REST BETWEEN SETS</Text>
+              <Text style={[styles.restValue, { color: styleAccent }]}>
+                {localRest <= 0.3 ? 'Shorter' : localRest <= 0.55 ? 'Standard' : localRest <= 0.8 ? 'Longer' : 'Max'}
+              </Text>
+            </View>
+            <CustomSlider
+              value={localRest}
+              minimumValue={0.25}
+              maximumValue={1}
+              step={0.25}
+              onValueChange={setLocalRest}
+              minimumTrackColor={styleAccent}
+              maximumTrackColor={colors.border}
+              thumbColor={styleAccent}
+              style={styles.slider}
+            />
+            <View style={styles.rangeLabels}>
+              {['0.5×', '1×', '1.5×', '2×'].map(s => (
+                <Text key={s} style={[styles.rangeLabel, { color: colors.textMuted }]}>{s}</Text>
+              ))}
+            </View>
+          </>
+        )}
+
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         {/* ── Workout Style ── always visible ───────────────────── */}
@@ -726,6 +755,16 @@ const styles = StyleSheet.create({
   },
 
   // ── Slider ────────────────────────────────────────────────────────
+  restHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  restValue: {
+    fontSize: 12,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.2,
+  },
   slider: { width: '100%' },
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between' },
   rangeLabel: { fontSize: 10 },
