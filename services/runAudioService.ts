@@ -7,7 +7,7 @@
  * Design constraints:
  *   - All speech goes through a single `speak()` entry point so the audio
  *     mode can be configured once per utterance (music ducking on iOS).
- *   - `expo-av` Audio.setAudioModeAsync() puts the app in playback mode that
+ *   - `expo-audio` setAudioModeAsync() puts the app in playback mode that
  *     duckss other audio (Spotify, Apple Music, Podcasts) during cues, then
  *     restores normal mode after.
  *   - Throttling: we never want cues to overlap or stack up. A `speakingRef`
@@ -18,7 +18,7 @@
 
 import * as Speech from 'expo-speech';
 import { Platform } from 'react-native';
-import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 import { RunPreferences } from '@/types/run';
 
 // ─── Internal State ────────────────────────────────────────────────────
@@ -75,12 +75,10 @@ class RunAudioService {
     if (this.audioModeConfigured) return;
     if (Platform.OS === 'web') return;
     try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        interruptionModeIOS: InterruptionModeIOS.DuckOthers,
-        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
-        shouldDuckAndroid: true,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'duckOthers',
       });
       this.audioModeConfigured = true;
     } catch (e) {

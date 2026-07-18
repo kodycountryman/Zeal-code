@@ -3,7 +3,7 @@
  */
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
-import { Audio } from 'expo-av';
+import { AudioModule, RecordingPresets, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 import { FoodEstimateSchema, type AIFoodResult } from '@/services/aiFoodScanner';
 
@@ -11,29 +11,30 @@ const gemini = google('gemini-2.0-flash');
 
 // ─── Recording state ─────────────────────────────────────
 
-let _recording: Audio.Recording | null = null;
+type NativeAudioRecorder = InstanceType<typeof AudioModule.AudioRecorder>;
+let _recording: NativeAudioRecorder | null = null;
 
 // ─── Start recording ─────────────────────────────────────
 
 export async function startRecording(): Promise<void> {
   // Request permissions
-  const { status } = await Audio.requestPermissionsAsync();
+  const { status } = await requestRecordingPermissionsAsync();
   if (status !== 'granted') {
     throw new Error('Microphone permission not granted');
   }
 
   // Configure audio mode for recording
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    playsInSilentModeIOS: true,
+  await setAudioModeAsync({
+    allowsRecording: true,
+    playsInSilentMode: true,
   });
 
   // Start recording with high quality preset
-  const { recording } = await Audio.Recording.createAsync(
-    Audio.RecordingOptionsPresets.HIGH_QUALITY,
-  );
+  const recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+  await recorder.prepareToRecordAsync();
+  recorder.record();
 
-  _recording = recording;
+  _recording = recorder;
 }
 
 // ─── Stop recording ──────────────────────────────────────
@@ -42,12 +43,12 @@ export async function stopRecording(): Promise<string | null> {
   if (!_recording) return null;
 
   try {
-    await _recording.stopAndUnloadAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
+    await _recording.stop();
+    await setAudioModeAsync({
+      allowsRecording: false,
     });
 
-    const uri = _recording.getURI();
+    const uri = _recording.uri;
     _recording = null;
     return uri;
   } catch (e) {
