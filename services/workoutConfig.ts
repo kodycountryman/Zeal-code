@@ -161,7 +161,8 @@ export interface MuscleChip {
 export const MUSCLE_CHIPS: MuscleChip[] = [
   { display: 'Chest', enums: ['chest', 'upper_chest', 'lower_chest'] },
   { display: 'Lats', enums: ['lats'] },
-  { display: 'Back', enums: ['upper_back'] },
+  { display: 'Back', enums: ['upper_back', 'rhomboids'] },
+  { display: 'Lower Back', enums: ['lower_back'] },
   { display: 'Traps', enums: ['traps'] },
   { display: 'Shoulders', enums: ['front_delt', 'side_delt'] },
   { display: 'Rear Delts', enums: ['rear_delt'] },
